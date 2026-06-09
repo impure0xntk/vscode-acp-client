@@ -1,0 +1,362 @@
+{
+  "name": "vscode-acp-client",
+  "version": "0.1.0",
+  "description": "Universal ACP client for VS Code - multi-agent chat with rich context",
+  "engines": {
+    "vscode": "^1.95.0",
+    "node": ">=20.0.0"
+  },
+  "categories": [
+    "AI",
+    "Chat",
+    "Machine Learning"
+  ],
+  "keywords": [
+    "acp",
+    "agent",
+    "ai",
+    "chat",
+    "copilot",
+    "llm",
+    "multi-agent"
+  ],
+  "license": "MIT",
+  "author": "vscode-acp-client contributors",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/impure0xntk/vscode-acp-client"
+  },
+  "publisher": "vscode-acp-client",
+  "main": "./out/extension.js",
+  "browser": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "acp.openChat",
+        "title": "ACP: Open Chat",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "acp.connect",
+        "title": "ACP: Connect to Agent"
+      },
+      {
+        "command": "acp.disconnect",
+        "title": "ACP: Disconnect from Agent"
+      },
+      {
+        "command": "acp.newSession",
+        "title": "ACP: New Session"
+      },
+      {
+        "command": "acp.switchSession",
+        "title": "ACP: Switch Session"
+      },
+      {
+        "command": "acp.cancelTurn",
+        "title": "ACP: Cancel Current Turn"
+      },
+      {
+        "command": "acp.attachFile",
+        "title": "ACP: Attach File"
+      },
+      {
+        "command": "acp.attachSelection",
+        "title": "ACP: Attach Selection"
+      },
+      {
+        "command": "acp.attachDiff",
+        "title": "ACP: Attach Git Diff"
+      },
+      {
+        "command": "acp.setMode",
+        "title": "ACP: Set Agent Mode"
+      },
+      {
+        "command": "acp.showTraffic",
+        "title": "ACP: Show Protocol Traffic"
+      },
+      {
+        "command": "acp.forkSession",
+        "title": "ACP: Fork Current Session"
+      },
+      {
+        "command": "acp.showHistory",
+        "title": "ACP: Show Session History"
+      },
+      {
+        "command": "acp.clearHistory",
+        "title": "ACP: Clear Session History"
+      },
+      {
+        "command": "acp.closeAllSessions",
+        "title": "ACP: Close All Sessions"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "acp.newSession",
+        "key": "ctrl+shift+n",
+        "mac": "cmd+shift+n",
+        "when": "acp.connected"
+      },
+      {
+        "command": "acp.cancelTurn",
+        "key": "escape",
+        "when": "acp.turnActive"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "acp.attachSelection",
+          "when": "editorHasSelection",
+          "group": "acp@1"
+        },
+        {
+          "command": "acp.attachDiff",
+          "group": "acp@2"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "acp.attachFile",
+          "when": "explorerResourceIsFile",
+          "group": "acp@1"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "acp.connect",
+          "when": "view == acp.agentTree && viewItem == acp.agent && !acp.connected",
+          "group": "acp.agent@1"
+        },
+        {
+          "command": "acp.disconnect",
+          "when": "view == acp.agentTree && viewItem == acp.agent && acp.connected",
+          "group": "acp.agent@2"
+        },
+        {
+          "command": "acp.newSession",
+          "when": "view == acp.agentTree && viewItem == acp.agent",
+          "group": "acp.agent@3"
+        },
+        {
+          "command": "acp.closeSession",
+          "when": "view == acp.agentTree && viewItem == acp.agent",
+          "group": "acp.agent@4"
+        },
+        {
+          "command": "acp.switchSession",
+          "when": "view == acp.agentTree && viewItem == acp.session",
+          "group": "acp.session@1"
+        },
+        {
+          "command": "acp.closeSession",
+          "when": "view == acp.agentTree && viewItem == acp.session",
+          "group": "acp.session@2"
+        },
+        {
+          "command": "acp.forkSession",
+          "when": "view == acp.agentTree && viewItem == acp.session",
+          "group": "acp.session@3"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "acp-sidebar",
+          "title": "ACP Agents",
+          "icon": "$(hubot)"
+        }
+      ]
+    },
+    "views": {
+      "acp-sidebar": [
+        {
+          "id": "acp.agentTree",
+          "name": "Agents & Sessions",
+          "when": "acp.hasAgents"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "ACP Client",
+      "properties": {
+        "acp.agents": {
+          "type": "object",
+          "default": {},
+          "description": "Agent configurations keyed by name",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "string",
+                "description": "Command to start the agent"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "default": [],
+                "description": "Command arguments"
+              },
+              "env": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "default": {},
+                "description": "Environment variables"
+              },
+              "autoConnect": {
+                "type": "array",
+                "default": [],
+                "description": "Auto-connect entries. Each entry creates one chat tab on startup.",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "workspace": {
+                      "type": "string",
+                      "description": "Workspace folder path for this session (absolute or relative to workspace root)"
+                    },
+                    "sessionName": {
+                      "type": "string",
+                      "description": "Human-readable title for this session tab"
+                    }
+                  }
+                }
+              }
+            },
+            "required": [
+              "command"
+            ]
+          }
+        },
+        "acp.defaultAgent": {
+          "type": "string",
+          "default": "",
+          "description": "Default agent name for new sessions"
+        },
+        "acp.permissions.defaultPolicy": {
+          "type": "string",
+          "enum": [
+            "ask",
+            "allowAll",
+            "denyAll"
+          ],
+          "default": "ask",
+          "description": "Default permission policy for tool calls"
+        },
+        "acp.permissions.tools": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "enum": [
+              "ask",
+              "allowAll",
+              "denyAll"
+            ]
+          },
+          "default": {},
+          "description": "Per-tool permission overrides"
+        },
+        "acp.maxConcurrentAgents": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 20,
+          "description": "Maximum concurrent agent connections"
+        },
+        "acp.showTokenUsage": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show token usage in status bar"
+        },
+        "acp.logTraffic": {
+          "type": "boolean",
+          "default": false,
+          "description": "Log protocol traffic to Output Channel"
+        },
+        "acp.autoOpenChat": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically open the chat panel when an agent auto-connects on startup"
+        },
+        "acp.workingDirectory": {
+          "type": "string",
+          "default": "",
+          "description": "Working directory for agent processes (empty = workspace root)"
+        },
+        "acp.context.maxFileSizeKB": {
+          "type": "number",
+          "default": 100,
+          "minimum": 1,
+          "description": "Max file size in KB for context attachment"
+        },
+        "acp.context.maxTotalTokens": {
+          "type": "number",
+          "default": 4000,
+          "minimum": 100,
+          "description": "Max total tokens for context attachments"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./ && npm run build:webview",
+    "build:webview": "node esbuild.js",
+    "build:css": "node -e \"require('./esbuild.js')\"",
+    "watch": "concurrently \"tsc -watch -p ./\" \"node esbuild.js --watch\"",
+    "test": "mocha out/test/suite --timeout 10000",
+    "lint": "eslint src --ext ts",
+    "format": "prettier --write .",
+    "package": "vsce package",
+    "publish": "vsce publish",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf out dist"
+  },
+  "dependencies": {
+    "@agentclientprotocol/sdk": "^0.25.0",
+    "clsx": "^2.1.1",
+    "path-shorten": "^0.1.2",
+    "sql.js": "^1.13.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.0",
+    "@types/dompurify": "^3.0.5",
+    "@types/markdown-it": "^14.1.2",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^24.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@types/sql.js": "^1.4.9",
+    "@types/vscode": "^1.95.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "@vscode/test-electron": "^2.4.0",
+    "@vscode/vsce": "^3.2.0",
+    "autoprefixer": "^10.5.0",
+    "concurrently": "^9.1.0",
+    "dompurify": "^3.4.8",
+    "esbuild": "^0.25.0",
+    "esbuild-postcss": "^0.0.4",
+    "eslint": "^9.17.0",
+    "glob": "^11.0.0",
+    "highlight.js": "^11.11.1",
+    "markdown-it": "^14.2.0",
+    "mocha": "^11.7.6",
+    "postcss": "^8.5.15",
+    "postcss-cli": "^11.0.1",
+    "prettier": "^3.4.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "tailwindcss": "^4.3.0",
+    "typescript": "^5.7.0"
+  }
+}

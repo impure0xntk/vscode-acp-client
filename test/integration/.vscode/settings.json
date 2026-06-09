@@ -1,0 +1,18 @@
+{
+  "nixEnvSelector.nixFile": "${workspaceFolder}/flake.nix",
+  "nixEnvSelector.useFlakes": true,
+  "nixEnvSelector.flakeShell": "default",
+  "acp.agents": {
+    "Goose CLI": {
+      "args": [
+        "acp"
+      ],
+      "command": "goose",
+      "autoConnect": [
+        { "workspace": "../../", "sessionName": "1" },
+        { "workspace": "../../", "sessionName": "2" },
+      ],
+      "openChat": true
+    },
+  },
+}

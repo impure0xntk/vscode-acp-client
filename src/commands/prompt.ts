@@ -1,0 +1,328 @@
+import * as vscode from "vscode";
+import * as path from "path";
+import type { SessionOrchestrator } from "../session/orchestrator";
+import type { ChatPanel } from "../providers/chatPanel";
+import type { ChatMessage, ContextAttachmentDTO } from "../types/chat";
+import type { SuggestionItem } from "../context/symbolContext";
+import type { PersistentHistoryStore, PersistentSessionEntry } from "../session/persistentHistory";
+import { searchSymbols, resolveSymbolByName } from "../context/symbolContext";
+
+/**
+ * Wire chat panel events to the orchestrator.
+ * This replaces the wireChatPanelEvents() function in extension.ts.
+ */
+export function wireChatPanelEvents(
+  chatPanel: ChatPanel | null,
+  orchestrator: SessionOrchestrator,
+  sendTabs: () => void,
+  resolveFile: (path: string, cwd?: string) => Promise<ContextAttachmentDTO>,
+  resolveSelection: () => Promise<ContextAttachmentDTO | null>,
+  resolveDiff: () => Promise<ContextAttachmentDTO | null>,
+  searchFiles: (query: string, cwd?: string) => Promise<{ relativePath: string; name: string; absolutePath?: string }[]>,
+  searchSymbols: (query: string) => Promise<SuggestionItem[]>,
+  resolveSymbolByName: (name: string) => Promise<ContextAttachmentDTO>,
+  persistentHistory?: PersistentHistoryStore,
+): void {
+  if (!chatPanel) return;
+
+  chatPanel.onSendMessage(({ agentId, sessionId, text, attachments }) => {
+    // Store user message in orchestrator state so tab switches / forks preserve it
+    const userMessage: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: text,
+      timestamp: Date.now(),
+      attachmentsJson: attachments.length > 0 ? JSON.stringify(attachments) : undefined,
+    };
+    orchestrator.appendMessageSilent(agentId, sessionId, userMessage);
+
+    // Start prompt first so status transitions to "running" before UI updates
+    const context = buildPromptContext(attachments);
+    orchestrator.prompt(agentId, sessionId, text, context).then(
+      () => orchestrator.setIsTurnActive(agentId, sessionId, false),
+      () => orchestrator.setIsTurnActive(agentId, sessionId, false)
+    );
+    orchestrator.setIsTurnActive(agentId, sessionId, true);
+  });
+
+  chatPanel.onCancelTurn(({ agentId, sessionId }) => {
+    orchestrator.setIsTurnActive(agentId, sessionId, false);
+    void orchestrator.cancel(agentId, sessionId);
+  });
+
+  chatPanel.onOpenFile(({ path: openPath, line }) => {
+    void (async () => {
+      const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "";
+      const absPath = path.isAbsolute(openPath) ? openPath : path.join(ws, openPath);
+      const uri = vscode.Uri.file(absPath);
+      try {
+        const doc = await vscode.workspace.openTextDocument(uri);
+        const selection = line
+          ? new vscode.Range(line - 1, 0, line - 1, 0)
+          : undefined;
+        await vscode.window.showTextDocument(doc, { selection, viewColumn: vscode.ViewColumn.Beside });
+      } catch {
+        void vscode.window.showWarningMessage(`File not found: ${openPath}`);
+      }
+    })();
+  });
+
+  chatPanel.onAttachFile(({ path: filePath }) => {
+    void resolveFile(filePath).then((attachment) => {
+      addContextToChat(attachment, orchestrator, () => chatPanel);
+    });
+  });
+
+  chatPanel.onDidReceiveMessage((data: Record<string, unknown>) => {
+    switch (data.type as string) {
+      case "switchSession":
+        orchestrator.setActiveSession(data.agentId as string, data.sessionId as string);
+        break;
+      case "newSession": {
+        const agentId = data.agentId as string;
+        void (async () => {
+          const ws = process.cwd(); // simplified
+          await orchestrator.createSession(agentId, ws);
+        })();
+        break;
+      }
+      case "closeSession": {
+        const sessionId = data.sessionId as string;
+        for (const agent of orchestrator.getAllAgents()) {
+          if (agent.sessions.some((s) => s.sessionId === sessionId)) {
+            void orchestrator.closeSession(agent.agentId, sessionId);
+            break;
+          }
+        }
+        break;
+      }
+      case "forkSession": {
+        const sessionId = data.sessionId as string;
+        for (const agent of orchestrator.getAllAgents()) {
+          const srcInfo = orchestrator.getSessionInfo(agent.agentId, sessionId);
+          if (!srcInfo) continue;
+          void (async () => {
+            const newId = await orchestrator.createSession(agent.agentId, srcInfo.cwd);
+            orchestrator.setActiveSession(agent.agentId, newId);
+            // Copy messages from the source session into the forked session
+            const newInfo = orchestrator.getSessionInfo(agent.agentId, newId);
+            if (newInfo) {
+              for (const msg of srcInfo.messages) {
+                // Use silent append so the webview gets the full snapshot via setActiveSession
+                orchestrator.appendMessageSilent(agent.agentId, newId, msg);
+              }
+              chatPanel?.setActiveSession(agent.agentId, newId, newInfo);
+            }
+          })();
+          break;
+        }
+        break;
+      }
+      case "sessionReady":
+        sendTabs();
+        break;
+      case "fetchFiles": {
+        const query = data.query as string;
+        const cwd = resolveSessionCwd(orchestrator, data);
+        void searchFiles(query, cwd).then((candidates) => {
+          chatPanel?.postMessage({ type: "fileCandidates", query, candidates });
+        });
+        break;
+      }
+      case "resolveFile": {
+        const filePath = data.path as string;
+        const cwd = resolveSessionCwd(orchestrator, data);
+        void resolveFile(filePath, cwd)
+          .then((a) => chatPanel?.postMessage({ type: "resolvedFile", path: filePath, attachment: a }))
+          .catch((err: Error) => chatPanel?.postMessage({ type: "resolvedFile", path: filePath, attachment: null, error: err.message }));
+        break;
+      }
+      case "resolveSelection":
+        void resolveSelection().then((a) => chatPanel?.postMessage({ type: "resolvedSelection", attachment: a }));
+        break;
+      case "resolveDiff":
+        void resolveDiff().then((a) => chatPanel?.postMessage({ type: "resolvedDiff", attachment: a }));
+        break;
+      case "fetchSymbols": {
+        const query = data.query as string;
+        void searchSymbols(query).then((candidates) => {
+          chatPanel?.postMessage({ type: "symbolCandidates", query, candidates });
+        });
+        break;
+      }
+      case "resolveSymbol": {
+        const name = data.name as string;
+        void resolveSymbolByName(name)
+          .then((a) => chatPanel?.postMessage({ type: "resolvedSymbol", name, attachment: a }))
+          .catch((err: Error) => chatPanel?.postMessage({ type: "resolvedSymbol", name, attachment: null, error: err.message }));
+        break;
+      }
+      case "selectAgent":
+        break;
+      case "selectSession": {
+        const sessionId = data.sessionId as string;
+        for (const agent of orchestrator.getAllAgents()) {
+          if (agent.sessions.some((s) => s.sessionId === sessionId)) {
+            orchestrator.setActiveSession(agent.agentId, sessionId);
+            break;
+          }
+        }
+        break;
+      }
+
+      // ==================================================================
+      // Persistent history messages
+      // ==================================================================
+      case "history:getAll": {
+        if (persistentHistory) {
+          const sessions = persistentHistory.getAllSessions();
+          chatPanel?.postMessage({ type: "history:allSessions", sessions });
+        }
+        break;
+      }
+      case "history:search": {
+        if (persistentHistory) {
+          const results = persistentHistory.searchSessions(data.query as string);
+          chatPanel?.postMessage({ type: "history:searchResults", results });
+        }
+        break;
+      }
+      case "history:getSession": {
+        if (persistentHistory) {
+          const sessionId = data.sessionId as string;
+          const session = persistentHistory.getSession(sessionId);
+          const messages = persistentHistory.getSessionMessages(sessionId);
+          chatPanel?.postMessage({
+            type: "history:sessionDetail",
+            session,
+            messages: messages.messages,
+          });
+        }
+        break;
+      }
+      case "history:delete": {
+        if (persistentHistory) {
+          const sessionId = data.sessionId as string;
+          void persistentHistory.deleteSession(sessionId).then(() => {
+            chatPanel?.postMessage({ type: "history:deleted", sessionId });
+            const sessions = persistentHistory.getAllSessions();
+            chatPanel?.postMessage({ type: "history:allSessions", sessions });
+          });
+        }
+        break;
+      }
+      case "history:cleanup": {
+        if (persistentHistory) {
+          const maxAgeDays = data.maxAgeDays as number;
+          void persistentHistory.cleanupExpiredSessions(maxAgeDays).then((deletedCount) => {
+            chatPanel?.postMessage({ type: "history:cleanupComplete", deletedCount });
+          });
+        }
+        break;
+      }
+      case "history:getStats": {
+        if (persistentHistory) {
+          const stats = persistentHistory.getStats();
+          chatPanel?.postMessage({ type: "history:stats", ...stats });
+        }
+        break;
+      }
+      case "history:restore": {
+        const sessionId = data.sessionId as string;
+        const agentId = data.agentId as string;
+        chatPanel?.postMessage({ type: "history:restored", sessionId, agentId });
+        break;
+      }
+      case "history:archive": {
+        if (persistentHistory) {
+          const sessionId = data.sessionId as string;
+          void persistentHistory.archiveSession(sessionId).then(() => {
+            chatPanel?.postMessage({ type: "history:archived", sessionId });
+            const sessions = persistentHistory!.getAllSessions();
+            chatPanel?.postMessage({ type: "history:allSessions", sessions });
+          });
+        }
+        break;
+      }
+      case "history:unarchive": {
+        if (persistentHistory) {
+          const sessionId = data.sessionId as string;
+          void persistentHistory.unarchiveSession(sessionId).then(() => {
+            chatPanel?.postMessage({ type: "history:unarchived", sessionId });
+            const sessions = persistentHistory!.getAllSessions();
+            chatPanel?.postMessage({ type: "history:allSessions", sessions });
+          });
+        }
+        break;
+      }
+      case "history:exportMd": {
+        if (persistentHistory) {
+          const markdown = data.markdown as string;
+          chatPanel?.postMessage({ type: "history:exportMd", markdown });
+        }
+        break;
+      }
+    }
+  });
+}
+
+/**
+ * Resolve the session cwd from message data.
+ * Falls back to the cwd of the active session for the given agent.
+ */
+function resolveSessionCwd(
+  orchestrator: SessionOrchestrator,
+  data: Record<string, unknown>
+): string | undefined {
+  // Explicit cwd sent by webview takes priority
+  if (typeof data.cwd === "string" && data.cwd) return data.cwd;
+  // Otherwise look up the session's cwd
+  const agentId = data.agentId as string | undefined;
+  const sessionId = data.sessionId as string | undefined;
+  if (agentId && sessionId) {
+    const info = orchestrator.getSessionInfo(agentId, sessionId);
+    if (info?.cwd) return info.cwd;
+  }
+  // Fallback: active session for the agent
+  if (agentId) {
+    const activeId = orchestrator.getActiveSessionId(agentId);
+    if (activeId) {
+      const info = orchestrator.getSessionInfo(agentId, activeId);
+      if (info?.cwd) return info.cwd;
+    }
+  }
+  return undefined;
+}
+
+function buildPromptContext(attachments: ContextAttachmentDTO[]): { files?: string[]; selection?: string; diff?: string } {
+  const files: string[] = [];
+  let selection: string | undefined;
+  let diff: string | undefined;
+  for (const a of attachments) {
+    switch (a.type) {
+      case "file": files.push(a.path); break;
+      case "selection": selection = a.content; break;
+      case "diff": diff = a.content; break;
+    }
+  }
+  return { files: files.length > 0 ? files : undefined, selection, diff };
+}
+
+function addContextToChat(
+  attachment: ContextAttachmentDTO,
+  orchestrator: SessionOrchestrator,
+  getChatPanel: () => ChatPanel | null
+): void {
+  const agents = orchestrator.getAllAgents();
+  if (agents.length === 0) return;
+  const agent = agents[0];
+  const activeSessionId = orchestrator.getActiveSessionId(agent.agentId) ?? agent.sessions[0]?.sessionId;
+  if (!activeSessionId) return;
+  const info = orchestrator.getSessionInfo(agent.agentId, activeSessionId);
+  getChatPanel()?.pushMessage(agent.agentId, activeSessionId, {
+    id: crypto.randomUUID(),
+    role: "system",
+    content: `📎 ${attachment.label} (${attachment.tokenCount} tokens)`,
+    timestamp: Date.now(),
+  }, info?.cwd);
+}
