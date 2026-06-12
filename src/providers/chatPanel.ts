@@ -218,6 +218,12 @@ export class ChatPanel {
   /** Push a new message to the webview for a session */
   pushMessage(agentId: string, sessionId: string, message: ChatMessage, cwd?: string): void {
     const enriched = cwd ? attachInlineFilePaths(message, cwd) : message;
+    console.log("[chatPanel.pushMessage]", {
+      agentId, sessionId, role: message.role, msgId: message.id,
+      contentLen: message.content?.length,
+      hasToolCalls: (message.toolCalls?.length ?? 0) > 0,
+      hasPanel: !!this.panel,
+    });
     this.postMessage({ type: "session/message", agentId, sessionId, message: enriched });
   }
 

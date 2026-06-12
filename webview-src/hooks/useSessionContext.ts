@@ -805,6 +805,31 @@ export function useSessionContext(): SessionContext {
             title: data.title as string,
           });
           return;
+
+        case "session/notification": {
+          const notif = data.notification as { update?: { sessionUpdate?: string; content?: { type: string; text?: string } } } | undefined;
+          const updateType = notif?.update?.sessionUpdate;
+          if (updateType === "tool_call" || updateType === "tool_call_update") {
+            // Tool calls are already handled via sessionMessage in orchestrator,
+            // but forward as session/notification fallback
+            const sessionInfo = (data as { sessionInfo?: { toolCalls?: unknown[] } }).sessionInfo;
+            if (sessionInfo?.toolCalls) {
+              dispatch({
+                type: "ADD_SESSION_MESSAGE",
+                agentId: data.agentId as string,
+                sessionId: data.sessionId as string,
+                message: {
+                  id: crypto.randomUUID(),
+                  role: "tool",
+                  content: "",
+                  timestamp: Date.now(),
+                  toolCalls: sessionInfo.toolCalls as ChatMessage["toolCalls"],
+                },
+              });
+            }
+          }
+          return;
+        }
       }
 
       // --- Agent info ---

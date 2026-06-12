@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import type { AgentConfig } from "../session/orchestrator";
+import type { AgentConfig } from "../orchestrator";
 
 export type { AgentConfig };
 
@@ -87,7 +87,7 @@ export class AgentRegistry {
     }
     return Object.entries(agentsObj).map(([key, a]) => {
       // autoConnect: AutoConnectEntry[] (array only)
-      let autoConnect: import("../session/orchestrator").AutoConnectEntry[] | undefined;
+      let autoConnect: import("../orchestrator").AutoConnectEntry[] | undefined;
       if (Array.isArray(a.autoConnect)) {
         autoConnect = (a.autoConnect as Array<Record<string, unknown>>).map((entry) => ({
           workspace: typeof entry.workspace === "string" ? entry.workspace : undefined,

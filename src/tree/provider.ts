@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import type { SessionOrchestrator } from "../session/orchestrator";
+import type { SessionOrchestrator } from "../orchestrator";
 
 type TreeItemKind = "agent" | "session";
 

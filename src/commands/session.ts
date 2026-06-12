@@ -1,13 +1,13 @@
 import * as vscode from "vscode";
-import type { SessionOrchestrator } from "../session/orchestrator";
+import type { SessionOrchestrator } from "../orchestrator";
 import type { ChatPanel } from "../providers/chatPanel";
 import type { ContextAttachmentDTO } from "../types/chat";
 
 export function registerSessionCommands(
   orchestrator: SessionOrchestrator,
   registry: {
-    getAgent: (id: string) => import("../session/orchestrator").AgentConfig | undefined;
-    getAgents: () => import("../session/orchestrator").AgentConfig[];
+    getAgent: (id: string) => import("../orchestrator").AgentConfig | undefined;
+    getAgents: () => import("../orchestrator").AgentConfig[];
   },
   getChatPanel: () => ChatPanel | null,
   ensureChatPanel: () => void,

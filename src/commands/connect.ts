@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import type { SessionOrchestrator, AgentConfig } from "../session/orchestrator";
+import type { SessionOrchestrator, AgentConfig } from "../orchestrator";
 import type { AgentRegistry } from "../agent/registry";
 import { ChatPanel } from "../providers/chatPanel";
 

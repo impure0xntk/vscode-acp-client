@@ -3,7 +3,7 @@ import {
   AgentStatus,
   SessionStatusInfo,
   AgentConnectionState,
-} from "../session/orchestrator";
+} from "../orchestrator";
 
 // Re-export for consumers that need only status types
 export type { AgentStatus, SessionStatusInfo, AgentConnectionState };

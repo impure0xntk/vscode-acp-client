@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import type { SessionOrchestrator } from "../session/orchestrator";
+import type { SessionOrchestrator } from "../orchestrator";
 import type { ChatPanel } from "../providers/chatPanel";
 import type { ChatMessage, ContextAttachmentDTO } from "../types/chat";
 import type { SuggestionItem } from "../context/symbolContext";

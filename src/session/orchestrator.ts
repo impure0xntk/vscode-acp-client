@@ -460,6 +460,7 @@ export class SessionOrchestrator extends EventEmitter {
     } finally {
       sessionInfo.isTurnActive = false;
       sessionInfo.updatedAt = new Date();
+      this.emit("sessionTurnActiveChanged", { agentId, sessionId, active: false });
     }
   }
 
