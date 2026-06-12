@@ -134,6 +134,7 @@ function FileChip({ path, line }: { path: string; line?: number }): React.ReactE
 }
 
 export const Message = React.memo(function Message({
+  id,
   role,
   content,
   timestamp,
@@ -170,7 +171,7 @@ export const Message = React.memo(function Message({
 
   if (isTool) {
     return (
-      <div className="message message-tool">
+      <div className="message message-tool" data-message-id={id} data-role={role}>
         {groupedCalls ? (
           groupedCalls.map((group) =>
             group.count >= GROUP_THRESHOLD ? (
@@ -234,7 +235,11 @@ export const Message = React.memo(function Message({
 
   // System / user / agent messages
   return (
-    <div className={`message ${isSystem ? "message-system" : isUser ? "message-user" : "message-agent"}`}>
+    <div
+      className={`message ${isSystem ? "message-system" : isUser ? "message-user" : "message-agent"}`}
+      data-message-id={id}
+      data-role={role}
+    >
       {hasExtra && (
         <>
           {/* File chips above messages */}

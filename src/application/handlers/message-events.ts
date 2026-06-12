@@ -89,12 +89,13 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
         );
       }
 
-      // Full tab refresh for mode/config/tool changes
+      // Full tab refresh for mode/config/tool/title changes
       if (
         update.sessionUpdate === "current_mode_update" ||
         update.sessionUpdate === "config_option_update" ||
         update.sessionUpdate === "tool_call" ||
-        update.sessionUpdate === "tool_call_update"
+        update.sessionUpdate === "tool_call_update" ||
+        update.sessionUpdate === "session_info_update"
       ) {
         sendTabs();
       }

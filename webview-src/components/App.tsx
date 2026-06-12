@@ -1,14 +1,15 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useRef, useCallback, useState } from "react";
 import { ChatContainer } from "./ChatContainer";
 import { Composer } from "./Composer";
-import { Toolbar } from "./Toolbar";
+import { BottomToolbar } from "./BottomToolbar";
+import { TopToolbar } from "./TopToolbar";
 import { SessionTabs } from "./SessionTabs";
 import { ProgressBar } from "./ProgressBar";
 import { CompletionNotification } from "./CompletionNotification";
 import { SessionHistoryPanel, PersistentSessionEntry } from "./SessionHistoryPanel";
 import { useSessionContext } from "../hooks/useSessionContext";
 import { ErrorBoundary } from "./ErrorBoundary";
-import type { ContextAttachment } from "../types";
+import type { ChatMessage, ContextAttachment } from "../types";
 import { getVsCodeApi } from "../lib/vscodeApi";
 
 function sessionKey(agentId: string, sessionId: string): string {
@@ -35,7 +36,7 @@ export function App(): React.ReactElement {
     connectedAgents,
     agentInfoMap,
     workspaceFolders,
-    completedNotification,
+    completedNotifications,
     dismissCompletedNotification,
     switchTab,
     newSession,
@@ -48,11 +49,37 @@ export function App(): React.ReactElement {
     fetchSymbols,
     resolveSymbol,
     availableCommands,
+    statusline,
   } = ctx;
 
   // History panel state
   const [showHistory, setShowHistory] = React.useState(false);
   const [selectedHistorySession, setSelectedHistorySession] = React.useState<PersistentSessionEntry | null>(null);
+
+  // Scroll-to-message handler (passed through to TopToolbar)
+  const scrollToMessageRef = useRef<(id: string) => void>();
+  const handleJumpToMessage = useCallback((messageId: string) => {
+    scrollToMessageRef.current?.(messageId);
+  }, []);
+
+  // Scroll state for fixed scroll-to-bottom button
+  const scrollStateRef = useRef<{
+    isAtBottom: boolean;
+    unreadCount: number;
+    scrollToBottom: () => void;
+  }>({ isAtBottom: true, unreadCount: 0, scrollToBottom: () => {} });
+  const [showScrollButton, setShowScrollButton] = useState(false);
+  const [scrollUnreadCount, setScrollUnreadCount] = useState(0);
+
+  // Poll scroll state at 200ms interval (lightweight, avoids prop-drilling complexity)
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      const s = scrollStateRef.current;
+      setShowScrollButton(!s.isAtBottom);
+      setScrollUnreadCount(s.unreadCount);
+    }, 200);
+    return () => clearInterval(interval);
+  }, []);
 
   // Derive active session info
   const activeTab = useMemo(
@@ -152,21 +179,50 @@ export function App(): React.ReactElement {
         onTabReorder={() => {}}
         onNewSession={handleNewSession}
       />
-      {completedNotification && (
-        <CompletionNotification
-          agentId={completedNotification.agentId}
-          sessionId={completedNotification.sessionId}
-          title={completedNotification.title}
-          onDismiss={dismissCompletedNotification}
-          onSwitchTab={handleTabClick}
-        />
+      {completedNotifications.length > 0 && (
+        <div className="completion-notification-stack">
+          {completedNotifications.map((notif, idx) => (
+            <CompletionNotification
+              key={`${notif.agentId}:${notif.sessionId}:${idx}`}
+              agentId={notif.agentId}
+              sessionId={notif.sessionId}
+              title={notif.title}
+              onDismiss={dismissCompletedNotification}
+              onSwitchTab={handleTabClick}
+            />
+          ))}
+        </div>
       )}
+      <TopToolbar
+        messages={activeMessages}
+        agentName={activeAgentId ? agentInfoMap[activeAgentId]?.name : undefined}
+        model={activeTab?.model}
+        mode={activeTab?.mode}
+        cwd={activeTab?.cwd}
+        workspaceRoot={workspaceRoot}
+        isTurnActive={activeTurn}
+        onJumpToMessage={handleJumpToMessage}
+      />
       <ChatContainer
         messages={activeMessages}
         isStreaming={activeStreaming}
         sessionId={activeSessionId ?? undefined}
         status={activeTab?.status}
+        scrollToMessageRef={scrollToMessageRef}
+        scrollStateRef={scrollStateRef}
       />
+      {showScrollButton && (
+        <button
+          className="scroll-to-bottom-button"
+          onClick={() => scrollStateRef.current.scrollToBottom()}
+          aria-label="Scroll to bottom"
+        >
+          <span className="scroll-to-bottom-icon">↓</span>
+          {scrollUnreadCount > 0 && (
+            <span className="scroll-to-bottom-badge">{scrollUnreadCount}</span>
+          )}
+        </button>
+      )}
       <Composer
         onSend={handleSend}
         onCancel={handleCancel}
@@ -181,11 +237,9 @@ export function App(): React.ReactElement {
         availableCommands={availableCommands}
       />
       <ProgressBar status={activeTab?.status} />
-      <Toolbar
+      <BottomToolbar
         model={activeTab?.model}
         mode={activeTab?.mode}
-        cwd={activeTab?.cwd}
-        workspaceRoot={workspaceRoot}
         tokenUsage={activeTab?.tokenUsage ?? tokenUsage}
         contextWindowMax={activeTab?.contextWindowMax ?? ctx.contextWindowMax}
         messageCount={activeMessages.length}
@@ -195,6 +249,7 @@ export function App(): React.ReactElement {
         sessionId={activeSessionId ?? undefined}
         sessionStartMs={activeTab?.sessionStartMs}
         onForkSession={activeSessionId ? () => ctx.forkSession(activeSessionId) : undefined}
+        statusline={statusline}
       />
     </div>
   );

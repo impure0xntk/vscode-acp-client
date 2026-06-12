@@ -141,9 +141,17 @@ export interface SessionContext {
   // Available slash commands for the active session
   availableCommands: SlashCommand[];
 
-  // Background session completion notification
-  completedNotification: { agentId: string; sessionId: string; title: string } | null;
+  // Background session completion notifications (stacked)
+  completedNotifications: Array<{ agentId: string; sessionId: string; title: string }>;
   dismissCompletedNotification: () => void;
+
+  // Statusline info (hostname, repo, branch, tag)
+  statusline?: {
+    hostname?: string;
+    repoName?: string;
+    branch?: string;
+    tag?: string;
+  };
 
   // Actions
   sendMessage: (text: string, attachments?: ContextAttachment[], agentId?: string, sessionId?: string) => void;
@@ -186,6 +194,13 @@ interface FullState {
   workspaceFolders: WorkspaceFolder[];
   // sessionKey → SlashCommand[]
   sessionCommands: Record<string, SlashCommand[]>;
+  // Statusline info
+  statusline: {
+    hostname: string;
+    repoName: string;
+    branch: string;
+    tag?: string;
+  };
 }
 
 const initialState: FullState = {
@@ -200,6 +215,7 @@ const initialState: FullState = {
   agentInfoMap: {},
   workspaceFolders: [],
   sessionCommands: {},
+  statusline: { hostname: "", repoName: "", branch: "" },
 };
 
 // ============================================================================
@@ -253,6 +269,12 @@ type SessionAction =
 
   // --- Per-session usage update (from session/usage) ---
   | { type: "UPDATE_SESSION_USAGE"; agentId: string; sessionId: string; tokenUsage?: { inputTokens: number; outputTokens: number; totalTokens: number }; contextWindowMax?: number }
+
+  // --- Statusline ---
+  | { type: "SET_STATUSLINE"; statusline: { hostname?: string; repoName?: string; branch?: string; tag?: string } }
+
+  // --- Unread count ---
+  | { type: "INCREMENT_UNREAD"; sessionId: string; agentId: string }
 
   // --- Legacy backward-compat ---
   | { type: "SET_MESSAGES"; messages: ChatMessage[] }
@@ -387,6 +409,15 @@ function reducer(state: FullState, action: SessionAction): FullState {
 
     case "REORDER_TABS":
       return { ...state, tabs: action.tabs };
+
+    case "INCREMENT_UNREAD": {
+      const tabs = state.tabs.map((t) =>
+        t.sessionId === action.sessionId && t.agentId === action.agentId
+          ? { ...t, unreadCount: t.unreadCount + 1 }
+          : t
+      );
+      return { ...state, tabs };
+    }
 
     // ==================================================================
     // Per-session message actions
@@ -525,6 +556,16 @@ function reducer(state: FullState, action: SessionAction): FullState {
         agentInfoMap: { ...state.agentInfoMap, [action.agentId]: action.info },
       };
 
+    // ==================================================================
+    // Statusline
+    // ==================================================================
+
+    case "SET_STATUSLINE":
+      return {
+        ...state,
+        statusline: action.statusline,
+      };
+
     case "SET_CONNECTED_AGENTS":
       return { ...state, connectedAgents: action.agents };
 
@@ -627,13 +668,11 @@ export function useSessionContext(): SessionContext {
 
 
   // ------------------------------------------------------------------
-  // Background session completion notification
+  // Background session completion notification (queue for stacking)
   // ------------------------------------------------------------------
-  const [completedNotification, setCompletedNotification] = React.useState<{
-    agentId: string;
-    sessionId: string;
-    title: string;
-  } | null>(null);
+  const [completedNotifications, setCompletedNotifications] = React.useState<
+    Array<{ agentId: string; sessionId: string; title: string }>
+  >([]);
 
   // ------------------------------------------------------------------
   // Message handler — listens for ALL message types from extension host
@@ -656,23 +695,52 @@ export function useSessionContext(): SessionContext {
           });
           return;
 
-        case "session/message":
+        case "session/message": {
           dispatch({
             type: "ADD_SESSION_MESSAGE",
             agentId: data.agentId,
             sessionId: data.sessionId,
             message: data.message as ChatMessage,
           });
+          // Increment unread count for background (non-active) sessions
+          const st = stateRef.current;
+          if (data.sessionId !== st.activeSessionId || data.agentId !== st.activeAgentId) {
+            dispatch({
+              type: "INCREMENT_UNREAD",
+              sessionId: data.sessionId,
+              agentId: data.agentId,
+            });
+          }
           return;
+        }
 
-        case "session/stream":
+        case "session/stream": {
           dispatch({
             type: "APPEND_SESSION_STREAM",
             agentId: data.agentId,
             sessionId: data.sessionId,
             chunk: data.chunk as string,
           });
+          // Increment unread count on first chunk for background sessions
+          const st = stateRef.current;
+          const activeKey = computeActiveSessionKey(st);
+          const msgKey = sessionKey(data.agentId, data.sessionId);
+          if (msgKey !== activeKey) {
+            const tab = st.tabs.find(
+              (t) => t.sessionId === data.sessionId && t.agentId === data.agentId
+            );
+            // Only increment on first chunk (when not yet streaming)
+            const session = st.sessions[msgKey];
+            if (tab && !session?.isStreaming) {
+              dispatch({
+                type: "INCREMENT_UNREAD",
+                sessionId: data.sessionId,
+                agentId: data.agentId,
+              });
+            }
+          }
           return;
+        }
 
         case "session/streamEnd":
           dispatch({
@@ -717,11 +785,14 @@ export function useSessionContext(): SessionContext {
         }
 
         case "session/completed":
-          setCompletedNotification({
-            agentId: data.agentId as string,
-            sessionId: data.sessionId as string,
-            title: data.title as string,
-          });
+          setCompletedNotifications((prev) => [
+            ...prev,
+            {
+              agentId: data.agentId as string,
+              sessionId: data.sessionId as string,
+              title: data.title as string,
+            },
+          ]);
           return;
 
         case "session/notification": {
@@ -756,6 +827,20 @@ export function useSessionContext(): SessionContext {
           type: "SET_AGENT_INFO",
           agentId: data.agentId as string,
           info: data.info as AgentInfo,
+        });
+        return;
+      }
+
+      // --- Statusline ---
+      if (data.type === "statusline") {
+        dispatch({
+          type: "SET_STATUSLINE",
+          statusline: {
+            hostname: data.hostname as string | undefined,
+            repoName: data.repoName as string | undefined,
+            branch: data.branch as string | undefined,
+            tag: data.tag as string | undefined,
+          },
         });
         return;
       }
@@ -1026,7 +1111,7 @@ export function useSessionContext(): SessionContext {
   }, []);
 
   const dismissCompletedNotification = useCallback(() => {
-    setCompletedNotification(null);
+    setCompletedNotifications((prev) => prev.slice(1));
   }, []);
 
   // Memoize all callback refs once (stabilized identities for child props)
@@ -1085,8 +1170,9 @@ export function useSessionContext(): SessionContext {
       agentName: state.agentName,
       sessions: state.sessions,
       workspaceRoot: state.workspaceRoot,
-      completedNotification,
+      completedNotifications,
       availableCommands,
+      statusline: state.statusline,
       // Stable function refs — child components that are React.memo
       // won't re-render when only these callbacks change.
       sendMessage: stableActions.current.sendMessage,
@@ -1122,8 +1208,9 @@ export function useSessionContext(): SessionContext {
       state.agentName,
       state.sessions,
       state.workspaceRoot,
-      completedNotification,
+      completedNotifications,
       availableCommands,
+      state.statusline,
     ],
   );
 

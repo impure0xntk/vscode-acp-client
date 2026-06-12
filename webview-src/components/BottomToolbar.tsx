@@ -1,6 +1,8 @@
 import React from "react";
 import type { AgentInfo, SessionTabStatus } from "../hooks/useSessionContext";
 
+export type ContextColor = "normal" | "warning" | "critical";
+
 export interface ToolbarMeta {
   key: string;
   label: string;
@@ -9,6 +11,7 @@ export interface ToolbarMeta {
   category?: "session" | "runtime" | "metrics" | "workspace";
   statusIndicator?: SessionTabStatus;
   modeIcon?: string;
+  contextColor?: ContextColor;
 }
 
 // ── status / mode maps ────────────────────────────────────────────────────
@@ -28,13 +31,20 @@ const MODE_GLYPH: Record<string, string> = {
   plan:    "📋",
 };
 
-// ── props ─────────────────────────────────────────────────────────────────
+// ── Statusline info ───────────────────────────────────────────────────────
 
-export interface ToolbarProps {
+export interface StatuslineInfo {
+  hostname?: string;
+  repoName?: string;
+  branch?: string;
+  tag?: string;
+}
+
+// ── BottomToolbar props ───────────────────────────────────────────────────
+
+export interface BottomToolbarProps {
   model?: string;
   mode?: string;
-  cwd?: string;
-  workspaceRoot?: string;
   tokenUsage: { inputTokens: number; outputTokens: number };
   contextWindowMax?: number;
   messageCount: number;
@@ -47,56 +57,30 @@ export interface ToolbarProps {
   maxTokens?: number;
   meta?: ToolbarMeta[];
   onForkSession?: () => void;
+  statusline?: StatuslineInfo;
+}
+
+// ── DetailsPanel props ──────────────────────────────────────────────────
+
+export interface DetailsPanelProps {
+  mode?: string;
+  model?: string;
+  cwd?: string;
+  messageCount: number;
+  tokenUsage: { inputTokens: number; outputTokens: number };
+  totalTokens: number;
+  isTurnActive: boolean;
+  sessionStatus?: string;
+  agentInfo?: AgentInfo;
+  meta?: ToolbarMeta[];
+  sessionId?: string;
+  sessionStartMs?: number;
+  provider?: string;
+  maxTokens?: number;
+  onForkSession?: () => void;
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────
-
-function displayPath(cwd: string | undefined, root: string | undefined): string | undefined {
-  if (!cwd) return undefined;
-  let display: string;
-  if (root && cwd.startsWith(root)) {
-    display = cwd.slice(root.length).replace(/^\//, "") || ".";
-  } else {
-    display = cwd;
-  }
-  // Abbreviate: keep last 2 segments, prepend with ~ for home dir
-  return abbreviatePath(display);
-}
-
-/** Abbreviate a path in fish-shell style (client-side, no os.homedir). */
-function abbreviatePath(input: string, maxLength: number = 25): string {
-  if (!input || input === "." || input === "/") return input;
-
-  const ELLIPSIS = "…";
-  const homePrefix = input.startsWith("~") ? "~" : "";
-  const raw = input.startsWith("~") ? input.slice(1) : input;
-  const segments = raw.split("/").filter(Boolean);
-
-  if (segments.length === 0) return input;
-
-  const full = homePrefix ? `${homePrefix}/${segments.join("/")}` : segments.join("/");
-  if (full.length <= maxLength) return full;
-
-  // Step 1: abbreviate intermediate segments to first char, keep last full
-  if (segments.length >= 2) {
-    const last = segments[segments.length - 1];
-    const initials = segments.slice(0, -1).map(s => s[0]);
-    const abbreviated = homePrefix
-      ? `${homePrefix}/${initials.join("/")}/${last}`
-      : `${initials.join("/")}/${last}`;
-    if (abbreviated.length <= maxLength) return abbreviated;
-  }
-
-  // Step 2: fallback — keep last 2 segments, prepend with ellipsis
-  if (segments.length >= 3) {
-    const tail = segments.slice(-2);
-    return homePrefix
-      ? `${homePrefix}/${ELLIPSIS}/${tail.join("/")}`
-      : `${ELLIPSIS}/${tail.join("/")}`;
-  }
-
-  return full;
-}
 
 function fmt(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}m`;
@@ -124,12 +108,81 @@ function visualBar(ratio: number): string {
   return "█".repeat(filled) + "░".repeat(10 - filled);
 }
 
+/** Context usage color thresholds */
+function contextColor(ratio: number): string {
+  if (ratio >= 0.85) return "critical";
+  if (ratio >= 0.70) return "warning";
+  return "normal";
+}
+
 const CAT_LABEL: Record<string, string> = {
   session: "Session",
   runtime: "Runtime",
   metrics: "Metrics",
   workspace: "Workspace",
 };
+
+const STATUS_COLOR: Record<string, string> = {
+  running: "#4ec9b0",
+  idle: "#cca700",
+  completed: "#4ec9b0",
+  error: "#f14c4c",
+  cancelled: "#666666",
+};
+
+// ── StatuslineRow ─────────────────────────────────────────────────────────
+
+function StatuslineRow({
+  statusline,
+  sessionStatus,
+}: {
+  statusline?: StatuslineInfo;
+  sessionStatus?: SessionTabStatus;
+}): React.ReactElement | null {
+  if (!statusline) return null;
+  const { hostname, repoName, branch, tag } = statusline;
+
+  return (
+    <div className="toolbar-statusline">
+      {hostname && (
+        <span className="toolbar-statusline-seg">{hostname}</span>
+      )}
+      {repoName && (
+        <>
+          <span className="toolbar-statusline-sep">│</span>
+          <span className="toolbar-statusline-seg">{repoName}</span>
+        </>
+      )}
+      {branch && (
+        <>
+          <span className="toolbar-statusline-sep">│</span>
+          <span className="toolbar-statusline-seg toolbar-statusline-branch">{branch}</span>
+        </>
+      )}
+      {tag && (
+        <>
+          <span className="toolbar-statusline-sep">│</span>
+          <span className="toolbar-statusline-seg toolbar-statusline-tag">{tag}</span>
+        </>
+      )}
+      {sessionStatus && (
+        <>
+          <span className="toolbar-statusline-sep">│</span>
+          <span className="toolbar-statusline-seg">
+            <span
+              className="toolbar-statusline-dot"
+              style={{ color: STATUS_COLOR[sessionStatus] ?? "#808080" }}
+              aria-hidden="true"
+            >
+              {sessionStatus === "running" ? "●" : sessionStatus === "completed" ? "✓" : "●"}
+            </span>
+            {sessionStatus}
+          </span>
+        </>
+      )}
+    </div>
+  );
+}
 
 // ── Chip ──────────────────────────────────────────────────────────────────
 
@@ -143,10 +196,11 @@ function Chip({
   const cat = meta.category ?? "";
   const dot = meta.statusIndicator ? STATUS_DOT[meta.statusIndicator] : null;
   const icon = meta.modeIcon ? MODE_GLYPH[meta.modeIcon] : null;
+  const ctxColor = meta.contextColor ? ` toolbar-chip--ctx-${meta.contextColor}` : "";
 
   return (
     <span
-      className={`toolbar-chip toolbar-chip--${cat}${onClick ? " toolbar-chip--clickable" : ""}`}
+      className={`toolbar-chip toolbar-chip--${cat}${ctxColor}${onClick ? " toolbar-chip--clickable" : ""}`}
       title={`${meta.label}: ${meta.value}`}
       aria-label={`${meta.label}: ${meta.value}`}
       onClick={onClick}
@@ -276,23 +330,7 @@ function SessionIdRow({
   );
 }
 
-function DetailsPanel(p: {
-  mode?: string;
-  model?: string;
-  cwd?: string;
-  messageCount: number;
-  tokenUsage: { inputTokens: number; outputTokens: number };
-  totalTokens: number;
-  isTurnActive: boolean;
-  sessionStatus?: string;
-  agentInfo?: AgentInfo;
-  meta?: ToolbarMeta[];
-  sessionId?: string;
-  sessionStartMs?: number;
-  provider?: string;
-  maxTokens?: number;
-  onForkSession?: () => void;
-}): React.ReactElement {
+export function DetailsPanel(p: DetailsPanelProps): React.ReactElement {
   const builtins: ToolbarMeta[] = [];
   if (p.sessionStatus) builtins.push({ key: "status", label: "Status", value: p.sessionStatus, category: "session" });
   if (p.sessionId) builtins.push({ key: "sid", label: "Session", value: p.sessionId.slice(0, 8) + "...", category: "session" });
@@ -355,32 +393,27 @@ function DetailsPanel(p: {
   );
 }
 
-// ── Toolbar ───────────────────────────────────────────────────────────────
+// ── BottomToolbar ─────────────────────────────────────────────────────────
 
-export function Toolbar(props: ToolbarProps): React.ReactElement {
+export function BottomToolbar(props: BottomToolbarProps): React.ReactElement {
   const {
-    model, mode, cwd, workspaceRoot,
+    model, mode,
     tokenUsage, contextWindowMax,
     messageCount, isTurnActive,
     sessionStatus, agentInfo,
     sessionId, sessionStartMs,
     provider, maxTokens, meta,
     onForkSession,
+    statusline,
   } = props;
 
   const total = tokenUsage.inputTokens + tokenUsage.outputTokens;
-  const wd = displayPath(cwd, workspaceRoot);
   const [open, setOpen] = React.useState(false);
 
   const ratio = contextWindowMax && total > 0 ? Math.min(total / contextWindowMax, 1) : 0;
 
   // ── chips (priority order per UI-DESIGN.md §4.2) ──────────────────────
   const chips: ToolbarMeta[] = [];
-
-  // P1: session status
-  if (sessionStatus) {
-    chips.push({ key: "status", label: "Status", value: sessionStatus, category: "session", statusIndicator: sessionStatus });
-  }
 
   // P2: mode + model (only when turn active)
   if (mode && isTurnActive) {
@@ -397,12 +430,10 @@ export function Toolbar(props: ToolbarProps): React.ReactElement {
       label: "Messages",
       value: `msg:${messageCount}`,
       category: "metrics",
-      // extend ToolbarMeta with tooltip override — handled via title on Chip
     });
   }
 
   // P3: Tokens chip — always shown (shows ↑0 ↓0 when no usage yet)
-  // Uses ↑input ↓output format (Cline style)
   {
     const tokenChip: ToolbarMeta = {
       key: "tokens",
@@ -413,16 +444,17 @@ export function Toolbar(props: ToolbarProps): React.ReactElement {
     chips.push(tokenChip);
   }
 
-  // P3: Context chip with visual bar (shown alongside tokens when max known and usage > 0)
+  // P3: Context chip with visual bar
   if (contextWindowMax && total > 0) {
     const pct = Math.round(ratio * 100);
+    const colorClass = contextColor(ratio);
     const contextChip: ToolbarMeta = {
       key: "context",
       label: "Context",
-      value: `Context ${visualBar(ratio)} ${pct}%`,
+      value: `${visualBar(ratio)} ${pct}%`,
       category: "metrics",
+      contextColor: colorClass,
     };
-    // Insert before tokens chip so context appears first
     const tokenIdx = chips.findIndex(c => c.key === "tokens");
     if (tokenIdx >= 0) {
       chips.splice(tokenIdx, 0, contextChip);
@@ -431,17 +463,31 @@ export function Toolbar(props: ToolbarProps): React.ReactElement {
     }
   }
 
+  // P3: Duration chip (if session start available)
+  if (sessionStartMs) {
+    const durChip: ToolbarMeta = {
+      key: "dur",
+      label: "Duration",
+      value: fmtDuration(Date.now() - sessionStartMs),
+      category: "metrics",
+    };
+    chips.push(durChip);
+  }
+
   if (meta) chips.push(...meta);
 
   const toggleDetails = () => setOpen((v) => !v);
 
   return (
     <header className="toolbar">
-      {/* row 1: CWD | chips | ▼ */}
+      {/* Row 0: statusline (Claude Code style) */}
+      <StatuslineRow
+        statusline={statusline}
+        sessionStatus={sessionStatus}
+      />
+
+      {/* Row 1: chips | ▼ */}
       <div className="toolbar-main">
-        <div className="toolbar-left">
-          {wd && <span className="toolbar-cwd" title={cwd}>📁 {wd}</span>}
-        </div>
         <div className="toolbar-center">
           <div className="toolbar-chips">
             {chips.map((c) => (
@@ -467,10 +513,10 @@ export function Toolbar(props: ToolbarProps): React.ReactElement {
         </div>
       </div>
 
-      {/* row 3: details panel */}
+      {/* Row 2: details panel */}
       {open && (
         <DetailsPanel
-          mode={mode} model={model} cwd={cwd}
+          mode={mode} model={model}
           messageCount={messageCount}
           tokenUsage={tokenUsage} totalTokens={total}
           isTurnActive={isTurnActive}

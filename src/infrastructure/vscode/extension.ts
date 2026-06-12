@@ -22,6 +22,9 @@ import type { ContextAttachmentDTO } from "../../domain/models/chat";
 import type { FileSystemAPI } from "../../platform/filesystem";
 import type { EditorAPI } from "../../platform/editor";
 import { TreeItem, TreeItemCollapsibleState } from "vscode";
+import { exec } from "child_process";
+import { promisify } from "util";
+import * as os from "os";
 
 // ============================================================================
 // Global State
@@ -91,8 +94,67 @@ function getChatPanel(): ChatPanel | null {
   return chatPanel;
 }
 
+// ── Statusline helpers ────────────────────────────────────────────────────
+
+const execAsync = promisify(exec);
+
+async function getStatuslineInfo(workspaceRoot: string): Promise<{
+  hostname: string;
+  repoName: string;
+  branch: string;
+  tag?: string;
+}> {
+  const hostname = os.hostname();
+
+  let repoName = path.basename(workspaceRoot);
+  try {
+    const { stdout } = await execAsync("git remote get-url origin", { cwd: workspaceRoot });
+    const remote = stdout.trim();
+    // Extract repo name from URL: "org/repo.git" or "org/repo"
+    const match = remote.match(/[:/]([^/]+?)(\.git)?$/);
+    if (match) repoName = match[1];
+  } catch {
+    // No remote, use directory name
+  }
+
+  let branch = "";
+  try {
+    const { stdout } = await execAsync("git branch --show-current", { cwd: workspaceRoot });
+    branch = stdout.trim();
+  } catch {
+    // Detached HEAD — try short SHA
+    try {
+      const { stdout } = await execAsync("git rev-parse --short HEAD", { cwd: workspaceRoot });
+      branch = stdout.trim();
+    } catch {
+      branch = "—";
+    }
+  }
+
+  let tag: string | undefined;
+  try {
+    const { stdout } = await execAsync("git describe --tags --exact-match", { cwd: workspaceRoot });
+    tag = stdout.trim();
+  } catch {
+    // No exact tag match — omit
+  }
+
+  return { hostname, repoName, branch, tag };
+}
+
+async function sendStatuslineInfo(): Promise<void> {
+  if (!chatPanel) return;
+  const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!ws) return;
+
+  const info = await getStatuslineInfo(ws);
+  chatPanel.postMessage({ type: "statusline", ...info });
+}
+
 function setChatPanel(panel: ChatPanel): void {
   chatPanel = panel;
+  // Send statusline info when chat panel is first created
+  void sendStatuslineInfo();
 }
 
 function updateContext(): void {
@@ -246,6 +308,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   );
 
   wireOrchestratorEvents();
+
+  // Send statusline info when workspace folders change
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeWorkspaceFolders(() => {
+      void sendStatuslineInfo();
+    }),
+  );
 
   for (const agent of registry.getAutoConnectAgents()) {
     for (const entry of agent.autoConnect ?? []) {

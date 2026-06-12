@@ -59,6 +59,117 @@ body {
   position: relative;
 }
 
+
+/* ── TopToolbar ─────────────────────────────────────────────────────── */
+
+.top-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 14px;
+  min-height: 26px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.top-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.top-toolbar-center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 auto;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.top-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.top-toolbar-agent,
+.top-toolbar-model,
+.top-toolbar-mode,
+.top-toolbar-cwd {
+  font-size: 11px;
+  color: var(--fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.top-toolbar-agent {
+  font-weight: 500;
+  font-family: var(--font-mono);
+  max-width: 120px;
+}
+
+.top-toolbar-model {
+  font-family: var(--font-mono);
+  max-width: 100px;
+}
+
+.top-toolbar-mode {
+  font-family: var(--font-mono);
+  max-width: 60px;
+}
+
+.top-toolbar-cwd {
+  font-family: var(--font-mono);
+  max-width: 160px;
+}
+
+/* ── UserJumpNav ──────────────────────────────────────────────────── */
+
+.user-jump-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.user-jump-btn {
+  background: none;
+  border: none;
+  color: var(--fg-muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 11px;
+  line-height: 1;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-jump-btn:hover:not(:disabled) {
+  color: var(--fg);
+  background: var(--bg-hover);
+}
+
+.user-jump-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.user-jump-counter {
+  font-size: 10px;
+  color: var(--fg-muted);
+  min-width: 30px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.6;
+}
+
 /* ============================================================================
    Toolbar — positioned below Composer (bottom of chat panel)
    Integrated with input area for a cohesive look.
@@ -77,6 +188,62 @@ body {
   border-top: 1px solid var(--border);
 }
 
+/* ── Statusline row (Claude Code style) ─────────────────────────────── */
+
+.toolbar-statusline {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--fg-muted);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.toolbar-statusline-segment {
+  color: var(--fg-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toolbar-statusline-sep {
+  color: var(--border);
+  margin: 0 2px;
+  flex-shrink: 0;
+}
+
+.toolbar-statusline-tag {
+  color: var(--warning);
+}
+
+.toolbar-statusline-status {
+  flex-shrink: 0;
+}
+
+.toolbar-statusline-status--running {
+  color: var(--warning);
+}
+
+.toolbar-statusline-status--idle {
+  color: var(--fg-muted);
+}
+
+.toolbar-statusline-status--completed {
+  color: var(--success);
+}
+
+.toolbar-statusline-status--error {
+  color: var(--error);
+}
+
+.toolbar-statusline-status--cancelled {
+  color: var(--fg-muted);
+  opacity: 0.6;
+}
+
 /* ── Row 1: single-line chips ───────────────────────────────────────── */
 
 .toolbar-main {
@@ -88,21 +255,12 @@ body {
   min-height: 28px;
 }
 
-.toolbar-left {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 1;
-  min-width: 0;
-  overflow: hidden;
-}
-
 .toolbar-center {
   display: flex;
   align-items: center;
   gap: 8px;
   flex: 1;
-  justify-content: center;
+  justify-content: flex-start;
   min-width: 0;
   overflow: hidden;
 }
@@ -114,15 +272,62 @@ body {
   flex-shrink: 0;
 }
 
-.toolbar-cwd {
+/* ── Statusline (Claude Code style) ─────────────────────────────────── */
+
+.toolbar-statusline {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 14px;
   font-size: 11px;
+  line-height: 1.4;
   color: var(--fg-muted);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
   font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.toolbar-statusline-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 160px;
-  flex-shrink: 1;
+}
+
+.toolbar-statusline-sep {
+  color: var(--border);
+  margin: 0 2px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.toolbar-statusline-branch {
+  color: var(--accent);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toolbar-statusline-tag {
+  color: var(--warning);
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toolbar-statusline-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-right: 2px;
 }
 
 /* ── Chips ─────────────────────────────────────────────────────────── */
@@ -190,6 +395,34 @@ body {
 .toolbar-chip--runtime { border-left: 2px solid var(--warning); }
 .toolbar-chip--metrics { border-left: 2px solid var(--success); }
 .toolbar-chip--workspace { border-left: 2px solid var(--fg-muted); }
+
+/* ── Context usage color states ─────────────────────────────────────────── */
+.toolbar-chip--ctx-normal {
+  border-left: 2px solid #4fc3f7;  /* blue */
+}
+.toolbar-chip--ctx-normal .toolbar-chip-value {
+  color: #4fc3f7;
+}
+
+.toolbar-chip--ctx-warning {
+  border-left: 2px solid #ffd54f;  /* yellow */
+}
+.toolbar-chip--ctx-warning .toolbar-chip-value {
+  color: #ffd54f;
+}
+
+.toolbar-chip--ctx-critical {
+  border-left: 2px solid #ef5350;  /* red */
+  animation: context-pulse 1.2s ease-in-out infinite;
+}
+.toolbar-chip--ctx-critical .toolbar-chip-value {
+  color: #ef5350;
+}
+
+@keyframes context-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
 
 .toolbar-toggle {
   display: flex;
@@ -321,6 +554,7 @@ body {
   padding: 16px 14px;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .empty-state {
@@ -347,6 +581,83 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+/* ============================================================================
+   Scroll-to-Bottom Button
+   ============================================================================ */
+
+.scroll-to-bottom-button {
+  position: fixed;
+  bottom: 120px;
+  right: 24px;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  color: var(--fg-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.scroll-to-bottom-button:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent);
+  transform: scale(1.05);
+}
+
+.scroll-to-bottom-button:active {
+  transform: scale(0.95);
+}
+
+.scroll-to-bottom-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.scroll-to-bottom-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--user-fg);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* ============================================================================
+   Message Jump Highlight — brief border flash after navigation jump
+   ============================================================================ */
+
+.message-body--highlighted {
+  animation: message-body-jump-flash 1.2s ease-out;
+}
+
+@keyframes message-body-jump-flash {
+  0% {
+    box-shadow: 0 0 0 2px var(--accent), 0 0 12px 2px color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+  60% {
+    box-shadow: 0 0 0 2px var(--accent), 0 0 6px 1px color-mix(in srgb, var(--accent) 20%, transparent);
+  }
+  100% {
+    box-shadow: none;
+  }
 }
 
 /* ============================================================================
@@ -1826,11 +2137,23 @@ body {
    Completion Notification — toast for background session completion
    ============================================================================ */
 
-.completion-notification {
+.completion-notification-stack {
   position: absolute;
   top: 8px;
   right: 8px;
   z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 280px;
+  pointer-events: none;
+}
+
+.completion-notification {
+  position: relative;
+  top: auto;
+  right: auto;
+  z-index: auto;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1843,6 +2166,7 @@ body {
   transform: translateX(120%);
   transition: transform 0.3s ease;
   max-width: 280px;
+  pointer-events: auto;
 }
 
 .completion-notification-visible {
