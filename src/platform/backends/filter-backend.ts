@@ -1,9 +1,9 @@
 // src/platform/backends/filter-backend.ts
 //
-// 既存の LoggerBackend をラップし、カテゴリ単位でログレベルを上書きするデコレータ。
-// 特定モジュールだけ trace を有効化する等、デバッグ用途に使用する。
+// Decorator that wraps an existing LoggerBackend and overrides log levels per category.
+// Useful for debugging — e.g. enable trace for a specific module only.
 //
-// 使用方法:
+// Usage:
 //   const base = new ConsoleLoggerBackend(LogLevel.info);
 //   const filtered = new FilterLoggerBackend(base, {
 //     'orchestrator': LogLevel.trace,

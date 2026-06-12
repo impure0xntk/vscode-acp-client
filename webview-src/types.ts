@@ -119,18 +119,4 @@ export interface FullState {
   isTurnActive: boolean;
 }
 
-// ── Running tool overlay ─────────────────────────────────────────────
 
-export interface ToolCallInfo {
-  id: string;
-  title: string;
-  status: "in_progress" | "completed" | "failed" | "cancelled";
-  kind: string;
-  durationMs?: number;
-  /** File path being operated on (for read/edit/search tools) */
-  filePath?: string;
-  /** Short summary of the operation (e.g. command name, search query) */
-  summary?: string;
-  /** Elapsed time in ms — updated live for in_progress tools */
-  elapsedMs?: number;
-}

@@ -92,7 +92,7 @@ export interface Webview {
 
 /** UI API インターフェース */
 export interface UIAPI {
-  // ── メッセージ表示 ──
+  // ── Message display ──
   showMessage(message: string, severity?: MessageSeverity): Promise<void>;
 
   // ── QuickPick ──
@@ -109,20 +109,20 @@ export interface UIAPI {
   // ── InputBox ──
   showInputBox(options?: InputBoxOptions): Promise<string | undefined>;
 
-  // ── ファイルダイアログ ──
+  // ── File dialog ──
   showOpenDialog(options?: OpenDialogOptions): Promise<PlatformUri[] | undefined>;
 
-  // ── ステータスバー ──
+  // ── Status bar ──
   createStatusBarItem(options: {
     alignment: 'left' | 'right';
     priority?: number;
     command?: string;
   }): StatusBarItem;
 
-  // ── 出力チャネル ──
+  // ── Output channel ──
   createOutputChannel(name: string): OutputChannel;
 
-  // ── Webview パネル ──
+  // ── Webview panel ──
   createWebviewPanel(options: {
     viewId: string;
     title: string;
@@ -137,14 +137,14 @@ export interface UIAPI {
     provider: TreeDataProvider<T>
   ): Disposable;
 
-  // ── コマンド ──
+  // ── Commands ──
   registerCommand(commandId: string, handler: (...args: unknown[]) => unknown): Disposable;
   executeCommand<T>(commandId: string, ...args: unknown[]): Promise<T | undefined>;
   setContext(key: string, value: unknown): Promise<void>;
 
-  // ── イベントエミッタ ──
+  // ── Event emitter ──
   createEventEmitter<T>(): EventEmitter<T>;
 
-  // ── 通知 ──
+  // ── Notifications ──
   showNotification(message: string, items: string[]): Promise<string | undefined>;
 }

@@ -17,11 +17,11 @@ export interface PlatformAPI {
   readonly terminal: TerminalAPI;
   readonly orchestration: OrchestrationStateAPI;
 
-  // ── ライフサイクル ──
+  // ── Lifecycle ──
   initialize(): Promise<void>;
   dispose(): Promise<void>;
 
-  // ── プラットフォーム情報 ──
+  // ── Platform info ──
   readonly platform: 'vscode' | 'node' | 'electron' | 'web';
   readonly version: string;
 }

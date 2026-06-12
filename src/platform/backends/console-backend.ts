@@ -1,7 +1,7 @@
 // src/platform/backends/console-backend.ts
 //
-// 全プラットフォーム共通の console ベースバックエンド。
-// VSCode / Node.js / Electron のいずれでも動作する。
+// Common console-based backend for all platforms.
+// Works on VSCode / Node.js / Electron.
 
 import type { LogRecord, LoggerBackend, LogLevelValue } from './types';
 
@@ -15,10 +15,10 @@ const levelLabel: Record<LogLevelValue, string> = {
 };
 
 /**
- * console ベースのログバックエンド。
- * フォーマット: [LEVEL] [category] message  key=value ...
+ * Console-based log backend.
+ * Format: [LEVEL] [category] message  key=value ...
  *
- * 使用方法:
+ * Usage:
  *   const backend = new ConsoleLoggerBackend(LogLevel.debug);
  *   const factory = createLoggerFactory(backend);
  */
@@ -36,7 +36,7 @@ export class ConsoleLoggerBackend implements LoggerBackend {
     const label = levelLabel[record.level] ?? '?????';
     const parts = [`[${label}]`, `[${ts}]`, `[${record.category}]`, record.message];
 
-    // 構造化コンテキストを key=value 形式で付加
+    // Append structured context in key=value format
     if (record.context) {
       for (const [k, v] of Object.entries(record.context)) {
         parts.push(`  ${k}=${JSON.stringify(v)}`);

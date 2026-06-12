@@ -7,45 +7,6 @@ import { getVsCodeApi } from "../lib/vscodeApi";
 // Helpers
 // ============================================================================
 
-/** Derive a short human-readable summary from a tool call's input */
-function deriveSummary(tc: { kind: string; input?: Record<string, unknown> | string }): string | undefined {
-  if (!tc.input) return undefined;
-  const inp = tc.input;
-  if (typeof inp === "string") {
-    // Shell-style: first 60 chars of the command
-    const trimmed = inp.trim();
-    return trimmed.length > 60 ? trimmed.slice(0, 57) + "..." : trimmed;
-  }
-  // Structured input — pick common fields
-  if (tc.kind === "bash" || tc.kind === "shell" || tc.kind === "execute") {
-    const cmd = inp["command"] as string | undefined;
-    if (cmd) return cmd.length > 60 ? cmd.slice(0, 57) + "..." : cmd;
-  }
-  if (tc.kind === "read" || tc.kind === "read_file") {
-    const path = inp["file_path"] as string | undefined;
-    if (path) return path;
-  }
-  if (tc.kind === "write" || tc.kind === "edit" || tc.kind === "multi_edit") {
-    const path = inp["file_path"] as string | undefined;
-    if (path) return path;
-  }
-  if (tc.kind === "grep" || tc.kind === "search" || tc.kind === "rg") {
-    const pattern = inp["pattern"] as string | undefined ?? inp["query"] as string | undefined;
-    if (pattern) return `/${pattern}/`;
-  }
-  if (tc.kind === "web_search" || tc.kind === "fetch") {
-    const q = inp["query"] as string | undefined ?? inp["url"] as string | undefined;
-    if (q) return q.length > 60 ? q.slice(0, 57) + "..." : q;
-  }
-  // Fallback: show first string value found
-  for (const v of Object.values(inp)) {
-    if (typeof v === "string" && v.length > 0) {
-      return v.length > 60 ? v.slice(0, 57) + "..." : v;
-    }
-  }
-  return undefined;
-}
-
 // ============================================================================
 // Re-exports (for consumers)
 // ============================================================================
@@ -143,14 +104,6 @@ export interface WorkspaceFolder {
   path: string;
 }
 
-export interface ToolCallInfo {
-  id: string;
-  title: string;
-  status: "in_progress" | "completed" | "failed" | "cancelled";
-  kind: string;
-  durationMs?: number;
-}
-
 export interface SlashCommand {
   name: string;
   description?: string;
@@ -187,9 +140,6 @@ export interface SessionContext {
 
   // Available slash commands for the active session
   availableCommands: SlashCommand[];
-
-  // Running tool for overlay display
-  latestRunningTool: ToolCallInfo | null;
 
   // Background session completion notification
   completedNotification: { agentId: string; sessionId: string; title: string } | null;
@@ -355,10 +305,19 @@ function reducer(state: FullState, action: SessionAction): FullState {
       };
 
     case "REMOVE_TAB": {
-      const newTabs = state.tabs.filter((t) => t.sessionId !== action.sessionId);
+      // Find the tab matching both sessionId and agentId (from active session)
+      const targetAgentId = state.activeSessionId === action.sessionId ? state.activeAgentId : undefined;
+      const removedTab = targetAgentId
+        ? state.tabs.find((t) => t.sessionId === action.sessionId && t.agentId === targetAgentId)
+        : state.tabs.find((t) => t.sessionId === action.sessionId);
+
+      const newTabs = removedTab
+        ? state.tabs.filter((t) => !(t.sessionId === action.sessionId && t.agentId === removedTab.agentId))
+        : state.tabs.filter((t) => t.sessionId !== action.sessionId);
+
       let newActiveSessionId = state.activeSessionId;
       let newActiveAgentId = state.activeAgentId;
-      if (state.activeSessionId === action.sessionId) {
+      if (state.activeSessionId === action.sessionId && state.activeAgentId === (removedTab?.agentId ?? targetAgentId)) {
         if (newTabs.length > 0) {
           newActiveSessionId = newTabs[newTabs.length - 1].sessionId;
           newActiveAgentId = newTabs[newTabs.length - 1].agentId;
@@ -369,7 +328,6 @@ function reducer(state: FullState, action: SessionAction): FullState {
       }
       // Remove the session messages for the closed tab
       const newSessions = { ...state.sessions };
-      const removedTab = state.tabs.find((t) => t.sessionId === action.sessionId);
       if (removedTab) {
         const key = sessionKey(removedTab.agentId, removedTab.sessionId);
         delete newSessions[key];
@@ -666,47 +624,7 @@ export function useSessionContext(): SessionContext {
   const isTurnActive = activeSession?.isTurnActive ?? false;
   const availableCommands = activeSessionKey ? (state.sessionCommands[activeSessionKey] ?? []) : [];
 
-  // Derive latest running tool from active session messages
-  // Optimized: avoid creating new array, use direct reference
-  const latestRunningTool = React.useMemo<ToolCallInfo | null>(() => {
-    const msgs = messages;
-    if (!msgs || msgs.length === 0) return null;
 
-    // Find the most recent message with tool calls
-    for (let i = msgs.length - 1; i >= 0; i--) {
-      const toolCalls = msgs[i].toolCalls;
-      if (toolCalls && toolCalls.length > 0) {
-        // Find the first in_progress tool call
-        for (let j = 0; j < toolCalls.length; j++) {
-          const tc = toolCalls[j];
-          if (tc.status === "in_progress") {
-            return {
-              id: tc.id,
-              title: tc.title || tc.kind,
-              status: "in_progress" as const,
-              kind: tc.kind,
-              durationMs: tc.durationMs,
-              filePath: tc.locations?.[0]?.path,
-              summary: deriveSummary(tc),
-            };
-          }
-        }
-
-        // If no in_progress, return the last tool call with its actual status
-        const lastTc = toolCalls[toolCalls.length - 1];
-        return {
-          id: lastTc.id,
-          title: lastTc.title || lastTc.kind,
-          status: lastTc.status as ToolCallInfo["status"],
-          kind: lastTc.kind,
-          durationMs: lastTc.durationMs,
-          filePath: lastTc.locations?.[0]?.path,
-          summary: deriveSummary(lastTc),
-        };
-      }
-    }
-    return null;
-  }, [messages]);
 
   // ------------------------------------------------------------------
   // Background session completion notification
@@ -1003,6 +921,7 @@ export function useSessionContext(): SessionContext {
   }, []);
 
   const closeSession = useCallback((sessionId: string) => {
+    dispatch({ type: "REMOVE_TAB", sessionId });
     getVsCodeApi().postMessage({ type: "closeSession", sessionId });
   }, []);
 
@@ -1166,7 +1085,6 @@ export function useSessionContext(): SessionContext {
       agentName: state.agentName,
       sessions: state.sessions,
       workspaceRoot: state.workspaceRoot,
-      latestRunningTool,
       completedNotification,
       availableCommands,
       // Stable function refs — child components that are React.memo
@@ -1204,7 +1122,6 @@ export function useSessionContext(): SessionContext {
       state.agentName,
       state.sessions,
       state.workspaceRoot,
-      latestRunningTool,
       completedNotification,
       availableCommands,
     ],

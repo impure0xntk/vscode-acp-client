@@ -2,7 +2,7 @@
 
 import type { Disposable, PlatformUri } from './types';
 
-/** メモリ（キー・バリューストア） */
+/** Memento (key-value store) */
 export interface Memento {
   get<T>(key: string, defaultValue?: T): T | undefined;
   update(key: string, value: unknown): Promise<void>;
@@ -11,8 +11,8 @@ export interface Memento {
 }
 
 /**
- * オーケストレーション状態のスナップショット。
- * StateManager の state をシリアライズした際のルートオブジェクト。
+ * Orchestration state snapshot.
+ * Root object produced when serializing StateManager's state.
  */
 export interface OrchestrationStateSnapshot {
   version: 1;
@@ -25,14 +25,14 @@ export interface OrchestrationStateEntry {
   value: unknown;
 }
 
-/** Extension Context API インターフェース */
+/** Extension Context API interface */
 export interface ExtensionContextAPI {
-  // ── ストレージ ──
+  // ── Storage ──
   get globalState(): Memento;
   get workspaceState(): Memento;
   get storageUri(): string | undefined;
   get extensionUri(): PlatformUri;
 
-  // ── サブスクリプション ──
+  // ── Subscriptions ──
   addSubscription(disposable: Disposable): void;
 }

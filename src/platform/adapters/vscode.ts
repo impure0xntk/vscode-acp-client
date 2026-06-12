@@ -48,11 +48,11 @@ export class VscodePlatform implements PlatformAPI {
   }
 
   async initialize(): Promise<void> {
-    // VSCode 固有の初期化は activate で行うためここでは何もしない
+    // VSCode-specific initialization is done in activate; nothing to do here
   }
 
   async dispose(): Promise<void> {
-    // リソース解放は deactivate で行う
+    // Resource cleanup is done in deactivate
   }
 }
 
@@ -464,7 +464,7 @@ class VscodeEditorAPI implements EditorAPI {
   }
 
   computeDiff(oldContent: string, newContent: string, path: string): DiffResult {
-    // diff パッケージは使用せず、簡易的な行ベース diff を自前で計算
+    // Compute a simple line-based diff without using the diff package
     const oldLines = oldContent.split('\n');
     const newLines = newContent.split('\n');
     const hunts: DiffResult['hunks'] = [];
@@ -568,7 +568,7 @@ class VscodeContextAPI implements ExtensionContextAPI {
       update: (key: string, value: unknown) =>
         Promise.resolve(this.ctx.workspaceState.update(key, value)),
       keys: () => this.ctx.workspaceState.keys().slice(),
-      setKeysForSync: () => {},  // workspaceState では同期対象キーはサポートしない
+      setKeysForSync: () => {},  // workspaceState does not support sync keys
     };
   }
 
@@ -604,8 +604,8 @@ class VscodeTerminalAPI implements TerminalAPI {
       id: options.name ?? '',
       show: () => vscodeTerminal.show(),
       sendText: (text: string) => vscodeTerminal.sendText(text),
-      getOutput: async () => '',  // VSCode API ではターミナル出力の直接取得は非サポート
-      waitForExit: async () => 0,  // 非サポート
+      getOutput: async () => '',  // VSCode API does not support direct terminal output retrieval
+      waitForExit: async () => 0,  // Not supported
       kill: () => vscodeTerminal.dispose(),
       dispose: () => vscodeTerminal.dispose(),
     };

@@ -1,9 +1,9 @@
 // src/platform/backends/types.ts
 //
-// ログ抽象化のコア型定義。
-// 全プラットフォーム（VSCode / Node.js / Electron）から共有される。
+// Core type definitions for log abstraction.
+// Shared across all platforms (VSCode / Node.js / Electron).
 
-// ── ログレベル ──────────────────────────────────────────────────────────────
+// ── Log level ──────────────────────────────────────────────────────────────
 
 export const LogLevel = {
   trace: 0,
@@ -17,32 +17,32 @@ export const LogLevel = {
 export type LogLevelName = keyof typeof LogLevel;
 export type LogLevelValue = (typeof LogLevel)[LogLevelName];
 
-// ── ログレコード ────────────────────────────────────────────────────────────
-// 1 つのログ emit が生成するイミュータブルなデータ構造。
-// バックエンドはこのレコードを受け取り、フォーマット・出力先を決定する。
+// ── Log record ────────────────────────────────────────────────────────────
+// Immutable data structure produced by a single log emit.
+// Backends receive this record and decide formatting / output destination.
 
 export interface LogRecord {
-  /** ログレベル */
+  /** Log level */
   readonly level: LogLevelValue;
-  /** ロガーカテゴリ（通常はモジュール名、例: "orchestrator", "session"） */
+  /** Logger category (typically module name, e.g. "orchestrator", "session") */
   readonly category: string;
-  /** ログメッセージ（テンプレート可。context と合わせてフォーマット） */
+  /** Log message (may be a template; combined with context for formatting) */
   readonly message: string;
-  /** 生成時のタイムスタンプ (epoch ms) */
+  /** Timestamp at creation (epoch ms) */
   readonly timestamp: number;
-  /** 構造化コンテキスト。テンプレート置換・フィルタリングに利用 */
+  /** Structured context. Used for template substitution and filtering. */
   readonly context?: Record<string, unknown>;
-  /** 関連するエラーがある場合 */
+  /** Associated error, if any */
   readonly error?: Error;
 }
 
-// ── Logger インターフェース ────────────────────────────────────────────────
-// アプリケーションコードから呼び出されるロガー。
-// 内部で LoggerBackend.emit() を呼ぶ薄いファサード。
+// ── Logger interface ────────────────────────────────────────────────
+// Logger called from application code.
+// Thin facade that internally calls LoggerBackend.emit().
 
 export interface Logger {
   readonly category: string;
-  readonly minLevel: LogLevelValue;
+  minLevel: LogLevelValue;
 
   trace(msg: string, context?: Record<string, unknown>): void;
   debug(msg: string, context?: Record<string, unknown>): void;
@@ -50,36 +50,36 @@ export interface Logger {
   warn(msg: string, context?: Record<string, unknown>): void;
   error(msg: string, context?: Record<string, unknown>, error?: Error): void;
 
-  /** カテゴリ名を継承した子ロガーを作成 */
+  /** Create a child logger that inherits the category name */
   child(suffix: string): Logger;
 }
 
-// ── LoggerBackend インターフェース ─────────────────────────────────────────
-// ログの実出力先を抽象化。各プラットフォームが独自実装を提供する。
-// パイプライン: Logger → LoggerBackend.emit() → 出力先 / OutputChannel / ファイル etc.
+// ── LoggerBackend interface ─────────────────────────────────────────
+// Abstracts the actual log output destination. Each platform provides its own implementation.
+// Pipeline: Logger → LoggerBackend.emit() → destination / OutputChannel / file etc.
 
 export interface LoggerBackend {
-  /** 最低出力レベル。これ未満のレコードは即座に破棄される */
+  /** Minimum output level. Records below this are discarded immediately. */
   minLevel: LogLevelValue;
 
-  /** 1レコード出力。呼び出しは non-blocking であるべき */
+  /** Emit one record. Calls should be non-blocking. */
   emit(record: LogRecord): void;
 
-  /** バッファフラッシュが必要なバックエンド用（no-op 可） */
+  /** For backends that need buffer flushing (no-op allowed) */
   flush?(): Promise<void>;
 
-  /** リソース解放が必要なバックエンド用（no-op 可） */
+  /** For backends that need resource cleanup (no-op allowed) */
   dispose?(): void;
 }
 
 // ── LoggerFactory ──────────────────────────────────────────────────────────
-// トップレベルで Logger インスタンスを生成するファクトリ。
-// PlatformAPI がこのファクトリを保持し、アプリケーション層に公開する。
+// Top-level factory that creates Logger instances.
+// PlatformAPI holds this factory and exposes it to the application layer.
 
 export interface LoggerFactory {
   getLogger(category: string): Logger;
-  /** 全ロガーの最小レベルを一括変更 */
+  /** Change minimum level for all loggers at once */
   setLevel(level: LogLevelValue): void;
-  /** バックエンドを差し替え（実行時切替対応） */
+  /** Swap the backend at runtime */
   setBackend(backend: LoggerBackend): void;
 }

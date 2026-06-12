@@ -3,11 +3,11 @@
 import type { OrchestrationStateSnapshot } from './context';
 
 /**
- * オーケストレーション状態の永続化を担う API。
- * StateManager がイベントソーシングで状態を保存する際に使用する。
+ * API for persisting orchestration state.
+ * Used by StateManager when saving state via event sourcing.
  */
 export interface OrchestrationStateAPI {
-  // ── 状態の永続化 ──
+  // ── State persistence ──
   saveState(
     snapshot: OrchestrationStateSnapshot,
     options?: { replace?: boolean }
@@ -19,7 +19,7 @@ export interface OrchestrationStateAPI {
 
   listPersistedSessions(): Promise<string[]>;
 
-  // ── イベントログ出力 ──
+  // ── Event log output ──
   appendEventLogEntry(sessionId: string, entry: unknown): Promise<void>;
 
   readEventLog(sessionId: string, options?: {

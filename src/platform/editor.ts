@@ -2,7 +2,7 @@
 
 import type { Disposable, LineRange, PlatformUri, DiffResult } from './types';
 
-/** シンボル情報 */
+/** Symbol information */
 export interface SymbolInfo {
   name: string;
   kind: string;
@@ -12,14 +12,14 @@ export interface SymbolInfo {
   containerName?: string;
 }
 
-/** 定義位置 */
+/** Definition location */
 export interface DefinitionLocation {
   uri: PlatformUri;
   startLine: number;
   endLine: number;
 }
 
-/** 選択範囲 */
+/** Selection range */
 export interface Selection {
   startLine: number;
   startCharacter: number;
@@ -28,7 +28,7 @@ export interface Selection {
   isEmpty: boolean;
 }
 
-/** アクティブエディタ情報 */
+/** Active editor info */
 export interface ActiveEditor {
   documentUri: PlatformUri;
   filePath: string;
@@ -37,22 +37,22 @@ export interface ActiveEditor {
   visibleRanges: LineRange[];
 }
 
-/** エディタ API インターフェース */
+/** Editor API interface */
 export interface EditorAPI {
-  // ── ドキュメント操作 ──
+  // ── Document operations ──
   openDocument(uri: PlatformUri): Promise<PlatformUri>;
   getDocumentContent(uri: PlatformUri): Promise<string>;
 
-  // ── アクティブエディタ ──
+  // ── Active editor ──
   get activeEditor(): ActiveEditor | undefined;
   get visibleEditors(): ActiveEditor[];
 
-  // ── シンボル ──
+  // ── Symbols ──
   getSymbols(uri: PlatformUri): Promise<SymbolInfo[]>;
   findSymbolDefinition(uri: PlatformUri, line: number, character: number): Promise<DefinitionLocation | undefined>;
   searchSymbols(query: string): Promise<SymbolInfo[]>;
 
-  // ── ファイル操作 ──
+  // ── File operations ──
   openFile(path: string, line?: number): Promise<void>;
 
   // ── Diff ──
@@ -63,7 +63,7 @@ export interface EditorAPI {
     preview?: boolean;
   }): Promise<void>;
 
-  // ── 仮想ドキュメント ──
+  // ── Virtual documents ──
   registerDocumentProvider(
     scheme: string,
     provider: {
@@ -75,5 +75,5 @@ export interface EditorAPI {
   getGitDiff(): Promise<string | undefined>;
 }
 
-/** Diff 結果（editor.ts から再エクスポート） */
+/** Diff result (re-exported from editor.ts) */
 export type { DiffResult } from './types';

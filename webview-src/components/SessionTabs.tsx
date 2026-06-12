@@ -95,7 +95,7 @@ export function SessionTabs({
           return (
             <div
               key={`${tab.agentId}:${tab.sessionId}`}
-              className={`session-tab${isActive ? " session-tab-active" : ""}${isDragging ? " dragging" : ""}${isDropTarget ? " drop-target" : ""}${isActive && (tab.status === "running" || tab.status === "working") ? " status-tab-has-running-status" : ""}`}
+              className={`session-tab${isActive ? " session-tab-active" : ""}${isDragging ? " dragging" : ""}${isDropTarget ? " drop-target" : ""}`}
               draggable
               onDragStart={(e) => handleDragStart(e, index)}
               onDragOver={(e) => handleDragOver(e, index)}

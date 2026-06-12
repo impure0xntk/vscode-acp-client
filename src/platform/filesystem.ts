@@ -2,38 +2,38 @@
 
 import type { ConfigValue, Disposable, FileSnapshot, FileStat, FileWatchEvent, PlatformUri } from './types';
 
-/** ファイル候補 */
+/** File candidate */
 export interface FileCandidate {
   relativePath: string;
   absolutePath: string;
   name: string;
 }
 
-/** ファイルシステム API インターフェース */
+/** File system API interface */
 export interface FileSystemAPI {
-  // ── 読み書き ──
+  // ── Read/Write ──
   readFile(path: string): Promise<string>;
   writeFile(path: string, content: string): Promise<void>;
   fileExists(path: string): Promise<boolean>;
   stat(path: string): Promise<FileStat>;
 
-  // ── 検索 ──
+  // ── Search ──
   findFiles(
     pattern: string,
     exclude?: string,
     maxResults?: number
   ): Promise<PlatformUri[]>;
 
-  // ── 監視 ──
+  // ── Watch ──
   watchFiles(
     pattern: string,
     callback: (event: FileWatchEvent) => void
   ): () => void;
 
-  // ── スナップショット ──
+  // ── Snapshot ──
   captureSnapshot(path: string): Promise<FileSnapshot>;
 
-  // ── URI 操作 ──
+  // ── URI operations ──
   uri(path: string): PlatformUri;
   joinPath(base: PlatformUri, ...segments: string[]): PlatformUri;
   basename(path: string): string;
@@ -41,13 +41,13 @@ export interface FileSystemAPI {
   relativePath(from: string, to: string): string;
   isAbsolutePath(path: string): boolean;
 
-  // ── 設定 ──
+  // ── Configuration ──
   getConfiguration(section: string): ConfigValue;
 
-  // ── ワークスペース ──
+  // ── Workspace ──
   get workspaceRoots(): string[];
   get workspaceRoot(): string | undefined;
 
-  // ── パス解決 ──
+  // ── Path resolution ──
   resolvePath(base: string, relative: string): string;
 }

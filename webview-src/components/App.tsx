@@ -3,7 +3,7 @@ import { ChatContainer } from "./ChatContainer";
 import { Composer } from "./Composer";
 import { Toolbar } from "./Toolbar";
 import { SessionTabs } from "./SessionTabs";
-import { RunningToolOverlay } from "./RunningToolOverlay";
+import { ProgressBar } from "./ProgressBar";
 import { CompletionNotification } from "./CompletionNotification";
 import { SessionHistoryPanel, PersistentSessionEntry } from "./SessionHistoryPanel";
 import { useSessionContext } from "../hooks/useSessionContext";
@@ -35,7 +35,6 @@ export function App(): React.ReactElement {
     connectedAgents,
     agentInfoMap,
     workspaceFolders,
-    latestRunningTool,
     completedNotification,
     dismissCompletedNotification,
     switchTab,
@@ -162,7 +161,6 @@ export function App(): React.ReactElement {
           onSwitchTab={handleTabClick}
         />
       )}
-      <RunningToolOverlay tool={latestRunningTool} />
       <ChatContainer
         messages={activeMessages}
         isStreaming={activeStreaming}
@@ -182,6 +180,7 @@ export function App(): React.ReactElement {
         resolveSymbol={resolveSymbol}
         availableCommands={availableCommands}
       />
+      <ProgressBar status={activeTab?.status} />
       <Toolbar
         model={activeTab?.model}
         mode={activeTab?.mode}

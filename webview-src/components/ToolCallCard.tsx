@@ -29,7 +29,7 @@ function formatDuration(ms: number): string {
 
 function DiffView({ diff }: { diff: ToolCallDiffContent }): React.ReactElement {
   const lines: Array<{ prefix: string; text: string }> = [];
-  const diffLines = diff.diff.split("\n");
+  const diffLines = (diff.diff ?? "").split("\n");
 
   const maxLines = 200;
   let truncated = false;
@@ -156,35 +156,30 @@ export function ToolCallCard({
         </span>
         <span className="tool-kind">{displayKind}</span>
         <span className="tool-title">{title}</span>
+        {/* Inline file location chips inside the header row */}
+        {hasLocations && locations.map((loc, idx) => {
+          const basename = loc.path.split("/").pop() ?? loc.path;
+          const ext = getFileExtension(loc.path);
+          return (
+            <span
+              key={`${loc.path}:${loc.line ?? 0}-${idx}`}
+              className="file-chip file-chip-inline"
+              onClick={(e) => { e.stopPropagation(); handleFileClick(loc.path, loc.line); }}
+              title={loc.line ? `${loc.path}:${loc.line}` : loc.path}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); handleFileClick(loc.path, loc.line); }}}
+            >
+              <span className="file-chip-ext">{fileIcon(ext)}</span>
+              <span className="file-chip-label">{basename}{loc.line ? `:${loc.line}` : ""}</span>
+            </span>
+          );
+        })}
         {durationMs !== undefined && (
           <span className="tool-duration">{formatDuration(durationMs)}</span>
         )}
         {hasBody && <Chevron open={expanded} />}
       </button>
-
-      {/* File location chips — always visible for quick file access */}
-      {hasLocations && (
-        <div className="tool-call-locations">
-          {locations.map((loc, idx) => {
-            const basename = loc.path.split("/").pop() ?? loc.path;
-            const ext = getFileExtension(loc.path);
-            return (
-              <span
-                key={`${loc.path}:${loc.line ?? 0}-${idx}`}
-                className="file-chip"
-                onClick={(e) => { e.stopPropagation(); handleFileClick(loc.path, loc.line); }}
-                title={loc.line ? `${loc.path}:${loc.line}` : loc.path}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => { if (e.key === "Enter") handleFileClick(loc.path, loc.line); }}
-              >
-                <span className="file-chip-ext">{fileIcon(ext)}</span>
-                <span className="file-chip-label">{basename}{loc.line ? `:${loc.line}` : ""}</span>
-              </span>
-            );
-          })}
-        </div>
-      )}
 
       {/* Expandable body */}
       {expanded && (
@@ -261,7 +256,7 @@ type GroupedStatus = ToolCallCardProps["status"] | "warning";
 function aggregateStatus(calls: ToolCallCardProps[]): GroupedStatus {
   const statuses = calls.map((c) => c.status);
   if (statuses.some((s) => s === "in_progress")) return "in_progress";
-  // 一部だけ失敗 → warning(黄色・エクスクラメーション)。全部失敗 → failed(赤)。
+  // Some failed → warning (yellow exclamation). All failed → failed (red).
   if (statuses.some((s) => s === "failed")) {
     return statuses.every((s) => s === "failed") ? "failed" : "warning";
   }
@@ -314,32 +309,27 @@ export function GroupedToolCallCard({
         </span>
         <span className="tool-kind">{kind}</span>
         <span className="tool-group-count">×{count}</span>
+        {/* Inline file chips inside the header row */}
+        {uniqueFiles.length > 0 && uniqueFiles.map((path, idx) => {
+          const ext = getFileExtension(path);
+          const basename = path.split("/").pop() ?? path;
+          return (
+            <span
+              key={`${path}-${idx}`}
+              className="tool-group-file-chip tool-group-file-chip-inline"
+              onClick={(e) => handleFileClick(e, path)}
+              title={path}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); try { getVsCodeApi().postMessage({ type: "openFile", path }); } catch { /* */ } } }}
+            >
+              <span className="tool-group-file-icon">{fileIcon(ext)}</span>
+              <span className="tool-group-file-name">{basename}</span>
+            </span>
+          );
+        })}
         <Chevron open={expanded} />
       </button>
-
-      {/* File icons row — quick preview of affected files */}
-      {uniqueFiles.length > 0 && (
-        <div className="tool-group-files">
-          {uniqueFiles.map((path, idx) => {
-            const ext = getFileExtension(path);
-            const basename = path.split("/").pop() ?? path;
-            return (
-              <span
-                key={`${path}-${idx}`}
-                className="tool-group-file-chip"
-                onClick={(e) => handleFileClick(e, path)}
-                title={path}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); try { getVsCodeApi().postMessage({ type: "openFile", path }); } catch { /* */ } } }}
-              >
-                <span className="tool-group-file-icon">{fileIcon(ext)}</span>
-                <span className="tool-group-file-name">{basename}</span>
-              </span>
-            );
-          })}
-        </div>
-      )}
 
       {/* Expanded: individual calls */}
       {expanded && (
