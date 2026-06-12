@@ -1,5 +1,5 @@
-import React, { useCallback, useState } from "react";
-import type { SessionTabState } from "../hooks/useSessionContext";
+import React, { useCallback, useState, useEffect } from "react";
+import type { SessionTabState, SessionInfoSnapshot, ConnectedAgentInfo } from "../hooks/useSessionContext";
 import { StatusIcon } from "./StatusIcon";
 
 // ============================================================================
@@ -9,6 +9,10 @@ import { StatusIcon } from "./StatusIcon";
 interface SessionTabsProps {
   tabs: SessionTabState[];
   activeSessionId: string | null;
+  /** SessionInfo snapshots from extension host — source of truth for status/tokenUsage/etc */
+  sessionInfoMap: Record<string, SessionInfoSnapshot>;
+  /** Connected agents info for color lookup */
+  connectedAgents: ConnectedAgentInfo[];
   onTabClick: (sessionId: string, agentId: string) => void;
   onTabClose: (sessionId: string) => void;
   onTabReorder: (tabs: SessionTabState[]) => void;
@@ -29,12 +33,14 @@ function AgentBadge({ agentId, agentColor }: { agentId: string; agentColor?: str
 }
 
 // ============================================================================
-// SessionTabs Component
+// SessionTabs Component — no internal tick, derives elapsed from sessionInfoMap
 // ============================================================================
 
 export function SessionTabs({
   tabs,
   activeSessionId,
+  sessionInfoMap,
+  connectedAgents,
   onTabClick,
   onTabClose,
   onTabReorder,
@@ -43,6 +49,13 @@ export function SessionTabs({
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   const [hoveredTabId, setHoveredTabId] = useState<string | null>(null);
+
+  // Clear hover state when the hovered session is removed from tabs
+  useEffect(() => {
+    if (hoveredTabId !== null && !tabs.some((t) => t.sessionId === hoveredTabId)) {
+      setHoveredTabId(null);
+    }
+  }, [hoveredTabId, tabs]);
 
   const handleDragStart = useCallback(
     (e: React.DragEvent, index: number) => {
@@ -92,9 +105,17 @@ export function SessionTabs({
           const isHovered = hoveredTabId === tab.sessionId;
           const showCloseButton = isActive || isHovered;
 
+          // Derive display state from sessionInfoMap (source of truth)
+          const key = `${tab.agentId}:${tab.sessionId}`;
+          const info = sessionInfoMap[key];
+          const status = info?.status ?? "idle";
+          const elapsedMs = status === "running" && info?.updatedAt
+            ? Date.now() - new Date(info.updatedAt).getTime()
+            : undefined;
+
           return (
             <div
-              key={`${tab.agentId}:${tab.sessionId}`}
+              key={key}
               className={`session-tab${isActive ? " session-tab-active" : ""}${isDragging ? " dragging" : ""}${isDropTarget ? " drop-target" : ""}`}
               draggable
               onDragStart={(e) => handleDragStart(e, index)}
@@ -107,11 +128,11 @@ export function SessionTabs({
             >
               {/* Row 1: Status + Agent name */}
               <div className="session-tab-row session-tab-row-agent">
-                <StatusIcon status={tab.status} />
+                <StatusIcon status={status} elapsedMs={elapsedMs} />
                 {tab.agentIcon ? (
                   <span className="session-tab-agent-icon">{tab.agentIcon}</span>
                 ) : (
-                  <AgentBadge agentId={tab.agentId} agentColor={tab.agentColor} />
+                  <AgentBadge agentId={tab.agentId} agentColor={connectedAgents.find(a => a.agentId === tab.agentId)?.color} />
                 )}
               </div>
 

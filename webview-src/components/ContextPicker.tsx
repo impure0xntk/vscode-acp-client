@@ -11,14 +11,20 @@ const TRIGGER_LABELS: Record<TriggerType, string> = {
   "#": "Files & Context",
 };
 
+const SUB_TRIGGER_LABELS: Record<string, string> = {
+  "file": "Files",
+  "symbol": "Symbols",
+};
+
 // ── Public API ──────────────────────────────────────────────────────
 
 export interface ContextPickerProps {
   trigger: TriggerType;
+  subTrigger?: "symbol" | "file";
   query: string;
   onSelect: (item: SuggestionItem) => void;
   onClose: () => void;
-  fetchItems: (trigger: TriggerType, query: string) => Promise<SuggestionItem[]>;
+  fetchItems: (trigger: TriggerType, query: string, subTrigger?: "symbol" | "file") => Promise<SuggestionItem[]>;
   selectedIndex: number;
   onSelectedIndexChange: (index: number) => void;
   /**
@@ -32,6 +38,7 @@ export interface ContextPickerProps {
 
 export function ContextPicker({
   trigger,
+  subTrigger,
   query,
   onSelect,
   onClose,
@@ -74,20 +81,23 @@ export function ContextPicker({
     return () => registerKeyHandler(null);
   }, [handleKeyDown, registerKeyHandler]);
 
-  // ── Fetch items ──────────────────────────────────────────────────
+  // ── Fetch items (debounced) ─────────────────────────────────────
+
+  // Keep latest fetchItems in a ref so the effect deps stay stable
+  const fetchItemsRef = useRef(fetchItems);
+  fetchItemsRef.current = fetchItems;
 
   useEffect(() => {
-    let cancelled = false;
-    fetchItems(trigger, query).then((results) => {
-      if (!cancelled) {
+    // Empty query on file/symbol triggers → skip debounce, fetch immediately
+    const delay = query.length === 0 && subTrigger !== undefined ? 0 : 150;
+    const timer = setTimeout(() => {
+      fetchItemsRef.current(trigger, query, subTrigger).then((results) => {
         setItems(results);
         onSelectedIndexChange(0);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [trigger, query, fetchItems, onSelectedIndexChange]);
+      });
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [trigger, query, subTrigger, onSelectedIndexChange]);
 
   // ── Scroll selected item into view ───────────────────────────────
 
@@ -99,7 +109,9 @@ export function ContextPicker({
   const placeholder =
     trigger === "/"
       ? "No commands found"
-      : "No files found";
+      : subTrigger === "symbol"
+        ? "No symbols found"
+        : "No files found";
 
   return (
     <div className="context-picker">

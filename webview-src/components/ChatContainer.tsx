@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, memo, useState, useCallback } from "react";
+import React, { useEffect, useRef, memo, useState, useCallback, useMemo } from "react";
 import { Message } from "./Message";
 import type { ChatMessage } from "../types";
 
@@ -221,11 +221,21 @@ export const ChatContainer = memo(function ChatContainer({
 
   // Scroll-to-bottom button click
   const handleScrollToBottom = useCallback(() => {
+    // Suppress recalcIsAtBottom during programmatic smooth scroll so the
+    // intermediate scroll positions don't flip isAtBottom back to false.
+    isUserScrollingRef.current = true;
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     setUnreadCount(0);
     setIsAtBottom(true);
     isAtBottomRef.current = true;
-  }, []);
+    // After the smooth scroll finishes, re-enable scroll-position detection.
+    // 400ms matches the typical smooth-scroll duration.
+    if (userScrollTimeoutRef.current) clearTimeout(userScrollTimeoutRef.current);
+    userScrollTimeoutRef.current = setTimeout(() => {
+      isUserScrollingRef.current = false;
+      recalcIsAtBottom();
+    }, 400);
+  }, [recalcIsAtBottom]);
 
   // Update last-seen count only when tab is active AND user is at bottom
   useEffect(() => {
@@ -315,8 +325,8 @@ export const ChatContainer = memo(function ChatContainer({
   const isEmpty = messages.length === 0;
 
   // Merge same-session tool messages, then compute run keys
-  const merged = mergeSameSessionTools(messages);
-  const runKeys = buildRunKeys(merged);
+  const merged = useMemo(() => mergeSameSessionTools(messages), [messages]);
+  const runKeys = useMemo(() => buildRunKeys(merged), [merged]);
 
   return (
     <div
@@ -349,6 +359,7 @@ export const ChatContainer = memo(function ChatContainer({
                   inlineFilePaths={msg.inlineFilePaths}
                   attachments={msg.attachments}
                   isConsecutive={false}
+                  sessionId={sessionId}
                 />
               );
             }
@@ -366,6 +377,7 @@ export const ChatContainer = memo(function ChatContainer({
                 inlineFilePaths={msg.inlineFilePaths}
                 attachments={msg.attachments}
                 isConsecutive={isConsecutive}
+                sessionId={sessionId}
               />
             );
           })}

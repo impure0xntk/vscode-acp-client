@@ -15,6 +15,8 @@ interface TriggerState {
   trigger: TriggerType;
   query: string;
   caretOffset: number;
+  /** For #: "symbol" | "file" | null (not yet disambiguated) */
+  subTrigger?: "symbol" | "file";
 }
 
 const NO_TRIGGER: TriggerState = {
@@ -73,18 +75,70 @@ export function Composer({
     (value: string, caretPos: number): TriggerState => {
       const beforeCaret = value.slice(0, caretPos);
 
-      // Walk backwards through trigger chars; pick the rightmost one
-      // that sits directly before the caret with no space/newline gap.
+      // Walk backwards through trigger chars; pick the rightmost one.
       for (const ch of TRIGGER_CHARS) {
         const idx = beforeCaret.lastIndexOf(ch);
         if (idx < 0) continue;
         const afterTrigger = beforeCaret.slice(idx + 1);
-        if (afterTrigger.includes(" ") || afterTrigger.includes("\n")) continue;
 
-        // Trigger char is immediately before caret (possibly with query text)
+        if (ch === "/") {
+          // /command — no space gap allowed between / and query
+          if (afterTrigger.includes(" ") || afterTrigger.includes("\n")) continue;
+          return {
+            active: true,
+            trigger: ch,
+            query: afterTrigger,
+            caretOffset: idx,
+          };
+        }
+
+        // ch === "#"
+        // Split into tokens (space-separated) after the #
+        const tokens = afterTrigger.split(/\s+/).filter(Boolean);
+
+        if (tokens.length === 0) {
+          // "#" only or "# " — show subcommand completions
+          return {
+            active: true,
+            trigger: "#",
+            subTrigger: undefined,
+            query: "",
+            caretOffset: idx,
+          };
+        }
+
+        const first = tokens[0].toLowerCase();
+
+        if (first === "symbol" || first === "file") {
+          // #symbol or #file
+          if (tokens.length === 1) {
+            // "#symbol" or "#file" — open picker with empty query
+            return {
+              active: true,
+              trigger: "#",
+              subTrigger: first as "symbol" | "file",
+              query: "",
+              caretOffset: idx,
+            };
+          }
+          // "#symbol Foo" or "#file src/" — space + query typed
+          const rest = afterTrigger.slice(first.length).trimStart();
+          return {
+            active: true,
+            trigger: "#",
+            subTrigger: first as "symbol" | "file",
+            query: rest,
+            caretOffset: idx,
+          };
+        }
+
+        // "#something" where something is not "symbol" or "file"
+        // Show subcommand completions filtered by the typed text
+        // This allows "#f" to show "file" and "symbol" as suggestions
         return {
           active: true,
-          trigger: ch,
+          trigger: "#",
+          subTrigger: undefined,
           query: afterTrigger,
           caretOffset: idx,
         };
@@ -123,7 +177,7 @@ export function Composer({
   // ── Suggestion fetch (delegates to Composer's own fetchers) ─────
 
   const fetchSuggestions = useCallback(
-    async (trigger: TriggerType, query: string): Promise<SuggestionItem[]> => {
+    async (trigger: TriggerType, query: string, subTrigger?: "symbol" | "file"): Promise<SuggestionItem[]> => {
       if (trigger === "/") {
         // Build items from agent-provided commands
         const agentItems: SuggestionItem[] = availableCommands.map((cmd) => ({
@@ -152,52 +206,86 @@ export function Composer({
       }
 
       // trigger === "#"
-      // # with "symbol" prefix → symbol search
-      if (query.toLowerCase().startsWith("symbol")) {
-        const symQuery = query.slice("symbol".length).trim();
-        return fetchSymbols(symQuery);
+      if (subTrigger === "symbol") {
+        return fetchSymbols(query);
       }
 
-      // # alone or #<file-query> → file search
-      const files = await fetchFiles(query);
-      const fileItems: SuggestionItem[] = files.map((f) => ({
-        id: `file:${f.relativePath}`,
-        kind: "file" as const,
-        label: f.name,
-        value: f.relativePath,
-        detail: f.relativePath,
-        icon: "📄",
-      }));
-      // Always append special context at the bottom
-      fileItems.push(
-        {
-          id: "special:selection",
-          kind: "selection",
-          label: "#selection — Attach current selection",
-          value: "__selection__",
-          icon: "🖱",
-        },
-        {
-          id: "special:diff",
-          kind: "diff",
-          label: "#diff — Attach working tree diff",
-          value: "__diff__",
-          icon: "📋",
-        }
-      );
-      return fileItems;
+      if (subTrigger === "file") {
+        // #file <query> — file search
+        const files = await fetchFiles(query);
+        const fileItems: SuggestionItem[] = files.map((f) => ({
+          id: `file:${f.relativePath}`,
+          kind: "file" as const,
+          label: f.name,
+          value: f.relativePath,
+          detail: f.relativePath,
+          icon: "📄",
+        }));
+        fileItems.push(
+          {
+            id: "special:selection",
+            kind: "selection",
+            label: "#selection — Attach current selection",
+            value: "__selection__",
+            icon: "🖱",
+          },
+          {
+            id: "special:diff",
+            kind: "diff",
+            label: "#diff — Attach working tree diff",
+            value: "__diff__",
+            icon: "📋",
+          }
+        );
+        return fileItems;
+      }
+
+      // subTrigger === undefined → "# " — show subcommand completions
+      const subCommands: SuggestionItem[] = [
+        { id: "sub:file", kind: "file", label: "file", value: "file", detail: "Attach a file", icon: "📄" },
+        { id: "sub:symbol", kind: "symbol", label: "symbol", value: "symbol", detail: "Attach a symbol", icon: "🔷" },
+        { id: "sub:selection", kind: "selection", label: "selection", value: "__selection__", detail: "Attach current selection", icon: "🖱" },
+        { id: "sub:diff", kind: "diff", label: "diff", value: "__diff__", detail: "Attach working tree diff", icon: "📋" },
+      ];
+      if (query) {
+        const q = query.toLowerCase();
+        return subCommands.filter(
+          (c) => c.label.toLowerCase().includes(q) || (c.detail ?? "").toLowerCase().includes(q)
+        );
+      }
+      return subCommands;
     },
     [fetchFiles, fetchSymbols]
   );
 
   // ── Suggestion selected ──────────────────────────────────────────
 
+  /**
+   * Calculate the length of text consumed by the trigger expression.
+   * For "/cmd":       "/" + "cmd" = 1 + query.length
+   * For "#file src/": "#file" + " " + "src/" = 1 + subTrigger.length + 1 + query.length
+   * For "#file":      "#file" = 1 + subTrigger.length (no space, no query)
+   * For "#query":     "#query" = 1 + query.length
+   */
+  const getConsumedLength = useCallback(
+    (ts: TriggerState): number => {
+      if (ts.trigger === "/") return 1 + ts.query.length;
+      // "#"
+      if (ts.subTrigger) {
+        // "#subTrigger" + optional " query"
+        const base = 1 + ts.subTrigger.length;
+        return ts.query.length > 0 ? base + 1 + ts.query.length : base;
+      }
+      return 1 + ts.query.length;
+    },
+    []
+  );
+
   const handleSelect = useCallback(
     async (item: SuggestionItem) => {
-      // Remove the trigger+query text from the input
       const before = text.slice(0, triggerState.caretOffset);
-      const afterOffset = triggerState.caretOffset + 1 + triggerState.query.length;
-      const after = text.slice(afterOffset);
+      const consumed = getConsumedLength(triggerState);
+      const after = text.slice(triggerState.caretOffset + consumed);
       const space = after.startsWith(" ") ? "" : " ";
 
       if (item.kind === "file") {
@@ -242,11 +330,40 @@ export function Composer({
         setText(before + after);
       }
 
+      // Subcommand selected from bare "#" picker — expand and reopen
+      if (triggerState.subTrigger === undefined) {
+        if (item.kind === "file" || item.kind === "symbol") {
+          const kw = item.kind;
+          // Preserve the "#" and expand: "#query" → "#kw "
+          const newText = before + "#" + kw + " " + after;
+          setText(newText);
+          setTriggerState({
+            active: true,
+            trigger: "#",
+            subTrigger: kw,
+            query: "",
+            caretOffset: triggerState.caretOffset,
+          });
+          setPickerIndex(0);
+          // Position caret after "#kw "
+          setTimeout(() => {
+            if (textareaRef.current) {
+              const pos = before.length + 1 + kw.length + 1;
+              textareaRef.current.selectionStart = pos;
+              textareaRef.current.selectionEnd = pos;
+              textareaRef.current.focus();
+            }
+          }, 0);
+          return;
+        }
+        // selection / diff — resolve immediately (handled above)
+      }
+
       setTriggerState(NO_TRIGGER);
       setPickerIndex(0);
       textareaRef.current?.focus();
     },
-    [text, triggerState, resolveFile, resolveSelection, resolveDiff, resolveSymbol]
+    [text, triggerState, resolveFile, resolveSelection, resolveDiff, resolveSymbol, getConsumedLength]
   );
 
   const handleCloseTrigger = useCallback(() => {
@@ -375,6 +492,7 @@ export function Composer({
       {triggerState.active && (
         <ContextPicker
           trigger={triggerState.trigger}
+          subTrigger={triggerState.subTrigger}
           query={triggerState.query}
           onSelect={handleSelect}
           onClose={handleCloseTrigger}

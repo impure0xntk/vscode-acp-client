@@ -92,6 +92,11 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
       tokenUsage: { input: 0, output: 0, total: 0 },
     });
     statusTracker.setActiveSession(agentId, sessionId);
+    // Push full SessionInfo to webview
+    const info = orchestrator.getSessionInfo(agentId, sessionId);
+    if (info) {
+      getChatPanel()?.pushSessionInfo(agentId, sessionId, info);
+    }
     sendTabs();
     treeProvider.refresh();
     updateContext();
@@ -125,14 +130,14 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
   });
 
   // -----------------------------------------------------------------------
-  // Session turn active changed
+  // Session turn active changed — push updated SessionInfo so UI derives state
   // -----------------------------------------------------------------------
-  orchestrator.on("sessionTurnActiveChanged", ({ agentId, sessionId, active }: { agentId: string; sessionId: string; active: boolean }) => {
+  orchestrator.on("sessionTurnActiveChanged", ({ agentId, sessionId }: { agentId: string; sessionId: string }) => {
     const cp = getChatPanel();
-    cp?.pushTurnActive(agentId, sessionId, active);
-    cp?.postMessage(
-      deps.presenter.buildTabUpdate(sessionId, agentId, { status: active ? "running" : "idle" }),
-    );
+    const info = orchestrator.getSessionInfo(agentId, sessionId);
+    if (info) {
+      cp?.pushSessionInfo(agentId, sessionId, info);
+    }
   });
 
   // -----------------------------------------------------------------------
@@ -147,6 +152,10 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
     const info = orchestrator.getSessionInfo(agentId, sessionId);
     console.log("[session-events] sessionMessage → pushMessage", { agentId, sessionId, role: message.role, msgId: message.id, contentLen: message.content?.length });
     cp.pushMessage(agentId, sessionId, message, info?.cwd);
+    // Push updated SessionInfo so UI derives new state (messageCount, tokenUsage, etc.)
+    if (info) {
+      cp.pushSessionInfo(agentId, sessionId, info);
+    }
   });
 
   // -----------------------------------------------------------------------
@@ -185,9 +194,11 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
         deps.presenter.buildSessionCompleted(sessionId, agentId, title),
       );
     }
-    cp?.postMessage(
-      deps.presenter.buildTabUpdate(sessionId, agentId, { status: "completed" }),
-    );
+    // Push updated sessionInfo so UI derives new status from model
+    const info = orchestrator.getSessionInfo(agentId, sessionId);
+    if (info) {
+      cp?.pushSessionInfo(agentId, sessionId, info);
+    }
     sendTabs();
   });
 }

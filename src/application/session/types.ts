@@ -27,6 +27,8 @@ export interface SessionInfo {
   status: SessionStatus;
   messages: ChatMessage[];
   isTurnActive: boolean;
+  /** True while streaming content is in progress */
+  isStreaming: boolean;
   tokenUsage: TokenUsage;
   contextWindowMax?: number;
   createdAt: Date;

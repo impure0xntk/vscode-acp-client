@@ -18,7 +18,7 @@ export interface ToolbarMeta {
 
 const STATUS_DOT: Record<SessionTabStatus, { color: string; glyph: string }> = {
   running:   { color: "#4ec9b0", glyph: "●" },
-  idle:      { color: "#cca700", glyph: "●" },
+  idle:      { color: "#666666", glyph: "●" },
   completed: { color: "#4ec9b0", glyph: "✓" },
   error:     { color: "#f14c4c", glyph: "●" },
   cancelled: { color: "#666666", glyph: "●" },
@@ -58,6 +58,7 @@ export interface BottomToolbarProps {
   meta?: ToolbarMeta[];
   onForkSession?: () => void;
   statusline?: StatuslineInfo;
+  cwd?: string;
 }
 
 // ── DetailsPanel props ──────────────────────────────────────────────────
@@ -121,68 +122,6 @@ const CAT_LABEL: Record<string, string> = {
   metrics: "Metrics",
   workspace: "Workspace",
 };
-
-const STATUS_COLOR: Record<string, string> = {
-  running: "#4ec9b0",
-  idle: "#cca700",
-  completed: "#4ec9b0",
-  error: "#f14c4c",
-  cancelled: "#666666",
-};
-
-// ── StatuslineRow ─────────────────────────────────────────────────────────
-
-function StatuslineRow({
-  statusline,
-  sessionStatus,
-}: {
-  statusline?: StatuslineInfo;
-  sessionStatus?: SessionTabStatus;
-}): React.ReactElement | null {
-  if (!statusline) return null;
-  const { hostname, repoName, branch, tag } = statusline;
-
-  return (
-    <div className="toolbar-statusline">
-      {hostname && (
-        <span className="toolbar-statusline-seg">{hostname}</span>
-      )}
-      {repoName && (
-        <>
-          <span className="toolbar-statusline-sep">│</span>
-          <span className="toolbar-statusline-seg">{repoName}</span>
-        </>
-      )}
-      {branch && (
-        <>
-          <span className="toolbar-statusline-sep">│</span>
-          <span className="toolbar-statusline-seg toolbar-statusline-branch">{branch}</span>
-        </>
-      )}
-      {tag && (
-        <>
-          <span className="toolbar-statusline-sep">│</span>
-          <span className="toolbar-statusline-seg toolbar-statusline-tag">{tag}</span>
-        </>
-      )}
-      {sessionStatus && (
-        <>
-          <span className="toolbar-statusline-sep">│</span>
-          <span className="toolbar-statusline-seg">
-            <span
-              className="toolbar-statusline-dot"
-              style={{ color: STATUS_COLOR[sessionStatus] ?? "#808080" }}
-              aria-hidden="true"
-            >
-              {sessionStatus === "running" ? "●" : sessionStatus === "completed" ? "✓" : "●"}
-            </span>
-            {sessionStatus}
-          </span>
-        </>
-      )}
-    </div>
-  );
-}
 
 // ── Chip ──────────────────────────────────────────────────────────────────
 
@@ -478,18 +417,46 @@ export function BottomToolbar(props: BottomToolbarProps): React.ReactElement {
 
   const toggleDetails = () => setOpen((v) => !v);
 
+  const hasStatusline = statusline && (statusline.hostname || statusline.repoName || statusline.branch || statusline.tag);
+
+  // Statusline prefix: workspace/repo shown as leftmost text (not chips)
+  const statuslinePrefix = hasStatusline
+    ? [statusline.hostname, statusline.repoName].filter(Boolean).join("  ")
+    : null;
+
+  // Branch/tag chips (workspace/repo excluded from chips)
+  const statuslineChips: ToolbarMeta[] = [];
+  if (statusline?.branch) {
+    statuslineChips.push({ key: "branch", label: "Branch", value: statusline.branch, category: "workspace" });
+  }
+  if (statusline?.tag) {
+    statuslineChips.push({ key: "tag", label: "Tag", value: statusline.tag, category: "workspace" });
+  }
+
+  // Session status chip (rendered as a chip, not inline statusline text)
+  const sessionStatusChip: ToolbarMeta | null = sessionStatus
+    ? {
+        key: "sessionStatus",
+        label: "Session Status",
+        value: sessionStatus,
+        category: "session",
+        statusIndicator: sessionStatus,
+      }
+    : null;
+
   return (
     <header className="toolbar">
-      {/* Row 0: statusline (Claude Code style) */}
-      <StatuslineRow
-        statusline={statusline}
-        sessionStatus={sessionStatus}
-      />
-
-      {/* Row 1: chips | ▼ */}
+      {/* Row 0: statusline prefix (workspace/repo) + chips + ▼ */}
       <div className="toolbar-main">
         <div className="toolbar-center">
+          {statuslinePrefix && (
+            <span className="toolbar-statusline-prefix">{statuslinePrefix}</span>
+          )}
           <div className="toolbar-chips">
+            {statuslineChips.map((c) => (
+              <Chip key={c.key} meta={c} />
+            ))}
+            {sessionStatusChip && <Chip meta={sessionStatusChip} />}
             {chips.map((c) => (
               <Chip key={c.key} meta={c} />
             ))}

@@ -1,4 +1,5 @@
 import React from "react";
+import { elapsedColor } from "../shared/elapsedColor";
 
 // ============================================================================
 // Unified status icon system
@@ -92,12 +93,24 @@ interface StatusIconProps {
   status: StatusIconType;
   size?: "sm" | "md";
   className?: string;
+  /** Elapsed ms since turn started — when provided and status is running,
+   *  the icon colour shifts from normal → warning → critical. */
+  elapsedMs?: number;
 }
 
-export function StatusIcon({ status, size = "sm", className = "" }: StatusIconProps): React.ReactElement {
+export function StatusIcon({ status, size = "sm", className = "", elapsedMs }: StatusIconProps): React.ReactElement {
   const mapped = classMap[status] ?? "idle";
   const IconEl = iconElementMap[mapped] ?? CircleIcon;
-  const cls = `status-icon status-icon-${mapped} status-icon-${size} ${className}`.trim();
+
+  // Build colour-tier suffix for running states
+  let colorSuffix = "";
+  if (mapped === "running" && elapsedMs !== undefined) {
+    const tier = elapsedColor(elapsedMs);
+    if (tier === "warning") colorSuffix = " status-icon-running-warning";
+    else if (tier === "critical") colorSuffix = " status-icon-running-critical";
+  }
+
+  const cls = `status-icon status-icon-${mapped} status-icon-${size}${colorSuffix} ${className}`.trim();
   return (
     <span className={cls}>
       <IconEl />

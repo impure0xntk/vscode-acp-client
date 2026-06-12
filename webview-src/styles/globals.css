@@ -188,115 +188,43 @@ body {
   border-top: 1px solid var(--border);
 }
 
-/* ── Statusline row (Claude Code style) ─────────────────────────────── */
+/* ── Statusline prefix (workspace/repo, leftmost text before chips) ──── */
 
-.toolbar-statusline {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
+.toolbar-statusline-prefix {
   font-size: 11px;
   font-family: var(--font-mono);
   color: var(--fg-muted);
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+  min-width: 0;
+  padding-right: 6px;
 }
 
-.toolbar-statusline-segment {
+/* ── Statusline (inline, merged into toolbar-main row) ───────────────── */
+
+.toolbar-statusline-inline {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  flex-shrink: 1;
+  min-width: 0;
+  padding-right: 4px;
+}
+
+/* ── Statusline sub-elements (inline variant) ──────────────────────── */
+
+.toolbar-statusline-seg {
   color: var(--fg-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.toolbar-statusline-sep {
-  color: var(--border);
-  margin: 0 2px;
-  flex-shrink: 0;
-}
-
-.toolbar-statusline-tag {
-  color: var(--warning);
-}
-
-.toolbar-statusline-status {
-  flex-shrink: 0;
-}
-
-.toolbar-statusline-status--running {
-  color: var(--warning);
-}
-
-.toolbar-statusline-status--idle {
-  color: var(--fg-muted);
-}
-
-.toolbar-statusline-status--completed {
-  color: var(--success);
-}
-
-.toolbar-statusline-status--error {
-  color: var(--error);
-}
-
-.toolbar-statusline-status--cancelled {
-  color: var(--fg-muted);
-  opacity: 0.6;
-}
-
-/* ── Row 1: single-line chips ───────────────────────────────────────── */
-
-.toolbar-main {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 4px 14px;
-  gap: 10px;
-  min-height: 28px;
-}
-
-.toolbar-center {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  justify-content: flex-start;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-/* ── Statusline (Claude Code style) ─────────────────────────────────── */
-
-.toolbar-statusline {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 14px;
-  font-size: 11px;
-  line-height: 1.4;
-  color: var(--fg-muted);
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
-  font-family: var(--font-mono);
-  white-space: nowrap;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.toolbar-statusline-seg {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .toolbar-statusline-sep {
@@ -328,6 +256,34 @@ body {
   line-height: 1;
   flex-shrink: 0;
   margin-right: 2px;
+}
+
+/* ── Row 1: single-line chips ───────────────────────────────────────── */
+
+.toolbar-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 14px;
+  gap: 10px;
+  min-height: 28px;
+}
+
+.toolbar-center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  justify-content: flex-start;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 /* ── Chips ─────────────────────────────────────────────────────────── */
@@ -661,15 +617,94 @@ body {
 }
 
 /* ============================================================================
-     Messages — Codex-style minimal,
-     no bubbles
+   Messages — Codex-style minimal, no bubbles
    ============================================================================ */
 
 .message {
   display: flex;
   flex-direction: column;
   gap: 2px;
-    padding: 4px 0;
+  padding: 4px 0 4px;
+  position: relative;
+  overflow: visible;
+}
+
+/* ============================================================================
+   Message Actions — hover toolbar for copy, fork
+   Positioned below message content, outside the text area.
+   ============================================================================ */
+
+.message-actions {
+  position: absolute;
+  bottom: -26px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px;
+  z-index: 10;
+}
+
+.message:hover .message-actions,
+.message-actions:focus-within {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* User messages: actions aligned to right wall, outside the bubble */
+.message-user .message-actions {
+  right: 0;
+}
+
+/* Agent messages: actions aligned to left wall, outside the bubble */
+.message-agent .message-actions {
+  left: 0;
+}
+
+/* Ensure message has enough bottom space for the actions bar */
+.message-user,
+.message-agent {
+  margin-bottom: 24px;
+}
+
+.message-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--fg-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.message-action-btn:hover {
+  background: var(--accent-hover);
+  color: var(--fg-primary);
+}
+
+.message-action-btn:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.message-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.message-action-icon {
+  display: block;
+  flex-shrink: 0;
 }
 
 .message-user {
@@ -765,6 +800,13 @@ body {
   font-family: var(--font-mono);
   font-size: 12px;
   margin: 8px 0;
+}
+
+/* When inside .code-block-wrapper, the wrapper provides the background + radius */
+.message-markdown .code-block-wrapper pre {
+  background: none;
+  border-radius: 0;
+  margin: 0;
 }
 
 .message-markdown code {
@@ -898,6 +940,90 @@ body {
 
 .message-system-markdown .inline-code-link:hover {
   color: var(--accent);
+}
+
+/* ============================================================================
+   Code Block Wrapper — language label + copy button
+   ============================================================================ */
+
+.code-block-wrapper {
+  position: relative;
+  margin: 8px 0;
+  border-radius: 4px;
+  background: var(--code-bg);
+  overflow: hidden;
+}
+
+.code-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 8px 2px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  min-height: 22px;
+}
+
+.code-block-lang {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  user-select: none;
+  line-height: 1;
+}
+
+.code-block-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.code-block-copy:hover {
+  background: color-mix(in srgb, var(--fg-muted) 12%, transparent);
+  color: var(--fg-primary);
+}
+
+.code-block-copy:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.code-block-copy .icon-copy,
+.code-block-copy .icon-check {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.code-block-copy .icon-check {
+  opacity: 0;
+  color: var(--success);
+}
+
+.code-block-copy[data-copied="true"] .icon-copy {
+  opacity: 0;
+}
+
+.code-block-copy[data-copied="true"] .icon-check {
+  opacity: 1;
+}
+
+.code-block-wrapper pre {
+  margin: 0;
 }
 
 /* ============================================================================
@@ -1066,13 +1192,25 @@ body {
   user-select: none;
 }
 
+/* ============================================================================
+   Tool Call Cards — Phase A: left-accent + near-transparent background
+   ============================================================================ */
+
 .tool-call {
   margin-top: 3px;
+  margin-left: 12px;
   border-radius: 3px;
   overflow: hidden;
   font-size: 11px;
-  background: var(--bg-secondary);
+  background: color-mix(in srgb, var(--bg-secondary) 6%, transparent);
+  border-left: 2px solid var(--fg-muted);
 }
+
+/* Status accent colours on the left border */
+.tool-call-completed { border-left-color: var(--success); }
+.tool-call-in_progress { border-left-color: var(--warning); }
+.tool-call-failed { border-left-color: var(--error); }
+.tool-call-cancelled { border-left-color: var(--fg-muted); }
 
 .tool-call-header {
   display: flex;
@@ -1104,8 +1242,10 @@ body {
   outline-offset: -1px;
 }
 
-.tool-call-header-clickable .tool-chevron {
+.tool-call-header-clickable .tool-chevron,
+.tool-group-header .tool-chevron {
   margin-left: auto;
+  flex-shrink: 0;
 }
 
 .tool-status-icon {
@@ -1125,52 +1265,53 @@ body {
 
 .tool-call-body {
   padding: 1px 8px 4px;
-  }
+  background: color-mix(in srgb, var(--bg-secondary) 8%, transparent);
+}
 
-  .tool-section+.tool-section {
-    margin-top: 1px;
-  }
+.tool-section + .tool-section {
+  margin-top: 1px;
+}
 
-  .tool-section-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 4px;
-    border: none;
-    border-radius: 3px;
-    background: transparent;
-    color: var(--fg-muted);
-    font-size: 11px;
-    font-family: var(--font-ui);
-    cursor: pointer;
-    line-height: 1.4;
-    transition: color 0.15s, background 0.15s;
-  }
+.tool-section-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 11px;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  line-height: 1.4;
+  transition: color 0.15s, background 0.15s;
+}
 
-  .tool-section-toggle:hover {
-    color: var(--fg-secondary);
-    background: var(--accent-hover);
-  }
+.tool-section-toggle:hover {
+  color: var(--fg-secondary);
+  background: var(--accent-hover);
+}
 
-  .tool-section-toggle:focus-visible {
-    outline: 1px solid var(--accent);
-    outline-offset: 1px;
-  }
+.tool-section-toggle:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
 
-  .tool-chevron {
-    display: inline-block;
-    font-size: 9px;
-    transition: transform 0.15s ease;
-    flex-shrink: 0;
-    opacity: 0.6;
-  }
+.tool-chevron {
+  display: inline-block;
+  font-size: 9px;
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+  opacity: 0.6;
+}
 
-  .tool-chevron.open {
-    transform: rotate(90deg);
-  }
+.tool-chevron.open {
+  transform: rotate(90deg);
+}
 
-  .tool-section-label {
-    font-size: 11px;
+.tool-section-label {
+  font-size: 11px;
 }
 
 .tool-content {
@@ -1180,43 +1321,29 @@ body {
   color: var(--fg-secondary);
   margin: 2px 0 0;
   padding: 4px 8px;
+  background: color-mix(in srgb, var(--bg-primary) 50%, transparent);
+  border-radius: 3px;
 }
 
 /* ============================================================================
-   Grouped Tool Call Card — collapsed summary + expandable detail list
+   Grouped Tool Call Card — left-accent + near-transparent background
    ============================================================================ */
 
 .tool-call-group {
   margin-top: 3px;
+  margin-left: 12px;
   border-radius: 3px;
   overflow: hidden;
   font-size: 11px;
-  background: var(--bg-secondary);
-}
-
-.tool-call-group-completed {
-  border-left: 2px solid var(--success);
-}
-
-.tool-call-group-in_progress {
-  border-left: 2px solid var(--warning);
-}
-
-.tool-call-group-failed {
-  border-left: 2px solid var(--error);
-}
-
-.tool-call-group-cancelled {
+  background: color-mix(in srgb, var(--bg-secondary) 6%, transparent);
   border-left: 2px solid var(--fg-muted);
 }
 
-.tool-call-group-warning {
-  border-left: 2px solid var(--warning);
-}
-
-.tool-call-group-warning {
-  border-left: 2px solid var(--warning);
-}
+.tool-call-group-completed { border-left-color: var(--success); }
+.tool-call-group-in_progress { border-left-color: var(--warning); }
+.tool-call-group-failed { border-left-color: var(--error); }
+.tool-call-group-cancelled { border-left-color: var(--fg-muted); }
+.tool-call-group-warning { border-left-color: var(--warning); }
 
 /* ── Summary header (always visible, clickable) ── */
 .tool-group-header {
@@ -1268,6 +1395,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  background: color-mix(in srgb, var(--bg-secondary) 8%, transparent);
   animation: tool-group-expand 0.15s ease-out;
 }
 
@@ -1279,11 +1407,11 @@ body {
 .tool-group-item {
   border-radius: 3px;
   overflow: hidden;
-  background: var(--bg-primary);
 }
 
 .tool-group-item .tool-call {
   margin-top: 0;
+  margin-left: 0;
   background: transparent;
 }
 
@@ -1423,7 +1551,7 @@ body {
   color: var(--fg-muted);
 }
 .status-icon-running {
-  color: var(--warning);
+  color: #4fc3f7;                        /* blue — normal (matches ProgressBar) */
 }
 .status-icon-completed {
   color: var(--success);
@@ -1439,8 +1567,22 @@ body {
   color: var(--warning);
 }
 
-.status-icon-warning {
-  color: var(--warning);
+/* ── Running elapsed-time colour tiers (mirrors ProgressBar thresholds) ── */
+.status-icon-running-warning {
+  color: #ffd54f;                        /* yellow — ≥10s */
+}
+
+.status-icon-running-warning .status-icon-spinner {
+  color: #ffd54f;
+}
+
+.status-icon-running-critical {
+  color: #ef5350;                         /* red — ≥30s */
+  animation: status-pulse 1.2s ease-in-out infinite;
+}
+
+.status-icon-running-critical .status-icon-spinner {
+  color: #ef5350;
 }
 
 /* ── Spinner animation (running / working / in_progress) ── */
@@ -1706,6 +1848,7 @@ body {
   width: 100%;
   opacity: 0.12;
   background: var(--fg-muted);
+  transition: none;
 }
 
 /* Running: color transitions based on elapsed time */

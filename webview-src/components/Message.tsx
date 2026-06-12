@@ -3,6 +3,7 @@ import { renderMarkdown, type RenderContext } from "../lib/markdown";
 import { getVsCodeApi } from "../lib/vscodeApi";
 import { ToolCallCard, GroupedToolCallCard } from "./ToolCallCard";
 import { ThinkingBlock } from "./ThinkingBlock";
+import { MessageActions } from "./MessageActions";
 import type { ChatMessage, ToolCall, ContextAttachment } from "../types";
 
 export interface MessageProps {
@@ -16,6 +17,8 @@ export interface MessageProps {
   attachments?: ContextAttachment[];
   /** When true, the header (name + timestamp) is hidden for consecutive same-speaker messages */
   isConsecutive?: boolean;
+  /** Session ID for actions like fork */
+  sessionId?: string;
 }
 
 /** Open a file in VS Code editor from a click on an inline-code link */
@@ -32,6 +35,48 @@ function openFileFromLink(e: React.MouseEvent<HTMLElement>): void {
   try {
     getVsCodeApi().postMessage({ type: "openFile", path: filePath, line });
   } catch { /* vscodeApi not available */ }
+}
+
+/** Copy code block content to clipboard */
+function copyCodeBlock(e: React.MouseEvent<HTMLElement>): void {
+  const btn = e.currentTarget as HTMLElement;
+  const wrapper = btn.closest(".code-block-wrapper") as HTMLElement | null;
+  if (!wrapper) return;
+  const codeEl = wrapper.querySelector("code");
+  if (!codeEl) return;
+  const text = codeEl.textContent ?? "";
+  e.preventDefault();
+  e.stopPropagation();
+
+  const showCopied = () => {
+    btn.setAttribute("data-copied", "true");
+    setTimeout(() => btn.removeAttribute("data-copied"), 1500);
+  };
+
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(showCopied).catch(() => {
+      // fallback
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      showCopied();
+    });
+  } else {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+    showCopied();
+  }
 }
 
 /** Derive a grouping key from kind or title */
@@ -143,6 +188,7 @@ export const Message = React.memo(function Message({
   inlineFilePaths,
   attachments,
   isConsecutive,
+  sessionId,
 }: MessageProps): React.ReactElement {
   const time = new Date(timestamp).toLocaleTimeString();
 
@@ -233,6 +279,20 @@ export const Message = React.memo(function Message({
     ? { filePaths: new Set(inlineFilePaths) }
     : undefined;
 
+  /** Delegate clicks: copy button or file link */
+  const handleMarkdownClick = useCallback(
+    (e: React.MouseEvent<HTMLElement>) => {
+      // Copy button takes priority
+      const copyBtn = (e.target as HTMLElement).closest('[data-action="copy"]');
+      if (copyBtn) {
+        copyCodeBlock(e as React.MouseEvent<HTMLElement>);
+        return;
+      }
+      openFileFromLink(e);
+    },
+    [],
+  );
+
   // System / user / agent messages
   return (
     <div
@@ -288,7 +348,7 @@ export const Message = React.memo(function Message({
           <div
             className={`message-markdown${isSystem ? " message-system-markdown" : ""}`}
             dangerouslySetInnerHTML={{ __html: renderMarkdown(content, renderCtx) }}
-            onClick={openFileFromLink}
+            onClick={handleMarkdownClick}
           />
         )}
       </div>
@@ -296,6 +356,14 @@ export const Message = React.memo(function Message({
         <ThinkingBlock
           content={thinking.content}
           isStreaming={thinking.isStreaming}
+        />
+      )}
+      {!isTool && (
+        <MessageActions
+          messageId={id}
+          content={content}
+          isUserMessage={isUser}
+          sessionId={sessionId ?? ""}
         />
       )}
     </div>

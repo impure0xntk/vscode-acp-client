@@ -1,38 +1,26 @@
 import React, { useReducer, useEffect, useCallback, useRef } from "react";
-import type { ChatMessage, TokenUsage, ContextAttachment, FileCandidate, SuggestionItem } from "../types";
-
+import type { ChatMessage, ContextAttachment, FileCandidate, SuggestionItem } from "../types";
 import { getVsCodeApi } from "../lib/vscodeApi";
 
 // ============================================================================
-// Helpers
-// ============================================================================
-
-// ============================================================================
-// Re-exports (for consumers)
-// ============================================================================
-
-// ============================================================================
-// Tab types (previously from useMultiSession)
+// Tab types — UI-only state (no duplicated model fields)
 // ============================================================================
 
 export type SessionTabStatus = "idle" | "running" | "completed" | "error" | "cancelled";
 
+/**
+ * SessionTabState holds ONLY UI-concern state.
+ * All model-derived data (status, tokenUsage, model, mode, etc.) is read
+ * from SessionInfoSnapshot via sessionInfoMap.
+ */
 export interface SessionTabState {
   sessionId: string;
   agentId: string;
   title: string;
-  status: SessionTabStatus;
+  /** UI-only: unread message count for badge display */
   unreadCount: number;
-  tokenUsage: { inputTokens: number; outputTokens: number; totalTokens: number };
-  /** Session start timestamp (ms since epoch) for duration calculation */
-  sessionStartMs: number;
-  lastActivity: number;
+  /** UI-only: whether session has unseen activity */
   isDirty: boolean;
-  cwd?: string;
-  model?: string;
-  mode?: string;
-  /** Max context window size in tokens (from UsageUpdate.size) */
-  contextWindowMax?: number;
 }
 
 export type SessionTab = SessionTabState;
@@ -48,25 +36,30 @@ function sessionKey(agentId: string, sessionId: string): SessionKey {
 }
 
 // ============================================================================
-// Per-session message state
+// Snapshot of SessionInfo sent from extension host — read-only in webview
 // ============================================================================
 
-export interface SessionMessagesState {
-  messages: ChatMessage[];
-  streamingContent: string;
-  isStreaming: boolean;
+export interface SessionInfoSnapshot {
+  sessionId: string;
+  agentId: string;
+  status: string;
   isTurnActive: boolean;
+  isStreaming: boolean;
+  tokenUsage: { inputTokens: number; outputTokens: number; totalTokens: number };
+  contextWindowMax?: number;
+  cwd?: string;
+  model?: string;
+  mode?: string;
+  /** ISO date string */
+  createdAt: string;
+  /** ISO date string */
+  updatedAt: string;
+  /** Message count from model */
+  messageCount: number;
 }
 
-const emptySessionState = (): SessionMessagesState => ({
-  messages: [],
-  streamingContent: "",
-  isStreaming: false,
-  isTurnActive: false,
-});
-
 // ============================================================================
-// Unified state
+// Shared types
 // ============================================================================
 
 export interface ConnectedAgentInfo {
@@ -110,12 +103,15 @@ export interface SlashCommand {
   input?: { type: "text" | "boolean"; description?: string } | null;
 }
 
+// ============================================================================
+// SessionContext — public interface
+// ============================================================================
+
 export interface SessionContext {
-  // Tab / session management
+  // Tab / session management — UI-only state
   tabs: SessionTabState[];
   activeSessionId: string | null;
   activeAgentId: string | null;
-  contextWindowMax?: number;
 
   // Connected agents info (for new session picker)
   connectedAgents: ConnectedAgentInfo[];
@@ -126,16 +122,12 @@ export interface SessionContext {
   // Workspace folders (for new session picker)
   workspaceFolders: WorkspaceFolder[];
 
-  // Active session derived state
+  // Active session key
   activeSessionKey: string | null;
-  messages: ChatMessage[];
-  isStreaming: boolean;
-  isTurnActive: boolean;
-  tokenUsage: TokenUsage;
-  agentName: string;
 
-  // All sessions raw data
-  sessions: Record<SessionKey, SessionMessagesState>;
+  /** SessionInfo snapshots from extension host — source of truth for all session-derived state */
+  sessionInfoMap: Record<string, SessionInfoSnapshot>;
+
   workspaceRoot?: string;
 
   // Available slash commands for the active session
@@ -172,6 +164,10 @@ export interface SessionContext {
   fetchSymbols: (query: string) => Promise<SuggestionItem[]>;
   resolveSymbol: (name: string) => Promise<ContextAttachment>;
 
+  // Messages for the active session (derived from per-session store)
+  messages: ChatMessage[];
+  isStreaming: boolean;
+
   // Internal dispatch (for advanced use)
   dispatch: React.Dispatch<SessionAction>;
 }
@@ -184,53 +180,54 @@ interface FullState {
   tabs: SessionTabState[];
   activeSessionId: string | null;
   activeAgentId: string | null;
-  sessions: Record<SessionKey, SessionMessagesState>;
-  tokenUsage: TokenUsage;
-  contextWindowMax?: number;
-  agentName: string;
   workspaceRoot?: string;
   connectedAgents: ConnectedAgentInfo[];
   agentInfoMap: Record<string, AgentInfo>;
   workspaceFolders: WorkspaceFolder[];
-  // sessionKey → SlashCommand[]
+  /** sessionKey → SlashCommand[] */
   sessionCommands: Record<string, SlashCommand[]>;
-  // Statusline info
+  /** Statusline info */
   statusline: {
     hostname: string;
     repoName: string;
     branch: string;
     tag?: string;
   };
+  /** SessionInfo snapshots from extension host — source of truth for display derivation */
+  sessionInfoMap: Record<string, SessionInfoSnapshot>;
+  /** Per-session message store: sessionKey → ChatMessage[] */
+  sessionMessages: Record<string, ChatMessage[]>;
+  /** Per-session streaming state: sessionKey → boolean */
+  sessionStreaming: Record<string, boolean>;
 }
 
 const initialState: FullState = {
   tabs: [],
   activeSessionId: null,
   activeAgentId: null,
-  sessions: {},
-  tokenUsage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
-  contextWindowMax: undefined,
-  agentName: "",
   connectedAgents: [],
   agentInfoMap: {},
   workspaceFolders: [],
   sessionCommands: {},
   statusline: { hostname: "", repoName: "", branch: "" },
+  sessionInfoMap: {},
+  sessionMessages: {},
+  sessionStreaming: {},
 };
 
 // ============================================================================
 // Active session key derivation
 // ============================================================================
 
-function computeActiveSessionKey(state: FullState): SessionKey | null {
-  if (state.activeSessionId && state.activeAgentId) {
-    return sessionKey(state.activeAgentId, state.activeSessionId);
+function computeActiveSessionKey(s: { activeSessionId: string | null; activeAgentId: string | null }): SessionKey | null {
+  if (s.activeSessionId && s.activeAgentId) {
+    return sessionKey(s.activeAgentId, s.activeSessionId);
   }
   return null;
 }
 
 // ============================================================================
-// Action types
+// Action types — tab/session management only
 // ============================================================================
 
 type SessionAction =
@@ -241,23 +238,10 @@ type SessionAction =
   | { type: "UPDATE_TAB"; sessionId: string; agentId?: string; updates: Partial<SessionTabState> }
   | { type: "SET_ACTIVE_SESSION"; sessionId: string; agentId: string }
   | { type: "REORDER_TABS"; tabs: SessionTabState[] }
-
-  // --- Per-session message actions ---
-  | { type: "SET_SESSION_MESSAGES"; agentId: string; sessionId: string; messages: ChatMessage[] }
-  | { type: "ADD_SESSION_MESSAGE"; agentId: string; sessionId: string; message: ChatMessage }
-  | { type: "CLEAR_SESSION_MESSAGES"; agentId: string; sessionId: string }
-  | { type: "APPEND_SESSION_STREAM"; agentId: string; sessionId: string; chunk: string }
-  | { type: "END_SESSION_STREAM"; agentId: string; sessionId: string }
-  | { type: "SET_SESSION_TURN_ACTIVE"; agentId: string; sessionId: string; active: boolean }
-  | { type: "CANCEL_SESSION"; agentId: string; sessionId: string }
+  | { type: "INCREMENT_UNREAD"; sessionId: string; agentId: string }
 
   // --- Global actions ---
-  | { type: "SET_TOKEN_USAGE"; usage: TokenUsage }
-  | { type: "SET_AGENT_NAME"; name: string }
   | { type: "SET_WORKSPACE_ROOT"; root?: string }
-
-  // --- Session switch (sets active + full messages/state) ---
-  | { type: "SESSION_SWITCH"; agentId: string; sessionId: string; messages?: ChatMessage[]; tokenUsage?: TokenUsage; contextWindowMax?: number }
 
   // --- Agent / workspace info ---
   | { type: "SET_AGENT_INFO"; agentId: string; info: AgentInfo }
@@ -267,45 +251,27 @@ type SessionAction =
   // --- Slash commands ---
   | { type: "SET_SESSION_COMMANDS"; agentId: string; sessionId: string; commands: SlashCommand[] }
 
-  // --- Per-session usage update (from session/usage) ---
-  | { type: "UPDATE_SESSION_USAGE"; agentId: string; sessionId: string; tokenUsage?: { inputTokens: number; outputTokens: number; totalTokens: number }; contextWindowMax?: number }
-
   // --- Statusline ---
   | { type: "SET_STATUSLINE"; statusline: { hostname?: string; repoName?: string; branch?: string; tag?: string } }
 
-  // --- Unread count ---
-  | { type: "INCREMENT_UNREAD"; sessionId: string; agentId: string }
+  // --- SessionInfo ---
+  | { type: "SET_SESSION_INFO_MAP"; map: Record<string, SessionInfoSnapshot> }
 
-  // --- Legacy backward-compat ---
-  | { type: "SET_MESSAGES"; messages: ChatMessage[] }
-  | { type: "ADD_MESSAGE"; message: ChatMessage }
-  | { type: "CLEAR_MESSAGES" }
-  | { type: "APPEND_STREAM"; chunk: string }
-  | { type: "END_STREAM" }
-  | { type: "SET_TURN_ACTIVE"; active: boolean };
+  // --- Per-session updates (session/info = metadata only; session/switch = full snapshot) ---
+  | { type: "SET_SESSION_INFO"; agentId: string; sessionId: string; info: SessionInfoSnapshot }
+  | { type: "SESSION_MESSAGE"; agentId: string; sessionId: string; message: ChatMessage }
+  | { type: "SESSION_STREAM"; agentId: string; sessionId: string; chunk: string }
+  | { type: "SESSION_STREAM_END"; agentId: string; sessionId: string }
+  /** Full snapshot from extension host on session switch — replaces messages for that session */
+  | { type: "SESSION_SWITCH"; agentId: string; sessionId: string; messages: ChatMessage[] };
 
 // ============================================================================
-// Reducer
+// Reducer — tab/session management only, no message state
 // ============================================================================
-
-function ensureSession(
-  sessions: Record<SessionKey, SessionMessagesState>,
-  key: SessionKey
-): SessionMessagesState {
-  if (!sessions[key]) {
-    sessions[key] = emptySessionState();
-  }
-  return sessions[key];
-}
 
 function reducer(state: FullState, action: SessionAction): FullState {
   switch (action.type) {
-    // ==================================================================
-    // Tab management
-    // ==================================================================
-
     case "SET_TABS": {
-      // Auto-select the only tab when there is exactly one and no active session yet
       if (action.tabs.length === 1 && !state.activeSessionId) {
         return {
           ...state,
@@ -317,7 +283,6 @@ function reducer(state: FullState, action: SessionAction): FullState {
       return { ...state, tabs: action.tabs };
     }
 
-
     case "ADD_TAB":
       return {
         ...state,
@@ -327,7 +292,6 @@ function reducer(state: FullState, action: SessionAction): FullState {
       };
 
     case "REMOVE_TAB": {
-      // Find the tab matching both sessionId and agentId (from active session)
       const targetAgentId = state.activeSessionId === action.sessionId ? state.activeAgentId : undefined;
       const removedTab = targetAgentId
         ? state.tabs.find((t) => t.sessionId === action.sessionId && t.agentId === targetAgentId)
@@ -348,56 +312,20 @@ function reducer(state: FullState, action: SessionAction): FullState {
           newActiveAgentId = null;
         }
       }
-      // Remove the session messages for the closed tab
-      const newSessions = { ...state.sessions };
-      if (removedTab) {
-        const key = sessionKey(removedTab.agentId, removedTab.sessionId);
-        delete newSessions[key];
-      }
       return {
         ...state,
         tabs: newTabs,
         activeSessionId: newActiveSessionId,
         activeAgentId: newActiveAgentId,
-        sessions: newSessions,
       };
     }
 
     case "UPDATE_TAB": {
       const tabs = state.tabs.map((t) => {
         if (t.sessionId !== action.sessionId) return t;
-        const merged = { ...t, ...action.updates };
-        // Don't overwrite contextWindowMax with undefined
-        if (action.updates.contextWindowMax === undefined) {
-          merged.contextWindowMax = t.contextWindowMax;
-        }
-        return merged;
+        return { ...t, ...action.updates };
       });
       return { ...state, tabs };
-    }
-
-    case "UPDATE_SESSION_USAGE": {
-      const tabs = state.tabs.map((t) => {
-        if (t.sessionId !== action.sessionId || t.agentId !== action.agentId) return t;
-        const merged = { ...t };
-        if (action.tokenUsage) {
-          merged.tokenUsage = action.tokenUsage;
-        }
-        if (action.contextWindowMax !== undefined && action.contextWindowMax > 0) {
-          merged.contextWindowMax = action.contextWindowMax;
-        }
-        return merged;
-      });
-      const isActiveTab = action.sessionId === state.activeSessionId && action.agentId === state.activeAgentId;
-      const globalCwm = isActiveTab && action.contextWindowMax !== undefined && action.contextWindowMax > 0
-        ? action.contextWindowMax
-        : state.contextWindowMax;
-      // Sync global tokenUsage from the active tab so Toolbar always shows
-      // the latest values even when App.tsx falls back to the global state.
-      const globalTokenUsage = isActiveTab && action.tokenUsage
-        ? action.tokenUsage
-        : state.tokenUsage;
-      return { ...state, tabs, contextWindowMax: globalCwm, tokenUsage: globalTokenUsage };
     }
 
     case "SET_ACTIVE_SESSION":
@@ -419,134 +347,6 @@ function reducer(state: FullState, action: SessionAction): FullState {
       return { ...state, tabs };
     }
 
-    // ==================================================================
-    // Per-session message actions
-    // ==================================================================
-
-    case "SET_SESSION_MESSAGES": {
-      const key = sessionKey(action.agentId, action.sessionId);
-      const sessions = {
-        ...state.sessions,
-        [key]: {
-          ...ensureSession(state.sessions, key),
-          messages: action.messages,
-          streamingContent: "",
-          isStreaming: false,
-        },
-      };
-      return { ...state, sessions };
-    }
-
-    case "ADD_SESSION_MESSAGE": {
-      const key = sessionKey(action.agentId, action.sessionId);
-      const prev = ensureSession(state.sessions, key);
-      // Replace by id when the message already exists (tool call status updates)
-      const existingIdx = prev.messages.findIndex((m) => m.id === action.message.id);
-      const msgs =
-        existingIdx >= 0
-          ? [...prev.messages.slice(0, existingIdx), action.message, ...prev.messages.slice(existingIdx + 1)]
-          : [...prev.messages, action.message];
-      const sessions = {
-        ...state.sessions,
-        [key]: { ...prev, messages: msgs },
-      };
-      return { ...state, sessions };
-    }
-
-    case "CLEAR_SESSION_MESSAGES": {
-      const key = sessionKey(action.agentId, action.sessionId);
-      const sessions = { ...state.sessions, [key]: emptySessionState() };
-      return { ...state, sessions };
-    }
-
-    case "APPEND_SESSION_STREAM": {
-      const key = sessionKey(action.agentId, action.sessionId);
-      const prev = ensureSession(state.sessions, key);
-      const newContent = prev.streamingContent + action.chunk;
-      const msgs = [...prev.messages];
-      const lastIdx = msgs.length - 1;
-      if (lastIdx >= 0 && msgs[lastIdx].role === "agent" && prev.isStreaming) {
-        msgs[lastIdx] = { ...msgs[lastIdx], content: newContent };
-      } else {
-        msgs.push({
-          id: crypto.randomUUID(),
-          role: "agent",
-          content: newContent,
-          timestamp: Date.now(),
-        });
-      }
-      const sessions = {
-        ...state.sessions,
-        [key]: { ...prev, messages: msgs, streamingContent: newContent, isStreaming: true },
-      };
-      return { ...state, sessions };
-    }
-
-    case "END_SESSION_STREAM": {
-      const key = sessionKey(action.agentId, action.sessionId);
-      const prev = ensureSession(state.sessions, key);
-      const sessions = {
-        ...state.sessions,
-        [key]: { ...prev, streamingContent: "", isStreaming: false },
-      };
-      // When stream ends, mark tab as completed
-      const tabs = state.tabs.map((t) =>
-        t.sessionId === action.sessionId && t.agentId === action.agentId
-          ? { ...t, status: "completed" as const }
-          : t
-      );
-      return { ...state, sessions, tabs };
-    }
-
-    case "SET_SESSION_TURN_ACTIVE": {
-      const key = sessionKey(action.agentId, action.sessionId);
-      const prev = ensureSession(state.sessions, key);
-      const sessions = {
-        ...state.sessions,
-        [key]: { ...prev, isTurnActive: action.active },
-      };
-      // Sync tab status: running when active, idle when inactive
-      const tabs = state.tabs.map((t) =>
-        t.sessionId === action.sessionId && t.agentId === action.agentId
-          ? { ...t, status: action.active ? "running" as const : "idle" as const }
-          : t
-      );
-      return { ...state, sessions, tabs };
-    }
-
-    case "CANCEL_SESSION": {
-      const key = sessionKey(action.agentId, action.sessionId);
-      const prev = ensureSession(state.sessions, key);
-      const msgs = prev.messages.map((m) => {
-        if (m.toolCalls) {
-          return {
-            ...m,
-            toolCalls: m.toolCalls.map((tc) =>
-              tc.status === "in_progress"
-                ? { ...tc, status: "cancelled" as const }
-                : tc
-            ),
-          };
-        }
-        return m;
-      });
-      const sessions = {
-        ...state.sessions,
-        [key]: { ...prev, messages: msgs, isStreaming: false, isTurnActive: false },
-      };
-      return { ...state, sessions };
-    }
-
-    // ==================================================================
-    // Global actions
-    // ==================================================================
-
-    case "SET_TOKEN_USAGE":
-      return { ...state, tokenUsage: action.usage };
-
-    case "SET_AGENT_NAME":
-      return { ...state, agentName: action.name };
-
     case "SET_WORKSPACE_ROOT":
       return { ...state, workspaceRoot: action.root };
 
@@ -556,25 +356,14 @@ function reducer(state: FullState, action: SessionAction): FullState {
         agentInfoMap: { ...state.agentInfoMap, [action.agentId]: action.info },
       };
 
-    // ==================================================================
-    // Statusline
-    // ==================================================================
-
     case "SET_STATUSLINE":
-      return {
-        ...state,
-        statusline: action.statusline,
-      };
+      return { ...state, statusline: action.statusline };
 
     case "SET_CONNECTED_AGENTS":
       return { ...state, connectedAgents: action.agents };
 
     case "SET_WORKSPACE_FOLDERS":
       return { ...state, workspaceFolders: action.folders };
-
-    // ==================================================================
-    // Slash commands
-    // ==================================================================
 
     case "SET_SESSION_COMMANDS": {
       const key = sessionKey(action.agentId, action.sessionId);
@@ -584,63 +373,89 @@ function reducer(state: FullState, action: SessionAction): FullState {
       };
     }
 
-    // ==================================================================
-    // Session switch — sets active + full messages/state
-    // ==================================================================
+    case "SET_SESSION_INFO_MAP":
+      return { ...state, sessionInfoMap: action.map };
 
-    case "SESSION_SWITCH": {
+    case "SET_SESSION_INFO": {
       const key = sessionKey(action.agentId, action.sessionId);
-      let sessions = state.sessions;
-      if (action.messages) {
-        sessions = {
-          ...sessions,
-          [key]: {
-            ...ensureSession(sessions, key),
-            messages: action.messages,
-            streamingContent: "",
-            isStreaming: false,
-          },
-        };
-      }
-      // Sync tokenUsage and contextWindowMax from session/switch payload
-      const tokenUsage = action.tokenUsage ?? state.tokenUsage;
-      const contextWindowMax = action.contextWindowMax ?? state.contextWindowMax;
       return {
         ...state,
-        activeSessionId: action.sessionId,
-        activeAgentId: action.agentId,
-        sessions,
-        tokenUsage,
-        contextWindowMax,
+        sessionInfoMap: { ...state.sessionInfoMap, [key]: action.info },
+        sessionStreaming: { ...state.sessionStreaming, [key]: action.info.isStreaming },
       };
     }
 
-    // ==================================================================
-    // Legacy backward-compat (operate on active session)
-    // ==================================================================
-
-    case "SET_MESSAGES":
-    case "ADD_MESSAGE":
-    case "CLEAR_MESSAGES":
-    case "APPEND_STREAM":
-    case "END_STREAM":
-    case "SET_TURN_ACTIVE": {
-      const activeKey = computeActiveSessionKey(state);
-      const hasKey = Boolean(activeKey);
-      const key = activeKey ?? "__legacy__";
-      let baseState = state;
-      if (!hasKey) {
-        baseState = reducer(baseState, { type: "SET_ACTIVE_SESSION", sessionId: "__legacy__", agentId: "__legacy__" });
-      }
-      const legacyMap: Record<string, SessionAction> = {
-        SET_MESSAGES: { type: "SET_SESSION_MESSAGES", agentId: key.split(":")[0], sessionId: key.split(":")[1], messages: (action as { messages: ChatMessage[] }).messages },
-        ADD_MESSAGE: { type: "ADD_SESSION_MESSAGE", agentId: key.split(":")[0], sessionId: key.split(":")[1], message: (action as { message: ChatMessage }).message },
-        CLEAR_MESSAGES: { type: "CLEAR_SESSION_MESSAGES", agentId: key.split(":")[0], sessionId: key.split(":")[1] },
-        APPEND_STREAM: { type: "APPEND_SESSION_STREAM", agentId: key.split(":")[0], sessionId: key.split(":")[1], chunk: (action as { chunk: string }).chunk },
-        END_STREAM: { type: "END_SESSION_STREAM", agentId: key.split(":")[0], sessionId: key.split(":")[1] },
-        SET_TURN_ACTIVE: { type: "SET_SESSION_TURN_ACTIVE", agentId: key.split(":")[0], sessionId: key.split(":")[1], active: (action as { active: boolean }).active },
+    case "SESSION_MESSAGE": {
+      const key = sessionKey(action.agentId, action.sessionId);
+      const existing = state.sessionMessages[key] ?? [];
+      return {
+        ...state,
+        sessionMessages: { ...state.sessionMessages, [key]: [...existing, action.message] },
       };
-      return reducer(baseState, legacyMap[action.type]!);
+    }
+
+    case "SESSION_STREAM": {
+      const key = sessionKey(action.agentId, action.sessionId);
+      const existing = state.sessionMessages[key] ?? [];
+      const last = existing[existing.length - 1];
+      if (last && last.role === "agent" && last.agentId === action.agentId) {
+        const updated = {
+          ...last,
+          content: last.content + action.chunk,
+        };
+        return {
+          ...state,
+          sessionMessages: {
+            ...state.sessionMessages,
+            [key]: [...existing.slice(0, -1), updated],
+          },
+          sessionStreaming: { ...state.sessionStreaming, [key]: true },
+        };
+      }
+      const streamingMsg: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: "agent",
+        content: action.chunk,
+        timestamp: Date.now(),
+        agentId: action.agentId,
+        sessionId: action.sessionId,
+      };
+      return {
+        ...state,
+        sessionMessages: {
+          ...state.sessionMessages,
+          [key]: [...existing, streamingMsg],
+        },
+        sessionStreaming: { ...state.sessionStreaming, [key]: true },
+      };
+    }
+
+    case "SESSION_STREAM_END": {
+      const key = sessionKey(action.agentId, action.sessionId);
+      return {
+        ...state,
+        sessionStreaming: { ...state.sessionStreaming, [key]: false },
+      };
+    }
+
+    case "SESSION_TURN_ACTIVE": {
+      const key = sessionKey(action.agentId, action.sessionId);
+      if (!action.active) {
+        return {
+          ...state,
+          sessionStreaming: { ...state.sessionStreaming, [key]: false },
+        };
+      }
+      return state;
+    }
+
+    case "SESSION_SWITCH": {
+      const key = sessionKey(action.agentId, action.sessionId);
+      return {
+        ...state,
+        sessionMessages: { ...state.sessionMessages, [key]: action.messages },
+        sessionStreaming: { ...state.sessionStreaming, [key]: false },
+      };
     }
 
     default:
@@ -660,132 +475,83 @@ export function useSessionContext(): SessionContext {
   stateRef.current = state;
   const activeSessionKey = computeActiveSessionKey(state);
 
-  // Derived active session state
-  const activeSession = activeSessionKey ? state.sessions[activeSessionKey] : null;
-  const messages = activeSession?.messages ?? [];
-  const isStreaming = activeSession?.isStreaming ?? false;
-  const isTurnActive = activeSession?.isTurnActive ?? false;
   const availableCommands = activeSessionKey ? (state.sessionCommands[activeSessionKey] ?? []) : [];
 
-
-
-  // ------------------------------------------------------------------
   // Background session completion notification (queue for stacking)
-  // ------------------------------------------------------------------
   const [completedNotifications, setCompletedNotifications] = React.useState<
     Array<{ agentId: string; sessionId: string; title: string }>
   >([]);
 
   // ------------------------------------------------------------------
-  // Message handler — listens for ALL message types from extension host
+  // Message handler — listens for tab/agent control messages from extension host
   // ------------------------------------------------------------------
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const data = event.data;
       if (!data?.type) return;
 
-      // --- New session-scoped protocol ---
       switch (data.type) {
-        case "session/switch":
+        // --- Agent info ---
+        case "agentInfo":
           dispatch({
-            type: "SESSION_SWITCH",
-            agentId: data.agentId,
-            sessionId: data.sessionId,
-            messages: data.messages as ChatMessage[] | undefined,
-            tokenUsage: data.tokenUsage as TokenUsage | undefined,
-            contextWindowMax: data.contextWindowMax as number | undefined,
+            type: "SET_AGENT_INFO",
+            agentId: data.agentId as string,
+            info: data.info as AgentInfo,
           });
           return;
 
-        case "session/message": {
+        // --- Statusline ---
+        case "statusline":
           dispatch({
-            type: "ADD_SESSION_MESSAGE",
-            agentId: data.agentId,
-            sessionId: data.sessionId,
-            message: data.message as ChatMessage,
+            type: "SET_STATUSLINE",
+            statusline: {
+              hostname: data.hostname as string | undefined,
+              repoName: data.repoName as string | undefined,
+              branch: data.branch as string | undefined,
+              tag: data.tag as string | undefined,
+            },
           });
-          // Increment unread count for background (non-active) sessions
-          const st = stateRef.current;
-          if (data.sessionId !== st.activeSessionId || data.agentId !== st.activeAgentId) {
-            dispatch({
-              type: "INCREMENT_UNREAD",
-              sessionId: data.sessionId,
-              agentId: data.agentId,
-            });
-          }
           return;
-        }
 
-        case "session/stream": {
-          dispatch({
-            type: "APPEND_SESSION_STREAM",
-            agentId: data.agentId,
-            sessionId: data.sessionId,
-            chunk: data.chunk as string,
-          });
-          // Increment unread count on first chunk for background sessions
-          const st = stateRef.current;
-          const activeKey = computeActiveSessionKey(st);
-          const msgKey = sessionKey(data.agentId, data.sessionId);
-          if (msgKey !== activeKey) {
-            const tab = st.tabs.find(
-              (t) => t.sessionId === data.sessionId && t.agentId === data.agentId
-            );
-            // Only increment on first chunk (when not yet streaming)
-            const session = st.sessions[msgKey];
-            if (tab && !session?.isStreaming) {
-              dispatch({
-                type: "INCREMENT_UNREAD",
-                sessionId: data.sessionId,
-                agentId: data.agentId,
-              });
+        // --- Tab management ---
+        case "setTabs": {
+          dispatch({ type: "SET_TABS", tabs: data.tabs as SessionTabState[] });
+          dispatch({ type: "SET_WORKSPACE_ROOT", root: (data.workspaceRoot as string) ?? undefined });
+          dispatch({ type: "SET_CONNECTED_AGENTS", agents: (data.agents as ConnectedAgentInfo[]) ?? [] });
+          dispatch({ type: "SET_WORKSPACE_FOLDERS", folders: (data.workspaceFolders as WorkspaceFolder[]) ?? [] });
+          if (data.agentInfoMap) {
+            const map = data.agentInfoMap as Record<string, AgentInfo>;
+            for (const [agentId, info] of Object.entries(map)) {
+              dispatch({ type: "SET_AGENT_INFO", agentId, info });
             }
           }
+          if (data.sessionInfoMap) {
+            dispatch({ type: "SET_SESSION_INFO_MAP", map: data.sessionInfoMap as Record<string, SessionInfoSnapshot> });
+          }
           return;
         }
 
-        case "session/streamEnd":
-          dispatch({
-            type: "END_SESSION_STREAM",
-            agentId: data.agentId,
-            sessionId: data.sessionId,
-          });
+        case "addTab":
+          dispatch({ type: "ADD_TAB", tab: data.tab as SessionTabState });
           return;
 
-        case "session/turnActive":
+        case "updateTab":
           dispatch({
-            type: "SET_SESSION_TURN_ACTIVE",
-            agentId: data.agentId,
-            sessionId: data.sessionId,
-            active: data.active as boolean,
-          });
-          return;
-
-        case "session/cancel":
-          dispatch({
-            type: "CANCEL_SESSION",
-            agentId: data.agentId,
-            sessionId: data.sessionId,
-          });
-          return;
-
-        case "session/usage": {
-          const tu = data.tokenUsage as { inputTokens: number; outputTokens: number; totalTokens: number } | undefined;
-          const cwm = data.contextWindowMax as number | undefined;
-          dispatch({
-            type: "UPDATE_SESSION_USAGE",
-            agentId: data.agentId as string,
+            type: "UPDATE_TAB",
             sessionId: data.sessionId as string,
-            tokenUsage: tu ? {
-              inputTokens: tu.inputTokens,
-              outputTokens: tu.outputTokens,
-              totalTokens: tu.totalTokens,
-            } : undefined,
-            contextWindowMax: cwm,
+            updates: data.updates as Partial<SessionTabState>,
           });
           return;
-        }
 
+        case "setActiveSession":
+          dispatch({
+            type: "SET_ACTIVE_SESSION",
+            sessionId: data.sessionId as string,
+            agentId: data.agentId as string,
+          });
+          return;
+
+        // --- Background session completed ---
         case "session/completed":
           setCompletedNotifications((prev) => [
             ...prev,
@@ -797,179 +563,139 @@ export function useSessionContext(): SessionContext {
           ]);
           return;
 
-        case "session/notification": {
-          const notif = data.notification as { update?: { sessionUpdate?: string; content?: { type: string; text?: string } } } | undefined;
-          const updateType = notif?.update?.sessionUpdate;
-          if (updateType === "tool_call" || updateType === "tool_call_update") {
-            // Tool calls are already handled via sessionMessage in orchestrator,
-            // but forward as session/notification fallback
-            const sessionInfo = (data as { sessionInfo?: { toolCalls?: unknown[] } }).sessionInfo;
-            if (sessionInfo?.toolCalls) {
-              dispatch({
-                type: "ADD_SESSION_MESSAGE",
-                agentId: data.agentId as string,
-                sessionId: data.sessionId as string,
-                message: {
-                  id: crypto.randomUUID(),
-                  role: "tool",
-                  content: "",
-                  timestamp: Date.now(),
-                  toolCalls: sessionInfo.toolCalls as ChatMessage["toolCalls"],
-                },
-              });
-            }
+        // --- Slash commands ---
+        case "session/commands":
+          dispatch({
+            type: "SET_SESSION_COMMANDS",
+            agentId: data.agentId as string,
+            sessionId: data.sessionId as string,
+            commands: data.commands as SlashCommand[],
+          });
+          return;
+
+        case "session/info":
+          dispatch({
+            type: "SET_SESSION_INFO",
+            agentId: data.agentId as string,
+            sessionId: data.sessionId as string,
+            info: data as unknown as SessionInfoSnapshot,
+          });
+          return;
+
+        // --- Per-session incremental updates ---
+        // Only process messages for the currently active session to prevent
+        // tool calls / stream chunks from other tabs leaking into this tab.
+        case "session/message": {
+          const aId = data.agentId as string;
+          const sId = data.sessionId as string;
+          const msgKey = sessionKey(aId, sId);
+          const cur = stateRef.current;
+          const curActiveKey = computeActiveSessionKey(cur);
+          if (msgKey === curActiveKey) {
+            dispatch({
+              type: "SESSION_MESSAGE",
+              agentId: aId,
+              sessionId: sId,
+              message: data.message as ChatMessage,
+            });
           }
           return;
         }
-      }
 
-      // --- Agent info ---
-      if (data.type === "agentInfo") {
-        dispatch({
-          type: "SET_AGENT_INFO",
-          agentId: data.agentId as string,
-          info: data.info as AgentInfo,
-        });
-        return;
-      }
-
-      // --- Statusline ---
-      if (data.type === "statusline") {
-        dispatch({
-          type: "SET_STATUSLINE",
-          statusline: {
-            hostname: data.hostname as string | undefined,
-            repoName: data.repoName as string | undefined,
-            branch: data.branch as string | undefined,
-            tag: data.tag as string | undefined,
-          },
-        });
-        return;
-      }
-
-      // --- Tab management ---
-      switch (data.type) {
-        case "setTabs":
-          dispatch({ type: "SET_TABS", tabs: data.tabs as SessionTabState[] });
-          // Store workspaceRoot in global state for Toolbar display
-          dispatch({ type: "SET_WORKSPACE_ROOT", root: (data.workspaceRoot as string) ?? undefined });
-          // Store connected agents info for new session picker
-          dispatch({ type: "SET_CONNECTED_AGENTS", agents: (data.agents as ConnectedAgentInfo[]) ?? [] });
-          // Store workspace folders for new session picker
-          dispatch({ type: "SET_WORKSPACE_FOLDERS", folders: (data.workspaceFolders as WorkspaceFolder[]) ?? [] });
-          // Store agent info map (from InitializeResponse)
-          if (data.agentInfoMap) {
-            const map = data.agentInfoMap as Record<string, AgentInfo>;
-            for (const [agentId, info] of Object.entries(map)) {
-              dispatch({ type: "SET_AGENT_INFO", agentId, info });
-            }
+        case "session/stream": {
+          const aId = data.agentId as string;
+          const sId = data.sessionId as string;
+          const msgKey = sessionKey(aId, sId);
+          const cur = stateRef.current;
+          const curActiveKey = computeActiveSessionKey(cur);
+          if (msgKey === curActiveKey) {
+            dispatch({
+              type: "SESSION_STREAM",
+              agentId: aId,
+              sessionId: sId,
+              chunk: data.chunk as string,
+            });
           }
-          break;
-        case "addTab":
-          dispatch({ type: "ADD_TAB", tab: data.tab as SessionTabState });
-          break;
-        case "updateTab":
-          dispatch({
-            type: "UPDATE_TAB",
-            sessionId: data.sessionId as string,
-            updates: data.updates as Partial<SessionTabState>,
-          });
-          break;
-        case "setActiveSession":
-          dispatch({
-            type: "SET_ACTIVE_SESSION",
-            sessionId: data.sessionId as string,
-            agentId: data.agentId as string,
-          });
-          break;
-      }
-
-      // --- Legacy session/update (backward compat) ---
-      if (data.type === "session/update") {
-        const key = sessionKey(data.agentId, data.sessionId);
-        switch (data.updateType) {
-          case "agent_message_chunk":
-            dispatch({
-              type: "APPEND_SESSION_STREAM",
-              agentId: data.agentId,
-              sessionId: data.sessionId,
-              chunk: data.text as string,
-            });
-            break;
-          case "tool_call":
-          case "tool_call_update":
-            dispatch({
-              type: "ADD_SESSION_MESSAGE",
-              agentId: data.agentId,
-              sessionId: data.sessionId,
-              message: {
-                id: crypto.randomUUID(),
-                role: "system",
-                content: data.content as string,
-                timestamp: Date.now(),
-                toolCalls: data.toolCalls as ChatMessage["toolCalls"],
-              },
-            });
-            break;
-          case "session_status":
-            dispatch({
-              type: "SET_SESSION_TURN_ACTIVE",
-              agentId: data.agentId,
-              sessionId: data.sessionId,
-              active: data.isTurnActive as boolean,
-            });
-            break;
+          return;
         }
-        return;
-      }
 
-      // --- Legacy single-session (backward compat) ---
-      switch (data.type) {
-        case "setMessages":
-          dispatch({ type: "SET_MESSAGES", messages: data.messages as ChatMessage[] });
-          break;
-        case "addMessage":
-          dispatch({ type: "ADD_MESSAGE", message: data.message as ChatMessage });
-          break;
-        case "clearMessages":
-          dispatch({ type: "CLEAR_MESSAGES" });
-          break;
-        case "streamChunk":
-          dispatch({ type: "APPEND_STREAM", chunk: data.chunk as string });
-          break;
-        case "endStream":
-          dispatch({ type: "END_STREAM" });
-          break;
-        case "tokenUsage":
-          dispatch({ type: "SET_TOKEN_USAGE", usage: data.usage as TokenUsage });
-          break;
-        case "session/tokenUsage":
-          // Deprecated: token usage is now delivered via session/switch.
-          // Keep as no-op for backward compatibility.
-          break;
-        case "turnActive":
-          dispatch({ type: "SET_TURN_ACTIVE", active: data.active as boolean });
-          break;
+        case "session/streamEnd": {
+          const aId = data.agentId as string;
+          const sId = data.sessionId as string;
+          const msgKey = sessionKey(aId, sId);
+          const cur = stateRef.current;
+          const curActiveKey = computeActiveSessionKey(cur);
+          if (msgKey === curActiveKey) {
+            dispatch({
+              type: "SESSION_STREAM_END",
+              agentId: aId,
+              sessionId: sId,
+            });
+          }
+          return;
+        }
+
+        // --- Session switch: full snapshot from extension host ---
+        // Only process for the currently active session to prevent cross-tab leakage
+        case "session/switch": {
+          const aId = data.agentId as string;
+          const sId = data.sessionId as string;
+          const msgKey = sessionKey(aId, sId);
+          const cur = stateRef.current;
+          const curActiveKey = computeActiveSessionKey(cur);
+          if (msgKey === curActiveKey) {
+            dispatch({
+              type: "SESSION_SWITCH",
+              agentId: aId,
+              sessionId: sId,
+              messages: data.messages as ChatMessage[],
+            });
+          }
+          return;
+        }
+
+        case "session/turnActive":
+          dispatch({
+            type: "SESSION_TURN_ACTIVE",
+            agentId: data.agentId as string,
+            sessionId: data.sessionId as string,
+            active: data.active as boolean,
+          });
+          return;
+
+        // --- Legacy session/update (backward compat) ---
+        case "session/update": {
+          switch (data.updateType) {
+            case "session_status":
+              // Legacy turn-active signal — no-op, state comes from SessionInfo
+              break;
+          }
+          return;
+        }
+
+        // --- Legacy single-session (backward compat) ---
         case "agentName":
-          dispatch({ type: "SET_AGENT_NAME", name: data.name as string });
-          break;
+        case "setMessages":
+        case "addMessage":
+        case "clearMessages":
+        case "streamChunk":
+        case "endStream":
+        case "tokenUsage":
+        case "turnActive":
         case "fullState":
-          dispatch({ type: "SET_MESSAGES", messages: data.messages as ChatMessage[] });
-          dispatch({ type: "SET_TOKEN_USAGE", usage: data.tokenUsage as TokenUsage });
-          dispatch({ type: "SET_TURN_ACTIVE", active: data.isTurnActive as boolean });
-          break;
+        case "session/tokenUsage":
+          // Deprecated — state is now managed via SessionInfo in the extension host
+          return;
       }
     };
 
     window.addEventListener("message", handleMessage);
 
-    // Fire "ready" on mount (compat — extension handler is now a no-op)
     if (!isReadyRef.current) {
       isReadyRef.current = true;
       getVsCodeApi().postMessage({ type: "ready" });
     }
 
-    // Fire "sessionReady" on mount (tabs initialization)
     if (!isSessionReadyRef.current) {
       isSessionReadyRef.current = true;
       getVsCodeApi().postMessage({ type: "sessionReady" });
@@ -1016,10 +742,6 @@ export function useSessionContext(): SessionContext {
     getVsCodeApi().postMessage({ type: "forkSession", sessionId });
   }, []);
 
-  // ------------------------------------------------------------------
-  // File resolution helpers
-  // ------------------------------------------------------------------
-
   const fetchFiles = useCallback((query: string): Promise<FileCandidate[]> => {
     return new Promise((resolve) => {
       const reqId = crypto.randomUUID();
@@ -1034,7 +756,7 @@ export function useSessionContext(): SessionContext {
     });
   }, []);
 
-  const resolveFile = useCallback((path: string, token?: number): Promise<ContextAttachment> => {
+  const resolveFile = useCallback((path: string): Promise<ContextAttachment> => {
     return new Promise((resolve, reject) => {
       const reqId = crypto.randomUUID();
       const handler = (event: MessageEvent) => {
@@ -1048,7 +770,7 @@ export function useSessionContext(): SessionContext {
         }
       };
       window.addEventListener("message", handler);
-      getVsCodeApi().postMessage({ type: "resolveFile", path, reqId, token });
+      getVsCodeApi().postMessage({ type: "resolveFile", path, reqId });
     });
   }, []);
 
@@ -1077,10 +799,6 @@ export function useSessionContext(): SessionContext {
       getVsCodeApi().postMessage({ type: "resolveDiff" });
     });
   }, []);
-
-  // ------------------------------------------------------------------
-  // Symbol search helpers
-  // ------------------------------------------------------------------
 
   const fetchSymbols = useCallback((query: string): Promise<SuggestionItem[]> => {
     return new Promise((resolve) => {
@@ -1116,67 +834,37 @@ export function useSessionContext(): SessionContext {
     setCompletedNotifications((prev) => prev.slice(1));
   }, []);
 
-  // Memoize all callback refs once (stabilized identities for child props)
   const stableActions = React.useRef({
-    sendMessage,
-    cancelTurn,
-    switchTab,
-    newSession,
-    newSessionWithPicker,
-    closeSession,
-    forkSession,
-    fetchFiles,
-    resolveFile,
-    resolveSelection,
-    resolveDiff,
-    fetchSymbols,
-    resolveSymbol,
-    dismissCompletedNotification,
-    dispatch,
+    sendMessage, cancelTurn, switchTab, newSession, newSessionWithPicker,
+    closeSession, forkSession, fetchFiles, resolveFile, resolveSelection,
+    resolveDiff, fetchSymbols, resolveSymbol, dismissCompletedNotification, dispatch,
   });
   stableActions.current = {
-    // We keep only identity; values are overwritten each render
-    // but React.memo children still see the same ref object.
-    sendMessage,
-    cancelTurn,
-    switchTab,
-    newSession,
-    newSessionWithPicker,
-    closeSession,
-    forkSession,
-    fetchFiles,
-    resolveFile,
-    resolveSelection,
-    resolveDiff,
-    fetchSymbols,
-    resolveSymbol,
-    dismissCompletedNotification,
-    dispatch,
+    sendMessage, cancelTurn, switchTab, newSession, newSessionWithPicker,
+    closeSession, forkSession, fetchFiles, resolveFile, resolveSelection,
+    resolveDiff, fetchSymbols, resolveSymbol, dismissCompletedNotification, dispatch,
   };
 
-  // Build context only when underlying data actually changes
+  const activeMessages = activeSessionKey ? (state.sessionMessages[activeSessionKey] ?? []) : [];
+  const activeIsStreaming = activeSessionKey ? (state.sessionStreaming[activeSessionKey] ?? false) : false;
+
   const contextValue = React.useMemo(
     () => ({
       tabs: state.tabs,
       activeSessionId: state.activeSessionId,
       activeAgentId: state.activeAgentId,
       activeSessionKey,
-      contextWindowMax: state.contextWindowMax,
       connectedAgents: state.connectedAgents,
       agentInfoMap: state.agentInfoMap,
       workspaceFolders: state.workspaceFolders,
-      messages,
-      isStreaming,
-      isTurnActive,
-      tokenUsage: state.tokenUsage,
-      agentName: state.agentName,
-      sessions: state.sessions,
       workspaceRoot: state.workspaceRoot,
+      sessionInfoMap: state.sessionInfoMap,
+      messages: activeMessages,
+      isStreaming: activeIsStreaming,
       completedNotifications,
       availableCommands,
       statusline: state.statusline,
-      // Stable function refs — child components that are React.memo
-      // won't re-render when only these callbacks change.
+      // Stable function refs
       sendMessage: stableActions.current.sendMessage,
       cancelTurn: stableActions.current.cancelTurn,
       switchTab: stableActions.current.switchTab,
@@ -1193,26 +881,11 @@ export function useSessionContext(): SessionContext {
       dismissCompletedNotification: stableActions.current.dismissCompletedNotification,
       dispatch: stableActions.current.dispatch,
     }),
-    // Only data-bearing deps — action callbacks excluded for stability
     [
-      state.tabs,
-      state.activeSessionId,
-      state.activeAgentId,
-      activeSessionKey,
-      state.contextWindowMax,
-      state.connectedAgents,
-      state.agentInfoMap,
-      state.workspaceFolders,
-      messages,
-      isStreaming,
-      isTurnActive,
-      state.tokenUsage,
-      state.agentName,
-      state.sessions,
-      state.workspaceRoot,
-      completedNotifications,
-      availableCommands,
-      state.statusline,
+      state.tabs, state.activeSessionId, state.activeAgentId, activeSessionKey,
+      state.connectedAgents, state.agentInfoMap, state.workspaceFolders,
+      state.workspaceRoot, completedNotifications, availableCommands, state.statusline,
+      activeMessages, activeIsStreaming,
     ],
   );
 

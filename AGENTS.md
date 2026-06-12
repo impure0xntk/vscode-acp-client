@@ -4,14 +4,14 @@
 
 VS Code extension that serves as a **universal ACP (Agent Client Protocol) client**, connecting to any ACP-compatible AI coding agent with a best-in-class chat experience. Protocol-native and agent-agnostic.
 
-**Repository**: https://github.com/impure0xntk/vscode-acp-client
+**Repository**: <https://github.com/impure0xntk/vscode-acp-client>
 **License**: MIT
 **Language**: TypeScript (strict mode)
 **UI Framework**: React 18 + Tailwind CSS 4 (webview)
 
 ## Architecture
 
-```
+```text
 src/
 ├── extension.ts                    # Entry point (delegates to infrastructure/vscode/extension.ts)
 ├── adapter/                        # ACP protocol adapters
@@ -257,6 +257,23 @@ Settings are under the `acp.` prefix:
 - Webview component tests: co-located `*.test.tsx` (Vitest)
 - Integration: manual smoke tests against real agents
 - Protocol compliance: mock ACP server
+
+## Verification After Every Change
+
+After modifying your code, always run the following three commands in order and ensure they all pass before proceeding.
+
+``bash`
+`npm run typecheck` # 1. TypeScript type check
+`npm run compile` # 2. Compile + webview bundle
+`npm test` # 3. Run test suite
+
+```text
+
+- **Proceed with everything in green** — If any of them fail, fix it immediately and rerun.
+
+- Do not move on to the next task with a failed test.
+
+- Run `npm run lint` and `npm run format` before submitting a pull request.
 
 ## VS Code Theme Integration
 

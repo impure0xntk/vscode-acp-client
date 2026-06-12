@@ -9,7 +9,7 @@ import { CompletionNotification } from "./CompletionNotification";
 import { SessionHistoryPanel, PersistentSessionEntry } from "./SessionHistoryPanel";
 import { useSessionContext } from "../hooks/useSessionContext";
 import { ErrorBoundary } from "./ErrorBoundary";
-import type { ChatMessage, ContextAttachment } from "../types";
+import type { ContextAttachment } from "../types";
 import { getVsCodeApi } from "../lib/vscodeApi";
 
 function sessionKey(agentId: string, sessionId: string): string {
@@ -20,18 +20,11 @@ export function App(): React.ReactElement {
   const ctx = useSessionContext();
 
   const {
-    messages,
-    isStreaming,
-    isTurnActive,
-    tokenUsage,
-    contextWindowMax,
-    agentName,
     sendMessage,
     cancelTurn,
     tabs,
     activeSessionId,
     activeAgentId,
-    sessions,
     workspaceRoot,
     connectedAgents,
     agentInfoMap,
@@ -50,6 +43,7 @@ export function App(): React.ReactElement {
     resolveSymbol,
     availableCommands,
     statusline,
+    dispatch,
   } = ctx;
 
   // History panel state
@@ -81,36 +75,12 @@ export function App(): React.ReactElement {
     return () => clearInterval(interval);
   }, []);
 
-  // Derive active session info
-  const activeTab = useMemo(
-    () => tabs.find((t) => t.sessionId === activeSessionId),
-    [tabs, activeSessionId]
-  );
-
+  // Derive active session info from sessionInfoMap (source of truth from extension host)
   const activeKey = activeAgentId && activeSessionId
     ? sessionKey(activeAgentId, activeSessionId)
     : null;
 
-  const activeMessages = useMemo(
-    () => (activeKey && sessions[activeKey]?.messages)
-      ? sessions[activeKey].messages
-      : messages,
-    [activeKey, sessions, messages]
-  );
-
-  const activeStreaming = useMemo(
-    () => (activeKey && sessions[activeKey])
-      ? sessions[activeKey].isStreaming
-      : isStreaming,
-    [activeKey, sessions, isStreaming]
-  );
-
-  const activeTurn = useMemo(
-    () => (activeKey && sessions[activeKey])
-      ? sessions[activeKey].isTurnActive
-      : isTurnActive,
-    [activeKey, sessions, isTurnActive]
-  );
+  const activeSessionInfo = activeKey ? ctx.sessionInfoMap[activeKey] : undefined;
 
   const handleTabClick = React.useCallback(
     (sessionId: string, agentId: string) => {
@@ -140,7 +110,6 @@ export function App(): React.ReactElement {
   }, []);
 
   const handleRestoreSession = React.useCallback((sessionId: string, agentId: string) => {
-    // Find the agent and create a new session or restore existing
     getVsCodeApi().postMessage({ type: "history:restore", sessionId, agentId });
     setShowHistory(false);
   }, []);
@@ -149,14 +118,12 @@ export function App(): React.ReactElement {
   React.useEffect(() => {
     const handler = (e: MessageEvent) => {
       if (e.data?.type === "history:restored") {
-        // Handle session restoration in extension
         console.log("Restoring session:", e.data.sessionId, e.data.agentId);
       }
     };
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
   }, []);
-
 
   const handleSend = React.useCallback(
     (text: string, attachments: ContextAttachment[]) => {
@@ -169,45 +136,67 @@ export function App(): React.ReactElement {
     cancelTurn(activeAgentId ?? undefined, activeSessionId ?? undefined);
   }, [cancelTurn, activeAgentId, activeSessionId]);
 
+  // Derive display values from sessionInfoMap
+  const displayModel = activeSessionInfo?.model;
+  const displayMode = activeSessionInfo?.mode;
+  const displayCwd = activeSessionInfo?.cwd;
+  const displayStatus = activeSessionInfo?.status;
+  const displayIsTurnActive = activeSessionInfo?.isTurnActive ?? false;
+  const displayTokenUsage = activeSessionInfo?.tokenUsage ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+  const displayContextWindowMax = activeSessionInfo?.contextWindowMax;
+  const displayMessageCount = activeSessionInfo?.messageCount ?? 0;
+  const displaySessionStartMs = activeSessionInfo?.createdAt
+    ? new Date(activeSessionInfo.createdAt).getTime()
+    : undefined;
+
   return (
     <div className="app-container">
       <SessionTabs
         tabs={tabs}
         activeSessionId={activeSessionId}
+        sessionInfoMap={ctx.sessionInfoMap}
+        connectedAgents={connectedAgents}
         onTabClick={handleTabClick}
         onTabClose={handleTabClose}
         onTabReorder={() => {}}
         onNewSession={handleNewSession}
       />
-      {completedNotifications.length > 0 && (
-        <div className="completion-notification-stack">
-          {completedNotifications.map((notif, idx) => (
-            <CompletionNotification
-              key={`${notif.agentId}:${notif.sessionId}:${idx}`}
-              agentId={notif.agentId}
-              sessionId={notif.sessionId}
-              title={notif.title}
-              onDismiss={dismissCompletedNotification}
-              onSwitchTab={handleTabClick}
-            />
-          ))}
-        </div>
-      )}
+      {completedNotifications.length > 0 && (() => {
+        // Filter out notifications for sessions that have been closed
+        const validNotifications = completedNotifications.filter((notif) =>
+          tabs.some((t) => t.sessionId === notif.sessionId && t.agentId === notif.agentId)
+        );
+        if (validNotifications.length === 0) return null;
+        return (
+          <div className="completion-notification-stack">
+            {validNotifications.map((notif, idx) => (
+              <CompletionNotification
+                key={`${notif.agentId}:${notif.sessionId}:${idx}`}
+                agentId={notif.agentId}
+                sessionId={notif.sessionId}
+                title={notif.title}
+                onDismiss={dismissCompletedNotification}
+                onSwitchTab={handleTabClick}
+              />
+            ))}
+          </div>
+        );
+      })()}
       <TopToolbar
-        messages={activeMessages}
+        messages={ctx.messages}
         agentName={activeAgentId ? agentInfoMap[activeAgentId]?.name : undefined}
-        model={activeTab?.model}
-        mode={activeTab?.mode}
-        cwd={activeTab?.cwd}
+        model={displayModel}
+        mode={displayMode}
+        cwd={displayCwd}
         workspaceRoot={workspaceRoot}
-        isTurnActive={activeTurn}
+        isTurnActive={displayIsTurnActive}
         onJumpToMessage={handleJumpToMessage}
       />
       <ChatContainer
-        messages={activeMessages}
-        isStreaming={activeStreaming}
+        messages={ctx.messages}
+        isStreaming={ctx.isStreaming}
         sessionId={activeSessionId ?? undefined}
-        status={activeTab?.status}
+        status={displayStatus}
         isActive={true}
         scrollToMessageRef={scrollToMessageRef}
         scrollStateRef={scrollStateRef}
@@ -227,7 +216,7 @@ export function App(): React.ReactElement {
       <Composer
         onSend={handleSend}
         onCancel={handleCancel}
-        isTurnActive={activeTurn}
+        isTurnActive={displayIsTurnActive}
         disabled={!activeSessionId}
         fetchFiles={fetchFiles}
         resolveFile={resolveFile}
@@ -237,20 +226,21 @@ export function App(): React.ReactElement {
         resolveSymbol={resolveSymbol}
         availableCommands={availableCommands}
       />
-      <ProgressBar status={activeTab?.status} />
+      <ProgressBar status={displayStatus} lastActivityMs={activeSessionInfo?.updatedAt ? new Date(activeSessionInfo.updatedAt).getTime() : undefined} />
       <BottomToolbar
-        model={activeTab?.model}
-        mode={activeTab?.mode}
-        tokenUsage={activeTab?.tokenUsage ?? tokenUsage}
-        contextWindowMax={activeTab?.contextWindowMax ?? ctx.contextWindowMax}
-        messageCount={activeMessages.length}
-        isTurnActive={activeTurn}
-        sessionStatus={activeTab?.status}
+        model={displayModel}
+        mode={displayMode}
+        tokenUsage={displayTokenUsage}
+        contextWindowMax={displayContextWindowMax}
+        messageCount={displayMessageCount}
+        isTurnActive={displayIsTurnActive}
+        sessionStatus={displayStatus}
         agentInfo={activeAgentId ? agentInfoMap[activeAgentId] : undefined}
         sessionId={activeSessionId ?? undefined}
-        sessionStartMs={activeTab?.sessionStartMs}
+        sessionStartMs={displaySessionStartMs}
         onForkSession={activeSessionId ? () => ctx.forkSession(activeSessionId) : undefined}
         statusline={statusline}
+        cwd={displayCwd}
       />
     </div>
   );

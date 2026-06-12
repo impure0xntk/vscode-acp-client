@@ -184,6 +184,10 @@ function sendTabsToChatPanel(): void {
     for (const s of agentStatus.sessions) {
       const info = orchestrator.getSessionInfo(agentStatus.agentId, s.sessionId);
       presenter.upsertSession(s, agentStatus.agentId, info?.createdAt ?? new Date());
+      // Push full SessionInfo to webview so UI can derive all model state
+      if (info) {
+        chatPanel.pushSessionInfo(agentStatus.agentId, s.sessionId, info);
+      }
       validKeys.add(`${agentStatus.agentId}:${s.sessionId}`);
     }
   }

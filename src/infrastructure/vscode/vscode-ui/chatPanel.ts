@@ -200,6 +200,7 @@ export class ChatPanel {
   }
 
   setActiveSession(agentId: string, sessionId: string, info: import("../../../application/session/types").SessionInfo): void {
+    // Send full message snapshot (session/switch) — high cost but only on session switch
     const cwd = info.cwd;
     const enriched = info.messages.map((m) => attachInlineFilePaths(m, cwd));
     this.postMessage({
@@ -208,13 +209,22 @@ export class ChatPanel {
       sessionId,
       messages: enriched,
       isTurnActive: info.isTurnActive,
+      isStreaming: info.isStreaming,
       tokenUsage: {
         inputTokens: info.tokenUsage.input,
         outputTokens: info.tokenUsage.output,
         totalTokens: info.tokenUsage.total,
       },
       contextWindowMax: info.contextWindowMax,
+      model: info.model,
+      mode: info.mode,
+      cwd: info.cwd,
+      messageCount: info.messages.length,
+      createdAt: info.createdAt.toISOString(),
+      updatedAt: info.updatedAt.toISOString(),
     });
+    // Also push metadata-only update for sessionInfoMap
+    this.pushSessionInfo(agentId, sessionId, info);
     const commands = this._onGetSessionCommands?.(agentId, sessionId) ?? [];
     if (commands.length > 0) {
       this.pushAvailableCommands(agentId, sessionId, commands);
@@ -256,6 +266,30 @@ export class ChatPanel {
 
   pushSessionUsage(agentId: string, sessionId: string, tokenUsage: { inputTokens: number; outputTokens: number; totalTokens: number }, contextWindowMax?: number): void {
     this.postMessage({ type: "session/usage", agentId, sessionId, tokenUsage, contextWindowMax });
+  }
+
+  /** Push SessionInfo metadata to webview (no messages — use setActiveSession for full snapshot) */
+  pushSessionInfo(agentId: string, sessionId: string, info: import("../../../application/session/types").SessionInfo): void {
+    this.postMessage({
+      type: "session/info",
+      agentId,
+      sessionId,
+      status: info.status,
+      tokenUsage: {
+        inputTokens: info.tokenUsage.input,
+        outputTokens: info.tokenUsage.output,
+        totalTokens: info.tokenUsage.total,
+      },
+      contextWindowMax: info.contextWindowMax,
+      model: info.model,
+      mode: info.mode,
+      cwd: info.cwd,
+      isTurnActive: info.isTurnActive,
+      isStreaming: info.isStreaming,
+      messageCount: info.messages.length,
+      createdAt: info.createdAt.toISOString(),
+      updatedAt: info.updatedAt.toISOString(),
+    });
   }
 
   private handleMessage(data: Record<string, unknown>): void {

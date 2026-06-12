@@ -92,6 +92,10 @@
         "title": "ACP: Clear Session History"
       },
       {
+        "command": "acp.closeSession",
+        "title": "ACP: Close Session"
+      },
+      {
         "command": "acp.closeAllSessions",
         "title": "ACP: Close All Sessions"
       }
@@ -102,11 +106,6 @@
         "key": "ctrl+shift+n",
         "mac": "cmd+shift+n",
         "when": "acp.connected"
-      },
-      {
-        "command": "acp.cancelTurn",
-        "key": "escape",
-        "when": "acp.turnActive"
       }
     ],
     "menus": {

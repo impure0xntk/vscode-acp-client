@@ -1,31 +1,24 @@
 // ============================================================================
-// Chat Presenter — transforms orchestration state into webview messages
-// Decouples orchestrator events from webview-specific message formats
+// Chat Presenter — transforms orchestration state into webview messages.
+// TabData only carries UI-specific state (unread, dirty); everything else
+// is derived from SessionInfo on the extension side.
 // ============================================================================
 
-import type { AgentStatus, SessionStatusInfo } from "../../../domain/models/agent";
-import type { SessionStatus } from "../../../domain/models/session";
-import type { ChatMessage, TokenUsage } from "../../../domain/models/chat";
+import type { SessionStatusInfo } from "../../../domain/models/agent";
 import type { AgentInfo } from "../../../application/session/orchestrator";
 
 // ============================================================================
-// Tab data sent to webview
+// Tab data sent to webview — UI-only fields
 // ============================================================================
 
 export interface TabData {
   sessionId: string;
   agentId: string;
   title: string;
-  status: SessionStatus;
+  /** UI-only: unread message count for badge */
   unreadCount: number;
-  tokenUsage: { inputTokens: number; outputTokens: number; totalTokens: number };
-  contextWindowMax?: number;
-  sessionStartMs: number;
-  lastActivity: number;
+  /** UI-only: dirty flag */
   isDirty: boolean;
-  cwd?: string;
-  model?: string;
-  mode?: string;
 }
 
 export interface AgentTabInfo {
@@ -33,6 +26,24 @@ export interface AgentTabInfo {
   name: string;
   state: string;
   color?: string;
+}
+
+/** Minimal SessionInfo snapshot sent to webview for derivation of display data */
+export interface SessionInfoSnapshot {
+  sessionId: string;
+  agentId: string;
+  status: import("../../../domain/models/session").SessionStatus;
+  isTurnActive: boolean;
+  isStreaming: boolean;
+  tokenUsage: { inputTokens: number; outputTokens: number; totalTokens: number };
+  contextWindowMax?: number;
+  cwd?: string;
+  model?: string;
+  mode?: string;
+  /** ISO date string */
+  createdAt: string;
+  /** ISO date string */
+  updatedAt: string;
 }
 
 export interface SetTabsMessage {
@@ -44,6 +55,8 @@ export interface SetTabsMessage {
   agents: AgentTabInfo[];
   workspaceFolders: Array<{ name: string; path: string }>;
   agentInfoMap: Record<string, unknown>;
+  /** Full SessionInfo map for deriving model state in webview */
+  sessionInfoMap: Record<string, SessionInfoSnapshot>;
 }
 
 // ============================================================================
@@ -58,6 +71,7 @@ export class ChatPresenter {
   private workspaceRoot: string | null = null;
   private workspaceFolders: Array<{ name: string; path: string }> = [];
   private agentInfoMap: Record<string, unknown> = {};
+  private sessionInfoMap: Record<string, SessionInfoSnapshot> = {};
 
   // -----------------------------------------------------------------------
   // Configuration
@@ -78,7 +92,6 @@ export class ChatPresenter {
 
   removeAgent(agentId: string): void {
     this.agents.delete(agentId);
-    // Remove tabs for this agent
     for (const [key, tab] of this.tabs) {
       if (tab.agentId === agentId) {
         this.tabs.delete(key);
@@ -91,7 +104,7 @@ export class ChatPresenter {
   }
 
   // -----------------------------------------------------------------------
-  // Session updates
+  // Session updates — only UI-specific fields
   // -----------------------------------------------------------------------
 
   upsertSession(session: SessionStatusInfo, agentId: string, createdAt: Date): void {
@@ -101,27 +114,34 @@ export class ChatPresenter {
       sessionId: session.sessionId,
       agentId,
       title: session.title,
-      status: session.status,
       unreadCount: existing?.unreadCount ?? 0,
+      isDirty: existing?.isDirty ?? false,
+    };
+    this.tabs.set(key, tab);
+
+    // Store full SessionInfo snapshot for webview derivation
+    this.sessionInfoMap[key] = {
+      sessionId: session.sessionId,
+      agentId,
+      status: session.status,
+      isTurnActive: session.status === "running",
+      isStreaming: session.status === "running",
       tokenUsage: {
         inputTokens: session.tokenUsage.input,
         outputTokens: session.tokenUsage.output,
         totalTokens: session.tokenUsage.total,
       },
       contextWindowMax: (session as unknown as { contextWindowMax?: number }).contextWindowMax,
-      sessionStartMs: existing?.sessionStartMs ?? createdAt.getTime(),
-      lastActivity: existing?.lastActivity ?? Date.now(),
-      isDirty: existing?.isDirty ?? false,
       cwd: session.cwd,
       model: session.model,
       mode: session.mode,
+      createdAt: createdAt.toISOString(),
+      updatedAt: new Date().toISOString(),
     };
-    this.tabs.set(key, tab);
   }
 
   removeSession(agentId: string, sessionId: string): void {
     this.tabs.delete(`${agentId}:${sessionId}`);
-    // Clear active session if it was the removed one
     if (this.activeSessionId === sessionId && this.activeAgentId === agentId) {
       this.activeSessionId = null;
       this.activeAgentId = null;
@@ -133,20 +153,15 @@ export class ChatPresenter {
     this.activeSessionId = sessionId;
   }
 
-  // -----------------------------------------------------------------------
-  // Message → Tab update
-  // -----------------------------------------------------------------------
-
-  updateTabFromMessage(agentId: string, sessionId: string, message: ChatMessage): void {
+  updateTabFromMessage(agentId: string, sessionId: string): void {
     const key = `${agentId}:${sessionId}`;
     const tab = this.tabs.get(key);
     if (!tab) return;
-    tab.lastActivity = Date.now();
     tab.isDirty = true;
   }
 
   // -----------------------------------------------------------------------
-  // Build the setTabs message
+  // Build messages
   // -----------------------------------------------------------------------
 
   buildSetTabsMessage(): SetTabsMessage {
@@ -159,12 +174,9 @@ export class ChatPresenter {
       agents: Array.from(this.agents.values()),
       workspaceFolders: this.workspaceFolders,
       agentInfoMap: this.agentInfoMap,
+      sessionInfoMap: this.sessionInfoMap,
     };
   }
-
-  // -----------------------------------------------------------------------
-  // Build a lightweight tab update (no full refresh)
-  // -----------------------------------------------------------------------
 
   buildTabUpdate(sessionId: string, agentId: string, updates: Partial<TabData>): {
     type: "updateTab";
@@ -175,10 +187,6 @@ export class ChatPresenter {
     return { type: "updateTab", sessionId, agentId, updates };
   }
 
-  // -----------------------------------------------------------------------
-  // Build session/completed notification
-  // -----------------------------------------------------------------------
-
   buildSessionCompleted(sessionId: string, agentId: string, title: string): {
     type: "session/completed";
     agentId: string;
@@ -188,14 +196,10 @@ export class ChatPresenter {
     return { type: "session/completed", agentId, sessionId, title };
   }
 
-  // -----------------------------------------------------------------------
-  // Build session/usage update
-  // -----------------------------------------------------------------------
-
   buildSessionUsage(
     agentId: string,
     sessionId: string,
-    tokenUsage: TokenUsage,
+    tokenUsage: { inputTokens: number; outputTokens: number; totalTokens: number },
     contextWindowMax?: number,
   ): {
     type: "session/usage";
@@ -208,13 +212,22 @@ export class ChatPresenter {
       type: "session/usage",
       agentId,
       sessionId,
-      tokenUsage: {
-        inputTokens: tokenUsage.input,
-        outputTokens: tokenUsage.output,
-        totalTokens: tokenUsage.total,
-      },
+      tokenUsage,
       contextWindowMax,
     };
+  }
+
+  buildSessionCommands(
+    agentId: string,
+    sessionId: string,
+    commands: unknown[],
+  ): {
+    type: "session/commands";
+    agentId: string;
+    sessionId: string;
+    commands: unknown[];
+  } {
+    return { type: "session/commands", agentId, sessionId, commands };
   }
 
   // -----------------------------------------------------------------------
@@ -227,5 +240,6 @@ export class ChatPresenter {
     this.activeSessionId = null;
     this.activeAgentId = null;
     this.agentInfoMap = {};
+    this.sessionInfoMap = {};
   }
 }

@@ -32,6 +32,9 @@ export interface Session {
 
 import type { ChatMessage, TokenUsage } from "./chat";
 
+// Re-export for convenience
+export type { ChatMessage, TokenUsage };
+
 export interface SessionInfo {
   sessionId: string;
   agentId: string;
@@ -42,6 +45,8 @@ export interface SessionInfo {
   status: SessionStatus;
   messages: ChatMessage[];
   isTurnActive: boolean;
+  /** True while streaming content is in progress (between stream start and stream end) */
+  isStreaming: boolean;
   tokenUsage: TokenUsage;
   contextWindowMax?: number;
   createdAt: Date;

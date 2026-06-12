@@ -361,6 +361,7 @@ export class SessionOrchestrator extends EventEmitter {
       status: "idle",
       messages: [],
       isTurnActive: false,
+      isStreaming: false,
       createdAt: now,
       updatedAt: now,
       tokenUsage: { input: 0, output: 0, total: 0 },
@@ -433,6 +434,7 @@ export class SessionOrchestrator extends EventEmitter {
     sessionInfo.status = "running";
     sessionInfo.updatedAt = new Date();
     sessionInfo.isTurnActive = true;
+    sessionInfo.isStreaming = true;
 
     // Build prompt with context
     let fullText = text;
@@ -464,11 +466,13 @@ export class SessionOrchestrator extends EventEmitter {
 
       // Turn is complete when prompt() resolves
       sessionInfo.status = "completed";
+      sessionInfo.isStreaming = false;
       // Flush any remaining buffered tool calls
       this.flushPendingToolCalls(agentId, sessionId);
       this.emit("sessionCompleted", { agentId, sessionId, title: sessionInfo.title });
     } catch (e) {
       sessionInfo.status = "error";
+      sessionInfo.isStreaming = false;
       throw e;
     } finally {
       sessionInfo.isTurnActive = false;
@@ -487,6 +491,7 @@ export class SessionOrchestrator extends EventEmitter {
       sessionInfo.pendingCancel = true;
       sessionInfo.status = "cancelled";
       sessionInfo.isTurnActive = false;
+      sessionInfo.isStreaming = false;
       sessionInfo.updatedAt = new Date();
       this.emit("sessionTurnActiveChanged", { agentId, sessionId, active: false });
     }
@@ -782,6 +787,11 @@ export class SessionOrchestrator extends EventEmitter {
     switch (update.sessionUpdate) {
       case "agent_message_chunk": {
         sessionInfo.status = "running";
+        // Track streaming state — emit on transition from non-streaming to streaming
+        if (!sessionInfo.isStreaming) {
+          sessionInfo.isStreaming = true;
+          this.emit("sessionStreamStart", { agentId, sessionId });
+        }
         // Flush buffered tool calls before agent text arrives
         this.flushPendingToolCalls(agentId, sessionId);
         const content = update.content;
@@ -806,9 +816,17 @@ export class SessionOrchestrator extends EventEmitter {
       }
       case "agent_thought_chunk":
         sessionInfo.status = "running";
+        if (!sessionInfo.isStreaming) {
+          sessionInfo.isStreaming = true;
+          this.emit("sessionStreamStart", { agentId, sessionId });
+        }
         break;
       case "tool_call": {
         sessionInfo.status = "running";
+        if (!sessionInfo.isStreaming) {
+          sessionInfo.isStreaming = true;
+          this.emit("sessionStreamStart", { agentId, sessionId });
+        }
         const tcLocations = update.locations?.map((loc) => ({ path: loc.path, line: loc.line ?? undefined }));
         const tcDiff = extractDiffContent(update.content);
         const newCall: ToolCall = {

@@ -46,7 +46,12 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
     "sessionCommandsUpdated",
     ({ agentId, sessionId, commands }: { agentId: string; sessionId: string; commands: unknown[] }) => {
       console.log("[handlers/message-events] sessionCommandsUpdated", { agentId, sessionId, commands });
-      getChatPanel()?.pushAvailableCommands(agentId, sessionId, commands);
+      getChatPanel()?.postMessage({
+        type: "session/commands",
+        agentId,
+        sessionId,
+        commands,
+      });
     },
   );
 
@@ -79,40 +84,21 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
       treeProvider.refresh();
       updateContext();
 
-      // Lightweight tab status update for streaming content
+      // Push updated sessionInfo for all session-affecting updates
+      // so the webview always has the latest model state
       if (
         update.sessionUpdate === "agent_message_chunk" ||
-        update.sessionUpdate === "agent_thought_chunk"
-      ) {
-        cp?.postMessage(
-          presenter.buildTabUpdate(sessionId, agentId, { status: "running" }),
-        );
-      }
-
-      // Full tab refresh for mode/config/tool/title changes
-      if (
+        update.sessionUpdate === "agent_thought_chunk" ||
         update.sessionUpdate === "current_mode_update" ||
         update.sessionUpdate === "config_option_update" ||
         update.sessionUpdate === "tool_call" ||
         update.sessionUpdate === "tool_call_update" ||
-        update.sessionUpdate === "session_info_update"
+        update.sessionUpdate === "session_info_update" ||
+        update.sessionUpdate === "usage_update"
       ) {
-        sendTabs();
-      }
-
-      // Lightweight usage update
-      if (update.sessionUpdate === "usage_update") {
         const sessionInfo = orchestrator.getSessionInfo(agentId, sessionId);
         if (sessionInfo) {
-          cp?.postMessage(
-            presenter.buildSessionUsage(
-              agentId,
-              sessionId,
-              sessionInfo.tokenUsage,
-              sessionInfo.contextWindowMax,
-            ),
-          );
-          sendTabs();
+          cp?.pushSessionInfo(agentId, sessionId, sessionInfo);
         }
       }
     },
