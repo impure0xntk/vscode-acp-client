@@ -208,6 +208,7 @@ export function App(): React.ReactElement {
         isStreaming={activeStreaming}
         sessionId={activeSessionId ?? undefined}
         status={activeTab?.status}
+        isActive={true}
         scrollToMessageRef={scrollToMessageRef}
         scrollStateRef={scrollStateRef}
       />

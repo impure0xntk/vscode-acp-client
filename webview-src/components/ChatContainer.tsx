@@ -10,6 +10,8 @@ export interface ChatContainerProps {
   isStreaming: boolean;
   sessionId?: string;
   status?: "idle" | "running" | "completed" | "error" | "cancelled";
+  /** Whether this container's session is currently active (visible tab) */
+  isActive?: boolean;
   /** Ref setter that receives the internal scrollToMessage function */
   scrollToMessageRef?: React.MutableRefObject<((id: string) => void) | undefined>;
   /** Ref that exposes { isAtBottom, unreadCount, scrollToBottom } to parent */
@@ -106,11 +108,15 @@ function buildRunKeys(messages: ChatMessage[]): (string | undefined)[] {
 }
 
 // Memoize to skip re-render when isStreaming toggles but messages reference is same
+/** Per-session last-seen message count (persists across tab switches) */
+const sessionMsgCounts = new Map<string, number>();
+
 export const ChatContainer = memo(function ChatContainer({
   messages,
   isStreaming,
   sessionId,
   status,
+  isActive = true,
   scrollToMessageRef,
   scrollStateRef,
 }: ChatContainerProps): React.ReactElement {
@@ -119,7 +125,20 @@ export const ChatContainer = memo(function ChatContainer({
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
   const isAtBottomRef = useRef(true);
-  const msgCountRef = useRef(messages.length);
+  const msgCountRef = useRef(0);
+  const prevSessionIdRef = useRef<string | undefined>(undefined);
+
+  // On session switch: restore last-seen count, reset scroll state
+  if (sessionId !== prevSessionIdRef.current) {
+    prevSessionIdRef.current = sessionId;
+    const key = sessionId ?? "__nosession__";
+    const saved = sessionMsgCounts.get(key);
+    msgCountRef.current = saved ?? messages.length;
+    // Reset scroll state for new session
+    setIsAtBottom(true);
+    isAtBottomRef.current = true;
+    setUnreadCount(0);
+  }
 
   // Track whether the user is actively scrolling via scrollbar interaction
   const isUserScrollingRef = useRef(false);
@@ -208,27 +227,50 @@ export const ChatContainer = memo(function ChatContainer({
     isAtBottomRef.current = true;
   }, []);
 
-  // Reset state on session switch
+  // Update last-seen count only when tab is active AND user is at bottom
   useEffect(() => {
-    setIsAtBottom(true);
-    isAtBottomRef.current = true;
-    setUnreadCount(0);
-    msgCountRef.current = messages.length;
-    bottomRef.current?.scrollIntoView({ behavior: "instant" });
-  }, [sessionId]);
+    if (!isActive) return;
 
-  // Auto-scroll only when user is already at bottom
-  useEffect(() => {
-    const prevCount = msgCountRef.current;
     const newCount = messages.length;
-    msgCountRef.current = newCount;
+    const seen = msgCountRef.current;
+    const delta = newCount - seen;
+
+    if (delta > 0 && isAtBottomRef.current) {
+      // User is at bottom — mark everything up to newest as seen
+      msgCountRef.current = newCount;
+      sessionMsgCounts.set(sessionId ?? "__nosession__", newCount);
+      setUnreadCount(0);
+    }
+  }, [messages.length, isActive, sessionId, isStreaming]);
+
+  // Auto-scroll only when user is already at bottom AND tab is active
+  useEffect(() => {
+    if (!isActive) return;
+
+    const newCount = messages.length;
+    const delta = newCount - msgCountRef.current;
+
+    if (delta <= 0) return;
+
+    sessionMsgCounts.set(sessionId ?? "__nosession__", newCount);
 
     if (isAtBottomRef.current) {
+      msgCountRef.current = newCount;
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    } else if (newCount > prevCount && !isAtBottomRef.current) {
-      setUnreadCount((c) => c + (newCount - prevCount));
+    } else {
+      setUnreadCount((c) => c + delta);
     }
-  }, [messages, isStreaming]);
+  }, [messages, isStreaming, isActive, sessionId]);
+
+  // When tab becomes active: mark all as seen, scroll to bottom
+  useEffect(() => {
+    if (!isActive) return;
+    const newCount = messages.length;
+    sessionMsgCounts.set(sessionId ?? "__nosession__", newCount);
+    msgCountRef.current = newCount;
+    setUnreadCount(0);
+    bottomRef.current?.scrollIntoView({ behavior: "instant" });
+  }, [isActive, sessionId]);
 
   // Expose scroll state to parent via ref (for fixed scroll-to-bottom button)
   useEffect(() => {

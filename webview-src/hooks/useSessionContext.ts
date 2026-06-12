@@ -656,6 +656,8 @@ export function useSessionContext(): SessionContext {
   const [state, dispatch] = useReducer(reducer, initialState);
   const isReadyRef = useRef(false);
   const isSessionReadyRef = useRef(false);
+  const stateRef = useRef(state);
+  stateRef.current = state;
   const activeSessionKey = computeActiveSessionKey(state);
 
   // Derived active session state

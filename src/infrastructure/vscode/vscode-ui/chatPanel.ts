@@ -281,11 +281,9 @@ export class ChatPanel {
       case "attachFile":
         this._onAttachFile.fire({ path: data.path as string, lineRange: data.lineRange as [number, number] | undefined });
         break;
-      case "fetchFiles":
-      case "resolveFile":
-      case "resolveSelection":
-      case "resolveDiff":
-        break;
+      // fetchFiles, resolveFile, resolveSelection, resolveDiff, fetchSymbols, resolveSymbol
+      // are handled via onDidReceiveMessage in wireChatPanelEvents().
+      // They must not be intercepted here — intentionally no case for them.
       case "openNewSessionPicker":
         void this.ui.executeCommand("acp.newSession");
         break;

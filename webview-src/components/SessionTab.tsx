@@ -82,7 +82,7 @@ export function SessionTab({
       </span>
 
       {unreadCount > 0 && !isActive && (
-        <span className="session-tab-badge">{unreadCount}</span>
+        <span className="session-tab-badge">{unreadCount > 99 ? "99+" : unreadCount}</span>
       )}
 
       <button

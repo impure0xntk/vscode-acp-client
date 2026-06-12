@@ -115,15 +115,16 @@ export function SessionTabs({
                 )}
               </div>
 
-              {/* Row 2: Session title + actions */}
+              {/* Row 2: Session title + badge */}
               <div className="session-tab-row session-tab-row-session">
                 <span className="session-tab-title" title={tab.title}>
                   {tab.title}
                 </span>
-                {tab.unreadCount > 0 && !isActive && (
-                  <span className="session-tab-badge">{tab.unreadCount}</span>
-                )}
               </div>
+              {/* Badge: positioned absolute at top-right */}
+              {tab.unreadCount > 0 && !isActive && (
+                <span className="session-tab-badge">{tab.unreadCount > 99 ? "99+" : tab.unreadCount}</span>
+              )}
 
               {/* Action buttons - visible on hover or active */}
               <div className={`session-tab-actions${showCloseButton ? " session-tab-actions-visible" : ""}`}>
