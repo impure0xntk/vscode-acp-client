@@ -272,7 +272,7 @@ type SessionAction =
   | { type: "SET_TABS"; tabs: SessionTabState[] }
   | { type: "ADD_TAB"; tab: SessionTabState }
   | { type: "REMOVE_TAB"; sessionId: string }
-  | { type: "UPDATE_TAB"; sessionId: string; updates: Partial<SessionTabState> }
+  | { type: "UPDATE_TAB"; sessionId: string; agentId?: string; updates: Partial<SessionTabState> }
   | { type: "SET_ACTIVE_SESSION"; sessionId: string; agentId: string }
   | { type: "REORDER_TABS"; tabs: SessionTabState[] }
 
@@ -385,7 +385,7 @@ function reducer(state: FullState, action: SessionAction): FullState {
 
     case "UPDATE_TAB": {
       const tabs = state.tabs.map((t) => {
-        if (t.sessionId !== action.sessionId || t.agentId !== action.agentId) return t;
+        if (t.sessionId !== action.sessionId) return t;
         const merged = { ...t, ...action.updates };
         // Don't overwrite contextWindowMax with undefined
         if (action.updates.contextWindowMax === undefined) {

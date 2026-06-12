@@ -2,7 +2,6 @@ import * as path from "path";
 import * as fs from "fs";
 import { homedir } from "os";
 import initSqlJs, { type Database } from "sql.js";
-import type { ExtensionContext } from "vscode";
 import type { SessionInfo, SessionStatus } from "./types";
 import type { ChatMessage, TokenUsage } from "../types/chat";
 import { SCHEMA_SQL } from "./schema";
@@ -31,9 +30,9 @@ const DEFAULT_CONFIG: HistoryConfig = {
 // DB path helper
 // ============================================================================
 
-function getDbPath(context?: ExtensionContext): string {
-  if (context?.globalStorageUri) {
-    const baseDir = context.globalStorageUri.fsPath;
+function getDbPath(storageUri?: string): string {
+  if (storageUri) {
+    const baseDir = storageUri;
     if (!fs.existsSync(baseDir)) {
       fs.mkdirSync(baseDir, { recursive: true });
     }
@@ -119,15 +118,15 @@ interface MessageRow {
 export class PersistentHistoryStore {
   private db: Database | null = null;
   private config: HistoryConfig;
-  private context?: ExtensionContext;
+  private storageUri: string | undefined;
   private writeQueue: Map<string, SessionInfo> = new Map();
   private writeTimeout: ReturnType<typeof setTimeout> | null = null;
   private readonly WRITE_DEBOUNCE_MS = 1000;
   private dbPath: string = "";
 
-  constructor(config: Partial<HistoryConfig> = {}, context?: ExtensionContext) {
+  constructor(config: Partial<HistoryConfig> = {}, storageUri?: string) {
     this.config = { ...DEFAULT_CONFIG, ...config };
-    this.context = context;
+    this.storageUri = storageUri;
   }
 
   // ========================================================================
@@ -136,7 +135,7 @@ export class PersistentHistoryStore {
 
   async open(): Promise<void> {
     const SQL = await initSqlJs();
-    this.dbPath = getDbPath(this.context);
+    this.dbPath = getDbPath(this.storageUri);
 
     if (fs.existsSync(this.dbPath)) {
       const buffer = fs.readFileSync(this.dbPath);

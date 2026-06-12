@@ -1,4 +1,3 @@
-import * as vscode from "vscode";
 import { EventEmitter } from "events";
 import { abbreviatePath } from "../util/path";
 import {
@@ -45,7 +44,9 @@ export interface SessionCompletedEvent {
   sessionId: string;
   title: string;
 }
-import { VscodeAcpClient } from "../acp/vscodeClient";
+import { PlatformAcpClient } from "../acp/platformClient";
+import type { UIAPI } from "../platform/ui";
+import type { FileSystemAPI } from "../platform/filesystem";
 
 // ============================================================================
 // Auto-connect entry (one chat tab)
@@ -163,7 +164,13 @@ export function sessionKey(agentId: string, sessionId: string): string {
 // Session Orchestrator
 // ============================================================================
 
+export interface OrchestratorDeps {
+  ui: UIAPI;
+  fs: FileSystemAPI;
+}
+
 export class SessionOrchestrator extends EventEmitter {
+  private deps: OrchestratorDeps;
   // agentId → ClientSideConnection
   private connections: Map<string, ClientSideConnection> = new Map();
   // agentId → child process (for cleanup)
@@ -187,6 +194,11 @@ export class SessionOrchestrator extends EventEmitter {
   private historyStore: PersistentHistoryStore | null = null;
   // Session history store (globalState — metadata for history view)
   private sessionHistoryStore: SessionHistoryStore | null = null;
+
+  constructor(deps: OrchestratorDeps) {
+    super();
+    this.deps = deps;
+  }
 
   // ========================================================================
   // History Store
@@ -227,7 +239,8 @@ export class SessionOrchestrator extends EventEmitter {
     const stream = ndJsonStream(stdinWritable, stdoutReadable);
 
     // Create the VS Code client implementation
-    const client = new VscodeAcpClient(
+    const client = new PlatformAcpClient(
+      { fs: this.deps.fs, ui: this.deps.ui },
       (aId, notification) => this.handleSessionUpdate(aId, notification),
       (aId, request) => this.handleRequestPermission(aId, request),
     );
@@ -946,8 +959,8 @@ export class SessionOrchestrator extends EventEmitter {
   ): Promise<RequestPermissionResponse> {
     const qpItems = request.options.map((o) => ({
       label: o.name ?? o.optionId,
-      description: o.kind,
-      optionId: o.optionId,
+      description: o.kind ?? undefined,
+      picked: false,
     }));
 
     const kindLabel =
@@ -958,37 +971,22 @@ export class SessionOrchestrator extends EventEmitter {
 
     const title = `[${agentId}] ${kindLabel}: ${request.toolCall.title ?? "(no title)"}`;
 
-    const key = await new Promise<string | undefined>((resolve) => {
-      const input = vscode.window.createQuickPick<{ label: string; description: string; optionId: string }>();
-      input.title = title;
-      input.placeholder = `${request.toolCall.title ?? "(no title)"} ${request.toolCall.kind ?? ""}`.trim();
-      input.items = qpItems;
-      input.buttons = [
-        { iconPath: new vscode.ThemeIcon("check"), tooltip: "Allow" },
-        { iconPath: new vscode.ThemeIcon("x"), tooltip: "Deny" },
-      ];
-      input.onDidAccept(() => {
-        const selected = input.selectedItems[0];
-        input.hide();
-        resolve(selected?.optionId);
-      });
-      input.onDidTriggerButton((btn) => {
-        const selected = input.selectedItems[0];
-        let optionId: string | undefined;
-        if (btn.iconPath instanceof vscode.ThemeIcon && btn.iconPath.id === "check") {
-          optionId = selected?.optionId ?? qpItems[0]?.optionId;
-        }
-        input.hide();
-        resolve(optionId);
-      });
-      input.onDidHide(() => resolve(undefined));
-      input.show();
+    const result = await this.deps.ui.showQuickPick(qpItems, {
+      placeHolder: title,
     });
 
-    if (!key) {
+    if (!result) {
       return { outcome: { outcome: "cancelled" } };
     }
-    return { outcome: { outcome: "selected", optionId: key } };
+
+    // Map back to optionId via label match (showQuickPick may return a copy)
+    const label = (result as { label: string }).label;
+    const matchedOption = request.options.find((o) => (o.name ?? o.optionId) === label);
+    const optionId = matchedOption?.optionId;
+    if (!optionId) {
+      return { outcome: { outcome: "cancelled" } };
+    }
+    return { outcome: { outcome: "selected", optionId } };
   }
 
   private handleAgentDisconnected(agentId: string): void {

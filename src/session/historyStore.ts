@@ -1,4 +1,4 @@
-import type { ExtensionContext } from "vscode";
+import type { Memento } from "../platform/context";
 
 /**
  * Serializable token usage snapshot.
@@ -35,7 +35,7 @@ function truncate(text: string, max: number): string {
 }
 
 /**
- * Persistent session history backed by {@link ExtensionContext.globalState}.
+ * Persistent session history backed by a Memento store.
  *
  * - Stores metadata only (no full message bodies).
  * - Newest entries first.
@@ -43,10 +43,10 @@ function truncate(text: string, max: number): string {
  * - All dates are ISO strings so entries are fully JSON-serialisable.
  */
 export class SessionHistoryStore {
-  private readonly context: ExtensionContext;
+  private readonly globalState: Memento;
 
-  constructor(context: ExtensionContext) {
-    this.context = context;
+  constructor(globalState: Memento) {
+    this.globalState = globalState;
   }
 
   /**
@@ -143,10 +143,10 @@ export class SessionHistoryStore {
   /* ------------------------------------------------------------------ */
 
   private load(): HistoryEntry[] {
-    return this.context.globalState.get<HistoryEntry[]>(STORAGE_KEY, []);
+    return this.globalState.get<HistoryEntry[]>(STORAGE_KEY) ?? [];
   }
 
   private async save(entries: HistoryEntry[]): Promise<void> {
-    await this.context.globalState.update(STORAGE_KEY, entries);
+    await this.globalState.update(STORAGE_KEY, entries);
   }
 }

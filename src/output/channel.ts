@@ -1,21 +1,26 @@
-import * as vscode from "vscode";
+import type { UIAPI } from "../platform/ui";
 
 // ============================================================================
 // Output Channel Manager — per-agent output channels
 // ============================================================================
 
 export class OutputChannelManager {
-  private channels = new Map<string, vscode.OutputChannel>();
+  private ui: UIAPI;
+  private channels = new Map<string, ReturnType<UIAPI["createOutputChannel"]>>();
 
-  create(agentId: string): vscode.OutputChannel {
+  constructor(ui: UIAPI) {
+    this.ui = ui;
+  }
+
+  create(agentId: string) {
     const existing = this.channels.get(agentId);
     if (existing) return existing;
-    const channel = vscode.window.createOutputChannel(`ACP: ${agentId}`);
+    const channel = this.ui.createOutputChannel(`ACP: ${agentId}`);
     this.channels.set(agentId, channel);
     return channel;
   }
 
-  get(agentId: string): vscode.OutputChannel | undefined {
+  get(agentId: string) {
     return this.channels.get(agentId);
   }
 

@@ -1,5 +1,6 @@
-import * as vscode from "vscode";
 import type { AgentConfig } from "../orchestrator";
+import type { PlatformAPI } from "../platform";
+import type { Memento } from "../platform/context";
 
 export type { AgentConfig };
 
@@ -12,9 +13,11 @@ const CUSTOM_AGENTS_KEY = "acp.customAgents";
 export class AgentRegistry {
   private settingsAgents: AgentConfig[] = [];
   private customAgents: AgentConfig[] = [];
+  private globalState: Memento;
 
-  constructor(private context: vscode.ExtensionContext) {
-    this.settingsAgents = this.loadFromSettings();
+  constructor(platform: PlatformAPI) {
+    this.globalState = platform.context.globalState;
+    this.settingsAgents = this.loadFromSettings(platform);
     this.customAgents = this.loadCustomAgents();
   }
 
@@ -79,14 +82,26 @@ export class AgentRegistry {
   // Private
   // ========================================================================
 
-  private loadFromSettings(): AgentConfig[] {
-    const config = vscode.workspace.getConfiguration("acp");
+  private loadCustomAgents(): AgentConfig[] {
+    const stored = this.globalState.get<AgentConfig[]>(CUSTOM_AGENTS_KEY);
+    if (!Array.isArray(stored)) {
+      return [];
+    }
+    return stored;
+  }
+
+  private async persistCustomAgents(agents: AgentConfig[]): Promise<void> {
+    await this.globalState.update(CUSTOM_AGENTS_KEY, agents);
+  }
+
+  private loadFromSettings(platform: PlatformAPI): AgentConfig[] {
+    const config = platform.fs.getConfiguration("acp");
     const agentsObj = config.get<Record<string, AgentConfig>>("agents");
     if (!agentsObj || typeof agentsObj !== "object") {
       return [];
     }
-    return Object.entries(agentsObj).map(([key, a]) => {
-      // autoConnect: AutoConnectEntry[] (array only)
+    return Object.entries(agentsObj).map(([key, raw]) => {
+      const a = raw as unknown as Record<string, unknown>;
       let autoConnect: import("../orchestrator").AutoConnectEntry[] | undefined;
       if (Array.isArray(a.autoConnect)) {
         autoConnect = (a.autoConnect as Array<Record<string, unknown>>).map((entry) => ({
@@ -96,28 +111,16 @@ export class AgentRegistry {
       }
       return {
         id: key,
-        name: a.name ?? key,
-        command: a.command ?? "",
-        args: Array.isArray(a.args) ? a.args : [],
-        env: a.env && typeof a.env === "object" ? a.env : {},
+        name: (a.name as string) ?? key,
+        command: (a.command as string) ?? "",
+        args: Array.isArray(a.args) ? (a.args as string[]) : [],
+        env: a.env && typeof a.env === "object" ? (a.env as Record<string, string>) : {},
         autoConnect,
-        openChat: a.openChat !== false,
-        icon: a.icon,
-        color: a.color,
-        maxConcurrentSessions: a.maxConcurrentSessions ?? 5,
+        openChat: (a.openChat as boolean) !== false,
+        icon: a.icon as string | undefined,
+        color: a.color as string | undefined,
+        maxConcurrentSessions: (a.maxConcurrentSessions as number) ?? 5,
       };
     });
-  }
-
-  private loadCustomAgents(): AgentConfig[] {
-    const stored = this.context.globalState.get<AgentConfig[]>(CUSTOM_AGENTS_KEY);
-    if (!Array.isArray(stored)) {
-      return [];
-    }
-    return stored;
-  }
-
-  private async persistCustomAgents(agents: AgentConfig[]): Promise<void> {
-    await this.context.globalState.update(CUSTOM_AGENTS_KEY, agents);
   }
 }

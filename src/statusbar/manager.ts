@@ -1,20 +1,20 @@
-import * as vscode from "vscode";
+import type { UIAPI } from "../platform/ui";
 
 // ============================================================================
 // Status Bar Manager
 // ============================================================================
 
 export class AgentStatusBar {
-  private statusBarItem: vscode.StatusBarItem;
+  private statusBarItem;
   private connected = false;
   private activeAgentName: string | null = null;
 
-  constructor() {
-    this.statusBarItem = vscode.window.createStatusBarItem(
-      vscode.StatusBarAlignment.Right,
-      100
-    );
-    this.statusBarItem.command = "acp.showAgentMenu";
+  constructor(private ui: UIAPI) {
+    this.statusBarItem = ui.createStatusBarItem({
+      alignment: "right",
+      priority: 100,
+      command: "acp.showAgentMenu",
+    });
     this.update();
     this.statusBarItem.show();
   }

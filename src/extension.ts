@@ -8,29 +8,80 @@ import { PersistentHistoryStore } from "./session/persistentHistory";
 import { AgentStatusBar } from "./statusbar/manager";
 import { ChatPanel } from "./providers/chatPanel";
 import { ChatPresenter } from "./ui/presenter";
-import { resolveFile, resolveSelection, resolveDiff } from "./context/assembler";
-import { searchFiles } from "./context/fileContext";
-import { searchSymbols, resolveSymbolByName } from "./context/symbolContext";
-import { createAgentTreeProvider, type TreeProvider } from "./tree/provider";
+import { resolveFile as resolveFilePlatform, resolveSelection as resolveSelectionPlatform, resolveDiff as resolveDiffPlatform } from "./context/assembler";
+import { searchFiles as searchFilesPlatform } from "./context/fileContext";
+import { searchSymbols as searchSymbolsPlatform, resolveSymbolByName as resolveSymbolByNamePlatform } from "./context/symbolContext";
+import { createAgentTreeProvider, type TreeProvider, type AgentTreeItem } from "./tree/provider";
 import { ensureChatPanel, registerConnectCommands } from "./commands/connect";
 import { registerSessionCommands } from "./commands/session";
 import { wireChatPanelEvents } from "./commands/prompt";
 import { wireSessionEvents, wireMessageEvents } from "./handlers";
+import { VscodePlatform } from "./platform/adapters/vscode";
+import type { PlatformAPI } from "./platform/platform";
+import type { ContextAttachmentDTO } from "./types/chat";
+import type { FileSystemAPI } from "./platform/filesystem";
+import type { EditorAPI } from "./platform/editor";
+import { TreeItem, TreeItemCollapsibleState } from "vscode";
 
 // ============================================================================
 // Global State
 // ============================================================================
 
 let extensionContext: vscode.ExtensionContext;
+let platform: PlatformAPI;
 let orchestrator: SessionOrchestrator;
 let registry: AgentRegistry;
 let statusTracker: AgentStatusTracker;
 let historyStore: SessionHistoryStore;
 let persistentHistory: PersistentHistoryStore | null = null;
 let statusBar: AgentStatusBar;
-let treeProvider: TreeProvider;
+let treeProvider: ReturnType<typeof createAgentTreeProvider>;
 let chatPanel: ChatPanel | null = null;
 const presenter = new ChatPresenter();
+
+// ============================================================================
+// Adaptor wrappers (Platform API → plain-function signatures for wireChatPanelEvents / registerSessionCommands)
+// ============================================================================
+
+function resolveFile(filePath: string, cwd?: string): Promise<ContextAttachmentDTO> {
+  return resolveFilePlatform(platform.fs, filePath, cwd) as Promise<ContextAttachmentDTO>;
+}
+
+function resolveSelection(): Promise<ContextAttachmentDTO | null> {
+  return resolveSelectionPlatform(platform.editor) as Promise<ContextAttachmentDTO | null>;
+}
+
+function resolveDiff(): Promise<ContextAttachmentDTO | null> {
+  return resolveDiffPlatform(platform.editor) as Promise<ContextAttachmentDTO | null>;
+}
+
+function searchFiles(query: string, cwd?: string) {
+  return searchFilesPlatform(platform.fs, query, cwd);
+}
+
+function searchSymbols(query: string) {
+  return searchSymbolsPlatform(platform.editor, query);
+}
+
+function resolveSymbolByName(name: string): Promise<ContextAttachmentDTO> {
+  return resolveSymbolByNamePlatform(platform.editor, platform.fs, name);
+}
+
+// TreeView adaptor: maps AgentTreeItem → vscode.TreeItem
+function toTreeItem(item: AgentTreeItem): TreeItem {
+  const vscodeItem = new vscode.TreeItem(
+    item.label,
+    item.collapsibleState === "none"
+      ? TreeItemCollapsibleState.None
+      : item.collapsibleState === "collapsed"
+        ? TreeItemCollapsibleState.Collapsed
+        : TreeItemCollapsibleState.Expanded,
+  );
+  if (item.iconPath) vscodeItem.iconPath = new vscode.ThemeIcon(item.iconPath);
+  if (item.description) vscodeItem.description = item.description;
+  if (item.contextValue) vscodeItem.contextValue = item.contextValue;
+  return vscodeItem;
+}
 
 // ============================================================================
 // Helpers
@@ -148,11 +199,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   console.log("ACP Client extension is now active");
   extensionContext = context;
 
-  statusBar = new AgentStatusBar();
-  registry = new AgentRegistry(context);
-  orchestrator = new SessionOrchestrator();
+  // Create platform adapter
+  platform = new VscodePlatform({ context });
+  await platform.initialize();
+
+  statusBar = new AgentStatusBar(platform.ui);
+  registry = new AgentRegistry(platform);
+  orchestrator = new SessionOrchestrator({ ui: platform.ui, fs: platform.fs });
   statusTracker = new AgentStatusTracker();
-  historyStore = new SessionHistoryStore(context);
+  historyStore = new SessionHistoryStore(platform.context.globalState);
 
   persistentHistory = new PersistentHistoryStore({
     maxAgeDays: 90,
@@ -166,9 +221,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   registerCommands(context);
   updateContext();
 
-  treeProvider = createAgentTreeProvider(orchestrator);
+  treeProvider = createAgentTreeProvider(orchestrator, platform.ui);
   context.subscriptions.push(
-    vscode.window.registerTreeDataProvider("acp.agentTree", treeProvider),
+    vscode.window.registerTreeDataProvider("acp.agentTree", {
+      onDidChangeTreeData: treeProvider.onDidChangeTreeData as unknown as vscode.Event<AgentTreeItem | undefined>,
+      getTreeItem(element: AgentTreeItem): TreeItem {
+        return toTreeItem(element);
+      },
+      getChildren(element?: AgentTreeItem): AgentTreeItem[] | Thenable<AgentTreeItem[]> {
+        return treeProvider.getChildren(element);
+      },
+    }),
   );
 
   wireOrchestratorEvents();
@@ -185,6 +248,7 @@ export function deactivate(): void {
   persistentHistory?.close();
   statusTracker.dispose();
   statusBar.dispose();
+  void platform?.dispose();
   console.log("ACP Client extension is now deactivated");
 }
 

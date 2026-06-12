@@ -1,8 +1,10 @@
-import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 import type { TokenUsage } from "../session/types";
 import type { ChatMessage, ToolCall, ContextAttachmentDTO } from "../types/chat";
+import type { UIAPI, WebviewPanel } from "../platform/ui";
+import type { EventEmitter, PlatformUri } from "../platform/types";
+import { VscodeUIAPI, toPlatformUri } from "../platform/adapters/vscode";
 
 // ============================================================================
 // Snapshot sent to webview on session switch
@@ -24,17 +26,9 @@ function sessionKey(agentId: string, sessionId: string): string {
 // Inline file-path extraction & existence check
 // ---------------------------------------------------------------------------
 
-/**
- * Heuristic regex: matches strings that look like file paths.
- * Same logic as the webview-side `looksLikeFilePath` in markdown.ts.
- */
 const LOOKS_LIKE_PATH_RE =
   /^(\.{0,2}\/|~\/|\/|[A-Za-z]:\\)[\w./~$-]+(?:\.[a-zA-Z0-9]+)?$|^[\w./-]+\/[\w./-]+$/;
 
-/**
- * Extract candidate file-path-like tokens from a text string.
- * Splits on whitespace and common delimiters, then filters by heuristic.
- */
 function extractCandidatePaths(text: string): string[] {
   const tokens = text.split(/[\s,;:|"'()[\]{}<>]+/).filter(Boolean);
   const seen = new Set<string>();
@@ -51,10 +45,6 @@ function extractCandidatePaths(text: string): string[] {
   return out;
 }
 
-/**
- * Resolve a candidate path: if relative, resolve against cwd.
- * Returns the resolved absolute path.
- */
 function resolveCandidate(candidate: string, cwd: string): string {
   if (candidate.startsWith("/") || candidate.startsWith("~") || /^[A-Za-z]:\\/.test(candidate)) {
     return candidate.startsWith("~") ? candidate.replace("~", process.env.HOME ?? "~") : candidate;
@@ -62,10 +52,6 @@ function resolveCandidate(candidate: string, cwd: string): string {
   return path.resolve(cwd, candidate);
 }
 
-/**
- * Given message text and a cwd, return the list of file paths that
- * (a) look like file paths and (b) actually exist on disk.
- */
 function findExistingInlinePaths(content: string, cwd: string): string[] {
   const candidates = extractCandidatePaths(content);
   const existing: string[] = [];
@@ -76,67 +62,56 @@ function findExistingInlinePaths(content: string, cwd: string): string[] {
         existing.push(c);
       }
     } catch {
-      // ignore resolution errors
+      // ignore
     }
   }
   return existing;
 }
 
-/**
- * Attach `inlineFilePaths` to a message by scanning its content for
- * file-path-like tokens and checking existence against the session cwd.
- */
-function attachInlineFilePaths(
-  message: ChatMessage,
-  cwd: string,
-): ChatMessage {
+function attachInlineFilePaths(message: ChatMessage, cwd: string): ChatMessage {
   const existing = findExistingInlinePaths(message.content, cwd);
   if (existing.length === 0) return message;
   return { ...message, inlineFilePaths: existing };
 }
 
 /**
- * Stateless chat panel — a messenger that forwards snapshots from
- * SessionOrchestrator events. No internal domain state is stored here.
- *
- * Uses a WebviewPanel in the bottom area (terminal-like) instead of a
- * sidebar WebviewView. The panel is a singleton — only one instance exists
- * per extension activation.
+ * Stateless chat panel — forwards snapshots from SessionOrchestrator events.
+ * Uses Platform API for webview panel creation.
  */
 export class ChatPanel {
   public static readonly viewId = "acp.chatPanel";
   private static instance: ChatPanel | null = null;
 
-  private panel: vscode.WebviewPanel | null = null;
+  private panel: WebviewPanel | null = null;
+  private ui: UIAPI;
+  private extensionUri: PlatformUri;
 
-  // Event emitters — exposed as readonly for the extension to subscribe
-  private _onSendMessage = new vscode.EventEmitter<{
+  private _onSendMessage: EventEmitter<{
     agentId: string;
     sessionId: string;
     text: string;
     attachments: ContextAttachmentDTO[];
-  }>();
-  private _onCancelTurn = new vscode.EventEmitter<{ agentId: string; sessionId: string }>();
-  private _onAttachFile = new vscode.EventEmitter<{ path: string; lineRange?: [number, number] }>();
-  private _onDidReceiveMessage = new vscode.EventEmitter<Record<string, unknown>>();
-  private _onOpenFile = new vscode.EventEmitter<{ path: string; line?: number }>();
+  }>;
+  private _onCancelTurn: EventEmitter<{ agentId: string; sessionId: string }>;
+  private _onAttachFile: EventEmitter<{ path: string; lineRange?: [number, number] }>;
+  private _onDidReceiveMessage: EventEmitter<Record<string, unknown>>;
+  private _onOpenFile: EventEmitter<{ path: string; line?: number }>;
 
-  readonly onSendMessage = this._onSendMessage.event;
-  readonly onCancelTurn = this._onCancelTurn.event;
-  readonly onAttachFile = this._onAttachFile.event;
-  readonly onDidReceiveMessage = this._onDidReceiveMessage.event;
-  readonly onOpenFile = this._onOpenFile.event;
+  get onSendMessage() { return this._onSendMessage.event; }
+  get onCancelTurn() { return this._onCancelTurn.event; }
+  get onAttachFile() { return this._onAttachFile.event; }
+  get onDidReceiveMessage() { return this._onDidReceiveMessage.event; }
+  get onOpenFile() { return this._onOpenFile.event; }
 
-  /** Callback to get available commands for a session (set by extension.ts) */
   _onGetSessionCommands: ((agentId: string, sessionId: string) => unknown[]) | null = null;
 
-  /** Get or create the singleton panel */
-  static reveal(extensionUri: vscode.Uri): ChatPanel {
+  static reveal(extensionUri: PlatformUri): ChatPanel {
     if (ChatPanel.instance?.panel) {
-      ChatPanel.instance.panel.reveal(vscode.ViewColumn.Beside, true);
+      ChatPanel.instance.panel.reveal();
       return ChatPanel.instance;
     }
-    ChatPanel.instance = new ChatPanel(extensionUri);
+    const ui = new VscodeUIAPI();
+    ChatPanel.instance = new ChatPanel(ui, extensionUri);
     return ChatPanel.instance;
   }
 
@@ -144,54 +119,86 @@ export class ChatPanel {
     return ChatPanel.instance;
   }
 
-  private constructor(private readonly extensionUri: vscode.Uri) {
+  private constructor(ui: UIAPI, extensionUri: PlatformUri) {
+    this.ui = ui;
+    this.extensionUri = extensionUri;
+    this._onSendMessage = ui.createEventEmitter();
+    this._onCancelTurn = ui.createEventEmitter();
+    this._onAttachFile = ui.createEventEmitter();
+    this._onDidReceiveMessage = ui.createEventEmitter();
+    this._onOpenFile = ui.createEventEmitter();
     this.createPanel();
   }
 
-  // ========================================================================
-  // Panel Lifecycle
-  // ========================================================================
-
   private createPanel(): void {
-    const distUri = vscode.Uri.joinPath(this.extensionUri, "dist");
-    this.panel = vscode.window.createWebviewPanel(
-      ChatPanel.viewId,
-      "ACP Chat",
-      { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false },
-      {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-        localResourceRoots: [this.extensionUri, distUri],
-      }
-    );
+    // Build HTML first (before panel creation so we can pass it in)
+    const html = this.buildHtmlForCreation();
+    this.panel = this.ui.createWebviewPanel({
+      viewId: ChatPanel.viewId,
+      title: "ACP Chat",
+      html,
+      enableScripts: true,
+      retainContextWhenHidden: true,
+    });
 
-    this.panel.webview.html = this.getHtmlForWebview(this.panel.webview);
+    // Now that panel exists, update HTML with proper webview URIs
+    this.updatePanelHtml();
 
     this.panel.webview.onDidReceiveMessage((data) => {
-      this._onDidReceiveMessage.fire(data);
-      this.handleMessage(data);
+      const msg = data as Record<string, unknown>;
+      this._onDidReceiveMessage.fire(msg);
+      this.handleMessage(msg);
     });
 
     this.panel.onDidDispose(() => {
-      this._onSendMessage.dispose();
-      this._onCancelTurn.dispose();
-      this._onAttachFile.dispose();
-      this._onDidReceiveMessage.dispose();
       ChatPanel.instance = null;
       this.panel = null;
     });
   }
 
-  /** Reveal and focus the panel */
-  reveal(): void {
-    this.panel?.reveal(vscode.ViewColumn.Beside, true);
+  private buildHtmlForCreation(): string {
+    // Minimal HTML — will be replaced by updatePanelHtml() immediately after
+    return `<!DOCTYPE html><html><body><div id="root"></div></body></html>`;
   }
 
-  // ========================================================================
-  // Stateless push methods — forward snapshots to webview
-  // ========================================================================
+  private updatePanelHtml(): void {
+    const p = this.panel;
+    if (!p) return;
+    const nonce = crypto.randomUUID();
+    const cssUri = p.webview.asWebviewUri(this.distUri("webview.css")).toString();
+    const jsUri = p.webview.asWebviewUri(this.distUri("webview.js")).toString();
+    const csp = [
+      "default-src 'none'",
+      `style-src ${p.webview.cspSource} 'unsafe-inline'`,
+      `script-src 'nonce-${nonce}' ${p.webview.cspSource}`,
+      `img-src ${p.webview.cspSource} https: data:`,
+      `font-src ${p.webview.cspSource}`,
+    ].join("; ");
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="${csp}">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="${cssUri}">
+  <title>ACP Chat</title>
+</head>
+<body>
+  <div id="root"></div>
+  <script nonce="${nonce}" src="${jsUri}"></script>
+</body>
+</html>`;
+    p.webview.html = html;
+  }
 
-  /** Push a session switch with full state */
+  private distUri(filename: string): PlatformUri {
+    return this.extensionUri.with({ path: this.extensionUri.path + "/dist/" + filename });
+  }
+
+  reveal(): void {
+    this.panel?.reveal();
+  }
+
   setActiveSession(agentId: string, sessionId: string, info: import("../session/types").SessionInfo): void {
     const cwd = info.cwd;
     const enriched = info.messages.map((m) => attachInlineFilePaths(m, cwd));
@@ -208,41 +215,29 @@ export class ChatPanel {
       },
       contextWindowMax: info.contextWindowMax,
     });
-    // Also push available commands for this session
     const commands = this._onGetSessionCommands?.(agentId, sessionId) ?? [];
     if (commands.length > 0) {
       this.pushAvailableCommands(agentId, sessionId, commands);
     }
   }
 
-  /** Push a new message to the webview for a session */
   pushMessage(agentId: string, sessionId: string, message: ChatMessage, cwd?: string): void {
     const enriched = cwd ? attachInlineFilePaths(message, cwd) : message;
-    console.log("[chatPanel.pushMessage]", {
-      agentId, sessionId, role: message.role, msgId: message.id,
-      contentLen: message.content?.length,
-      hasToolCalls: (message.toolCalls?.length ?? 0) > 0,
-      hasPanel: !!this.panel,
-    });
     this.postMessage({ type: "session/message", agentId, sessionId, message: enriched });
   }
 
-  /** Push a streaming chunk */
   pushStreamChunk(agentId: string, sessionId: string, chunk: string): void {
     this.postMessage({ type: "session/stream", agentId, sessionId, chunk });
   }
 
-  /** Signal end of streaming */
   pushStreamEnd(agentId: string, sessionId: string): void {
     this.postMessage({ type: "session/streamEnd", agentId, sessionId });
   }
 
-  /** Forward a raw SDK SessionNotification to the webview */
   pushSessionNotification(agentId: string, sessionId: string, notification: unknown): void {
     this.postMessage({ type: "session/notification", agentId, sessionId, notification });
   }
 
-  /** Update turn active state */
   pushTurnActive(agentId: string, sessionId: string, active: boolean): void {
     this.postMessage({ type: "session/turnActive", agentId, sessionId, active });
   }
@@ -255,25 +250,17 @@ export class ChatPanel {
     this.postMessage({ type: "agentInfo", agentId, info });
   }
 
-  /** Push available slash commands for a session */
   pushAvailableCommands(agentId: string, sessionId: string, commands: unknown[]): void {
-    console.log("[chatPanel] pushAvailableCommands", { agentId, sessionId, commands });
     this.postMessage({ type: "session/availableCommands", agentId, sessionId, commands });
   }
 
-  /** Push a token/context-window update for the active session (no full switch) */
   pushSessionUsage(agentId: string, sessionId: string, tokenUsage: { inputTokens: number; outputTokens: number; totalTokens: number }, contextWindowMax?: number): void {
     this.postMessage({ type: "session/usage", agentId, sessionId, tokenUsage, contextWindowMax });
   }
 
-  // ========================================================================
-  // Inbound Messages ← Webview
-  // ========================================================================
-
   private handleMessage(data: Record<string, unknown>): void {
     switch (data.type as string) {
       case "ready":
-        // No-op: webview gets state via setActiveSession from orchestrator
         break;
       case "sendMessage": {
         const agentId = data.agentId as string;
@@ -295,19 +282,12 @@ export class ChatPanel {
         this._onAttachFile.fire({ path: data.path as string, lineRange: data.lineRange as [number, number] | undefined });
         break;
       case "fetchFiles":
-        // Handled by wireChatPanelEvents in prompt.ts via onDidReceiveMessage
-        break;
       case "resolveFile":
-        // Handled by wireChatPanelEvents in prompt.ts via onDidReceiveMessage
-        break;
       case "resolveSelection":
-        // Handled by wireChatPanelEvents in prompt.ts via onDidReceiveMessage
-        break;
       case "resolveDiff":
-        // Handled by wireChatPanelEvents in prompt.ts via onDidReceiveMessage
         break;
       case "openNewSessionPicker":
-        void vscode.commands.executeCommand("acp.newSession");
+        void this.ui.executeCommand("acp.newSession");
         break;
       case "openFile": {
         const filePath = data.path as string;
@@ -332,39 +312,7 @@ export class ChatPanel {
     this._onSendMessage.fire({ agentId, sessionId, text, attachments });
   }
 
-  // ========================================================================
-  // Helpers
-  // ========================================================================
-
   postMessage(message: unknown): void {
-    this.panel?.webview.postMessage(message);
-  }
-
-  private getHtmlForWebview(webview: vscode.Webview): string {
-    const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.extensionUri, "dist", "webview.js")
-    );
-    const styleUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.extensionUri, "dist", "webview.css")
-    );
-    const nonce = crypto.randomUUID();
-
-    return `<!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta http-equiv="Content-Security-Policy"
-          content="default-src 'none';
-                   style-src ${webview.cspSource} 'unsafe-inline';
-                   script-src 'nonce-${nonce}';">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <link href="${styleUri}" rel="stylesheet">
-        <title>ACP Chat</title>
-      </head>
-      <body>
-        <div id="root"></div>
-        <script nonce="${nonce}" src="${scriptUri}"></script>
-      </body>
-      </html>`;
+    void this.panel?.webview.postMessage(message);
   }
 }

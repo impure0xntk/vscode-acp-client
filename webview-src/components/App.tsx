@@ -9,6 +9,7 @@ import { SessionHistoryPanel, PersistentSessionEntry } from "./SessionHistoryPan
 import { useSessionContext } from "../hooks/useSessionContext";
 import { ErrorBoundary } from "./ErrorBoundary";
 import type { ContextAttachment } from "../types";
+import { getVsCodeApi } from "../lib/vscodeApi";
 
 function sessionKey(agentId: string, sessionId: string): string {
   return `${agentId}:${sessionId}`;
@@ -114,7 +115,7 @@ export function App(): React.ReactElement {
 
   const handleRestoreSession = React.useCallback((sessionId: string, agentId: string) => {
     // Find the agent and create a new session or restore existing
-    vscode.postMessage({ type: "history:restore", sessionId, agentId });
+    getVsCodeApi().postMessage({ type: "history:restore", sessionId, agentId });
     setShowHistory(false);
   }, []);
 

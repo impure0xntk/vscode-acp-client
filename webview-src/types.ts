@@ -58,6 +58,7 @@ export interface ChatMessage {
 export interface TokenUsage {
   inputTokens: number;
   outputTokens: number;
+  totalTokens: number;
 }
 
 export interface ContextAttachment {

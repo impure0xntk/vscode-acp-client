@@ -1,5 +1,6 @@
-import * as vscode from "vscode";
 import * as path from "path";
+import type { EditorAPI } from "../platform/editor";
+import type { FileSystemAPI } from "../platform/filesystem";
 import { estimateTokens } from "./assembler";
 
 export type ContextAttachmentDTO = {
@@ -23,102 +24,36 @@ export interface SuggestionItem {
 
 const MAX_CANDIDATES = 50;
 
-const KIND_LABELS: Record<vscode.SymbolKind, string> = {
-  [vscode.SymbolKind.File]: "file",
-  [vscode.SymbolKind.Module]: "module",
-  [vscode.SymbolKind.Namespace]: "namespace",
-  [vscode.SymbolKind.Package]: "package",
-  [vscode.SymbolKind.Class]: "class",
-  [vscode.SymbolKind.Method]: "method",
-  [vscode.SymbolKind.Property]: "property",
-  [vscode.SymbolKind.Field]: "field",
-  [vscode.SymbolKind.Constructor]: "constructor",
-  [vscode.SymbolKind.Enum]: "enum",
-  [vscode.SymbolKind.Interface]: "interface",
-  [vscode.SymbolKind.Function]: "function",
-  [vscode.SymbolKind.Variable]: "var",
-  [vscode.SymbolKind.Constant]: "const",
-  [vscode.SymbolKind.String]: "string",
-  [vscode.SymbolKind.Number]: "number",
-  [vscode.SymbolKind.Boolean]: "bool",
-  [vscode.SymbolKind.Array]: "array",
-  [vscode.SymbolKind.Object]: "object",
-  [vscode.SymbolKind.Key]: "key",
-  [vscode.SymbolKind.Null]: "null",
-  [vscode.SymbolKind.EnumMember]: "enum member",
-  [vscode.SymbolKind.Struct]: "struct",
-  [vscode.SymbolKind.Event]: "event",
-  [vscode.SymbolKind.Operator]: "operator",
-  [vscode.SymbolKind.TypeParameter]: "type param",
-};
-
-function kindLabel(kind: vscode.SymbolKind): string {
-  return KIND_LABELS[kind] ?? "symbol";
-}
-
-function kindIcon(kind: vscode.SymbolKind): string {
-  switch (kind) {
-    case vscode.SymbolKind.Class:
-    case vscode.SymbolKind.Struct:
-      return "🔷";
-    case vscode.SymbolKind.Function:
-    case vscode.SymbolKind.Method:
-      return "⚡";
-    case vscode.SymbolKind.Variable:
-    case vscode.SymbolKind.Field:
-    case vscode.SymbolKind.Constant:
-      return "📦";
-    case vscode.SymbolKind.Interface:
-      return "🔗";
-    case vscode.SymbolKind.Enum:
-      return "📋";
-    case vscode.SymbolKind.Module:
-    case vscode.SymbolKind.Namespace:
-      return "📁";
-    default:
-      return "🔹";
-  }
-}
-
 interface RawSymbol {
   name: string;
-  kind: vscode.SymbolKind;
+  kind: string;
   filePath: string;
   startLine: number;
   endLine: number;
   containerName?: string;
 }
 
-/**
- * Search workspace symbols matching a query string.
- * Uses vscode.executeWorkspaceSymbolProvider for fuzzy search.
- * Returns SuggestionItem[] for the picker UI.
- */
-export async function searchSymbols(query: string): Promise<SuggestionItem[]> {
-  // Empty query returns top-level symbols (classes, functions, etc.)
-  const raw = await vscode.commands.executeCommand<vscode.SymbolInformation[]>(
-    "vscode.executeWorkspaceSymbolProvider",
-    query || ""  // empty string triggers "show all" behavior
-  );
+export async function searchSymbols(
+  editor: EditorAPI,
+  query: string
+): Promise<SuggestionItem[]> {
+  const symbols = await editor.searchSymbols(query || "");
+  if (!symbols) return [];
 
-  if (!raw) return [];
-
-  const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "";
   const seen = new Set<string>();
   const results: SuggestionItem[] = [];
 
-  for (const sym of raw) {
-    const key = `${sym.location.uri.fsPath}:${sym.location.range.start.line}:${sym.name}`;
+  for (const sym of symbols) {
+    const key = `${sym.filePath}:${sym.startLine}:${sym.name}`;
     if (seen.has(key)) continue;
     seen.add(key);
 
-    const relPath = path.relative(ws, sym.location.uri.fsPath);
     const detail = sym.containerName
-      ? `${sym.containerName} · ${relPath}:${sym.location.range.start.line + 1}`
-      : `${relPath}:${sym.location.range.start.line + 1}`;
+      ? `${sym.containerName} · ${sym.filePath}:${sym.startLine}`
+      : `${sym.filePath}:${sym.startLine}`;
 
     results.push({
-      id: `symbol:${relPath}:${sym.location.range.start.line}:${sym.name}`,
+      id: `symbol:${sym.filePath}:${sym.startLine}:${sym.name}`,
       kind: "symbol",
       label: sym.name,
       value: sym.name,
@@ -132,31 +67,27 @@ export async function searchSymbols(query: string): Promise<SuggestionItem[]> {
   return results;
 }
 
-/**
- * Internal: fetch raw symbol data for resolution.
- */
-async function fetchRawSymbols(query: string): Promise<RawSymbol[]> {
-  const raw = await vscode.commands.executeCommand<vscode.SymbolInformation[]>(
-    "vscode.executeWorkspaceSymbolProvider",
-    query
-  );
-  if (!raw) return [];
+async function fetchRawSymbols(
+  editor: EditorAPI,
+  query: string
+): Promise<RawSymbol[]> {
+  const symbols = await editor.searchSymbols(query);
+  if (!symbols) return [];
 
-  const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "";
   const seen = new Set<string>();
   const results: RawSymbol[] = [];
 
-  for (const sym of raw) {
-    const key = `${sym.location.uri.fsPath}:${sym.location.range.start.line}:${sym.name}`;
+  for (const sym of symbols) {
+    const key = `${sym.filePath}:${sym.startLine}:${sym.name}`;
     if (seen.has(key)) continue;
     seen.add(key);
 
     results.push({
       name: sym.name,
       kind: sym.kind,
-      filePath: path.relative(ws, sym.location.uri.fsPath),
-      startLine: sym.location.range.start.line + 1,
-      endLine: sym.location.range.end.line + 1,
+      filePath: sym.filePath,
+      startLine: sym.startLine,
+      endLine: sym.endLine,
       containerName: sym.containerName || undefined,
     });
     if (results.length >= MAX_CANDIDATES) break;
@@ -164,29 +95,25 @@ async function fetchRawSymbols(query: string): Promise<RawSymbol[]> {
   return results;
 }
 
-/**
- * Resolve a symbol by name: search workspace symbols, pick the best match,
- * then read the source range and return a ContextAttachment.
- */
-export async function resolveSymbolByName(name: string): Promise<ContextAttachmentDTO> {
-  const candidates = await fetchRawSymbols(name);
+export async function resolveSymbolByName(
+  editor: EditorAPI,
+  fs: FileSystemAPI,
+  name: string
+): Promise<ContextAttachmentDTO> {
+  const candidates = await fetchRawSymbols(editor, name);
   if (candidates.length === 0) throw new Error(`Symbol not found: ${name}`);
 
   const exact = candidates.find((c) => c.name === name);
   const prefix = candidates.find((c) => c.name.startsWith(name));
   const best = exact ?? prefix ?? candidates[0];
 
-  const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "";
-  const absPath = path.isAbsolute(best.filePath) ? best.filePath : path.join(ws, best.filePath);
-  const uri = vscode.Uri.file(absPath);
-
-  const doc = await vscode.workspace.openTextDocument(uri);
-  const lines = doc.getText().split("\n");
-  const content = lines.slice(best.startLine - 1, best.endLine).join("\n");
+  const content = await fs.readFile(best.filePath);
+  const lines = content.split("\n");
+  const symbolContent = lines.slice(best.startLine - 1, best.endLine).join("\n");
 
   const label = best.containerName
-    ? `${best.containerName}.${best.name} (${kindLabel(best.kind)})`
-    : `${best.name} (${kindLabel(best.kind)})`;
+    ? `${best.containerName}.${best.name} (${best.kind})`
+    : `${best.name} (${best.kind})`;
 
   return {
     id: crypto.randomUUID(),
@@ -194,7 +121,31 @@ export async function resolveSymbolByName(name: string): Promise<ContextAttachme
     path: best.filePath,
     label,
     lineRange: [best.startLine, best.endLine],
-    tokenCount: estimateTokens(content),
-    content,
+    tokenCount: estimateTokens(symbolContent),
+    content: symbolContent,
   };
+}
+
+function kindIcon(kind: string): string {
+  switch (kind) {
+    case "class":
+    case "struct":
+      return "🔷";
+    case "function":
+    case "method":
+      return "⚡";
+    case "variable":
+    case "field":
+    case "constant":
+      return "📦";
+    case "interface":
+      return "🔗";
+    case "enum":
+      return "📋";
+    case "module":
+    case "namespace":
+      return "📁";
+    default:
+      return "🔹";
+  }
 }
