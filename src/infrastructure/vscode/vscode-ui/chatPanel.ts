@@ -378,6 +378,16 @@ export class ChatPanel {
     });
   }
 
+  /** Push SessionInfo for ALL sessions (used by sendTabsToChatPanel to sync non-active sessions) */
+  pushAllSessionInfos(
+    agentId: string,
+    sessions: import("../../../application/session/types").SessionInfo[]
+  ): void {
+    for (const info of sessions) {
+      this.pushSessionInfo(agentId, info.sessionId, info);
+    }
+  }
+
   private handleMessage(data: Record<string, unknown>): void {
     switch (data.type as string) {
       case "ready":

@@ -1,8 +1,9 @@
 import React, { useState, useRef, useCallback } from "react";
 import { ChatContainer } from "../components/ChatContainer";
 import { Composer } from "../components/Composer";
-import { ProgressBar } from "../components/ProgressBar";
+import { StreamingStatus } from "../components/StreamingStatus";
 import { useSessionContext } from "../hooks/useSessionContext";
+
 
 interface ChatAreaProps {
   activeKey: string | null;
@@ -133,7 +134,11 @@ export function ChatArea({
         resolveSymbol={resolveSymbol}
         availableCommands={availableCommands}
       />
-      <ProgressBar status={status} lastActivityMs={undefined} />
+      <StreamingStatus
+        action={isTurnActive ? `Waiting for ${activeKey?.split(":")[0] ?? "agent"}…` : undefined}
+        startMs={isTurnActive ? Date.now() : undefined}
+        active={isTurnActive}
+      />
     </>
   );
 }

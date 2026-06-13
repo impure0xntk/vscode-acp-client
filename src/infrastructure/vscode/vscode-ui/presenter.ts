@@ -42,6 +42,8 @@ export interface SessionInfoSnapshot {
   cwd?: string;
   model?: string;
   mode?: string;
+  /** Message count for overview chip display */
+  messageCount: number;
   /** ISO date string */
   createdAt: string;
   /** ISO date string */
@@ -148,6 +150,7 @@ export class ChatPresenter {
       cwd: session.cwd,
       model: session.model,
       mode: session.mode,
+      messageCount: session.messageCount,
       createdAt: createdAt.toISOString(),
       updatedAt: new Date().toISOString(),
     };

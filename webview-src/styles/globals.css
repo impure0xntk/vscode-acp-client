@@ -721,7 +721,8 @@ body {
 }
 
 /* ============================================================================
-   Unread Boundary Line — blue blinking divider between read and unread messages
+   Unread Boundary Line — subtle divider between read and unread messages.
+   Flashes briefly only when the user clicks the scroll-to-bottom button.
    ============================================================================ */
 
 .unread-boundary-line {
@@ -730,16 +731,28 @@ body {
   margin: 6px 0;
   background: var(--accent);
   border-radius: 1px;
-  animation: unread-boundary-blink 1.2s ease-in-out infinite;
+  opacity: 0.6;
 }
 
-@keyframes unread-boundary-blink {
-  0%, 100% {
+.unread-boundary-line--flash {
+  animation: unread-boundary-flash 1.2s ease-out;
+}
+
+@keyframes unread-boundary-flash {
+  0% {
     opacity: 1;
-    box-shadow: 0 0 4px 1px color-mix(in srgb, var(--accent) 40%, transparent);
+    box-shadow:
+      0 0 0 2px var(--accent),
+      0 0 12px 2px color-mix(in srgb, var(--accent) 40%, transparent);
   }
-  50% {
-    opacity: 0.3;
+  60% {
+    opacity: 0.6;
+    box-shadow:
+      0 0 0 2px var(--accent),
+      0 0 6px 1px color-mix(in srgb, var(--accent) 20%, transparent);
+  }
+  100% {
+    opacity: 0.4;
     box-shadow: none;
   }
 }
@@ -1619,6 +1632,39 @@ body {
 }
 
 /* ============================================================================
+   Tool Batch Summary — kind entries in header
+   ============================================================================ */
+
+.tool-batch-kind-entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--fg-secondary);
+  white-space: nowrap;
+}
+
+.tool-batch-kind-icon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.tool-batch-kind-label {
+  text-transform: uppercase;
+  font-weight: 600;
+  font-size: 9px;
+  color: var(--fg-secondary);
+}
+
+.tool-batch-kind-count {
+  font-weight: 600;
+  color: var(--fg-muted);
+}
+
+/* ============================================================================
    Grouped Tool Call Card — left-accent + near-transparent background
    ============================================================================ */
 
@@ -1658,6 +1704,13 @@ body {
 .tool-group-header:focus-visible {
   outline: 1px solid var(--accent);
   outline-offset: -1px;
+}
+
+.tool-group-kind-icon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  opacity: 0.8;
 }
 
 .tool-group-header .tool-kind {
@@ -1711,6 +1764,66 @@ body {
   margin-left: 0;
   margin-right: 0;
   background: transparent;
+}
+
+/* ============================================================================
+   Streaming Status — current action + elapsed time while agent is working
+   ============================================================================ */
+
+.streaming-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 14px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.streaming-status-spinner {
+  flex-shrink: 0;
+  animation: streaming-spin 0.8s linear infinite;
+}
+
+.streaming-status-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Colour tiers mirror StatusIcon / ProgressBar */
+.streaming-status--normal {
+  color: #4fc3f7; /* blue */
+}
+.streaming-status--normal .streaming-status-spinner {
+  color: #4fc3f7;
+}
+
+.streaming-status--warning {
+  color: #ffd54f; /* yellow — ≥10s */
+}
+.streaming-status--warning .streaming-status-spinner {
+  color: #ffd54f;
+}
+
+.streaming-status--critical {
+  color: #ef5350; /* red — ≥30s */
+  animation: streaming-critical-pulse 1.2s ease-in-out infinite;
+}
+.streaming-status--critical .streaming-status-spinner {
+  color: #ef5350;
+}
+
+@keyframes streaming-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes streaming-critical-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.5; }
 }
 
 /* ============================================================================
@@ -2017,25 +2130,10 @@ body {
   margin-top: 2px;
 }
 
-.session-tab-agent-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-  max-width: 120px;
-}
-
-.session-tab-agent-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  display: inline-block;
-}
-
 .session-tab-agent-name {
   font-size: 10px;
   font-weight: 600;
+  font-family: var(--font-mono);
   color: var(--fg-secondary);
   overflow: hidden;
   text-overflow: ellipsis;

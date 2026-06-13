@@ -362,7 +362,22 @@ export function SessionContextProvider({
         case "session/info": {
           const aId = data.agentId as string;
           const sId = data.sessionId as string;
-          useSessionStore.getState().setSessionInfo(aId, sId, data as unknown as SessionInfoSnapshot);
+          // Ensure messageCount is preserved — if the incoming message
+          // doesn't include it, read from the existing store entry.
+          const existing = useSessionStore.getState().sessionInfoMap[sessionKeyOf(aId, sId)];
+          const snapshot = data as unknown as SessionInfoSnapshot;
+          // Preserve existing messageCount if not incoming (pushSessionInfo
+          // messages already include it, but be defensive).
+          if (existing && snapshot.messageCount === undefined) {
+            snapshot.messageCount = existing.messageCount;
+          }
+          // Always sync from message store — it's the source of truth for message count.
+          const msgStore = useMessageStore.getState();
+          const eMsgs = msgStore.perSession[sessionKeyOf(aId, sId)];
+          if (eMsgs && eMsgs.length > 0) {
+            snapshot.messageCount = eMsgs.length;
+          }
+          useSessionStore.getState().setSessionInfo(aId, sId, snapshot);
           return;
         }
 
@@ -371,6 +386,19 @@ export function SessionContextProvider({
           const sId = data.sessionId as string;
           const msgKey = sessionKey(aId, sId);
           useMessageStore.getState().appendMessage(msgKey, data.message as ChatMessage);
+          // Keep messageCount in sync for the sending session so overview
+          // card chips update without waiting for the next session/switch.
+          const store = useSessionStore.getState();
+          const existing = store.sessionInfoMap[msgKey];
+          if (existing) {
+            const msgs = useMessageStore.getState().perSession[msgKey];
+            if (msgs) {
+              store.setSessionInfo(aId, sId, {
+                ...existing,
+                messageCount: msgs.length,
+              });
+            }
+          }
           return;
         }
 
@@ -395,12 +423,15 @@ export function SessionContextProvider({
           const cur = stateRef.current;
           const existing = cur.sessionInfoMap[msgKey];
           if (existing && existing.status === "running") {
+            // Sync messageCount from message store before updating status.
+            const msgs = useMessageStore.getState().perSession[msgKey];
             useSessionStore.getState().setSessionInfo(aId, sId, {
               ...existing,
               status: "idle",
               isTurnActive: false,
               isStreaming: false,
               updatedAt: new Date().toISOString(),
+              messageCount: msgs?.length ?? existing.messageCount,
             });
           }
           return;
@@ -443,6 +474,23 @@ export function SessionContextProvider({
             createdAt: data.createdAt as string,
             updatedAt: data.updatedAt as string,
           });
+          // Also update messageCount for ALL other sessions so their
+          // overview card chips reflect the correct count after switch.
+          // Without this, non-active sessions retain stale messageCount
+          // because session/switch only updates the target session.
+          const msgStore = useMessageStore.getState();
+          for (const [existingKey, existingInfo] of Object.entries(store.sessionInfoMap)) {
+            if (existingKey === key) continue;
+            const [eAgentId, eSessionId] = existingKey.split(":");
+            const eMsgKey = sessionKeyOf(eAgentId, eSessionId);
+            const eMessages = msgStore.perSession[eMsgKey];
+            if (eMessages) {
+              store.setSessionInfo(eAgentId, eSessionId, {
+                ...existingInfo,
+                messageCount: eMessages.length,
+              });
+            }
+          }
           return;
         }
 

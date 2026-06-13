@@ -3,7 +3,6 @@ import type { SessionTabState } from "../hooks/useSessionContext";
 import { StatusIcon } from "./StatusIcon";
 import type { StatusIconType } from "./StatusIcon";
 import { UnreadBadge } from "./ui/UnreadBadge";
-import { AgentBadge } from "./ui/AgentBadge";
 
 // ============================================================================
 // SessionTab — compact horizontal tab for the tab bar
@@ -96,7 +95,13 @@ export function SessionTab({
         {agentIcon ? (
           <span className="session-tab-agent-icon">{agentIcon}</span>
         ) : (
-          <AgentBadge agentId={tab.agentId} agentColor={agentColor} />
+          <span
+            className="session-tab-agent-name"
+            style={{ color: agentColor ?? "var(--vscode-descriptionForeground)" }}
+            title={tab.agentId}
+          >
+            {tab.agentId}
+          </span>
         )}
       </div>
 

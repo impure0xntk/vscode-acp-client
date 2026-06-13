@@ -2,10 +2,12 @@ import React, { useCallback, useMemo } from "react";
 import { renderMarkdown, type RenderContext } from "../lib/markdown";
 import { getVsCodeApi } from "../lib/vscodeApi";
 import { Icon, iconForType } from "../lib/icons";
-import { ToolCallCard, GroupedToolCallCard, ToolBatchSummary } from "./ToolCallCard";
+import { ToolCallCard } from "./ToolCallCard";
+import { GroupedToolCallCard } from "./ToolCallCard/GroupedToolCallCard";
+import { ToolBatchSummary } from "./ToolCallCard/ToolBatchSummary";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { MessageActions } from "./MessageActions";
-import type { ChatMessage, ToolCall, ContextAttachment } from "../types";
+import type { ChatMessage, ContextAttachment } from "../types";
 
 export interface MessageProps {
   id: string;
@@ -60,30 +62,6 @@ function copyCodeBlock(e: React.MouseEvent<HTMLElement>): void {
   } catch {
     /* vscodeApi not available */
   }
-}
-
-/** Derive a grouping key from kind or title */
-function effectiveKind(tc: ToolCall): string {
-  if (tc.kind && tc.kind.trim()) return tc.kind.trim();
-  return "tool_call";
-}
-
-/** Group tool calls by kind using a Map (order may change — that's fine) */
-function groupToolCalls(
-  toolCalls: ToolCall[]
-): Array<{ kind: string; count: number; calls: ToolCall[] }> {
-  const groups: Map<string, ToolCall[]> = new Map();
-  for (const tc of toolCalls) {
-    const key = effectiveKind(tc);
-    const list = groups.get(key) ?? [];
-    list.push(tc);
-    groups.set(key, list);
-  }
-  return Array.from(groups.entries()).map(([kind, calls]) => ({
-    kind,
-    count: calls.length,
-    calls,
-  }));
 }
 
 function AttachmentChip({
@@ -222,92 +200,71 @@ export const Message = React.memo(function Message({
     isUser && attachments !== undefined && attachments.length > 0;
 
   // Tool messages: left-aligned card without speech bubble.
-  // When toolCalls contain mixed kinds (e.g. read + write + bash), use
-  // ToolBatchSummary for an aggressive cross-kind compact view.
-  // When all calls share the same kind, keep GroupedToolCallCard.
-  // Otherwise fall back to individual ToolCallCard.
+  // After mergeToolBatches, consecutive tool messages are merged (any kind).
+  // - Multiple kinds → ToolBatchSummary (expandable, shows per-kind groups)
+  // - Single kind, count >= GROUP_THRESHOLD → GroupedToolCallCard
+  // - Single kind, count < GROUP_THRESHOLD → individual ToolCallCard(s)
   const GROUP_THRESHOLD = 2;
-  const groupedCalls = useMemo(
-    () =>
-      toolCalls && toolCalls.length >= GROUP_THRESHOLD
-        ? groupToolCalls(toolCalls)
-        : null,
-    [toolCalls]
-  );
-  const mixedKinds = groupedCalls !== null && groupedCalls.length > 1;
 
   if (isTool) {
-    if (mixedKinds) {
+    const calls = toolCalls ?? [];
+    const totalCount = calls.length;
+    const kinds = new Set(calls.map((tc) => tc.kind ?? "tool_call"));
+    const isMultiKind = kinds.size > 1;
+
+    const mapped = calls.map((tc) => ({
+      id: tc.id,
+      title: tc.title,
+      kind: tc.kind,
+      status: tc.status,
+      input: tc.input,
+      output: tc.output ?? tc.content?.map((c) => c.text).join("\n"),
+      durationMs: tc.durationMs,
+      locations: tc.locations,
+      diffContent: tc.diffContent,
+    }));
+
+    // Multi-kind batch → summary
+    if (isMultiKind) {
       return (
         <div
           className="message message-tool"
           data-message-id={id}
           data-role={role}
         >
-          <ToolBatchSummary calls={toolCalls} />
+          <ToolBatchSummary calls={mapped} />
         </div>
       );
     }
 
+    // Single kind, multiple calls → grouped card
+    if (totalCount >= GROUP_THRESHOLD) {
+      const kind = calls[0]?.kind ?? "tool_call";
+      return (
+        <div
+          className="message message-tool"
+          data-message-id={id}
+          data-role={role}
+        >
+          <GroupedToolCallCard
+            kind={kind}
+            count={totalCount}
+            calls={mapped}
+          />
+        </div>
+      );
+    }
+
+    // Single card(s)
     return (
       <div
         className="message message-tool"
         data-message-id={id}
         data-role={role}
       >
-        {groupedCalls
-          ? groupedCalls.map((group) =>
-              group.count >= GROUP_THRESHOLD ? (
-                <GroupedToolCallCard
-                  key={group.kind}
-                  kind={group.kind}
-                  count={group.count}
-                  calls={group.calls.map((tc) => ({
-                    id: tc.id,
-                    title: tc.title,
-                    kind: tc.kind,
-                    status: tc.status,
-                    input: tc.input,
-                    output:
-                      tc.output ?? tc.content?.map((c) => c.text).join("\n"),
-                    durationMs: tc.durationMs,
-                    locations: tc.locations,
-                    diffContent: tc.diffContent,
-                  }))}
-                />
-              ) : (
-                group.calls.map((tc) => (
-                  <ToolCallCard
-                    key={tc.id}
-                    id={tc.id}
-                    title={tc.title}
-                    kind={tc.kind}
-                    status={tc.status}
-                    input={tc.input}
-                    output={
-                      tc.output ?? tc.content?.map((c) => c.text).join("\n")
-                    }
-                    durationMs={tc.durationMs}
-                    locations={tc.locations}
-                    diffContent={tc.diffContent}
-                  />
-                ))
-              )
-            )
-          : toolCalls?.map((tc) => (
-              <ToolCallCard
-                key={tc.id}
-                id={tc.id}
-                title={tc.title}
-                kind={tc.kind}
-                status={tc.status}
-                input={tc.input}
-                output={tc.output ?? tc.content?.map((c) => c.text).join("\n")}
-                durationMs={tc.durationMs}
-                locations={tc.locations}
-                diffContent={tc.diffContent}
-              />
-            ))}
+        {mapped.map((tc) => (
+          <ToolCallCard key={tc.id} {...tc} />
+        ))}
       </div>
     );
   }
