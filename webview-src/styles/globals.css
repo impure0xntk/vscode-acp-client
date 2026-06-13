@@ -1,6 +1,7 @@
 /* Codex-style dark theme for ACP Chat panel */
 
 @import "tailwindcss";
+@import "highlight.js/styles/github-dark.css";
 
 /* ============================================================================
    CSS Variables — bridge VS Code theme tokens
@@ -785,6 +786,35 @@ body {
   align-items: flex-end;
 }
 
+/* User message actions — positioned to the left of the bubble */
+.message-user-actions {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.15s ease,
+    visibility 0.15s ease;
+  pointer-events: none;
+}
+
+.message-user .message-user-actions,
+.message-user-actions:focus-within {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* Pad the message to avoid overlap with the actions column */
+.message-user {
+  padding-left: 32px;
+}
+
 .message-agent {
   align-items: flex-start;
 }
@@ -1134,16 +1164,100 @@ body {
   opacity: 1;
 }
 
-/* Prevent double background: .code-block-wrapper provides the bg,
-   so pre.hljs inside it must be transparent */
 .code-block-wrapper pre {
   margin: 0;
-  background: transparent !important;
 }
 
-/* Also override highlight.js default background on the pre.hljs itself */
-pre.hljs {
-  background: transparent !important;
+/* ============================================================================
+   Highlight.js — VS Code theme-aware overrides
+   github-dark.css provides base colours; here we remap to VS Code CSS
+   variables so syntax highlighting adapts to the active editor theme.
+   ============================================================================ */
+
+.hljs {
+  color: var(--fg-primary, #c9d1d9);
+  background: transparent;
+}
+.hljs-doctag,
+.hljs-keyword,
+.hljs-meta .hljs-keyword,
+.hljs-template-tag,
+.hljs-template-variable,
+.hljs-type,
+.hljs-variable.language_ {
+  color: var(--vscode-symbolIcon-keywordForeground, #ff7b72);
+}
+.hljs-title,
+.hljs-title.class_,
+.hljs-title.class_.inherited__,
+.hljs-title.function_ {
+  color: var(--vscode-symbolIcon-functionForeground, #d2a8ff);
+}
+.hljs-attr,
+.hljs-attribute,
+.hljs-literal,
+.hljs-meta,
+.hljs-number,
+.hljs-operator,
+.hljs-variable,
+.hljs-selector-attr,
+.hljs-selector-class,
+.hljs-selector-id {
+  color: var(--vscode-symbolIcon-variableForeground, #79c0ff);
+}
+.hljs-regexp,
+.hljs-string,
+.hljs-meta .hljs-string {
+  color: var(--vscode-symbolIcon-stringForeground, #a5d6ff);
+}
+.hljs-built_in,
+.hljs-symbol {
+  color: var(--vscode-symbolIcon-constantForeground, #ffa657);
+}
+.hljs-comment,
+.hljs-code,
+.hljs-formula {
+  color: var(--vscode-descriptionForeground, #8b949e);
+}
+.hljs-name,
+.hljs-quote,
+.hljs-selector-tag,
+.hljs-selector-pseudo {
+  color: var(--vscode-symbolIcon-colorForeground, #7ee787);
+}
+.hljs-subst {
+  color: var(--fg-primary, #c9d1d9);
+}
+.hljs-section {
+  color: var(--accent, #1f6feb);
+  font-weight: bold;
+}
+.hljs-bullet {
+  color: #f2cc60;
+}
+.hljs-emphasis {
+  color: var(--fg-primary, #c9d1d9);
+  font-style: italic;
+}
+.hljs-strong {
+  color: var(--fg-primary, #c9d1d9);
+  font-weight: bold;
+}
+.hljs-addition {
+  color: #aff5b4;
+  background-color: rgba(3, 58, 22, 0.4);
+}
+.hljs-deletion {
+  color: #ffdcd7;
+  background-color: rgba(103, 6, 12, 0.4);
+}
+.hljs-char.escape_,
+.hljs-link,
+.hljs-params,
+.hljs-property,
+.hljs-punctuation,
+.hljs-tag {
+  color: var(--fg-secondary, #8b949e);
 }
 
 /* ============================================================================
@@ -1700,6 +1814,15 @@ pre.hljs {
 
 .status-icon-running-warning .status-icon-spinner {
   color: #ffd54f;
+}
+
+/* ── Waiting for user input: yellow spinner ── */
+.status-icon-waiting {
+  color: #ffd54f;
+}
+.status-icon-waiting .status-icon-spinner {
+  animation: status-spin 0.8s linear infinite, status-pulse 2s ease-in-out infinite;
+  transform-origin: center;
 }
 
 .status-icon-running-critical {
@@ -2352,6 +2475,12 @@ pre.hljs {
   text-align: center;
   color: var(--fg-muted);
   font-size: 12px;
+}
+
+.context-picker-separator {
+  height: 1px;
+  margin: 4px 8px;
+  background: var(--border);
 }
 
 .context-picker-item {
@@ -3807,12 +3936,7 @@ pre.hljs {
     border-color 0.15s ease;
 }
 
-/* Status accent colours on left border */
-.session-overview-card[data-status="running"],
-.session-overview-card[data-status="waiting"],
-.session-overview-card[data-status="waiting_for_input"] {
-  border-left-color: #4fc3f7;
-}
+/* ── Status accent colours on left border ── */
 .session-overview-card[data-status="completed"] {
   border-left-color: var(--success);
 }
@@ -3823,14 +3947,62 @@ pre.hljs {
   border-left-color: var(--fg-muted);
 }
 
-/* Running: pulse the left border using status-icon-running blue */
-.session-overview-card[data-status="running"] {
+/* ── Color-group driven pulse (matches spinner colors) ── */
+
+/* Base: color-group の色で pulse */
+.session-overview-card[data-color-group="active"] {
+  border-left-color: #4fc3f7;
   animation: soc-running-pulse 2s ease-in-out infinite;
 }
 
 @keyframes soc-running-pulse {
   0%, 100% { border-left-color: #4fc3f7; }
   50%      { border-left-color: color-mix(in srgb, #4fc3f7 30%, transparent); }
+}
+
+.session-overview-card[data-color-group="waiting"] {
+  border-left-color: #ffd54f;
+  animation: soc-waiting-pulse 2s ease-in-out infinite;
+}
+
+@keyframes soc-waiting-pulse {
+  0%, 100% { border-left-color: #ffd54f; }
+  50%      { border-left-color: color-mix(in srgb, #ffd54f 30%, transparent); }
+}
+
+/* Elapsed-time tier: color-group を上書き (spinner と完全一致) */
+/* ≥10s: yellow warning — active */
+.session-overview-card[data-elapsed-tier="warning"][data-color-group="active"] {
+  border-left-color: #ffd54f;
+  animation: soc-elapsed-warning-pulse 2s ease-in-out infinite;
+}
+
+/* ≥10s: yellow warning — waiting (already yellow, brighten) */
+.session-overview-card[data-elapsed-tier="warning"][data-color-group="waiting"] {
+  border-left-color: #ffd54f;
+  animation: soc-elapsed-warning-pulse 2s ease-in-out infinite;
+}
+
+@keyframes soc-elapsed-warning-pulse {
+  0%, 100% { border-left-color: #ffd54f; }
+  50%      { border-left-color: color-mix(in srgb, #ffd54f 30%, transparent); }
+}
+
+/* ≥30s: red critical — active */
+.session-overview-card[data-elapsed-tier="critical"][data-color-group="active"] {
+  border-left-color: #ef5350;
+  animation: soc-elapsed-critical-pulse 1.2s ease-in-out infinite;
+}
+
+/* ≥30s: red critical — waiting */
+.session-overview-card[data-elapsed-tier="critical"][data-color-group="waiting"] {
+  border-left-color: #ef5350;
+  animation: soc-elapsed-critical-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes soc-elapsed-critical-pulse {
+  0%, 100% { border-left-color: #ef5350; }
+  50%      { border-left-color: color-mix(in srgb, #ef5350 30%, transparent); }
 }
 
 /* Completed / error: flash border then fade out (CSS-only, 2.5s) */
@@ -3975,10 +4147,6 @@ pre.hljs {
 /* ── Session overview card badge (unread count) ── */
 
 .session-overview-card-badge {
-  position: absolute;
-  top: 4px;
-  right: 6px;
-  z-index: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3994,6 +4162,7 @@ pre.hljs {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
   pointer-events: none;
   flex-shrink: 0;
+  margin-left: 4px;
 }
 
 /* ── Response preview list ── */

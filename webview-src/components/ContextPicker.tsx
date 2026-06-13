@@ -120,6 +120,10 @@ export function ContextPicker({
         ? "No symbols found"
         : "No files found";
 
+  // Check if we need a separator between main items and action items
+  const firstActionIdx = items.findIndex((it) => it.kind === "action");
+  const hasSeparator = firstActionIdx > 0;
+
   return (
     <div className="context-picker">
       <div className="context-picker-list" ref={listRef}>
@@ -127,20 +131,25 @@ export function ContextPicker({
           <div className="context-picker-empty">{placeholder}</div>
         )}
         {items.map((item, i) => (
-          <div
-            key={item.id}
-            className={`context-picker-item ${i === selectedIndex ? "selected" : ""}`}
-            onClick={() => onSelect(item)}
-            onMouseEnter={() => onSelectedIndexChange(i)}
-          >
-            {item.icon && (
-              <Icon name={item.icon} className="context-picker-icon" size="sm" />
+          <React.Fragment key={item.id}>
+            {hasSeparator && i === firstActionIdx && (
+              <div className="context-picker-separator" />
             )}
-            <span className="context-picker-label">{item.label}</span>
-            {item.detail && (
-              <span className="context-picker-detail">{item.detail}</span>
-            )}
-          </div>
+            <div
+              className={`context-picker-item ${i === selectedIndex ? "selected" : ""}`}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => onSelect(item)}
+              onMouseEnter={() => onSelectedIndexChange(i)}
+            >
+              {item.icon && (
+                <Icon name={item.icon} className="context-picker-icon" size="sm" />
+              )}
+              <span className="context-picker-label">{item.label}</span>
+              {item.detail && (
+                <span className="context-picker-detail">{item.detail}</span>
+              )}
+            </div>
+          </React.Fragment>
         ))}
       </div>
     </div>

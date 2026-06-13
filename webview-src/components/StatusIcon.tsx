@@ -7,6 +7,7 @@ import {
   IconCross,
   IconBan,
   IconWarning,
+  IconInput,
 } from "../lib/icons";
 
 // ============================================================================
@@ -22,7 +23,7 @@ export type SessionStatus =
   | "warning";
 export type ToolStatus = "in_progress" | "completed" | "failed";
 
-export type StatusIconType = SessionStatus | ToolStatus | "working" | "pending";
+export type StatusIconType = SessionStatus | ToolStatus | "working" | "pending" | "waiting" | "waiting_for_input";
 
 const classMap: Record<StatusIconType, string> = {
   idle: "idle",
@@ -30,6 +31,8 @@ const classMap: Record<StatusIconType, string> = {
   working: "running",
   in_progress: "running",
   pending: "running",
+  waiting: "waiting",
+  waiting_for_input: "waiting_for_input",
   completed: "completed",
   failed: "error",
   error: "error",
@@ -40,6 +43,8 @@ const classMap: Record<StatusIconType, string> = {
 const IconComponentMap: Record<string, React.FC<{ className?: string; size?: number }>> = {
   idle: IconCircleOutline,
   running: IconSpinner,
+  waiting: IconSpinner,
+  waiting_for_input: IconInput,
   completed: IconCheck,
   error: IconCross,
   cancelled: IconBan,
@@ -51,6 +56,8 @@ interface StatusIconProps {
   size?: "sm" | "md";
   className?: string;
   elapsedMs?: number;
+  /** Force a specific color group accent (e.g. "active" or "waiting") */
+  colorGroup?: string;
 }
 
 export function StatusIcon({
@@ -58,12 +65,15 @@ export function StatusIcon({
   size = "sm",
   className = "",
   elapsedMs,
+  colorGroup,
 }: StatusIconProps): React.ReactElement {
   const mapped = classMap[status] ?? "idle";
   const IconEl = IconComponentMap[mapped] ?? IconCircleOutline;
 
   let colorSuffix = "";
-  if (mapped === "running" && elapsedMs !== undefined) {
+  if (colorGroup === "waiting") {
+    colorSuffix = " status-icon-waiting";
+  } else if (mapped === "running" && elapsedMs !== undefined) {
     const tier = elapsedColor(elapsedMs);
     if (tier === "warning") colorSuffix = " status-icon-running-warning";
     else if (tier === "critical") colorSuffix = " status-icon-running-critical";
@@ -72,7 +82,7 @@ export function StatusIcon({
   const px = size === "sm" ? 14 : 18;
   const cls =
     `status-icon status-icon-${mapped} status-icon-${size}${colorSuffix} ${className}`.trim();
-  const iconCls = mapped === "running"
+  const iconCls = mapped === "running" || mapped === "waiting"
     ? "status-icon-svg status-icon-spinner"
     : "status-icon-svg";
   return (

@@ -132,9 +132,9 @@ export interface FileCandidate {
  */
 export interface SuggestionItem {
   id: string;
-  kind: "file" | "selection" | "diff" | "command" | "symbol";
+  kind: "file" | "selection" | "diff" | "command" | "symbol" | "action";
   label: string;
-  /** Relative path for files, command id for commands, symbol name for symbols */
+  /** Relative path for files, command id for commands, symbol name for symbols, action id for actions */
   value: string;
   /** Optional detail line (e.g. file path tail, symbol type, command description) */
   detail?: string;

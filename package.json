@@ -56,6 +56,10 @@
         "title": "ACP: Switch Session"
       },
       {
+        "command": "acp.gotoSession",
+        "title": "ACP: Go to Session"
+      },
+      {
         "command": "acp.cancelTurn",
         "title": "ACP: Cancel Current Turn"
       },
@@ -84,8 +88,8 @@
         "title": "ACP: Fork Current Session"
       },
       {
-        "command": "acp.showHistory",
-        "title": "ACP: Show Session History"
+        "command": "acp.restoreSession",
+        "title": "ACP: Restore Session"
       },
       {
         "command": "acp.clearHistory",
@@ -306,7 +310,10 @@
         },
         "acp.sessionOverviewPosition": {
           "type": "string",
-          "enum": ["right", "left"],
+          "enum": [
+            "right",
+            "left"
+          ],
           "default": "right",
           "description": "Position of the session overview panel (right or left)"
         },
@@ -337,7 +344,8 @@
     "@agentclientprotocol/sdk": "^0.25.0",
     "clsx": "^2.1.1",
     "path-shorten": "^0.1.2",
-    "sql.js": "^1.13.0"
+    "sql.js": "^1.13.0",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.0",

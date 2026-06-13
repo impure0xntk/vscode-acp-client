@@ -368,19 +368,19 @@ export const Message = React.memo(function Message({
           <span className="message-time">{time}</span>
         </div>
       )}
+      {isUser && !isTool && (
+        <div className="message-user-actions">
+          <MessageActions
+            messageId={id}
+            content={content}
+            isUserMessage={isUser}
+            sessionId={sessionId ?? ""}
+          />
+        </div>
+      )}
       <div className="message-body">
         {isUser ? (
-          <div className="message-text">
-            {content}
-            {!isTool && (
-              <MessageActions
-                messageId={id}
-                content={content}
-                isUserMessage={isUser}
-                sessionId={sessionId ?? ""}
-              />
-            )}
-          </div>
+          <div className="message-text">{content}</div>
         ) : (
           <div className="message-markdown-wrap">
             <div

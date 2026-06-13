@@ -37,6 +37,7 @@ const NO_TRIGGER: TriggerState = {
 export interface ComposerProps {
   onSend: (text: string, attachments: ContextAttachment[]) => void;
   onCancel: () => void;
+  onNewSession?: () => void;
   disabled?: boolean;
   isTurnActive?: boolean;
   fetchFiles: (query: string) => Promise<FileCandidate[]>;
@@ -53,6 +54,7 @@ export interface ComposerProps {
 export function Composer({
   onSend,
   onCancel,
+  onNewSession,
   disabled = false,
   isTurnActive = false,
   fetchFiles,
@@ -190,7 +192,8 @@ export function Composer({
       subTrigger?: "symbol" | "file"
     ): Promise<SuggestionItem[]> => {
       if (trigger === "/") {
-        // Build items from agent-provided commands
+        // Build items from agent-provided commands only
+        // (/new and /reset are now # actions, not slash commands)
         const agentItems: SuggestionItem[] = availableCommands.map((cmd) => ({
           id: `agent:${cmd.name}`,
           kind: "command" as const,
@@ -200,36 +203,15 @@ export function Composer({
           icon: "zap",
         }));
 
-        // Built-in commands (shown when no agent commands or alongside them)
-        const builtIn: SuggestionItem[] = [
-          {
-            id: "/new",
-            kind: "command",
-            label: "/new",
-            value: "/new",
-            detail: "Start a new session",
-            icon: "sparkle",
-          },
-          {
-            id: "/reset",
-            kind: "command",
-            label: "/reset",
-            value: "/reset",
-            detail: "Reset current session",
-            icon: "sync",
-          },
-        ];
-
-        const all = [...agentItems, ...builtIn];
         if (query) {
           const q = query.toLowerCase();
-          return all.filter(
+          return agentItems.filter(
             (c) =>
               c.label.toLowerCase().includes(q) ||
               (c.detail ?? "").toLowerCase().includes(q)
           );
         }
-        return all;
+        return agentItems;
       }
 
       // trigger === "#"
@@ -269,6 +251,22 @@ export function Composer({
 
       // subTrigger === undefined → "# " — show subcommand completions
       const subCommands: SuggestionItem[] = [
+        {
+          id: "action:new",
+          kind: "action",
+          label: "#new",
+          value: "new",
+          detail: "Start a new session",
+          icon: "sparkle",
+        },
+        {
+          id: "action:reset",
+          kind: "action",
+          label: "#reset",
+          value: "reset",
+          detail: "Reset current session",
+          icon: "sync",
+        },
         {
           id: "sub:file",
           kind: "file",
@@ -367,13 +365,15 @@ export function Composer({
         }
         setText(before + after);
       } else if (item.kind === "command") {
-        // Execute the command inline (e.g. /new clears chat)
-        if (item.value === "/new") {
-          setText("");
-        } else {
-          // For non-inline commands, replace the trigger line with the command
-          setText(before + item.value + space + after);
+        // Slash command — replace trigger text, user edits before sending
+        setText(before + item.value + space + after);
+      } else if (item.kind === "action") {
+        // Client-side action — execute immediately, don't send as message
+        if (item.value === "new") {
+          onNewSession?.();
         }
+        // Reset textarea (the action handles its own state change)
+        setText(before + after);
       } else if (item.kind === "symbol") {
         try {
           const attachment = await resolveSymbol(item.value);
@@ -426,6 +426,7 @@ export function Composer({
       resolveDiff,
       resolveSymbol,
       getConsumedLength,
+      onNewSession,
     ]
   );
 

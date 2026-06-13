@@ -1,0 +1,510 @@
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "react";
+import { Icon } from "../../lib/icons";
+import { SearchBar, type SortField, type SortDir } from "./SearchBar";
+import { SessionList, type PersistentSessionEntry } from "./SessionList";
+import { DetailModal } from "./DetailModal";
+import { CompareBar } from "./CompareView";
+
+// ── Re-export types for backward compat ────────────────────────────────────
+
+export type { PersistentSessionEntry } from "./SessionList";
+export type { ChatMessage } from "./DetailModal";
+
+// ── Props ──────────────────────────────────────────────────────────────────
+
+interface SessionHistoryPanelProps {
+  onRestore: (sessionId: string, agentId: string) => void;
+  onClose: () => void;
+}
+
+// ── VS Code API ────────────────────────────────────────────────────────────
+
+declare function acquireVsCodeApi(): {
+  postMessage(msg: unknown): void;
+  getState(): unknown;
+  setState(state: unknown): void;
+};
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+function groupByDate(
+  entries: PersistentSessionEntry[]
+): Map<string, PersistentSessionEntry[]> {
+  const now = new Date();
+  const today = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
+  ).getTime();
+  const yesterday = today - 86400000;
+  const weekAgo = today - 7 * 86400000;
+
+  const groups = new Map<string, PersistentSessionEntry[]>();
+
+  for (const entry of entries) {
+    const t = new Date(entry.updatedAt).getTime();
+    let label: string;
+    if (t >= today) label = "Today";
+    else if (t >= yesterday) label = "Yesterday";
+    else if (t >= weekAgo) label = "This Week";
+    else label = "Older";
+
+    const list = groups.get(label) ?? [];
+    list.push(entry);
+    groups.set(label, list);
+  }
+
+  return groups;
+}
+
+function exportAsJson(
+  sessions: PersistentSessionEntry[],
+  messages: Map<string, import("./DetailModal").ChatMessage[]>
+): void {
+  const data = sessions.map((s) => ({
+    ...s,
+    messages: messages.get(s.sessionId) ?? [],
+  }));
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `session-history-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportAsMarkdown(
+  sessions: PersistentSessionEntry[],
+  messages: Map<string, import("./DetailModal").ChatMessage[]>
+): string {
+  let md = `# Session History Export\n\n${new Date().toLocaleString()}\n\n---\n\n`;
+  for (const s of sessions) {
+    md += `## ${s.title}\n\n`;
+    md += `- **Agent:** ${s.agentId}\n`;
+    md += `- **Status:** ${s.status}\n`;
+    md += `- **Model:** ${s.model ?? "unknown"}\n`;
+    md += `- **Created:** ${s.createdAt}\n`;
+    md += `- **Updated:** ${s.updatedAt}\n`;
+    md += `- **Messages:** ${s.messageCount}\n`;
+    md += `- **Tokens:** ↑${s.tokenUsage.input} ↓${s.tokenUsage.output} (${s.tokenUsage.total} total)\n`;
+    md += `- **CWD:** \`${s.cwd}\`\n\n`;
+    const msgs = messages.get(s.sessionId) ?? [];
+    for (const m of msgs) {
+      md += `### ${m.role} — ${new Date(m.timestamp).toLocaleString()}\n\n`;
+      md += `${m.content}\n\n`;
+      if (m.inlineFilePaths?.length) {
+        md += `> Inline files: ${m.inlineFilePaths.join(", ")}\n\n`;
+      }
+    }
+    md += "---\n\n";
+  }
+  return md;
+}
+
+// ── SessionHistoryPanel ─────────────────────────────────────────────────────
+
+const PAGE_SIZE = 50;
+
+export function SessionHistoryPanel({
+  onRestore,
+  onClose,
+}: SessionHistoryPanelProps): React.ReactElement {
+  const vscode = useMemo(() => acquireVsCodeApi(), []);
+  const [sessions, setSessions] = useState<PersistentSessionEntry[]>([]);
+  const [query, setQuery] = useState("");
+  const [selectedAgent, setSelectedAgent] = useState<string>("all");
+  const [selectedSession, setSelectedSession] =
+    useState<PersistentSessionEntry | null>(null);
+  const [sessionMessages, setSessionMessages] = useState<import("./DetailModal").ChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [stats, setStats] = useState<{
+    totalSessions: number;
+    totalMessages: number;
+    oldestSession: string | null;
+  } | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+  const [sortField, setSortField] = useState<SortField>("updatedAt");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [compareSet, setCompareSet] = useState<Set<string>>(new Set());
+  const [page, setPage] = useState(1);
+  const [allMessages, setAllMessages] = useState<Map<string, import("./DetailModal").ChatMessage[]>>(
+    new Map()
+  );
+
+  // Listen for messages from extension host
+  useEffect(() => {
+    const handler = (e: MessageEvent) => {
+      const msg = e.data;
+      if (!msg?.type) return;
+
+      switch (msg.type) {
+        case "history:allSessions":
+          setSessions(msg.sessions as PersistentSessionEntry[]);
+          break;
+        case "history:searchResults":
+          setSessions(msg.results as PersistentSessionEntry[]);
+          break;
+        case "history:sessionDetail": {
+          const msgs = msg.messages as import("./DetailModal").ChatMessage[];
+          setSessionMessages(msgs);
+          if (msg.sessionId) {
+            setAllMessages((prev) => {
+              const next = new Map(prev);
+              next.set(msg.sessionId as string, msgs);
+              return next;
+            });
+          }
+          setIsLoading(false);
+          break;
+        }
+        case "history:archived":
+        case "history:unarchived":
+          vscode.postMessage({ type: "history:getAll" });
+          break;
+        case "history:deleted":
+          setSessions((prev) =>
+            prev.filter((s) => s.sessionId !== msg.sessionId)
+          );
+          setSessionMessages([]);
+          break;
+        case "history:stats":
+          setStats({
+            totalSessions: msg.totalSessions,
+            totalMessages: msg.totalMessages,
+            oldestSession: msg.oldestSession ?? null,
+          });
+          break;
+        case "history:cleanupComplete":
+          vscode.postMessage({ type: "history:getAll" });
+          break;
+        case "history:exportMd": {
+          const md = msg.markdown as string;
+          const blob = new Blob([md], { type: "text/markdown" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `session-history-${new Date().toISOString().slice(0, 10)}.md`;
+          a.click();
+          URL.revokeObjectURL(url);
+          break;
+        }
+      }
+    };
+    window.addEventListener("message", handler);
+    vscode.postMessage({ type: "history:getAll" });
+    vscode.postMessage({ type: "history:getStats" });
+    return () => window.removeEventListener("message", handler);
+  }, [vscode]);
+
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (query.trim()) {
+        vscode.postMessage({ type: "history:search", query: query.trim() });
+      } else {
+        vscode.postMessage({ type: "history:getAll" });
+      }
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query, vscode]);
+
+  // Filter sessions by agent and archive status
+  const filtered = useMemo(() => {
+    let result = sessions;
+    if (selectedAgent !== "all") {
+      result = result.filter((s) => s.agentId === selectedAgent);
+    }
+    if (!showArchived) {
+      result = result.filter((s) => !s.isArchived);
+    }
+    return result;
+  }, [sessions, selectedAgent, showArchived]);
+
+  // Sort
+  const sorted = useMemo(() => {
+    const sortedCopy = [...filtered];
+    sortedCopy.sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case "updatedAt":
+          cmp =
+            new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
+          break;
+        case "messageCount":
+          cmp = a.messageCount - b.messageCount;
+          break;
+        case "tokenUsage":
+          cmp = a.tokenUsage.total - b.tokenUsage.total;
+          break;
+        case "title":
+          cmp = a.title.localeCompare(b.title);
+          break;
+      }
+      return sortDir === "desc" ? -cmp : cmp;
+    });
+    return sortedCopy;
+  }, [filtered, sortField, sortDir]);
+
+  // Paginate
+  const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
+  const paged = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return sorted.slice(start, start + PAGE_SIZE);
+  }, [sorted, page]);
+
+  const grouped = useMemo(() => groupByDate(paged), [paged]);
+
+  const archivedCount = useMemo(
+    () => sessions.filter((s) => s.isArchived).length,
+    [sessions]
+  );
+
+  const agents = useMemo(() => {
+    const set = new Set(sessions.map((s) => s.agentId));
+    return ["all", ...Array.from(set)];
+  }, [sessions]);
+
+  const compareList = useMemo(() => {
+    return sessions.filter((s) => compareSet.has(s.sessionId));
+  }, [sessions, compareSet]);
+
+  const handleSessionClick = useCallback(
+    (session: PersistentSessionEntry) => {
+      setSelectedSession(session);
+      setIsLoading(true);
+      if (allMessages.has(session.sessionId)) {
+        setSessionMessages(allMessages.get(session.sessionId)!);
+        setIsLoading(false);
+      } else {
+        vscode.postMessage({
+          type: "history:getSession",
+          sessionId: session.sessionId,
+        });
+      }
+    },
+    [vscode, allMessages]
+  );
+
+  const handleRestore = useCallback(
+    (sessionId: string, agentId: string) => {
+      onRestore(sessionId, agentId);
+      setSelectedSession(null);
+    },
+    [onRestore]
+  );
+
+  const handleDelete = useCallback(
+    (sessionId: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (confirm("Delete this session history?")) {
+        vscode.postMessage({ type: "history:delete", sessionId });
+        setCompareSet((prev) => {
+          const next = new Set(prev);
+          next.delete(sessionId);
+          return next;
+        });
+      }
+    },
+    [vscode]
+  );
+
+  const handleArchive = useCallback(
+    (sessionId: string, isArchived: boolean) => {
+      vscode.postMessage({
+        type: isArchived ? "history:unarchive" : "history:archive",
+        sessionId,
+      });
+    },
+    [vscode]
+  );
+
+  const handleCleanup = useCallback(() => {
+    const days = prompt("Delete sessions older than how many days?", "90");
+    if (days) {
+      vscode.postMessage({
+        type: "history:cleanup",
+        maxAgeDays: parseInt(days, 10),
+      });
+    }
+  }, [vscode]);
+
+  const handleExportJson = useCallback(() => {
+    exportAsJson(paged, allMessages);
+  }, [paged, allMessages]);
+
+  const handleExportMarkdown = useCallback(() => {
+    const md = exportAsMarkdown(paged, allMessages);
+    vscode.postMessage({ type: "history:exportMd", markdown: md });
+  }, [vscode, paged, allMessages]);
+
+  const handleToggleCompare = useCallback(
+    (sessionId: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      setCompareSet((prev) => {
+        const next = new Set(prev);
+        if (next.has(sessionId)) {
+          next.delete(sessionId);
+        } else if (next.size >= 4) {
+          alert("Maximum 4 sessions can be compared at once.");
+        } else {
+          next.add(sessionId);
+        }
+        return next;
+      });
+    },
+    []
+  );
+
+  return (
+    <div className="session-history-panel">
+      {/* Header */}
+      <div className="history-header">
+        <h3 className="history-title">Session History</h3>
+        <div className="history-header-actions">
+          <button
+            className="history-btn"
+            onClick={handleExportJson}
+            title="Export as JSON"
+          >
+            <Icon name="desktop-download" size="sm" /> JSON
+          </button>
+          <button
+            className="history-btn"
+            onClick={handleExportMarkdown}
+            title="Export as Markdown"
+          >
+            <Icon name="file" size="sm" /> MD
+          </button>
+          <button className="history-close-btn" onClick={onClose} title="Close">
+            <Icon name="close" size="sm" />
+          </button>
+        </div>
+      </div>
+
+      {/* Search + Filter Row */}
+      <SearchBar
+        query={query}
+        onQueryChange={setQuery}
+        selectedAgent={selectedAgent}
+        agents={agents}
+        onAgentChange={(agent) => {
+          setSelectedAgent(agent);
+          setPage(1);
+        }}
+        sortField={sortField}
+        sortDir={sortDir}
+        onSortChange={(f, d) => {
+          setSortField(f);
+          setSortDir(d);
+        }}
+      />
+
+      {/* Stats + Archive toggle */}
+      <div className="history-stats">
+        <span>{stats?.totalSessions ?? 0} sessions</span>
+        <span>{stats?.totalMessages ?? 0} messages</span>
+        {stats?.oldestSession && (
+          <span className="history-stats-oldest">
+            Since {new Date(stats.oldestSession).toLocaleDateString()}
+          </span>
+        )}
+        <label className="history-archive-toggle">
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(e) => {
+              setShowArchived(e.target.checked);
+              setPage(1);
+            }}
+          />
+          Show archived ({archivedCount})
+        </label>
+      </div>
+
+      {/* Comparison view */}
+      {compareList.length > 0 && (
+        <CompareBar
+          sessions={compareList}
+          onClear={() => setCompareSet(new Set())}
+        />
+      )}
+
+      {/* Results */}
+      {paged.length === 0 ? (
+        <div className="history-empty">
+          {query ? "No matching sessions found." : "No session history yet."}
+        </div>
+      ) : (
+        <SessionList
+          grouped={grouped}
+          query={query}
+          onSessionClick={handleSessionClick}
+          onArchive={handleArchive}
+          onDelete={handleDelete}
+        />
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="history-pagination">
+          <button
+            className="history-page-btn"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            ←
+          </button>
+          <span className="history-page-info">
+            {page} / {totalPages}
+          </span>
+          <button
+            className="history-page-btn"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          >
+            →
+          </button>
+          <span className="history-page-total">
+            {sorted.length} sessions total
+          </span>
+        </div>
+      )}
+
+      {/* Footer */}
+      <div className="history-footer">
+        <div className="history-footer-actions">
+          <button className="history-btn" onClick={handleCleanup}>
+            Cleanup old
+          </button>
+        </div>
+      </div>
+
+      {/* Session Detail Modal */}
+      {selectedSession && (
+        <DetailModal
+          session={selectedSession}
+          messages={sessionMessages}
+          onRestore={() =>
+            handleRestore(selectedSession.sessionId, selectedSession.agentId)
+          }
+          onClose={() => setSelectedSession(null)}
+          query={query}
+        />
+      )}
+
+      {/* Loading overlay */}
+      {isLoading && selectedSession && (
+        <div className="history-loading">Loading messages…</div>
+      )}
+    </div>
+  );
+}

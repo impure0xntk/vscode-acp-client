@@ -4,23 +4,58 @@ import { Chip } from "../ui/Chip";
 import { StatusIcon } from "../StatusIcon";
 import type { StatusIconType } from "../StatusIcon";
 import { elapsedColor } from "../../shared/elapsedColor";
+import { ELAPSED_WARNING_MS, ELAPSED_CRITICAL_MS } from "../../shared/constants";
 import { Icon } from "../../lib/icons";
 
 // ============================================================================
 // Shared helpers
 // ============================================================================
 
+/**
+ * Spinner と Session Overview で共通の色グループ。
+ * - active:  agent 応答中 → #4fc3f7 青
+ * - waiting: agent 応答待ち → #ffd54f 黄
+ * - done:   終了 → 色なし（各ステータス固有の色）
+ */
+export type SessionColorGroup = "active" | "waiting" | "done";
+
+export function sessionColorGroup(status: string): SessionColorGroup {
+  if (status === "running") return "active";
+  if (status === "waiting" || status === "waiting_for_input") return "waiting";
+  return "done";
+}
+
+export const COLOR_GROUP_ACCENT: Record<SessionColorGroup, string> = {
+  active: "#4fc3f7",
+  waiting: "#ffd54f",
+  done: "transparent",
+};
+
+/**
+ * Spinner と同じ elapsed-time ティアを返す。
+ * - "normal"  : < 10s
+ * - "warning" : ≥ 10s
+ * - "critical": ≥ 30s
+ */
+export type ElapsedTier = "normal" | "warning" | "critical";
+
+export function elapsedTier(elapsedMs: number): ElapsedTier {
+  if (elapsedMs >= ELAPSED_CRITICAL_MS) return "critical";
+  if (elapsedMs >= ELAPSED_WARNING_MS) return "warning";
+  return "normal";
+}
+
 export const STATUS_STYLE_MAP: Record<
   string,
-  { iconStatus: StatusIconType; accentClass: string }
+  { iconStatus: StatusIconType; accentClass: string; colorGroup: SessionColorGroup }
 > = {
-  running: { iconStatus: "running", accentClass: "status-icon-running" },
-  idle: { iconStatus: "idle", accentClass: "" },
-  waiting: { iconStatus: "running", accentClass: "status-icon-running" },
-  waiting_for_input: { iconStatus: "running", accentClass: "status-icon-running" },
-  completed: { iconStatus: "completed", accentClass: "" },
-  error: { iconStatus: "error", accentClass: "" },
-  cancelled: { iconStatus: "cancelled", accentClass: "" },
+  running:           { iconStatus: "running",  accentClass: "status-icon-running",          colorGroup: "active" },
+  idle:              { iconStatus: "idle",     accentClass: "",                             colorGroup: "done" },
+  waiting:           { iconStatus: "waiting",  accentClass: "status-icon-waiting",         colorGroup: "waiting" },
+  waiting_for_input: { iconStatus: "waiting",  accentClass: "status-icon-waiting",         colorGroup: "waiting" },
+  completed:         { iconStatus: "completed", accentClass: "",                             colorGroup: "done" },
+  error:             { iconStatus: "error",     accentClass: "",                             colorGroup: "done" },
+  cancelled:         { iconStatus: "cancelled", accentClass: "",                             colorGroup: "done" },
 };
 
 export function fmt(n: number): string {
@@ -121,13 +156,13 @@ export function SessionOverviewHeader({
     STATUS_STYLE_MAP[session.status] ?? STATUS_STYLE_MAP.idle;
   const elapsedMs = session.progress.elapsedMs;
   const showElapsedColor =
-    styleInfo.iconStatus === "running" && elapsedMs > 0;
+    styleInfo.colorGroup !== "done" && elapsedMs > 0;
   const showRenderDelay =
     showElapsedColor && elapsedColor(elapsedMs) !== "normal";
 
   return (
     <div className={`soc-title-row ${className}`.trim()}>
-      <StatusIcon status={styleInfo.iconStatus} elapsedMs={elapsedMs} />
+      <StatusIcon status={styleInfo.iconStatus} elapsedMs={elapsedMs} colorGroup={styleInfo.colorGroup} />
       {showRenderDelay && (
         <span
           className="soc-agent-accent-border"

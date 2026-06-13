@@ -317,6 +317,16 @@ export function IconBrain({ className, size = 16 }: IconProps): React.ReactEleme
   );
 }
 
+export function IconInput({ className, size = 16 }: IconProps): React.ReactElement {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle cx="8" cy="8" r="6" />
+      <path d="M8 7v5" />
+      <circle cx="8" cy="4.5" r="0.6" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 export function IconScroll({ className, size = 16 }: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
@@ -357,6 +367,7 @@ const ICON_COMPONENTS: Record<string, React.FC<IconProps>> = {
   "chevron-down":    IconChevronDown,
   "chevron-right":   IconChevronRight,
   "list-tree":       IconListTree,
+  input:             IconInput,
 };
 
 export function Icon({

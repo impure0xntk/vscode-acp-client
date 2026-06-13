@@ -661,12 +661,11 @@ export class SessionOrchestrator extends EventEmitter {
   }
 
   /**
-   * Replay stored messages (user + agent) into a new session via session/prompt.
-   * User and agent messages are replayed; tool and system messages are skipped
-   * since they are side-effects of agent turns and will be regenerated.
+   * Replay stored user+agent messages into a new session via session/prompt.
    *
-   * During replay, agent responses are streamed to the UI but marked with
-   * a `_replay` flag so the webview can render them differently.
+   * User and agent messages are replayed to reconstruct the conversation
+   * context. Tool and system messages are skipped since they are side-effects
+   * of agent turns and will be regenerated.
    *
    * @returns Number of messages replayed.
    */
@@ -687,10 +686,8 @@ export class SessionOrchestrator extends EventEmitter {
 
     let replayed = 0;
     for (const msg of replayable) {
-      // Build ContentBlock[] from stored message
       const blocks = this.chatMessageToContentBlocks(msg);
 
-      // Emit replay-start event so UI can show progress
       this.emit("sessionReplayStart", {
         agentId,
         sessionId,
@@ -699,10 +696,13 @@ export class SessionOrchestrator extends EventEmitter {
       });
 
       try {
-        await this.prompt(agentId, sessionId, "", blocks);
+        await withTimeout(
+          this.prompt(agentId, sessionId, "", blocks),
+          30_000,
+          `replay message ${msg.id}`
+        );
         replayed++;
       } catch (e) {
-        // If a single message fails, log and continue with the next one
         console.warn(
           `[ACP] Replay failed for message ${msg.id}: ${e instanceof Error ? e.message : String(e)}`
         );
@@ -1775,6 +1775,35 @@ export class SessionOrchestrator extends EventEmitter {
 // ============================================================================
 // Helpers
 // ============================================================================
+
+/**
+ * Wrap a promise with a timeout. If the promise does not resolve within
+ * rejectMs, the returned promise rejects with a TimeoutError.
+ * The underlying operation is NOT cancelled — callers must handle that
+ * separately if needed.
+ */
+function withTimeout<T>(
+  promise: Promise<T>,
+  rejectMs: number,
+  label: string
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`Timeout after ${rejectMs}ms: ${label}`));
+    }, rejectMs);
+
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      }
+    );
+  });
+}
 
 // ============================================================================
 // Normalize tool call status from SDK to webview-compatible values

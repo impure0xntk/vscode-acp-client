@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import { Message } from "./Message";
 import type { ChatMessage } from "../types";
+import { useSessionUiStateStore } from "../store/sessionUiStateStore";
 
 // Threshold in px from bottom to consider "at bottom"
 const SCROLL_BOTTOM_THRESHOLD = 100;
@@ -16,6 +17,8 @@ export interface ChatContainerProps {
   messages: ChatMessage[];
   isStreaming: boolean;
   sessionId?: string;
+  /** Full session key "agentId:sessionId" — used for UI state persistence */
+  sessionKey?: string;
   status?: "idle" | "running" | "completed" | "error" | "cancelled";
   /** Whether this container's session is currently active (visible tab) */
   isActive?: boolean;
@@ -33,10 +36,6 @@ export interface ChatContainerProps {
   }>;
   /** Callback fired when scroll state changes (for button visibility) */
   onScrollStateChange?: (state: { isAtBottom: boolean; unreadCount: number }) => void;
-  /** Saved scrollTop restored on mount (from parent's per-session cache) */
-  savedScrollTop?: number;
-  /** Callback fired on unmount and on scroll to persist scrollTop */
-  onScrollTopChange?: (scrollTop: number) => void;
 }
 
 function sessionIdFrom(msg: ChatMessage): string {
@@ -47,11 +46,6 @@ function sessionIdFrom(msg: ChatMessage): string {
  * Merge consecutive adjacent tool messages that share the same sessionId
  * into a single entry whose `toolCalls` is the concatenation of all
  * original toolCalls and whose content is joined with "\n".
- *
- * A non-tool message or a sessionId boundary breaks the merge, so tool
- * messages from different sessions are never combined.
- *
- * The returned array has the same length or fewer entries than `messages`.
  */
 function mergeSameSessionTools(messages: ChatMessage[]): ChatMessage[] {
   const result: ChatMessage[] = [];
@@ -61,7 +55,6 @@ function mergeSameSessionTools(messages: ChatMessage[]): ChatMessage[] {
       continue;
     }
     const last = result[result.length - 1];
-    // Only merge when both sides have an explicit (non-placeholder) sessionId
     const sid = sessionIdFrom(msg);
     if (
       last !== undefined &&
@@ -83,29 +76,14 @@ function mergeSameSessionTools(messages: ChatMessage[]): ChatMessage[] {
 
 /**
  * Build an array aligned to `messages` that carries the inherited
- * "run key" for each slot.  Adjacent messages with the same run key
- * belong to the same consecutive run and the later one hides its header.
- *
- * The run key is `"sessionId::agentId"` where:
- *   - non-tool messages:  sessionId = msg.sessionId, agentId = msg.agentId
- *   - tool messages:      sessionId and agentId are inherited from the most
- *                         recent non-tool message before them
- *
- * After merging same-session tools this means:
- *   agent(id:A,sess:X) → [merged tool+sess:X] → agent(id:A,sess:X)
- * produces the same run key for every slot, so only the first shows a header.
- *
- * `undefined` means the slot cannot participate in any run (no agentId).
+ * "run key" for each slot.
  */
 function buildRunKeys(messages: ChatMessage[]): (string | undefined)[] {
   const result: (string | undefined)[] = [];
-  // Track the last known agentId and sessionId from non-tool messages.
-  // Tool messages inherit both so that agent→tool→tool→agent is one run.
   let lastAgentId: string | undefined = undefined;
   let lastSessionId: string | undefined = undefined;
   for (const msg of messages) {
     if (msg.role === "tool") {
-      // Inherit from the preceding non-tool message
       result.push(
         lastAgentId !== undefined && lastSessionId !== undefined
           ? `${lastSessionId}::${lastAgentId}`
@@ -124,117 +102,135 @@ function buildRunKeys(messages: ChatMessage[]): (string | undefined)[] {
   return result;
 }
 
-// Memoize to skip re-render when isStreaming toggles but messages reference is same
-/** Per-session last-seen message count (persists across tab switches) */
-const sessionMsgCounts = new Map<string, number>();
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Throttled rAF-based persist of scrollTop to the UI state store */
+function useScrollPersist(containerRef: React.RefObject<HTMLDivElement | null>, k: string) {
+  const rafRef = useRef<number | null>(null);
+  const persist = useCallback(() => {
+    if (rafRef.current !== null) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      if (!containerRef.current) return;
+      useSessionUiStateStore.getState().save(k, {
+        scrollTop: containerRef.current.scrollTop,
+      });
+    });
+  }, [containerRef, k]);
+  return { persist, rafRef };
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 export const ChatContainer = memo(function ChatContainer({
   messages,
   isStreaming,
   sessionId,
+  sessionKey,
   status,
   isActive = true,
   scrollToMessageRef,
   scrollStateRef,
   onScrollStateChange,
   forceScrollToBottomRef,
-  savedScrollTop,
-  onScrollTopChange,
 }: ChatContainerProps): React.ReactElement {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
   const isAtBottomRef = useRef(true);
-  const msgCountRef = useRef(0);
-  const prevSessionIdRef = useRef<string | undefined>(undefined);
 
-  // On session switch: restore last-seen count, reset scroll state
-  const didSessionSwitch = sessionId !== prevSessionIdRef.current;
-  if (didSessionSwitch) {
-    prevSessionIdRef.current = sessionId;
-    const key = sessionId ?? "__nosession__";
-    const saved = sessionMsgCounts.get(key);
-    msgCountRef.current = saved ?? messages.length;
-    // Reset scroll state for new session
-    setIsAtBottom(true);
-    isAtBottomRef.current = true;
-    setUnreadCount(0);
+  const k = sessionKey ?? "__nosession__";
+  const { save, restore } = useSessionUiStateStore.getState();
+
+  // ── Restore scrollTop on first mount / session key change ──────────
+  const prevKeyRef = useRef(k);
+  const didInit = useRef(false);
+  if (prevKeyRef.current !== k) {
+    prevKeyRef.current = k;
+    didInit.current = false;
+  }
+  if (!didInit.current) {
+    didInit.current = true;
+    const st = restore(k).scrollTop;
+    if (st > 0 && containerRef.current) {
+      containerRef.current.scrollTop = st;
+    }
   }
 
-  // Track whether the user is actively dragging the scrollbar thumb.
-  // We detect this by checking if the pointerdown target IS the container
-  // (scrollbar area) rather than a child element (message content).
-  const isUserScrollingRef = useRef(false);
-  const userScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null
-  );
+  // ── Compute unread count from lastSeenMessageId ────────────────────
+  const msgIds = useMemo(() => messages.map((m) => m.id), [messages]);
+  const lastSeenId = useSessionUiStateStore((s) => s.states[k]?.lastSeenMessageId ?? null);
+  const computedUnread = useMemo(() => {
+    if (!lastSeenId) return 0;
+    const idx = msgIds.indexOf(lastSeenId);
+    if (idx < 0) return 0;
+    return msgIds.length - idx - 1;
+  }, [lastSeenId, msgIds]);
+  useEffect(() => { setUnreadCount(computedUnread); }, [computedUnread]);
 
-  // Recalculate isAtBottom on content size change (ResizeObserver handles
-  // scrollbar appearance / layout shift).
+  // ── Scroll persistence (throttled rAF) ─────────────────────────────
+  const { persist: persistScroll, rafRef } = useScrollPersist(containerRef, k);
+
+  // Cleanup rAF on unmount
+  useEffect(() => {
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    };
+  }, [rafRef]);
+
+  // ── User-scroll detection ─────────────────────────────────────────
+  const isUserScrollingRef = useRef(false);
+  const userScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const recalcIsAtBottom = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    const atBottom = distanceFromBottom < SCROLL_BOTTOM_THRESHOLD;
-    setIsAtBottom(atBottom);
-    isAtBottomRef.current = atBottom;
-    if (atBottom) setUnreadCount(0);
+    const d = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const at = d < SCROLL_BOTTOM_THRESHOLD;
+    setIsAtBottom(at);
+    isAtBottomRef.current = at;
+    if (at) setUnreadCount(0);
   }, []);
 
-  // Internal scroll function — exposed to parent via ref prop
+  // ── scrollIntoView for message links ──────────────────────────────
   const scrollToMessage = useCallback((messageId: string) => {
     const msgEl = containerRef.current?.querySelector(
       `[data-message-id="${messageId}"]`
     ) as HTMLElement | null;
-    if (msgEl) {
-      msgEl.scrollIntoView({ behavior: "smooth", block: "start" });
-      const body = msgEl.querySelector(".message-body") as HTMLElement | null;
-      const target = body ?? msgEl;
-      // Remove existing highlight (re-triggerable)
+    if (!msgEl) return;
+    msgEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    const body = msgEl.querySelector(".message-body") as HTMLElement | null;
+    const target = body ?? msgEl;
+    target.classList.remove("message-body--highlighted");
+    void target.offsetWidth; // reflow
+    target.classList.add("message-body--highlighted");
+    const onEnd = () => {
       target.classList.remove("message-body--highlighted");
-      // Force reflow so re-adding the class restarts the animation
-      void target.offsetWidth;
-      target.classList.add("message-body--highlighted");
-      // Clean up after animation ends
-      const onAnimEnd = () => {
-        target.classList.remove("message-body--highlighted");
-        target.removeEventListener("animationend", onAnimEnd);
-      };
-      target.addEventListener("animationend", onAnimEnd);
-    }
+      target.removeEventListener("animationend", onEnd);
+    };
+    target.addEventListener("animationend", onEnd);
   }, []);
 
-  // Keep the parent's ref synced with the latest scrollToMessage
-  const localRef = useRef(scrollToMessage);
-  localRef.current = scrollToMessage;
   useEffect(() => {
-    if (scrollToMessageRef) {
-      scrollToMessageRef.current = (id: string) => {
-        localRef.current(id);
-      };
-    }
-  }, [scrollToMessageRef]);
+    if (scrollToMessageRef) scrollToMessageRef.current = scrollToMessage;
+  }, [scrollToMessageRef, scrollToMessage]);
 
-  // Keep ref in sync so scroll handler doesn't need deps
   isAtBottomRef.current = isAtBottom;
 
-  // Handle scroll events to detect user position
+  // ── Scroll handler ─────────────────────────────────────────────────
   const handleScroll = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
-
-    // While the user is dragging the scrollbar, we still recalculate
-    // position so we can detect when they reach the bottom and
-    // re-enable auto-scroll immediately.
-    const distanceFromBottom =
-      el.scrollHeight - el.scrollTop - el.clientHeight;
-    const atBottom = distanceFromBottom < SCROLL_BOTTOM_THRESHOLD;
+    const d = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const at = d < SCROLL_BOTTOM_THRESHOLD;
 
     if (isUserScrollingRef.current) {
-      // If the user has scrolled to the bottom, re-enable auto-scroll
-      // and stop treating this as an explicit user scroll.
-      if (atBottom) {
+      if (at) {
         setIsAtBottom(true);
         isAtBottomRef.current = true;
         setUnreadCount(0);
@@ -243,201 +239,109 @@ export const ChatContainer = memo(function ChatContainer({
       return;
     }
 
-    setIsAtBottom(atBottom);
-    isAtBottomRef.current = atBottom;
-    if (atBottom) setUnreadCount(0);
-    handleScrollPersistRef.current();
-  }, []);
+    setIsAtBottom(at);
+    isAtBottomRef.current = at;
+    if (at) setUnreadCount(0);
+    persistScroll();
+  }, [persistScroll]);
 
-  // Tracks when user interacts with scrollbar (mousedown on scrollbar area).
-  // We detect scrollbar-only clicks by checking if the event target is the
-  // container itself (scrollbar renders in the container's overflow area but
-  // outside child content elements).
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    if (e.target === containerRef.current) {
-      isUserScrollingRef.current = true;
-    }
+    if (e.target === containerRef.current) isUserScrollingRef.current = true;
   }, []);
 
   const handleWindowPointerUp = useCallback(() => {
     if (!isUserScrollingRef.current) return;
     isUserScrollingRef.current = false;
-    // After releasing scrollbar, recalc position after layout settles
-    if (userScrollTimeoutRef.current)
-      clearTimeout(userScrollTimeoutRef.current);
-    userScrollTimeoutRef.current = setTimeout(() => {
-      recalcIsAtBottom();
-    }, 50);
+    if (userScrollTimeoutRef.current) clearTimeout(userScrollTimeoutRef.current);
+    userScrollTimeoutRef.current = setTimeout(recalcIsAtBottom, 50);
   }, [recalcIsAtBottom]);
 
-  // Scroll-to-bottom button click
+  // ── Scroll-to-bottom button ───────────────────────────────────────
   const handleScrollToBottom = useCallback(() => {
-    // Suppress recalcIsAtBottom during programmatic smooth scroll so the
-    // intermediate scroll positions don't flip isAtBottom back to false.
     isUserScrollingRef.current = true;
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     setUnreadCount(0);
     setIsAtBottom(true);
     isAtBottomRef.current = true;
-    // After the smooth scroll finishes, re-enable scroll-position detection.
-    // 400ms matches the typical smooth-scroll duration.
-    if (userScrollTimeoutRef.current)
-      clearTimeout(userScrollTimeoutRef.current);
+    if (userScrollTimeoutRef.current) clearTimeout(userScrollTimeoutRef.current);
     userScrollTimeoutRef.current = setTimeout(() => {
       isUserScrollingRef.current = false;
       recalcIsAtBottom();
     }, 400);
   }, [recalcIsAtBottom]);
 
-  // Force scroll to bottom without being blocked by user-scroll suppression.
-  // Used when the user sends a message — we always want to show the latest.
-  // Stored directly in a ref to avoid TDZ issues with useEffect ordering.
-  const forceScrollToBottomFnRef = useRef<() => void>(undefined);
-  if (messages.length >= 0) {
-    forceScrollToBottomFnRef.current = () => {
-      if (userScrollTimeoutRef.current)
-        clearTimeout(userScrollTimeoutRef.current);
-      isUserScrollingRef.current = false;
-      msgCountRef.current = messages.length;
-      sessionMsgCounts.set(sessionId ?? "__nosession__", messages.length);
-      setUnreadCount(0);
-      setIsAtBottom(true);
-      isAtBottomRef.current = true;
-      bottomRef.current?.scrollIntoView({ behavior: "instant" });
-    };
-  }
-  // Expose the ref's current value via the external ref prop
-  useEffect(() => {
-    if (forceScrollToBottomRef) {
-      forceScrollToBottomRef.current = () => {
-        forceScrollToBottomFnRef.current?.();
-      };
+  // ── Force scroll to bottom (on send) ──────────────────────────────
+  const newestMsgId = messages.length > 0 ? messages[messages.length - 1].id : null;
+  const forceScroll = useCallback(() => {
+    if (userScrollTimeoutRef.current) clearTimeout(userScrollTimeoutRef.current);
+    isUserScrollingRef.current = false;
+    if (newestMsgId) {
+      save(k, { lastSeenMessageId: newestMsgId, scrollTop: 0 });
     }
-  }, [forceScrollToBottomRef]);
+    setUnreadCount(0);
+    setIsAtBottom(true);
+    isAtBottomRef.current = true;
+    bottomRef.current?.scrollIntoView({ behavior: "instant" });
+  }, [k, newestMsgId, save]);
 
-  // Update last-seen count only when tab is active AND user is at bottom
+  useEffect(() => {
+    if (forceScrollToBottomRef) forceScrollToBottomRef.current = forceScroll;
+  }, [forceScrollToBottomRef, forceScroll]);
+
+  // ── Sync lastSeenMessageId when at bottom ──────────────────────────
+  useEffect(() => {
+    if (!isActive || !isAtBottomRef.current || !newestMsgId) return;
+    save(k, { lastSeenMessageId: newestMsgId });
+  }, [isActive, newestMsgId, k, save, messages.length]);
+
+  // ── Auto-scroll ────────────────────────────────────────────────────
   useEffect(() => {
     if (!isActive) return;
+    bottomRef.current?.scrollIntoView({ behavior: isAtBottomRef.current ? "smooth" : "instant" });
+  }, [isActive, messages.length === 0]); // only when going from empty→non-empty
 
-    const newCount = messages.length;
-    const seen = msgCountRef.current;
-    const delta = newCount - seen;
-
-    if (delta > 0 && isAtBottomRef.current) {
-      // User is at bottom — mark everything up to newest as seen
-      msgCountRef.current = newCount;
-      sessionMsgCounts.set(sessionId ?? "__nosession__", newCount);
-      setUnreadCount(0);
-    }
-  }, [messages.length, isActive, sessionId, isStreaming]);
-
-  // Auto-scroll only when user is already at bottom AND tab is active
+  // ── Reset on tab activate ─────────────────────────────────────────
   useEffect(() => {
     if (!isActive) return;
-
-    const newCount = messages.length;
-    const delta = newCount - msgCountRef.current;
-
-    if (delta <= 0) return;
-
-    sessionMsgCounts.set(sessionId ?? "__nosession__", newCount);
-
-    if (isAtBottomRef.current) {
-      msgCountRef.current = newCount;
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    } else {
-      setUnreadCount((c) => c + delta);
+    if (newestMsgId) {
+      save(k, { lastSeenMessageId: newestMsgId });
     }
-  }, [messages, isStreaming, isActive, sessionId]);
-
-  // When tab becomes active: mark all as seen, scroll to bottom
-  useEffect(() => {
-    if (!isActive) return;
-    const newCount = messages.length;
-    sessionMsgCounts.set(sessionId ?? "__nosession__", newCount);
-    msgCountRef.current = newCount;
     setUnreadCount(0);
     bottomRef.current?.scrollIntoView({ behavior: "instant" });
-  }, [isActive, sessionId]);
+  }, [isActive, k]);
 
-  // Restore saved scrollTop on mount (session switch restore)
-  useEffect(() => {
-    if (savedScrollTop !== undefined && containerRef.current) {
-      containerRef.current.scrollTop = savedScrollTop;
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Persist scrollTop on unmount (session switch save)
-  useEffect(() => {
-    const el = containerRef.current;
-    return () => {
-      if (el && onScrollTopChange) {
-        onScrollTopChange(el.scrollTop);
-      }
-    };
-  }, [onScrollTopChange]);
-
-  // Persist scrollTop on every scroll event (throttled via rAF).
-  // Store in a ref so it can be safely read without forward-reference issues.
-  const onScrollTopChangeRef = useRef(onScrollTopChange);
-  onScrollTopChangeRef.current = onScrollTopChange;
-  const scrollTopRafRef = useRef<number | null>(null);
-  const handleScrollPersistRef = useRef(() => {});
-  handleScrollPersistRef.current = () => {
-    if (scrollTopRafRef.current !== null) return;
-    scrollTopRafRef.current = requestAnimationFrame(() => {
-      scrollTopRafRef.current = null;
-      if (containerRef.current && onScrollTopChangeRef.current) {
-        onScrollTopChangeRef.current(containerRef.current.scrollTop);
-      }
-    });
-  };
-
-  // Expose scroll state to parent via ref (for fixed scroll-to-bottom button)
+  // ── Expose scroll state to parent ─────────────────────────────────
   useEffect(() => {
     if (scrollStateRef) {
-      scrollStateRef.current = {
-        isAtBottom,
-        unreadCount,
-        scrollToBottom: handleScrollToBottom,
-      };
+      scrollStateRef.current = { isAtBottom, unreadCount, scrollToBottom: handleScrollToBottom };
     }
     onScrollStateChange?.({ isAtBottom, unreadCount });
   }, [isAtBottom, unreadCount, handleScrollToBottom, scrollStateRef, onScrollStateChange]);
 
-  // ResizeObserver: recalculate isAtBottom when container size changes
-  // (e.g. scrollbar appears/disappears, layout shift)
+  // ── ResizeObserver ────────────────────────────────────────────────
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-
-    const ro = new ResizeObserver(() => {
-      recalcIsAtBottom();
-    });
+    const ro = new ResizeObserver(recalcIsAtBottom);
     ro.observe(el);
-
     return () => ro.disconnect();
   }, [recalcIsAtBottom]);
 
-  // Bind pointer events for user-scroll detection
+  // ── Pointer event listeners ───────────────────────────────────────
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-
-    el.addEventListener("pointerdown", handlePointerDown);
+    el.addEventListener("pointerdown", handlePointerDown as any);
     window.addEventListener("pointerup", handleWindowPointerUp);
-
     return () => {
-      el.removeEventListener("pointerdown", handlePointerDown);
+      el.removeEventListener("pointerdown", handlePointerDown as any);
       window.removeEventListener("pointerup", handleWindowPointerUp);
-      if (userScrollTimeoutRef.current)
-        clearTimeout(userScrollTimeoutRef.current);
+      if (userScrollTimeoutRef.current) clearTimeout(userScrollTimeoutRef.current);
     };
   }, [handlePointerDown, handleWindowPointerUp]);
 
+  // ── Render ────────────────────────────────────────────────────────
   const isEmpty = messages.length === 0;
-
-  // Merge same-session tool messages, then compute run keys
   const merged = useMemo(() => mergeSameSessionTools(messages), [messages]);
   const runKeys = useMemo(() => buildRunKeys(merged), [merged]);
 
@@ -459,41 +363,20 @@ export const ChatContainer = memo(function ChatContainer({
         </div>
       ) : (
         <div className="message-list">
-          {merged.map((msg, idx) => {
-            if (idx === 0) {
-              return (
-                <Message
-                  key={msg.id}
-                  id={msg.id}
-                  role={msg.role}
-                  content={msg.content}
-                  timestamp={msg.timestamp}
-                  toolCalls={msg.toolCalls}
-                  inlineFilePaths={msg.inlineFilePaths}
-                  attachments={msg.attachments}
-                  isConsecutive={false}
-                  sessionId={sessionId}
-                />
-              );
-            }
-            const key = runKeys[idx];
-            const keyPrev = runKeys[idx - 1];
-            const isConsecutive = key !== undefined && key === keyPrev;
-            return (
-              <Message
-                key={msg.id}
-                id={msg.id}
-                role={msg.role}
-                content={msg.content}
-                timestamp={msg.timestamp}
-                toolCalls={msg.toolCalls}
-                inlineFilePaths={msg.inlineFilePaths}
-                attachments={msg.attachments}
-                isConsecutive={isConsecutive}
-                sessionId={sessionId}
-              />
-            );
-          })}
+          {merged.map((msg, idx) => (
+            <Message
+              key={msg.id}
+              id={msg.id}
+              role={msg.role}
+              content={msg.content}
+              timestamp={msg.timestamp}
+              toolCalls={msg.toolCalls}
+              inlineFilePaths={msg.inlineFilePaths}
+              attachments={msg.attachments}
+              isConsecutive={idx > 0 && runKeys[idx] !== undefined && runKeys[idx] === runKeys[idx - 1]}
+              sessionId={sessionId}
+            />
+          ))}
           {isStreaming && (
             <div className="streaming-cursor">
               <span className="cursor-blink">▋</span>

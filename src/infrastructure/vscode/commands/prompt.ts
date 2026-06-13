@@ -162,11 +162,13 @@ export function wireChatPanelEvents(
       }
       case "resolveFile": {
         const filePath = data.path as string;
+        const reqId = data.reqId as string;
         const cwd = resolveSessionCwd(orchestrator, data);
         void resolveFile(filePath, cwd)
           .then((a) =>
             chatPanel?.postMessage({
               type: "resolvedFile",
+              reqId,
               path: filePath,
               attachment: a,
             })
@@ -174,6 +176,7 @@ export function wireChatPanelEvents(
           .catch((err: Error) =>
             chatPanel?.postMessage({
               type: "resolvedFile",
+              reqId,
               path: filePath,
               attachment: null,
               error: err.message,

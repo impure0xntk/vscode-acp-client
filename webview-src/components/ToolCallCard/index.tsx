@@ -1,33 +1,65 @@
 import React, { useState } from "react";
-import { StatusIcon } from "./StatusIcon";
-import { getVsCodeApi } from "../lib/vscodeApi";
-import type { ToolCallDiffContent } from "../types";
+import type { ToolCallDiffContent } from "../../types";
+import { StatusIcon } from "../StatusIcon";
+import { getVsCodeApi } from "../../lib/vscodeApi";
 
-interface ToolCallLocation {
-  path: string;
-  line?: number;
+// ── Shared helpers ─────────────────────────────────────────────────────────
+
+export function getFileExtension(path: string): string {
+  const parts = path.split("/");
+  const filename = parts[parts.length - 1] ?? path;
+  const dotIdx = filename.lastIndexOf(".");
+  return dotIdx >= 0 ? filename.slice(dotIdx + 1).toLowerCase() : "";
 }
 
-export interface ToolCallCardProps {
-  id: string;
-  title: string;
-  kind?: string;
-  status: "in_progress" | "completed" | "failed" | "cancelled";
-  input?: Record<string, unknown> | string;
-  output?: string;
-  durationMs?: number;
-  locations?: ToolCallLocation[];
-  diffContent?: ToolCallDiffContent;
-}
-
-function formatDuration(ms: number): string {
-  if (ms >= 1000) {
-    return `${(ms / 1000).toFixed(1)}s`;
+export function fileIcon(ext: string): string {
+  switch (ext) {
+    case "ts": case "tsx": case "js": case "jsx": return "TS";
+    case "py": return "PY";
+    case "rs": return "RS";
+    case "go": return "GO";
+    case "java": return "JV";
+    case "c": case "cpp": case "h": case "hpp": return "C";
+    case "md": return "MD";
+    case "json": return "{}";
+    case "yaml": case "yml": return "Y";
+    case "toml": return "T";
+    case "nix": return "N";
+    default: return "•";
   }
+}
+
+export function formatDuration(ms: number): string {
+  if (ms >= 1000) return `${(ms / 1000).toFixed(1)}s`;
   return `${Math.round(ms)}ms`;
 }
 
-function DiffView({ diff }: { diff: ToolCallDiffContent }): React.ReactElement {
+function tryFormatJson(raw: string): string {
+  try {
+    return JSON.stringify(JSON.parse(raw), null, 2);
+  } catch {
+    return raw;
+  }
+}
+
+function resolveKind(kind: string | undefined): string {
+  if (kind && kind.trim()) return kind.trim();
+  return "tool_call";
+}
+
+// ── Chevron ─────────────────────────────────────────────────────────────────
+
+function Chevron({ open }: { open: boolean }): React.ReactElement {
+  return (
+    <span className={`tool-chevron ${open ? "open" : ""}`} aria-hidden="true">
+      ▶
+    </span>
+  );
+}
+
+// ── DiffView ────────────────────────────────────────────────────────────────
+
+export function DiffView({ diff }: { diff: ToolCallDiffContent }): React.ReactElement {
   const lines: Array<{ prefix: string; text: string }> = [];
   const diffLines = (diff.diff ?? "").split("\n");
 
@@ -70,71 +102,25 @@ function DiffView({ diff }: { diff: ToolCallDiffContent }): React.ReactElement {
   );
 }
 
-function tryFormatJson(raw: string): string {
-  try {
-    return JSON.stringify(JSON.parse(raw), null, 2);
-  } catch {
-    return raw;
-  }
+// ── ToolCallLocation ───────────────────────────────────────────────────────
+
+interface ToolCallLocation {
+  path: string;
+  line?: number;
 }
 
-function Chevron({ open }: { open: boolean }): React.ReactElement {
-  return (
-    <span className={`tool-chevron ${open ? "open" : ""}`} aria-hidden="true">
-      ▶
-    </span>
-  );
-}
+// ── ToolCallCard ───────────────────────────────────────────────────────────
 
-/** Get file extension for icon display */
-export function getFileExtension(path: string): string {
-  const parts = path.split("/");
-  const filename = parts[parts.length - 1] ?? path;
-  const dotIdx = filename.lastIndexOf(".");
-  return dotIdx >= 0 ? filename.slice(dotIdx + 1).toLowerCase() : "";
-}
-// backward compat alias
-/** File icon badge shown in location chips */
-export function fileIcon(ext: string): string {
-  switch (ext) {
-    case "ts":
-    case "tsx":
-    case "js":
-    case "jsx":
-      return "TS";
-    case "py":
-      return "PY";
-    case "rs":
-      return "RS";
-    case "go":
-      return "GO";
-    case "java":
-      return "JV";
-    case "c":
-    case "cpp":
-    case "h":
-    case "hpp":
-      return "C";
-    case "md":
-      return "MD";
-    case "json":
-      return "{}";
-    case "yaml":
-    case "yml":
-      return "Y";
-    case "toml":
-      return "T";
-    case "nix":
-      return "N";
-    default:
-      return "•";
-  }
-}
-
-/** Derive a display kind — ACP-provided kind is used as-is; fallback to "tool_call" */
-function resolveKind(kind: string | undefined, _title: string): string {
-  if (kind && kind.trim()) return kind.trim();
-  return "tool_call";
+export interface ToolCallCardProps {
+  id: string;
+  title: string;
+  kind?: string;
+  status: "in_progress" | "completed" | "failed" | "cancelled";
+  input?: Record<string, unknown> | string;
+  output?: string;
+  durationMs?: number;
+  locations?: ToolCallLocation[];
+  diffContent?: ToolCallDiffContent;
 }
 
 export function ToolCallCard({
@@ -151,14 +137,12 @@ export function ToolCallCard({
   const [inputOpen, setInputOpen] = useState(false);
   const [outputOpen, setOutputOpen] = useState(false);
   const [diffOpen, setDiffOpen] = useState(false);
-  const displayKind = resolveKind(kind, title);
+  const displayKind = resolveKind(kind);
 
   const hasInput = input !== undefined;
   const hasOutput = output !== undefined;
   const hasDiff = diffContent !== undefined;
   const hasLocations = locations && locations.length > 0;
-  // Chevron only when expandable body sections exist (input/output/diff).
-  // Locations are always shown, so they don't control the chevron.
   const hasBody = hasInput || hasOutput || hasDiff;
 
   const handleFileClick = (path: string, line?: number) => {
@@ -171,7 +155,6 @@ export function ToolCallCard({
 
   return (
     <div className={`tool-call tool-call-${status}`}>
-      {/* Main header — always visible, clickable to expand/collapse */}
       <button
         className="tool-call-header tool-call-header-clickable"
         onClick={() => setExpanded(!expanded)}
@@ -182,7 +165,6 @@ export function ToolCallCard({
         </span>
         <span className="tool-kind">{displayKind}</span>
         <span className="tool-title">{title}</span>
-        {/* Inline file location chips inside the header row */}
         {hasLocations &&
           locations.map((loc, idx) => {
             const basename = loc.path.split("/").pop() ?? loc.path;
@@ -219,7 +201,6 @@ export function ToolCallCard({
         {hasBody && <Chevron open={expanded} />}
       </button>
 
-      {/* Expandable body */}
       {expanded && (
         <div className="tool-call-body">
           {hasDiff && (
@@ -292,9 +273,7 @@ export function ToolCallCard({
   );
 }
 
-// ============================================================================
-// GroupedToolCallCard — multiple calls of the same kind collapsed into one card
-// ============================================================================
+// ── GroupedToolCallCard ─────────────────────────────────────────────────────
 
 export interface GroupedToolCallCardProps {
   kind?: string;
@@ -307,7 +286,6 @@ type GroupedStatus = ToolCallCardProps["status"] | "warning";
 function aggregateStatus(calls: ToolCallCardProps[]): GroupedStatus {
   const statuses = calls.map((c) => c.status);
   if (statuses.some((s) => s === "in_progress")) return "in_progress";
-  // Some failed → warning (yellow exclamation). All failed → failed (red).
   if (statuses.some((s) => s === "failed")) {
     return statuses.every((s) => s === "failed") ? "failed" : "warning";
   }
@@ -315,7 +293,6 @@ function aggregateStatus(calls: ToolCallCardProps[]): GroupedStatus {
   return "completed";
 }
 
-/** Extract unique file paths from all calls that have locations, preserving order */
 function collectUniqueFiles(calls: ToolCallCardProps[]): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
@@ -351,7 +328,6 @@ export function GroupedToolCallCard({
 
   return (
     <div className={`tool-call-group tool-call-group-${status}`}>
-      {/* Summary row — always visible */}
       <button
         className="tool-group-header"
         onClick={() => setExpanded(!expanded)}
@@ -362,7 +338,6 @@ export function GroupedToolCallCard({
         </span>
         <span className="tool-kind">{kind}</span>
         <span className="tool-group-count">×{count}</span>
-        {/* Inline file chips inside the header row */}
         {uniqueFiles.length > 0 &&
           uniqueFiles.map((path, idx) => {
             const ext = getFileExtension(path);
@@ -394,7 +369,6 @@ export function GroupedToolCallCard({
         <Chevron open={expanded} />
       </button>
 
-      {/* Expanded: individual calls */}
       {expanded && (
         <div className="tool-group-body">
           {calls.map((call) => (

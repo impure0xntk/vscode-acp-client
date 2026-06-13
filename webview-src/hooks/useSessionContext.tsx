@@ -1,6 +1,5 @@
 import React, {
   createContext,
-  useReducer,
   useEffect,
   useCallback,
   useRef,
@@ -11,10 +10,30 @@ import type {
   FileCandidate,
   SuggestionItem,
   SessionOverviewState,
-  SessionOverviewItem,
   SessionOverviewFilter,
 } from "../types";
 import { getVsCodeApi } from "../lib/vscodeApi";
+import { useSessionStore } from "../store/sessionStore";
+import { useMessageStore } from "../store/messageStore";
+import { useSessionUiStateStore } from "../store/sessionUiStateStore";
+import type {
+  SessionTabState,
+  SessionInfoSnapshot,
+  ConnectedAgentInfo,
+  AgentInfo,
+  WorkspaceFolder,
+  SlashCommand,
+} from "./useSessionContext";
+
+// Re-export types for backward compatibility
+export type {
+  SessionTabState,
+  SessionInfoSnapshot,
+  ConnectedAgentInfo,
+  AgentInfo,
+  WorkspaceFolder,
+  SlashCommand,
+} from "./useSessionContext";
 
 // ============================================================================
 // Tab types — UI-only state (no duplicated model fields)
@@ -27,23 +46,6 @@ export type SessionTabStatus =
   | "error"
   | "cancelled";
 
-/**
- * SessionTabState holds ONLY UI-concern state.
- * All model-derived data (status, tokenUsage, model, mode, etc.) is read
- * from SessionInfoSnapshot via sessionInfoMap.
- */
-export interface SessionTabState {
-  sessionId: string;
-  agentId: string;
-  title: string;
-  /** UI-only: unread message count for badge display */
-  unreadCount: number;
-  /** UI-only: whether session has unseen activity */
-  isDirty: boolean;
-}
-
-export type SessionTab = SessionTabState;
-
 // ============================================================================
 // Session key helper
 // ============================================================================
@@ -55,108 +57,36 @@ function sessionKey(agentId: string, sessionId: string): SessionKey {
 }
 
 // ============================================================================
-// Snapshot of SessionInfo sent from extension host — read-only in webview
-// ============================================================================
-
-export interface SessionInfoSnapshot {
-  sessionId: string;
-  agentId: string;
-  status: string;
-  isTurnActive: boolean;
-  isStreaming: boolean;
-  tokenUsage: {
-    inputTokens: number;
-    outputTokens: number;
-    totalTokens: number;
-  };
-  contextWindowMax?: number;
-  cwd?: string;
-  model?: string;
-  mode?: string;
-  /** ISO date string */
-  createdAt: string;
-  /** ISO date string */
-  updatedAt: string;
-  /** Message count from model */
-  messageCount: number;
-}
-
-// ============================================================================
 // Shared types
 // ============================================================================
 
-export interface ConnectedAgentInfo {
-  agentId: string;
-  name: string;
-  state: string;
-  color?: string;
-}
-
-export interface AgentInfo {
-  name: string;
-  title?: string;
-  version?: string;
-  protocolVersion: number;
-  capabilities?: {
-    loadSession?: boolean;
-    promptCapabilities?: {
-      image?: boolean;
-      audio?: boolean;
-      embeddedContext?: boolean;
-    };
-    sessionCapabilities?: {
-      fork?: boolean;
-      list?: boolean;
-      resume?: boolean;
-      delete?: boolean;
-      close?: boolean;
-      additionalDirectories?: boolean;
-    };
-  };
-}
-
-export interface WorkspaceFolder {
-  name: string;
-  path: string;
-}
-
-export interface SlashCommand {
-  name: string;
-  description?: string;
-  input?: { type: "text" | "boolean"; description?: string } | null;
-}
-
-// ============================================================================
-// SessionContext — public interface
-// ============================================================================
-
 export interface SessionContext {
-  // Tab / session management — UI-only state
+  // Tab / session management
   tabs: SessionTabState[];
   activeSessionId: string | null;
   activeAgentId: string | null;
 
-  // Connected agents info (for new session picker)
+  // Connected agents info
   connectedAgents: ConnectedAgentInfo[];
 
-  // Agent info from InitializeResponse (keyed by agentId)
+  // Agent info
   agentInfoMap: Record<string, AgentInfo>;
 
-  // Workspace folders (for new session picker)
+  // Workspace folders
   workspaceFolders: WorkspaceFolder[];
 
   // Active session key
   activeSessionKey: string | null;
 
-  /** SessionInfo snapshots from extension host — source of truth for all session-derived state */
+  /** SessionInfo snapshots from extension host */
   sessionInfoMap: Record<string, SessionInfoSnapshot>;
 
   workspaceRoot?: string;
 
-  // Available slash commands for the active session
+  // Available slash commands
   availableCommands: SlashCommand[];
 
-  // Background session completion notifications (stacked)
+  // Background session completion notifications
   completedNotifications: Array<{
     agentId: string;
     sessionId: string;
@@ -164,7 +94,7 @@ export interface SessionContext {
   }>;
   dismissCompletedNotification: () => void;
 
-  // Statusline info (hostname, repo, branch, tag)
+  // Statusline
   statusline?: {
     hostname?: string;
     repoName?: string;
@@ -186,7 +116,7 @@ export interface SessionContext {
   closeSession: (sessionId: string) => void;
   forkSession: (sessionId: string) => void;
 
-  // File resolution helpers
+  // File resolution
   fetchFiles: (query: string) => Promise<FileCandidate[]>;
   resolveFile: (path: string) => Promise<ContextAttachment>;
   resolveSelection: () => Promise<ContextAttachment | null>;
@@ -196,7 +126,7 @@ export interface SessionContext {
   fetchSymbols: (query: string) => Promise<SuggestionItem[]>;
   resolveSymbol: (name: string) => Promise<ContextAttachment>;
 
-  // Messages for the active session (derived from per-session store)
+  // Messages for the active session
   messages: ChatMessage[];
   isStreaming: boolean;
 
@@ -210,136 +140,12 @@ export interface SessionContext {
   toggleSessionOverviewSelection: (sessionId: string) => void;
   setSessionOverviewSelection: (sessionIds: string[]) => void;
 
-  // Internal dispatch (for advanced use)
+  // Internal dispatch (for advanced use — now an alias for store actions)
   dispatch: React.Dispatch<SessionAction>;
 }
 
-// ============================================================================
-// Internal full state shape (not exported)
-// ============================================================================
-
-interface FullState {
-  tabs: SessionTabState[];
-  activeSessionId: string | null;
-  activeAgentId: string | null;
-  workspaceRoot?: string;
-  connectedAgents: ConnectedAgentInfo[];
-  agentInfoMap: Record<string, AgentInfo>;
-  workspaceFolders: WorkspaceFolder[];
-  /** sessionKey → SlashCommand[] */
-  sessionCommands: Record<string, SlashCommand[]>;
-  /** Statusline info */
-  statusline: {
-    hostname?: string;
-    repoName?: string;
-    branch?: string;
-    tag?: string;
-  };
-  /** SessionInfo snapshots from extension host — source of truth for display derivation */
-  sessionInfoMap: Record<string, SessionInfoSnapshot>;
-  /** Per-session message store: sessionKey → ChatMessage[] */
-  sessionMessages: Record<string, ChatMessage[]>;
-  /** Per-session streaming state: sessionKey → boolean */
-  sessionStreaming: Record<string, boolean>;
-  /** Session Overview Panel visibility */
-  sessionOverviewVisible: boolean;
-  /** Session Overview Panel width (px, 200-600) */
-  sessionOverviewWidth: number;
-  /** Session Overview Panel position (right or left) */
-  sessionOverviewPosition: "right" | "left";
-  /** Session Overview Panel state */
-  sessionOverviewState: SessionOverviewState;
-}
-
-const initialState: FullState = {
-  tabs: [],
-  activeSessionId: null,
-  activeAgentId: null,
-  connectedAgents: [],
-  agentInfoMap: {},
-  workspaceFolders: [],
-  sessionCommands: {},
-  statusline: { hostname: "", repoName: "", branch: "" },
-  sessionInfoMap: {},
-  sessionMessages: {},
-  sessionStreaming: {},
-  sessionOverviewVisible: false,
-  sessionOverviewWidth: 280,
-  sessionOverviewPosition: "right",
-  sessionOverviewState: {
-    sessions: [],
-    lastUpdated: new Date().toISOString(),
-    filter: "all",
-    expandedSessions: [],
-    selectedSessionIds: [],
-    selectionMode: false,
-  },
-};
-
-// ============================================================================
-// Active session key derivation
-// ============================================================================
-
-function computeActiveSessionKey(s: {
-  activeSessionId: string | null;
-  activeAgentId: string | null;
-}): SessionKey | null {
-  if (s.activeSessionId && s.activeAgentId) {
-    return sessionKey(s.activeAgentId, s.activeSessionId);
-  }
-  return null;
-}
-
-// ============================================================================
-// Action types — tab/session management only
-// ============================================================================
-
+// Internal action type kept for backward compat
 type SessionAction =
-  // --- Tab management ---
-  | { type: "SET_TABS"; tabs: SessionTabState[] }
-  | { type: "ADD_TAB"; tab: SessionTabState }
-  | { type: "REMOVE_TAB"; sessionId: string }
-  | {
-      type: "UPDATE_TAB";
-      sessionId: string;
-      agentId?: string;
-      updates: Partial<SessionTabState>;
-    }
-  | { type: "SET_ACTIVE_SESSION"; sessionId: string; agentId: string }
-  | { type: "REORDER_TABS"; tabs: SessionTabState[] }
-  | { type: "INCREMENT_UNREAD"; sessionId: string; agentId: string }
-
-  // --- Global actions ---
-  | { type: "SET_WORKSPACE_ROOT"; root?: string }
-
-  // --- Agent / workspace info ---
-  | { type: "SET_AGENT_INFO"; agentId: string; info: AgentInfo }
-  | { type: "SET_CONNECTED_AGENTS"; agents: ConnectedAgentInfo[] }
-  | { type: "SET_WORKSPACE_FOLDERS"; folders: WorkspaceFolder[] }
-
-  // --- Slash commands ---
-  | {
-      type: "SET_SESSION_COMMANDS";
-      agentId: string;
-      sessionId: string;
-      commands: SlashCommand[];
-    }
-
-  // --- Statusline ---
-  | {
-      type: "SET_STATUSLINE";
-      statusline: {
-        hostname?: string;
-        repoName?: string;
-        branch?: string;
-        tag?: string;
-      };
-    }
-
-  // --- SessionInfo ---
-  | { type: "SET_SESSION_INFO_MAP"; map: Record<string, SessionInfoSnapshot> }
-
-  // --- Session Overview ---
   | { type: "SET_SESSION_OVERVIEW_VISIBLE"; visible: boolean }
   | { type: "SET_SESSION_OVERVIEW_STATE"; state: SessionOverviewState }
   | { type: "SET_SESSION_OVERVIEW_POSITION"; position: "right" | "left" }
@@ -350,374 +156,26 @@ type SessionAction =
   | { type: "TOGGLE_SESSION_OVERVIEW_SELECTED"; sessionId: string }
   | { type: "SET_SESSION_OVERVIEW_SELECTION_MODE"; enabled: boolean }
   | { type: "TOGGLE_SESSION_OVERVIEW_SELECTION"; sessionId: string }
-
-  // --- Per-session updates (session/info = metadata only; session/switch = full snapshot) ---
-  | {
-      type: "SET_SESSION_INFO";
-      agentId: string;
-      sessionId: string;
-      info: SessionInfoSnapshot;
-    }
-  | {
-      type: "SESSION_MESSAGE";
-      agentId: string;
-      sessionId: string;
-      message: ChatMessage;
-    }
-  | {
-      type: "SESSION_STREAM";
-      agentId: string;
-      sessionId: string;
-      chunk: string;
-    }
+  | { type: "SET_TABS"; tabs: SessionTabState[] }
+  | { type: "ADD_TAB"; tab: SessionTabState }
+  | { type: "REMOVE_TAB"; sessionId: string }
+  | { type: "UPDATE_TAB"; sessionId: string; agentId?: string; updates: Partial<SessionTabState> }
+  | { type: "SET_ACTIVE_SESSION"; sessionId: string; agentId: string }
+  | { type: "REORDER_TABS"; tabs: SessionTabState[] }
+  | { type: "INCREMENT_UNREAD"; sessionId: string; agentId: string }
+  | { type: "SET_WORKSPACE_ROOT"; root?: string }
+  | { type: "SET_AGENT_INFO"; agentId: string; info: AgentInfo }
+  | { type: "SET_CONNECTED_AGENTS"; agents: ConnectedAgentInfo[] }
+  | { type: "SET_WORKSPACE_FOLDERS"; folders: WorkspaceFolder[] }
+  | { type: "SET_SESSION_COMMANDS"; agentId: string; sessionId: string; commands: SlashCommand[] }
+  | { type: "SET_STATUSLINE"; statusline: { hostname?: string; repoName?: string; branch?: string; tag?: string } }
+  | { type: "SET_SESSION_INFO_MAP"; map: Record<string, SessionInfoSnapshot> }
+  | { type: "SET_SESSION_INFO"; agentId: string; sessionId: string; info: SessionInfoSnapshot }
+  | { type: "SESSION_MESSAGE"; agentId: string; sessionId: string; message: ChatMessage }
+  | { type: "SESSION_STREAM"; agentId: string; sessionId: string; chunk: string }
   | { type: "SESSION_STREAM_END"; agentId: string; sessionId: string }
-  /** Full snapshot from extension host on session switch — replaces messages for that session */
-  | {
-      type: "SESSION_SWITCH";
-      agentId: string;
-      sessionId: string;
-      messages: ChatMessage[];
-    }
+  | { type: "SESSION_SWITCH"; agentId: string; sessionId: string; messages: ChatMessage[] }
   | { type: "SESSION_TURN_ACTIVE"; agentId: string; sessionId: string; active: boolean };
-
-// ============================================================================
-// Reducer — tab/session management only, no message state
-// ============================================================================
-
-function reducer(state: FullState, action: SessionAction): FullState {
-  switch (action.type) {
-    case "SET_TABS": {
-      if (action.tabs.length === 1 && !state.activeSessionId) {
-        return {
-          ...state,
-          tabs: action.tabs,
-          activeSessionId: action.tabs[0].sessionId,
-          activeAgentId: action.tabs[0].agentId,
-          sessionOverviewState: {
-            ...state.sessionOverviewState,
-            activeSessionId: action.tabs[0].sessionId,
-            activeAgentId: action.tabs[0].agentId,
-          },
-        };
-      }
-      return { ...state, tabs: action.tabs };
-    }
-
-    case "ADD_TAB": {
-      const newKey = sessionKey(action.tab.agentId, action.tab.sessionId);
-      // Clear messages for the new session slot to prevent stale messages
-      // from being displayed while the full snapshot (session/switch) arrives.
-      const newSessionMessages = { ...state.sessionMessages };
-      newSessionMessages[newKey] = [];
-      return {
-        ...state,
-        tabs: [...state.tabs, action.tab],
-        activeSessionId: action.tab.sessionId,
-        activeAgentId: action.tab.agentId,
-        sessionMessages: newSessionMessages,
-      };
-    }
-
-    case "REMOVE_TAB": {
-      const targetAgentId =
-        state.activeSessionId === action.sessionId
-          ? state.activeAgentId
-          : undefined;
-      const removedTab = targetAgentId
-        ? state.tabs.find(
-            (t) =>
-              t.sessionId === action.sessionId && t.agentId === targetAgentId
-          )
-        : state.tabs.find((t) => t.sessionId === action.sessionId);
-
-      const newTabs = removedTab
-        ? state.tabs.filter(
-            (t) =>
-              !(
-                t.sessionId === action.sessionId &&
-                t.agentId === removedTab.agentId
-              )
-          )
-        : state.tabs.filter((t) => t.sessionId !== action.sessionId);
-
-      let newActiveSessionId = state.activeSessionId;
-      let newActiveAgentId = state.activeAgentId;
-      if (
-        state.activeSessionId === action.sessionId &&
-        state.activeAgentId === (removedTab?.agentId ?? targetAgentId)
-      ) {
-        if (newTabs.length > 0) {
-          newActiveSessionId = newTabs[newTabs.length - 1].sessionId;
-          newActiveAgentId = newTabs[newTabs.length - 1].agentId;
-        } else {
-          newActiveSessionId = null;
-          newActiveAgentId = null;
-        }
-      }
-      return {
-        ...state,
-        tabs: newTabs,
-        activeSessionId: newActiveSessionId,
-        activeAgentId: newActiveAgentId,
-      };
-    }
-
-    case "UPDATE_TAB": {
-      const tabs = state.tabs.map((t) => {
-        if (t.sessionId !== action.sessionId) return t;
-        return { ...t, ...action.updates };
-      });
-      return { ...state, tabs };
-    }
-
-    case "SET_ACTIVE_SESSION": {
-      const newKey = sessionKey(action.agentId, action.sessionId);
-      // Clear messages for the new session to prevent stale messages
-      // from a previous session being displayed during the switch.
-      const newSessionMessages = { ...state.sessionMessages };
-      newSessionMessages[newKey] = [];
-      return {
-        ...state,
-        activeSessionId: action.sessionId,
-        activeAgentId: action.agentId,
-        sessionMessages: newSessionMessages,
-        sessionOverviewState: {
-          ...state.sessionOverviewState,
-          activeSessionId: action.sessionId,
-          activeAgentId: action.agentId,
-        },
-      };
-    }
-
-    case "REORDER_TABS":
-      return { ...state, tabs: action.tabs };
-
-    case "INCREMENT_UNREAD": {
-      const tabs = state.tabs.map((t) =>
-        t.sessionId === action.sessionId && t.agentId === action.agentId
-          ? { ...t, unreadCount: t.unreadCount + 1 }
-          : t
-      );
-      return { ...state, tabs };
-    }
-
-    case "SET_WORKSPACE_ROOT":
-      return { ...state, workspaceRoot: action.root };
-
-    case "SET_AGENT_INFO":
-      return {
-        ...state,
-        agentInfoMap: { ...state.agentInfoMap, [action.agentId]: action.info },
-      };
-
-    case "SET_STATUSLINE":
-      return { ...state, statusline: action.statusline };
-
-    case "SET_CONNECTED_AGENTS":
-      return { ...state, connectedAgents: action.agents };
-
-    case "SET_WORKSPACE_FOLDERS":
-      return { ...state, workspaceFolders: action.folders };
-
-    case "SET_SESSION_COMMANDS": {
-      const key = sessionKey(action.agentId, action.sessionId);
-      return {
-        ...state,
-        sessionCommands: { ...state.sessionCommands, [key]: action.commands },
-      };
-    }
-
-    case "SET_SESSION_INFO_MAP":
-      return { ...state, sessionInfoMap: action.map };
-
-    case "SET_SESSION_OVERVIEW_VISIBLE":
-      return { ...state, sessionOverviewVisible: action.visible };
-
-    case "SET_SESSION_OVERVIEW_POSITION":
-      return { ...state, sessionOverviewPosition: action.position };
-
-    case "SET_SESSION_OVERVIEW_STATE":
-      return {
-        ...state,
-        sessionOverviewState: {
-          // Preserve existing filter/selection when payload omits them
-          filter: state.sessionOverviewState.filter,
-          selectionMode: state.sessionOverviewState.selectionMode,
-          selectedSessionIds: state.sessionOverviewState.selectedSessionIds,
-          ...action.state,
-          // Sync active session from tab state if not provided in the payload
-          activeSessionId: action.state.activeSessionId ?? state.activeSessionId,
-          activeAgentId: action.state.activeAgentId ?? state.activeAgentId,
-        },
-      };
-
-    case "SET_SESSION_OVERVIEW_FILTER": {
-      return {
-        ...state,
-        sessionOverviewState: {
-          ...state.sessionOverviewState,
-          filter: action.filter,
-        },
-      };
-    }
-
-    case "SET_SESSION_OVERVIEW_EXPANDED": {
-      return {
-        ...state,
-        sessionOverviewState: {
-          ...state.sessionOverviewState,
-          expandedSessions: action.sessions,
-        },
-      };
-    }
-
-    case "SET_SESSION_OVERVIEW_WIDTH":
-      return { ...state, sessionOverviewWidth: action.width };
-
-    case "SET_SESSION_OVERVIEW_SELECTED": {
-      return {
-        ...state,
-        sessionOverviewState: {
-          ...state.sessionOverviewState,
-          selectedSessionIds: action.sessionIds,
-        },
-      };
-    }
-
-    case "TOGGLE_SESSION_OVERVIEW_SELECTED": {
-      const current = state.sessionOverviewState.selectedSessionIds ?? [];
-      const idx = current.indexOf(action.sessionId);
-      const next = idx >= 0
-        ? [...current.slice(0, idx), ...current.slice(idx + 1)]
-        : [...current, action.sessionId];
-      return {
-        ...state,
-        sessionOverviewState: {
-          ...state.sessionOverviewState,
-          selectedSessionIds: next,
-        },
-      };
-    }
-
-    case "SET_SESSION_OVERVIEW_SELECTION_MODE": {
-      return {
-        ...state,
-        sessionOverviewState: {
-          ...state.sessionOverviewState,
-          selectionMode: action.enabled,
-        },
-      };
-    }
-
-    case "TOGGLE_SESSION_OVERVIEW_SELECTION": {
-      // Enter selection mode and toggle the session
-      const current = state.sessionOverviewState.selectedSessionIds ?? [];
-      const idx = current.indexOf(action.sessionId);
-      const next = idx >= 0
-        ? [...current.slice(0, idx), ...current.slice(idx + 1)]
-        : [...current, action.sessionId];
-      return {
-        ...state,
-        sessionOverviewState: {
-          ...state.sessionOverviewState,
-          selectionMode: true,
-          selectedSessionIds: next,
-        },
-      };
-    }
-
-    case "SET_SESSION_INFO": {
-      const key = sessionKey(action.agentId, action.sessionId);
-      return {
-        ...state,
-        sessionInfoMap: { ...state.sessionInfoMap, [key]: action.info },
-        sessionStreaming: {
-          ...state.sessionStreaming,
-          [key]: action.info.isStreaming,
-        },
-      };
-    }
-
-    case "SESSION_MESSAGE": {
-      const key = sessionKey(action.agentId, action.sessionId);
-      const existing = state.sessionMessages[key] ?? [];
-      return {
-        ...state,
-        sessionMessages: {
-          ...state.sessionMessages,
-          [key]: [...existing, action.message],
-        },
-      };
-    }
-
-    case "SESSION_STREAM": {
-      const key = sessionKey(action.agentId, action.sessionId);
-      const existing = state.sessionMessages[key] ?? [];
-      const last = existing[existing.length - 1];
-      if (last && last.role === "agent" && last.agentId === action.agentId) {
-        const updated = {
-          ...last,
-          content: last.content + action.chunk,
-        };
-        return {
-          ...state,
-          sessionMessages: {
-            ...state.sessionMessages,
-            [key]: [...existing.slice(0, -1), updated],
-          },
-          sessionStreaming: { ...state.sessionStreaming, [key]: true },
-        };
-      }
-      const streamingMsg: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: "agent",
-        content: action.chunk,
-        timestamp: Date.now(),
-        agentId: action.agentId,
-        sessionId: action.sessionId,
-      };
-      return {
-        ...state,
-        sessionMessages: {
-          ...state.sessionMessages,
-          [key]: [...existing, streamingMsg],
-        },
-        sessionStreaming: { ...state.sessionStreaming, [key]: true },
-      };
-    }
-
-    case "SESSION_STREAM_END": {
-      const key = sessionKey(action.agentId, action.sessionId);
-      return {
-        ...state,
-        sessionStreaming: { ...state.sessionStreaming, [key]: false },
-      };
-    }
-
-    case "SESSION_TURN_ACTIVE": {
-      const key = sessionKey(action.agentId, action.sessionId);
-      if (!action.active) {
-        return {
-          ...state,
-          sessionStreaming: { ...state.sessionStreaming, [key]: false },
-        };
-      }
-      return state;
-    }
-
-    case "SESSION_SWITCH": {
-      const key = sessionKey(action.agentId, action.sessionId);
-      return {
-        ...state,
-        sessionMessages: { ...state.sessionMessages, [key]: action.messages },
-        sessionStreaming: { ...state.sessionStreaming, [key]: false },
-      };
-    }
-
-    default:
-      return state;
-  }
-}
 
 // ============================================================================
 // Context
@@ -727,31 +185,61 @@ export const SessionReactContext = createContext<SessionContext | null>(null);
 
 /**
  * Provides session state for the entire webview tree.
- * Must wrap the root component (see index.tsx).
+ * Now delegates to Zustand stores for state management.
  */
 export function SessionContextProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [state, dispatch] = useReducer(reducer, initialState);
   const isReadyRef = useRef(false);
   const isSessionReadyRef = useRef(false);
-  const stateRef = useRef(state);
-  stateRef.current = state;
-  const activeSessionKey = computeActiveSessionKey(state);
-
-  const availableCommands = activeSessionKey
-    ? (state.sessionCommands[activeSessionKey] ?? [])
-    : [];
+  const stateRef = useRef(useSessionStore.getState());
+  stateRef.current = useSessionStore.getState();
 
   // Background session completion notification (queue for stacking)
   const [completedNotifications, setCompletedNotifications] = React.useState<
     Array<{ agentId: string; sessionId: string; title: string }>
   >([]);
 
+  // Subscribe to store state
+  const tabs = useSessionStore((s) => s.tabs);
+  const activeSessionId = useSessionStore((s) => s.activeSessionId);
+  const activeAgentId = useSessionStore((s) => s.activeAgentId);
+  const workspaceRoot = useSessionStore((s) => s.workspaceRoot);
+  const connectedAgents = useSessionStore((s) => s.connectedAgents);
+  const agentInfoMap = useSessionStore((s) => s.agentInfoMap);
+  const workspaceFolders = useSessionStore((s) => s.workspaceFolders);
+  const sessionInfoMap = useSessionStore((s) => s.sessionInfoMap);
+  const sessionCommands = useSessionStore((s) => s.sessionCommands);
+  const statusline = useSessionStore((s) => s.statusline);
+  const sessionOverviewVisible = useSessionStore((s) => s.sessionOverviewVisible);
+  const sessionOverviewState = useSessionStore((s) => s.sessionOverviewState);
+  const sessionOverviewPosition = useSessionStore((s) => s.sessionOverviewPosition);
+  const sessionOverviewWidth = useSessionStore((s) => s.sessionOverviewWidth);
+
+  // Message store
+  const perSessionMessages = useMessageStore((s) => s.perSession);
+  const streamingMap = useMessageStore((s) => s.streaming);
+
+  const activeSessionKey =
+    activeAgentId && activeSessionId
+      ? sessionKey(activeAgentId, activeSessionId)
+      : null;
+
+  const availableCommands = activeSessionKey
+    ? (sessionCommands[activeSessionKey] ?? [])
+    : [];
+
+  const activeMessages = activeSessionKey
+    ? (perSessionMessages[activeSessionKey] ?? [])
+    : [];
+  const activeIsStreaming = activeSessionKey
+    ? (streamingMap[activeSessionKey] ?? false)
+    : false;
+
   // ------------------------------------------------------------------
-  // Message handler — listens for tab/agent control messages from extension host
+  // Message handler — listens for messages from extension host
   // ------------------------------------------------------------------
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -759,79 +247,58 @@ export function SessionContextProvider({
       if (!data?.type) return;
 
       switch (data.type) {
-        // --- Agent info ---
         case "agentInfo":
-          dispatch({
-            type: "SET_AGENT_INFO",
-            agentId: data.agentId as string,
-            info: data.info as AgentInfo,
-          });
+          useSessionStore.getState().setAgentInfo(
+            data.agentId as string,
+            data.info as AgentInfo
+          );
           return;
 
-        // --- Statusline ---
         case "statusline":
-          dispatch({
-            type: "SET_STATUSLINE",
-            statusline: {
-              hostname: data.hostname as string | undefined,
-              repoName: data.repoName as string | undefined,
-              branch: data.branch as string | undefined,
-              tag: data.tag as string | undefined,
-            },
+          useSessionStore.getState().setStatusline({
+            hostname: data.hostname as string | undefined,
+            repoName: data.repoName as string | undefined,
+            branch: data.branch as string | undefined,
+            tag: data.tag as string | undefined,
           });
           return;
 
-        // --- Tab management ---
         case "setTabs": {
-          dispatch({ type: "SET_TABS", tabs: data.tabs as SessionTabState[] });
-          dispatch({
-            type: "SET_WORKSPACE_ROOT",
-            root: (data.workspaceRoot as string) ?? undefined,
-          });
-          dispatch({
-            type: "SET_CONNECTED_AGENTS",
-            agents: (data.agents as ConnectedAgentInfo[]) ?? [],
-          });
-          dispatch({
-            type: "SET_WORKSPACE_FOLDERS",
-            folders: (data.workspaceFolders as WorkspaceFolder[]) ?? [],
-          });
+          const store = useSessionStore.getState();
+          store.setTabs(data.tabs as SessionTabState[]);
+          if (data.workspaceRoot) store.setWorkspaceRoot(data.workspaceRoot as string);
+          if (data.agents) store.setConnectedAgents(data.agents as ConnectedAgentInfo[]);
+          if (data.workspaceFolders) store.setWorkspaceFolders(data.workspaceFolders as WorkspaceFolder[]);
           if (data.agentInfoMap) {
             const map = data.agentInfoMap as Record<string, AgentInfo>;
             for (const [agentId, info] of Object.entries(map)) {
-              dispatch({ type: "SET_AGENT_INFO", agentId, info });
+              store.setAgentInfo(agentId, info);
             }
           }
           if (data.sessionInfoMap) {
-            dispatch({
-              type: "SET_SESSION_INFO_MAP",
-              map: data.sessionInfoMap as Record<string, SessionInfoSnapshot>,
-            });
+            store.setSessionInfoMap(data.sessionInfoMap as Record<string, SessionInfoSnapshot>);
           }
           return;
         }
 
         case "addTab":
-          dispatch({ type: "ADD_TAB", tab: data.tab as SessionTabState });
+          useSessionStore.getState().addTab(data.tab as SessionTabState);
           return;
 
         case "updateTab":
-          dispatch({
-            type: "UPDATE_TAB",
-            sessionId: data.sessionId as string,
-            updates: data.updates as Partial<SessionTabState>,
-          });
+          useSessionStore.getState().updateTab(
+            data.sessionId as string,
+            data.updates as Partial<SessionTabState>
+          );
           return;
 
         case "setActiveSession":
-          dispatch({
-            type: "SET_ACTIVE_SESSION",
-            sessionId: data.sessionId as string,
-            agentId: data.agentId as string,
-          });
+          useSessionStore.getState().setActiveSession(
+            data.sessionId as string,
+            data.agentId as string
+          );
           return;
 
-        // --- Background session completed ---
         case "session/completed":
           setCompletedNotifications((prev) => [
             ...prev,
@@ -843,53 +310,34 @@ export function SessionContextProvider({
           ]);
           return;
 
-        // --- Slash commands ---
         case "session/commands":
-          dispatch({
-            type: "SET_SESSION_COMMANDS",
-            agentId: data.agentId as string,
-            sessionId: data.sessionId as string,
-            commands: data.commands as SlashCommand[],
-          });
+          useSessionStore.getState().setSessionCommands(
+            data.agentId as string,
+            data.sessionId as string,
+            data.commands as SlashCommand[]
+          );
           return;
 
         case "session/info": {
-          // Always process — session/info carries tab metadata (cwd, model,
-          // status, token usage) that every tab needs regardless of which tab
-          // is currently active. Without this, a newly created session would
-          // never show its cwd until the user manually switches to it.
           const aId = data.agentId as string;
           const sId = data.sessionId as string;
-          dispatch({
-            type: "SET_SESSION_INFO",
-            agentId: aId,
-            sessionId: sId,
-            info: data as unknown as SessionInfoSnapshot,
-          });
+          useSessionStore.getState().setSessionInfo(aId, sId, data as unknown as SessionInfoSnapshot);
           return;
         }
 
-        // --- Per-session incremental updates ---
         case "session/message": {
           const aId = data.agentId as string;
           const sId = data.sessionId as string;
           const msgKey = sessionKey(aId, sId);
           const cur = stateRef.current;
-          const curActiveKey = computeActiveSessionKey(cur);
+          const curActiveKey =
+            cur.activeAgentId && cur.activeSessionId
+              ? sessionKey(cur.activeAgentId, cur.activeSessionId)
+              : null;
           if (msgKey === curActiveKey) {
-            dispatch({
-              type: "SESSION_MESSAGE",
-              agentId: aId,
-              sessionId: sId,
-              message: data.message as ChatMessage,
-            });
+            useMessageStore.getState().appendMessage(msgKey, data.message as ChatMessage);
           } else {
-            // Non-active session: increment unread badge
-            dispatch({
-              type: "INCREMENT_UNREAD",
-              sessionId: sId,
-              agentId: aId,
-            });
+            useSessionStore.getState().incrementUnread(sId, aId);
           }
           return;
         }
@@ -899,21 +347,16 @@ export function SessionContextProvider({
           const sId = data.sessionId as string;
           const msgKey = sessionKey(aId, sId);
           const cur = stateRef.current;
-          const curActiveKey = computeActiveSessionKey(cur);
+          const curActiveKey =
+            cur.activeAgentId && cur.activeSessionId
+              ? sessionKey(cur.activeAgentId, cur.activeSessionId)
+              : null;
           if (msgKey === curActiveKey) {
-            dispatch({
-              type: "SESSION_STREAM",
-              agentId: aId,
-              sessionId: sId,
-              chunk: data.chunk as string,
-            });
+            useMessageStore.getState().appendStreamChunk(
+              msgKey, aId, sId, data.chunk as string
+            );
           } else {
-            // Non-active session: increment unread badge on first stream chunk
-            dispatch({
-              type: "INCREMENT_UNREAD",
-              sessionId: sId,
-              agentId: aId,
-            });
+            useSessionStore.getState().incrementUnread(sId, aId);
           }
           return;
         }
@@ -923,38 +366,25 @@ export function SessionContextProvider({
           const sId = data.sessionId as string;
           const msgKey = sessionKey(aId, sId);
           const cur = stateRef.current;
-          const curActiveKey = computeActiveSessionKey(cur);
+          const curActiveKey =
+            cur.activeAgentId && cur.activeSessionId
+              ? sessionKey(cur.activeAgentId, cur.activeSessionId)
+              : null;
           if (msgKey === curActiveKey) {
-            dispatch({
-              type: "SESSION_STREAM_END",
-              agentId: aId,
-              sessionId: sId,
-            });
+            useMessageStore.getState().setStreaming(msgKey, false);
           }
           return;
         }
 
-        // --- Session switch: full snapshot from extension host ---
-        // Always process — session/switch IS the switch mechanism. The
-        // extension host sends session/switch when it wants the webview to
-        // display a session (initial load, new session, tab switch). If we
-        // gated on curActiveKey, the very first switch after creating a new
-        // session would be dropped because the webview hasn't updated its
-        // active key yet.
         case "session/switch": {
           const aId = data.agentId as string;
           const sId = data.sessionId as string;
-          dispatch({
-            type: "SET_ACTIVE_SESSION",
-            sessionId: sId,
-            agentId: aId,
-          });
-          dispatch({
-            type: "SESSION_SWITCH",
-            agentId: aId,
-            sessionId: sId,
-            messages: data.messages as ChatMessage[],
-          });
+          const store = useSessionStore.getState();
+          store.setActiveSession(sId, aId);
+          useMessageStore.getState().setMessages(
+            sessionKey(aId, sId),
+            data.messages as ChatMessage[]
+          );
           return;
         }
 
@@ -963,40 +393,28 @@ export function SessionContextProvider({
           const sId = data.sessionId as string;
           const msgKey = sessionKey(aId, sId);
           const cur = stateRef.current;
-          const curActiveKey = computeActiveSessionKey(cur);
-          if (msgKey === curActiveKey) {
-            dispatch({
-              type: "SESSION_TURN_ACTIVE",
-              agentId: aId,
-              sessionId: sId,
-              active: data.active as boolean,
-            });
+          const curActiveKey =
+            cur.activeAgentId && cur.activeSessionId
+              ? sessionKey(cur.activeAgentId, cur.activeSessionId)
+              : null;
+          if (msgKey === curActiveKey && !(data.active as boolean)) {
+            useMessageStore.getState().setStreaming(msgKey, false);
           }
           return;
         }
 
-        // --- Legacy session/update (backward compat) ---
-        case "session/update": {
-          switch (data.updateType) {
-            case "session_status":
-              // Legacy turn-active signal — no-op, state comes from SessionInfo
-              break;
-          }
+        case "session/update":
           return;
-        }
 
-        // --- Session Overview ---
         case "sessionOverview:state":
-          dispatch({
-            type: "SET_SESSION_OVERVIEW_STATE",
-            state: data.payload as SessionOverviewState,
-          });
+          useSessionStore.getState().setSessionOverviewState(
+            data.payload as SessionOverviewState
+          );
           return;
 
         case "sessionOverview:update": {
-          const item = data.payload as SessionOverviewItem;
+          const item = data.payload as import("../types").SessionOverviewItem;
           const current = stateRef.current.sessionOverviewState;
-          const curActive = stateRef.current;
           const idx = current.sessions.findIndex(
             (s) => s.sessionId === item.sessionId && s.agentId === item.agentId
           );
@@ -1006,34 +424,29 @@ export function SessionContextProvider({
           } else {
             sessions.push(item);
           }
-          dispatch({
-            type: "SET_SESSION_OVERVIEW_STATE",
-            state: {
-              ...current,
-              sessions,
-              lastUpdated: new Date().toISOString(),
-              activeSessionId: curActive.activeSessionId ?? current.activeSessionId,
-              activeAgentId: curActive.activeAgentId ?? current.activeAgentId,
-            },
+          useSessionStore.getState().setSessionOverviewState({
+            ...current,
+            sessions,
+            lastUpdated: new Date().toISOString(),
+            activeSessionId: stateRef.current.activeSessionId ?? current.activeSessionId,
+            activeAgentId: stateRef.current.activeAgentId ?? current.activeAgentId,
           });
           return;
         }
 
         case "sessionOverview:toggle":
-          dispatch({
-            type: "SET_SESSION_OVERVIEW_VISIBLE",
-            visible: data.payload.visible as boolean,
-          });
+          useSessionStore.getState().setSessionOverviewVisible(
+            data.payload.visible as boolean
+          );
           return;
 
         case "sessionOverview:position":
-          dispatch({
-            type: "SET_SESSION_OVERVIEW_POSITION",
-            position: data.payload.position as "right" | "left",
-          });
+          useSessionStore.getState().setSessionOverviewPosition(
+            data.payload.position as "right" | "left"
+          );
           return;
 
-        // --- Legacy single-session (backward compat) ---
+        // Legacy
         case "agentName":
         case "setMessages":
         case "addMessage":
@@ -1044,7 +457,6 @@ export function SessionContextProvider({
         case "turnActive":
         case "fullState":
         case "session/tokenUsage":
-          // Deprecated — state is now managed via SessionInfo in the extension host
           return;
       }
     };
@@ -1091,8 +503,9 @@ export function SessionContextProvider({
   }, []);
 
   const switchTab = useCallback((sessionId: string, agentId: string) => {
-    dispatch({ type: "SET_ACTIVE_SESSION", sessionId, agentId });
-    dispatch({ type: "UPDATE_TAB", sessionId, updates: { unreadCount: 0 } });
+    const store = useSessionStore.getState();
+    store.setActiveSession(sessionId, agentId);
+    store.updateTab(sessionId, { unreadCount: 0 });
     getVsCodeApi().postMessage({ type: "switchSession", sessionId, agentId });
   }, []);
 
@@ -1105,7 +518,13 @@ export function SessionContextProvider({
   }, []);
 
   const closeSession = useCallback((sessionId: string) => {
-    dispatch({ type: "REMOVE_TAB", sessionId });
+    const store = useSessionStore.getState();
+    const tab = store.tabs.find((t) => t.sessionId === sessionId);
+    store.removeTab(sessionId);
+    // Clean up persisted UI state for the closed session
+    if (tab) {
+      useSessionUiStateStore.getState().clear(sessionKey(tab.agentId, sessionId));
+    }
     getVsCodeApi().postMessage({ type: "closeSession", sessionId });
   }, []);
 
@@ -1117,17 +536,17 @@ export function SessionContextProvider({
     return new Promise((resolve) => {
       const reqId = crypto.randomUUID();
       const handler = (event: MessageEvent) => {
-        if (
-          event.data.type === "fileCandidates" &&
-          event.data.reqId === reqId
-        ) {
+        if (event.data.type === "fileCandidates" && event.data.reqId === reqId) {
           window.removeEventListener("message", handler);
           resolve(event.data.candidates ?? []);
         }
       };
       window.addEventListener("message", handler);
       const cur = stateRef.current;
-      const key = computeActiveSessionKey(cur);
+      const key =
+        cur.activeAgentId && cur.activeSessionId
+          ? sessionKey(cur.activeAgentId, cur.activeSessionId)
+          : null;
       const info = key ? cur.sessionInfoMap[key] : undefined;
       getVsCodeApi().postMessage({
         type: "fetchFiles",
@@ -1145,25 +564,21 @@ export function SessionContextProvider({
       return new Promise((resolve, reject) => {
         const reqId = crypto.randomUUID();
         const handler = (event: MessageEvent) => {
-          if (
-            event.data.type === "resolvedFile" &&
-            event.data.reqId === reqId
-          ) {
+          if (event.data.type === "resolvedFile" && event.data.reqId === reqId) {
             window.removeEventListener("message", handler);
             if (event.data.attachment) {
               resolve(event.data.attachment as ContextAttachment);
             } else {
-              reject(
-                new Error(
-                  (event.data.error as string) ?? "Failed to resolve file"
-                )
-              );
+              reject(new Error((event.data.error as string) ?? "Failed to resolve file"));
             }
           }
         };
         window.addEventListener("message", handler);
         const cur = stateRef.current;
-        const key = computeActiveSessionKey(cur);
+        const key =
+          cur.activeAgentId && cur.activeSessionId
+            ? sessionKey(cur.activeAgentId, cur.activeSessionId)
+            : null;
         const info = key ? cur.sessionInfoMap[key] : undefined;
         getVsCodeApi().postMessage({
           type: "resolveFile",
@@ -1178,19 +593,18 @@ export function SessionContextProvider({
     []
   );
 
-  const resolveSelection =
-    useCallback((): Promise<ContextAttachment | null> => {
-      return new Promise((resolve) => {
-        const handler = (event: MessageEvent) => {
-          if (event.data.type === "resolvedSelection") {
-            window.removeEventListener("message", handler);
-            resolve(event.data.attachment as ContextAttachment | null);
-          }
-        };
-        window.addEventListener("message", handler);
-        getVsCodeApi().postMessage({ type: "resolveSelection" });
-      });
-    }, []);
+  const resolveSelection = useCallback((): Promise<ContextAttachment | null> => {
+    return new Promise((resolve) => {
+      const handler = (event: MessageEvent) => {
+        if (event.data.type === "resolvedSelection") {
+          window.removeEventListener("message", handler);
+          resolve(event.data.attachment as ContextAttachment | null);
+        }
+      };
+      window.addEventListener("message", handler);
+      getVsCodeApi().postMessage({ type: "resolveSelection" });
+    });
+  }, []);
 
   const resolveDiff = useCallback((): Promise<ContextAttachment | null> => {
     return new Promise((resolve) => {
@@ -1209,10 +623,7 @@ export function SessionContextProvider({
     (query: string): Promise<SuggestionItem[]> => {
       return new Promise((resolve) => {
         const handler = (event: MessageEvent) => {
-          if (
-            event.data.type === "symbolCandidates" &&
-            event.data.query === query
-          ) {
+          if (event.data.type === "symbolCandidates" && event.data.query === query) {
             window.removeEventListener("message", handler);
             resolve((event.data.candidates as SuggestionItem[]) ?? []);
           }
@@ -1228,19 +639,12 @@ export function SessionContextProvider({
     (name: string): Promise<ContextAttachment> => {
       return new Promise((resolve, reject) => {
         const handler = (event: MessageEvent) => {
-          if (
-            event.data.type === "resolvedSymbol" &&
-            event.data.name === name
-          ) {
+          if (event.data.type === "resolvedSymbol" && event.data.name === name) {
             window.removeEventListener("message", handler);
             if (event.data.attachment) {
               resolve(event.data.attachment as ContextAttachment);
             } else {
-              reject(
-                new Error(
-                  (event.data.error as string) ?? "Failed to resolve symbol"
-                )
-              );
+              reject(new Error((event.data.error as string) ?? "Failed to resolve symbol"));
             }
           }
         };
@@ -1256,143 +660,135 @@ export function SessionContextProvider({
   }, []);
 
   const toggleSessionOverview = useCallback(() => {
-    dispatch({
-      type: "SET_SESSION_OVERVIEW_VISIBLE",
-      visible: !stateRef.current.sessionOverviewVisible,
-    });
+    const cur = useSessionStore.getState();
+    cur.setSessionOverviewVisible(!cur.sessionOverviewVisible);
   }, []);
 
-  const setSessionOverviewFilter = useCallback(
-    (filter: SessionOverviewFilter) => {
-      dispatch({ type: "SET_SESSION_OVERVIEW_FILTER", filter });
-    },
-    []
-  );
+  const setSessionOverviewFilter = useCallback((filter: SessionOverviewFilter) => {
+    useSessionStore.getState().setSessionOverviewFilter(filter);
+  }, []);
 
-  const toggleSessionOverviewSelection = useCallback(
-    (sessionId: string) => {
-      dispatch({ type: "TOGGLE_SESSION_OVERVIEW_SELECTED", sessionId });
-    },
-    []
-  );
+  const toggleSessionOverviewSelection = useCallback((sessionId: string) => {
+    useSessionStore.getState().toggleSessionOverviewSelected(sessionId);
+  }, []);
 
-  const setSessionOverviewSelection = useCallback(
-    (sessionIds: string[]) => {
-      dispatch({ type: "SET_SESSION_OVERVIEW_SELECTED", sessionIds });
-    },
-    []
-  );
+  const setSessionOverviewSelection = useCallback((sessionIds: string[]) => {
+    useSessionStore.getState().setSessionOverviewSelected(sessionIds);
+  }, []);
 
-  const stableActions = React.useRef({
-    sendMessage,
-    cancelTurn,
-    switchTab,
-    newSession,
-    newSessionWithPicker,
-    closeSession,
-    forkSession,
-    fetchFiles,
-    resolveFile,
-    resolveSelection,
-    resolveDiff,
-    fetchSymbols,
-    resolveSymbol,
-    dismissCompletedNotification,
-    toggleSessionOverview,
-    setSessionOverviewFilter,
-    toggleSessionOverviewSelection,
-    setSessionOverviewSelection,
-    dispatch,
-  });
-  stableActions.current = {
-    sendMessage,
-    cancelTurn,
-    switchTab,
-    newSession,
-    newSessionWithPicker,
-    closeSession,
-    forkSession,
-    fetchFiles,
-    resolveFile,
-    resolveSelection,
-    resolveDiff,
-    fetchSymbols,
-    resolveSymbol,
-    dismissCompletedNotification,
-    toggleSessionOverview,
-    setSessionOverviewFilter,
-    toggleSessionOverviewSelection,
-    setSessionOverviewSelection,
-    dispatch,
-  };
-
-  const activeMessages = activeSessionKey
-    ? (state.sessionMessages[activeSessionKey] ?? [])
-    : [];
-  const activeIsStreaming = activeSessionKey
-    ? (state.sessionStreaming[activeSessionKey] ?? false)
-    : false;
+  // Dispatch proxy for backward compat
+  const dispatch = useCallback((action: SessionAction) => {
+    const store = useSessionStore.getState();
+    const msgStore = useMessageStore.getState();
+    switch (action.type) {
+      case "SET_TABS": store.setTabs(action.tabs); break;
+      case "ADD_TAB": store.addTab(action.tab); break;
+      case "REMOVE_TAB": store.removeTab(action.sessionId); break;
+      case "UPDATE_TAB": store.updateTab(action.sessionId, action.updates); break;
+      case "SET_ACTIVE_SESSION": store.setActiveSession(action.sessionId, action.agentId); break;
+      case "REORDER_TABS": store.reorderTabs(action.tabs); break;
+      case "INCREMENT_UNREAD": store.incrementUnread(action.sessionId, action.agentId); break;
+      case "SET_WORKSPACE_ROOT": store.setWorkspaceRoot(action.root); break;
+      case "SET_AGENT_INFO": store.setAgentInfo(action.agentId, action.info); break;
+      case "SET_CONNECTED_AGENTS": store.setConnectedAgents(action.agents); break;
+      case "SET_WORKSPACE_FOLDERS": store.setWorkspaceFolders(action.folders); break;
+      case "SET_SESSION_COMMANDS": store.setSessionCommands(action.agentId, action.sessionId, action.commands); break;
+      case "SET_STATUSLINE": store.setStatusline(action.statusline); break;
+      case "SET_SESSION_INFO_MAP": store.setSessionInfoMap(action.map); break;
+      case "SET_SESSION_INFO": store.setSessionInfo(action.agentId, action.sessionId, action.info); break;
+      case "SESSION_MESSAGE": {
+        const key = sessionKey(action.agentId, action.sessionId);
+        msgStore.appendMessage(key, action.message);
+        break;
+      }
+      case "SESSION_STREAM": {
+        const key = sessionKey(action.agentId, action.sessionId);
+        msgStore.appendStreamChunk(key, action.agentId, action.sessionId, action.chunk);
+        break;
+      }
+      case "SESSION_STREAM_END": {
+        const key = sessionKey(action.agentId, action.sessionId);
+        msgStore.setStreaming(key, false);
+        break;
+      }
+      case "SESSION_SWITCH": {
+        const key = sessionKey(action.agentId, action.sessionId);
+        msgStore.setMessages(key, action.messages);
+        break;
+      }
+      case "SESSION_TURN_ACTIVE": {
+        if (!action.active) {
+          const key = sessionKey(action.agentId, action.sessionId);
+          msgStore.setStreaming(key, false);
+        }
+        break;
+      }
+      case "SET_SESSION_OVERVIEW_VISIBLE": store.setSessionOverviewVisible(action.visible); break;
+      case "SET_SESSION_OVERVIEW_STATE": store.setSessionOverviewState(action.state); break;
+      case "SET_SESSION_OVERVIEW_POSITION": store.setSessionOverviewPosition(action.position); break;
+      case "SET_SESSION_OVERVIEW_FILTER": store.setSessionOverviewFilter(action.filter); break;
+      case "SET_SESSION_OVERVIEW_EXPANDED": store.setSessionOverviewExpanded(action.sessions); break;
+      case "SET_SESSION_OVERVIEW_WIDTH": store.setSessionOverviewWidth(action.width); break;
+      case "SET_SESSION_OVERVIEW_SELECTED": store.setSessionOverviewSelected(action.sessionIds); break;
+      case "TOGGLE_SESSION_OVERVIEW_SELECTED": store.toggleSessionOverviewSelected(action.sessionId); break;
+      case "SET_SESSION_OVERVIEW_SELECTION_MODE": store.setSessionOverviewSelectionMode(action.enabled); break;
+      case "TOGGLE_SESSION_OVERVIEW_SELECTION": store.toggleSessionOverviewSelection(action.sessionId); break;
+    }
+  }, []);
 
   const contextValue = React.useMemo(
     () => ({
-      tabs: state.tabs,
-      activeSessionId: state.activeSessionId,
-      activeAgentId: state.activeAgentId,
+      tabs,
+      activeSessionId,
+      activeAgentId,
       activeSessionKey,
-      connectedAgents: state.connectedAgents,
-      agentInfoMap: state.agentInfoMap,
-      workspaceFolders: state.workspaceFolders,
-      workspaceRoot: state.workspaceRoot,
-      sessionInfoMap: state.sessionInfoMap,
+      connectedAgents,
+      agentInfoMap,
+      workspaceFolders,
+      workspaceRoot,
+      sessionInfoMap,
       messages: activeMessages,
       isStreaming: activeIsStreaming,
       completedNotifications,
       availableCommands,
-      statusline: state.statusline,
-      // Session Overview
-      sessionOverviewVisible: state.sessionOverviewVisible,
-      sessionOverviewState: state.sessionOverviewState,
-      sessionOverviewPosition: state.sessionOverviewPosition,
-      sessionOverviewWidth: state.sessionOverviewWidth,
-      toggleSessionOverview: stableActions.current.toggleSessionOverview,
-      setSessionOverviewFilter: stableActions.current.setSessionOverviewFilter,
-      toggleSessionOverviewSelection: stableActions.current.toggleSessionOverviewSelection,
-      setSessionOverviewSelection: stableActions.current.setSessionOverviewSelection,
-      // Stable function refs
-      sendMessage: stableActions.current.sendMessage,
-      cancelTurn: stableActions.current.cancelTurn,
-      switchTab: stableActions.current.switchTab,
-      newSession: stableActions.current.newSession,
-      newSessionWithPicker: stableActions.current.newSessionWithPicker,
-      closeSession: stableActions.current.closeSession,
-      forkSession: stableActions.current.forkSession,
-      fetchFiles: stableActions.current.fetchFiles,
-      resolveFile: stableActions.current.resolveFile,
-      resolveSelection: stableActions.current.resolveSelection,
-      resolveDiff: stableActions.current.resolveDiff,
-      fetchSymbols: stableActions.current.fetchSymbols,
-      resolveSymbol: stableActions.current.resolveSymbol,
-      dismissCompletedNotification:
-        stableActions.current.dismissCompletedNotification,
-      dispatch: stableActions.current.dispatch,
+      statusline,
+      sessionOverviewVisible,
+      sessionOverviewState,
+      sessionOverviewPosition,
+      sessionOverviewWidth,
+      toggleSessionOverview,
+      setSessionOverviewFilter,
+      toggleSessionOverviewSelection,
+      setSessionOverviewSelection,
+      sendMessage,
+      cancelTurn,
+      switchTab,
+      newSession,
+      newSessionWithPicker,
+      closeSession,
+      forkSession,
+      fetchFiles,
+      resolveFile,
+      resolveSelection,
+      resolveDiff,
+      fetchSymbols,
+      resolveSymbol,
+      dismissCompletedNotification,
+      dispatch,
     }),
     [
-      state.tabs,
-      state.activeSessionId,
-      state.activeAgentId,
-      activeSessionKey,
-      state.connectedAgents,
-      state.agentInfoMap,
-      state.workspaceFolders,
-      state.workspaceRoot,
-      state.sessionInfoMap,
-      completedNotifications,
-      availableCommands,
-      state.statusline,
-      activeMessages,
-      activeIsStreaming,
-      state.sessionOverviewVisible,
-      state.sessionOverviewState,
+      tabs, activeSessionId, activeAgentId, activeSessionKey,
+      connectedAgents, agentInfoMap, workspaceFolders, workspaceRoot,
+      sessionInfoMap, completedNotifications, availableCommands, statusline,
+      activeMessages, activeIsStreaming,
+      sessionOverviewVisible, sessionOverviewState,
+      sessionOverviewPosition, sessionOverviewWidth,
+      toggleSessionOverview, setSessionOverviewFilter,
+      toggleSessionOverviewSelection, setSessionOverviewSelection,
+      sendMessage, cancelTurn, switchTab, newSession, newSessionWithPicker,
+      closeSession, forkSession, fetchFiles, resolveFile, resolveSelection,
+      resolveDiff, fetchSymbols, resolveSymbol, dismissCompletedNotification,
+      dispatch,
     ]
   );
 

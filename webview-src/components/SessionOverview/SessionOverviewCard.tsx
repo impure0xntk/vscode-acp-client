@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import type { SessionOverviewItem } from "../../types";
-import { Icon } from "../../lib/icons";
 import {
   SessionOverviewHeader,
   SessionOverviewChips,
   SessionOverviewFooter,
   ResponsePreviewList,
+  sessionColorGroup,
+  elapsedTier,
 } from "./SessionOverviewCardBase";
 
 interface Props {
@@ -41,7 +42,9 @@ export function SessionOverviewCard({
   onLongPress,
 }: Props): React.ReactElement {
   const isCancelable =
-    session.status === "running" || session.status === "waiting";
+    session.status === "running" || session.status === "waiting" || session.status === "waiting_for_input";
+
+  const tier = elapsedTier(session.progress.elapsedMs);
 
   const prevStatusRef = useRef(session.status);
   const [isFlashing, setIsFlashing] = useState(false);
@@ -107,6 +110,8 @@ export function SessionOverviewCard({
     <div
       className={`session-overview-card${isExpanded ? " session-overview-card-expanded" : ""}${isActive ? " session-overview-card-active" : ""}${isSelected ? " session-overview-card-selected" : ""}`}
       data-status={session.status}
+      data-color-group={sessionColorGroup(session.status)}
+      data-elapsed-tier={tier}
       data-flashing={flashingStatus}
       onAnimationEnd={handleAnimationEnd}
       onClick={handleClick}
@@ -125,16 +130,11 @@ export function SessionOverviewCard({
         }
       }}
     >
-      {/* Header row */}
-      <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 4 }}>
+      {/* Header row: close button top-right */}
+      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <SessionOverviewHeader session={session} />
         </div>
-        {unreadCount > 0 && (
-          <span className="session-overview-card-badge">
-            {unreadCount > 99 ? "99+" : unreadCount}
-          </span>
-        )}
         <button
           className="session-tab-close"
           type="button"
@@ -143,7 +143,6 @@ export function SessionOverviewCard({
             e.stopPropagation();
             onClose();
           }}
-          style={{ position: "absolute", top: 0, right: 0 }}
         >
           ×
         </button>
@@ -158,23 +157,16 @@ export function SessionOverviewCard({
         maxItems={isExpanded ? 5 : 3}
       />
 
-      {/* Footer: timestamp + action buttons */}
+      {/* Footer: timestamp + unread badge (bottom-right) */}
       <div className="session-overview-card-footer">
         <span className="session-overview-card-timestamp">
           {new Date(session.updatedAt).toLocaleTimeString()}
         </span>
         <div className="session-overview-card-actions">
-          {isCancelable && (
-            <button
-              className="session-overview-card-cancel"
-              onClick={(e) => {
-                e.stopPropagation();
-                onCancel();
-              }}
-              title="Cancel session"
-            >
-              <Icon name="close" size="sm" />
-            </button>
+          {unreadCount > 0 && (
+            <span className="session-overview-card-badge">
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
           )}
         </div>
       </div>
