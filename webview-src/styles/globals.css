@@ -799,12 +799,21 @@ body {
 }
 
 .message-tool {
-  align-items: stretch;
+  align-items: flex-start;
 }
 
 .message-tool .tool-call {
   margin-top: 0;
-  width: 100%;
+  max-width: 100%;
+  margin-left: 12px;
+  margin-right: 12px;
+}
+
+.message-tool .tool-call-group {
+  margin-top: 0;
+  max-width: 100%;
+  margin-left: 12px;
+  margin-right: 12px;
 }
 
 .system-icon {
@@ -1310,6 +1319,7 @@ pre.hljs {
 .tool-call {
   margin-top: 3px;
   margin-left: 12px;
+  margin-right: 12px;
   border-radius: 3px;
   overflow: hidden;
   font-size: 11px;
@@ -1438,6 +1448,7 @@ pre.hljs {
 .tool-call-group {
   margin-top: 3px;
   margin-left: 12px;
+  margin-right: 12px;
   border-radius: 3px;
   overflow: hidden;
   font-size: 11px;
@@ -1520,6 +1531,8 @@ pre.hljs {
 
 .tool-group-item .tool-call {
   margin-top: 0;
+  margin-left: 0;
+  margin-right: 0;
   background: transparent;
 }
 
@@ -3559,32 +3572,137 @@ pre.hljs {
   flex-shrink: 0;
 }
 
-.session-overview-toolbar-filters {
+.session-overview-toolbar-actions {
   display: flex;
-  gap: 2px;
+  align-items: center;
+  gap: 3px;
 }
 
-.session-overview-filter-btn {
+/* ── Filter dropdown ── */
+
+.session-overview-filter {
+  position: relative;
+}
+
+.session-overview-filter-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   font-size: 10px;
   padding: 1px 5px;
-  border: none;
+  border: 1px solid transparent;
   border-radius: 3px;
   background: transparent;
   color: var(--fg-muted);
   cursor: pointer;
   transition:
     background 0.15s ease,
-    color 0.15s ease;
+    color 0.15s ease,
+    border-color 0.15s ease;
+  white-space: nowrap;
 }
 
-.session-overview-filter-btn:hover {
+.session-overview-filter-trigger:hover {
   background: var(--accent-hover);
   color: var(--fg-secondary);
 }
 
-.session-overview-filter-btn.active {
-  background: var(--accent);
-  color: var(--user-fg);
+.session-overview-filter-trigger.active {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.session-overview-filter-arrow {
+  font-size: 8px;
+  transition: transform 0.15s ease;
+}
+
+.session-overview-filter-arrow.open {
+  transform: rotate(180deg);
+}
+
+.session-overview-filter-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 3px;
+  min-width: 130px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  z-index: 200;
+  padding: 3px 0;
+  animation: filter-dropdown-in 0.1s ease-out;
+}
+
+@keyframes filter-dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.session-overview-filter-option {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  padding: 4px 10px;
+  border: none;
+  background: transparent;
+  color: var(--fg-primary);
+  font-size: 11px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s ease;
+}
+
+.session-overview-filter-option:hover {
+  background: var(--accent-hover);
+}
+
+.session-overview-filter-option.selected {
+  color: var(--accent);
+}
+
+.session-overview-filter-check {
+  flex-shrink: 0;
+  width: 12px;
+  font-size: 10px;
+  text-align: center;
+  color: var(--accent);
+}
+
+.session-overview-filter-dot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.session-overview-filter-dot.dot-running {
+  background: #4fc3f7;
+}
+.session-overview-filter-dot.dot-completed {
+  background: var(--success);
+}
+.session-overview-filter-dot.dot-error {
+  background: var(--error);
+}
+.session-overview-filter-dot.dot-cancelled {
+  background: var(--fg-muted);
+  opacity: 0.5;
+}
+
+.session-overview-filter-sep {
+  height: 1px;
+  margin: 2px 6px;
+  background: var(--border);
 }
 
 .session-overview-close-btn {
@@ -3715,6 +3833,31 @@ pre.hljs {
   50%      { border-left-color: color-mix(in srgb, #4fc3f7 30%, transparent); }
 }
 
+/* Completed / error: flash border then fade out (CSS-only, 2.5s) */
+.session-overview-card[data-flashing="completed"] {
+  --soc-flash-color: var(--success);
+  animation: soc-flash-border 2.5s ease-out forwards;
+}
+
+.session-overview-card[data-flashing="error"] {
+  --soc-flash-color: var(--error);
+  animation: soc-flash-border 2.5s ease-out forwards;
+}
+
+@keyframes soc-flash-border {
+  0%   { outline: 2px solid var(--soc-flash-color); outline-offset: 0; }
+  15%  { outline: 2px solid transparent; outline-offset: 0; }
+  30%  { outline: 2px solid var(--soc-flash-color); outline-offset: 0; }
+  45%  { outline: 2px solid transparent; outline-offset: 0; }
+  60%  { outline: 2px solid var(--soc-flash-color); outline-offset: 0; }
+  100% { outline: 2px solid transparent; outline-offset: 0; }
+}
+
+/* Completed: no border-left accent (same as idle) */
+.session-overview-card[data-status="completed"] {
+  border-left-color: transparent;
+}
+
 .session-overview-card:hover {
   background: var(--accent-hover);
 }
@@ -3732,10 +3875,9 @@ pre.hljs {
   border-color: var(--border);
 }
 
-/* Active: visible background + left accent bar — stands out in vertical list */
+/* Active: subtle background tint — like an active tab in the tab bar */
 .session-overview-card-active {
-  background: var(--accent-hover);
-  box-shadow: inset 3px 0 0 var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .session-overview-card-header {
@@ -4007,4 +4149,87 @@ pre.hljs {
   font-size: 9px;
   color: var(--fg-muted);
   font-family: var(--font-mono);
+}
+
+/* ── Session card checkbox ── */
+
+.session-overview-card-checkbox {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--accent);
+  border-radius: 2px;
+}
+
+.session-overview-card-checkbox:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ── Selected card state ── */
+
+.session-overview-card-selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.session-overview-card-selected:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+/* ── Batch operations bar ── */
+
+.session-overview-batch-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--bg-input) 40%, transparent);
+  gap: 6px;
+}
+
+.session-overview-select-all {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--fg-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.session-overview-select-all input[type="checkbox"] {
+  width: 12px;
+  height: 12px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.session-overview-batch-actions {
+  display: flex;
+  gap: 3px;
+}
+
+.session-overview-batch-close {
+  font-size: 10px;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg-input);
+  color: var(--fg-secondary);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.session-overview-batch-close:hover {
+  background: var(--error);
+  color: var(--user-fg);
+  border-color: var(--error);
 }

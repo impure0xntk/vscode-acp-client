@@ -23,6 +23,8 @@ export interface ChatContainerProps {
   scrollToMessageRef?: React.MutableRefObject<
     ((id: string) => void) | undefined
   >;
+  /** Ref setter that receives the internal forceScrollToBottom function */
+  forceScrollToBottomRef?: React.MutableRefObject<(() => void) | undefined>;
   /** Ref that exposes { isAtBottom, unreadCount, scrollToBottom } to parent */
   scrollStateRef?: React.MutableRefObject<{
     isAtBottom: boolean;
@@ -31,6 +33,10 @@ export interface ChatContainerProps {
   }>;
   /** Callback fired when scroll state changes (for button visibility) */
   onScrollStateChange?: (state: { isAtBottom: boolean; unreadCount: number }) => void;
+  /** Saved scrollTop restored on mount (from parent's per-session cache) */
+  savedScrollTop?: number;
+  /** Callback fired on unmount and on scroll to persist scrollTop */
+  onScrollTopChange?: (scrollTop: number) => void;
 }
 
 function sessionIdFrom(msg: ChatMessage): string {
@@ -131,6 +137,9 @@ export const ChatContainer = memo(function ChatContainer({
   scrollToMessageRef,
   scrollStateRef,
   onScrollStateChange,
+  forceScrollToBottomRef,
+  savedScrollTop,
+  onScrollTopChange,
 }: ChatContainerProps): React.ReactElement {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -141,7 +150,8 @@ export const ChatContainer = memo(function ChatContainer({
   const prevSessionIdRef = useRef<string | undefined>(undefined);
 
   // On session switch: restore last-seen count, reset scroll state
-  if (sessionId !== prevSessionIdRef.current) {
+  const didSessionSwitch = sessionId !== prevSessionIdRef.current;
+  if (didSessionSwitch) {
     prevSessionIdRef.current = sessionId;
     const key = sessionId ?? "__nosession__";
     const saved = sessionMsgCounts.get(key);
@@ -152,7 +162,9 @@ export const ChatContainer = memo(function ChatContainer({
     setUnreadCount(0);
   }
 
-  // Track whether the user is actively scrolling via scrollbar interaction
+  // Track whether the user is actively dragging the scrollbar thumb.
+  // We detect this by checking if the pointerdown target IS the container
+  // (scrollbar area) rather than a child element (message content).
   const isUserScrollingRef = useRef(false);
   const userScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
@@ -209,18 +221,42 @@ export const ChatContainer = memo(function ChatContainer({
 
   // Handle scroll events to detect user position
   const handleScroll = useCallback(() => {
-    // While the user is interacting with the scrollbar, ignore programmatic
-    // scroll events so auto-scroll doesn't fight them.
-    if (isUserScrollingRef.current) return;
+    const el = containerRef.current;
+    if (!el) return;
 
-    recalcIsAtBottom();
-  }, [recalcIsAtBottom]);
+    // While the user is dragging the scrollbar, we still recalculate
+    // position so we can detect when they reach the bottom and
+    // re-enable auto-scroll immediately.
+    const distanceFromBottom =
+      el.scrollHeight - el.scrollTop - el.clientHeight;
+    const atBottom = distanceFromBottom < SCROLL_BOTTOM_THRESHOLD;
+
+    if (isUserScrollingRef.current) {
+      // If the user has scrolled to the bottom, re-enable auto-scroll
+      // and stop treating this as an explicit user scroll.
+      if (atBottom) {
+        setIsAtBottom(true);
+        isAtBottomRef.current = true;
+        setUnreadCount(0);
+        isUserScrollingRef.current = false;
+      }
+      return;
+    }
+
+    setIsAtBottom(atBottom);
+    isAtBottomRef.current = atBottom;
+    if (atBottom) setUnreadCount(0);
+    handleScrollPersistRef.current();
+  }, []);
 
   // Tracks when user interacts with scrollbar (mousedown on scrollbar area).
-  // We approximate this by detecting mousedown on the container; paired with
-  // mouseup on window to detect the end of interaction.
-  const handlePointerDown = useCallback(() => {
-    isUserScrollingRef.current = true;
+  // We detect scrollbar-only clicks by checking if the event target is the
+  // container itself (scrollbar renders in the container's overflow area but
+  // outside child content elements).
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.target === containerRef.current) {
+      isUserScrollingRef.current = true;
+    }
   }, []);
 
   const handleWindowPointerUp = useCallback(() => {
@@ -252,6 +288,32 @@ export const ChatContainer = memo(function ChatContainer({
       recalcIsAtBottom();
     }, 400);
   }, [recalcIsAtBottom]);
+
+  // Force scroll to bottom without being blocked by user-scroll suppression.
+  // Used when the user sends a message — we always want to show the latest.
+  // Stored directly in a ref to avoid TDZ issues with useEffect ordering.
+  const forceScrollToBottomFnRef = useRef<() => void>(undefined);
+  if (messages.length >= 0) {
+    forceScrollToBottomFnRef.current = () => {
+      if (userScrollTimeoutRef.current)
+        clearTimeout(userScrollTimeoutRef.current);
+      isUserScrollingRef.current = false;
+      msgCountRef.current = messages.length;
+      sessionMsgCounts.set(sessionId ?? "__nosession__", messages.length);
+      setUnreadCount(0);
+      setIsAtBottom(true);
+      isAtBottomRef.current = true;
+      bottomRef.current?.scrollIntoView({ behavior: "instant" });
+    };
+  }
+  // Expose the ref's current value via the external ref prop
+  useEffect(() => {
+    if (forceScrollToBottomRef) {
+      forceScrollToBottomRef.current = () => {
+        forceScrollToBottomFnRef.current?.();
+      };
+    }
+  }, [forceScrollToBottomRef]);
 
   // Update last-seen count only when tab is active AND user is at bottom
   useEffect(() => {
@@ -297,6 +359,39 @@ export const ChatContainer = memo(function ChatContainer({
     setUnreadCount(0);
     bottomRef.current?.scrollIntoView({ behavior: "instant" });
   }, [isActive, sessionId]);
+
+  // Restore saved scrollTop on mount (session switch restore)
+  useEffect(() => {
+    if (savedScrollTop !== undefined && containerRef.current) {
+      containerRef.current.scrollTop = savedScrollTop;
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Persist scrollTop on unmount (session switch save)
+  useEffect(() => {
+    const el = containerRef.current;
+    return () => {
+      if (el && onScrollTopChange) {
+        onScrollTopChange(el.scrollTop);
+      }
+    };
+  }, [onScrollTopChange]);
+
+  // Persist scrollTop on every scroll event (throttled via rAF).
+  // Store in a ref so it can be safely read without forward-reference issues.
+  const onScrollTopChangeRef = useRef(onScrollTopChange);
+  onScrollTopChangeRef.current = onScrollTopChange;
+  const scrollTopRafRef = useRef<number | null>(null);
+  const handleScrollPersistRef = useRef(() => {});
+  handleScrollPersistRef.current = () => {
+    if (scrollTopRafRef.current !== null) return;
+    scrollTopRafRef.current = requestAnimationFrame(() => {
+      scrollTopRafRef.current = null;
+      if (containerRef.current && onScrollTopChangeRef.current) {
+        onScrollTopChangeRef.current(containerRef.current.scrollTop);
+      }
+    });
+  };
 
   // Expose scroll state to parent via ref (for fixed scroll-to-bottom button)
   useEffect(() => {

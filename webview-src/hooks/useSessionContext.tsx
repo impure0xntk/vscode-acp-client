@@ -207,6 +207,8 @@ export interface SessionContext {
   sessionOverviewWidth: number;
   toggleSessionOverview: () => void;
   setSessionOverviewFilter: (filter: SessionOverviewFilter) => void;
+  toggleSessionOverviewSelection: (sessionId: string) => void;
+  setSessionOverviewSelection: (sessionIds: string[]) => void;
 
   // Internal dispatch (for advanced use)
   dispatch: React.Dispatch<SessionAction>;
@@ -269,6 +271,8 @@ const initialState: FullState = {
     lastUpdated: new Date().toISOString(),
     filter: "all",
     expandedSessions: [],
+    selectedSessionIds: [],
+    selectionMode: false,
   },
 };
 
@@ -342,6 +346,10 @@ type SessionAction =
   | { type: "SET_SESSION_OVERVIEW_FILTER"; filter: SessionOverviewFilter }
   | { type: "SET_SESSION_OVERVIEW_EXPANDED"; sessions: string[] }
   | { type: "SET_SESSION_OVERVIEW_WIDTH"; width: number }
+  | { type: "SET_SESSION_OVERVIEW_SELECTED"; sessionIds: string[] }
+  | { type: "TOGGLE_SESSION_OVERVIEW_SELECTED"; sessionId: string }
+  | { type: "SET_SESSION_OVERVIEW_SELECTION_MODE"; enabled: boolean }
+  | { type: "TOGGLE_SESSION_OVERVIEW_SELECTION"; sessionId: string }
 
   // --- Per-session updates (session/info = metadata only; session/switch = full snapshot) ---
   | {
@@ -532,6 +540,10 @@ function reducer(state: FullState, action: SessionAction): FullState {
       return {
         ...state,
         sessionOverviewState: {
+          // Preserve existing filter/selection when payload omits them
+          filter: state.sessionOverviewState.filter,
+          selectionMode: state.sessionOverviewState.selectionMode,
+          selectedSessionIds: state.sessionOverviewState.selectedSessionIds,
           ...action.state,
           // Sync active session from tab state if not provided in the payload
           activeSessionId: action.state.activeSessionId ?? state.activeSessionId,
@@ -561,6 +573,58 @@ function reducer(state: FullState, action: SessionAction): FullState {
 
     case "SET_SESSION_OVERVIEW_WIDTH":
       return { ...state, sessionOverviewWidth: action.width };
+
+    case "SET_SESSION_OVERVIEW_SELECTED": {
+      return {
+        ...state,
+        sessionOverviewState: {
+          ...state.sessionOverviewState,
+          selectedSessionIds: action.sessionIds,
+        },
+      };
+    }
+
+    case "TOGGLE_SESSION_OVERVIEW_SELECTED": {
+      const current = state.sessionOverviewState.selectedSessionIds ?? [];
+      const idx = current.indexOf(action.sessionId);
+      const next = idx >= 0
+        ? [...current.slice(0, idx), ...current.slice(idx + 1)]
+        : [...current, action.sessionId];
+      return {
+        ...state,
+        sessionOverviewState: {
+          ...state.sessionOverviewState,
+          selectedSessionIds: next,
+        },
+      };
+    }
+
+    case "SET_SESSION_OVERVIEW_SELECTION_MODE": {
+      return {
+        ...state,
+        sessionOverviewState: {
+          ...state.sessionOverviewState,
+          selectionMode: action.enabled,
+        },
+      };
+    }
+
+    case "TOGGLE_SESSION_OVERVIEW_SELECTION": {
+      // Enter selection mode and toggle the session
+      const current = state.sessionOverviewState.selectedSessionIds ?? [];
+      const idx = current.indexOf(action.sessionId);
+      const next = idx >= 0
+        ? [...current.slice(0, idx), ...current.slice(idx + 1)]
+        : [...current, action.sessionId];
+      return {
+        ...state,
+        sessionOverviewState: {
+          ...state.sessionOverviewState,
+          selectionMode: true,
+          selectedSessionIds: next,
+        },
+      };
+    }
 
     case "SET_SESSION_INFO": {
       const key = sessionKey(action.agentId, action.sessionId);
@@ -881,6 +945,11 @@ export function SessionContextProvider({
           const aId = data.agentId as string;
           const sId = data.sessionId as string;
           dispatch({
+            type: "SET_ACTIVE_SESSION",
+            sessionId: sId,
+            agentId: aId,
+          });
+          dispatch({
             type: "SESSION_SWITCH",
             agentId: aId,
             sessionId: sId,
@@ -1057,7 +1126,17 @@ export function SessionContextProvider({
         }
       };
       window.addEventListener("message", handler);
-      getVsCodeApi().postMessage({ type: "fetchFiles", query, reqId });
+      const cur = stateRef.current;
+      const key = computeActiveSessionKey(cur);
+      const info = key ? cur.sessionInfoMap[key] : undefined;
+      getVsCodeApi().postMessage({
+        type: "fetchFiles",
+        query,
+        reqId,
+        cwd: info?.cwd,
+        agentId: cur.activeAgentId ?? undefined,
+        sessionId: cur.activeSessionId ?? undefined,
+      });
     });
   }, []);
 
@@ -1083,7 +1162,17 @@ export function SessionContextProvider({
           }
         };
         window.addEventListener("message", handler);
-        getVsCodeApi().postMessage({ type: "resolveFile", path, reqId });
+        const cur = stateRef.current;
+        const key = computeActiveSessionKey(cur);
+        const info = key ? cur.sessionInfoMap[key] : undefined;
+        getVsCodeApi().postMessage({
+          type: "resolveFile",
+          path,
+          reqId,
+          cwd: info?.cwd,
+          agentId: cur.activeAgentId ?? undefined,
+          sessionId: cur.activeSessionId ?? undefined,
+        });
       });
     },
     []
@@ -1180,6 +1269,20 @@ export function SessionContextProvider({
     []
   );
 
+  const toggleSessionOverviewSelection = useCallback(
+    (sessionId: string) => {
+      dispatch({ type: "TOGGLE_SESSION_OVERVIEW_SELECTED", sessionId });
+    },
+    []
+  );
+
+  const setSessionOverviewSelection = useCallback(
+    (sessionIds: string[]) => {
+      dispatch({ type: "SET_SESSION_OVERVIEW_SELECTED", sessionIds });
+    },
+    []
+  );
+
   const stableActions = React.useRef({
     sendMessage,
     cancelTurn,
@@ -1197,6 +1300,8 @@ export function SessionContextProvider({
     dismissCompletedNotification,
     toggleSessionOverview,
     setSessionOverviewFilter,
+    toggleSessionOverviewSelection,
+    setSessionOverviewSelection,
     dispatch,
   });
   stableActions.current = {
@@ -1216,6 +1321,8 @@ export function SessionContextProvider({
     dismissCompletedNotification,
     toggleSessionOverview,
     setSessionOverviewFilter,
+    toggleSessionOverviewSelection,
+    setSessionOverviewSelection,
     dispatch,
   };
 
@@ -1249,6 +1356,8 @@ export function SessionContextProvider({
       sessionOverviewWidth: state.sessionOverviewWidth,
       toggleSessionOverview: stableActions.current.toggleSessionOverview,
       setSessionOverviewFilter: stableActions.current.setSessionOverviewFilter,
+      toggleSessionOverviewSelection: stableActions.current.toggleSessionOverviewSelection,
+      setSessionOverviewSelection: stableActions.current.setSessionOverviewSelection,
       // Stable function refs
       sendMessage: stableActions.current.sendMessage,
       cancelTurn: stableActions.current.cancelTurn,
@@ -1276,6 +1385,7 @@ export function SessionContextProvider({
       state.agentInfoMap,
       state.workspaceFolders,
       state.workspaceRoot,
+      state.sessionInfoMap,
       completedNotifications,
       availableCommands,
       state.statusline,

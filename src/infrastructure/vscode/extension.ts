@@ -290,6 +290,13 @@ function sendTabsToChatPanel(): void {
   }
 
   chatPanel.postMessage(presenter.buildSetTabsMessage());
+
+  // Push session overview in sync with tabs — same timing, same session set
+  const overview = orchestrator.getSessionOverview();
+  chatPanel.postMessage({
+    type: "sessionOverview:state",
+    payload: overview,
+  });
 }
 
 function wireChatPanelEventsLocal(): void {
@@ -510,6 +517,7 @@ function registerCommands(context: vscode.ExtensionContext): void {
       ),
     pickConnectedAgent,
     historyStore,
+    persistentHistory ?? null,
     resolveFile,
     resolveSelection,
     resolveDiff,

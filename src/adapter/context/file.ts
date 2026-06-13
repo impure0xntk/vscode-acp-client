@@ -10,43 +10,28 @@ export async function searchFiles(
   query: string,
   cwd?: string
 ): Promise<FileCandidate[]> {
-  if (!query.trim()) {
-    return getVisibleFiles(fs, cwd);
-  }
+  const base = cwd ?? fs.workspaceRoot ?? "";
 
+  // Build a glob that matches the query as a substring of the basename.
+  // "Composer" → "**/*Composer*" so it matches src/components/Composer.tsx
+  // User-supplied globs with * or { are passed through as-is.
   const pattern =
-    query.includes("*") || query.includes("{") ? query : `**/${query}*`;
+    query.includes("*") || query.includes("{") ? query : `**/*${query}*`;
 
   const exclude =
     "{**/node_modules/**,**/.git/**,**/dist/**,**/build/**,**/.next/**}";
   const uris = await fs.findFiles(pattern, exclude, MAX_CANDIDATES);
 
-  return uris.map((uri) => ({
-    relativePath: cwd ? fs.relativePath(cwd, uri.fsPath) : uri.path,
-    absolutePath: uri.fsPath,
-    name: fs.basename(uri.fsPath),
-  }));
-}
-
-function getVisibleFiles(fs: FileSystemAPI, cwd?: string): FileCandidate[] {
-  const ws = fs.workspaceRoot ?? "";
-  const base = cwd ?? ws;
-  const seen = new Set<string>();
   const results: FileCandidate[] = [];
-
-  // Fetch visible editor files via Platform API
-  // Fallback: returns workspace root files for now
-  const roots = fs.workspaceRoots;
-  for (const root of roots) {
-    if (seen.has(root)) continue;
-    seen.add(root);
+  const seen = new Set<string>();
+  for (const uri of uris) {
+    if (seen.has(uri.fsPath)) continue;
+    seen.add(uri.fsPath);
     results.push({
-      relativePath: fs.relativePath(base, root) || fs.basename(root),
-      absolutePath: root,
-      name: fs.basename(root),
+      relativePath: base ? fs.relativePath(base, uri.fsPath) : uri.path,
+      absolutePath: uri.fsPath,
+      name: fs.basename(uri.fsPath),
     });
-    if (results.length >= MAX_CANDIDATES) break;
   }
-
   return results;
 }

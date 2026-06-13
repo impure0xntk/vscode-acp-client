@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import type { SessionOverviewItem } from "../../types";
 import { Icon } from "../../lib/icons";
 import {
@@ -13,48 +13,146 @@ interface Props {
   isExpanded: boolean;
   unreadCount: number;
   isActive: boolean;
+  isSelected: boolean;
+  selectionMode: boolean;
   onToggle: () => void;
   onFocus: () => void;
   onCancel: () => void;
+  onClose: () => void;
+  onSelect: (sessionId: string) => void;
+  /** Long-press: enter selection mode and select this session */
+  onLongPress: (sessionId: string) => void;
 }
+
+const LONG_PRESS_MS = 500;
 
 export function SessionOverviewCard({
   session,
   isExpanded,
   unreadCount,
   isActive,
+  isSelected,
+  selectionMode,
   onToggle,
   onFocus,
   onCancel,
+  onClose,
+  onSelect,
+  onLongPress,
 }: Props): React.ReactElement {
   const isCancelable =
     session.status === "running" || session.status === "waiting";
 
+  const prevStatusRef = useRef(session.status);
+  const [isFlashing, setIsFlashing] = useState(false);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didLongPressRef = useRef(false);
+
+  useEffect(() => {
+    const wasActive =
+      prevStatusRef.current === "running" || prevStatusRef.current === "waiting";
+    const isTerminal =
+      session.status === "completed" || session.status === "error";
+
+    if (wasActive && isTerminal) {
+      setIsFlashing(true);
+    }
+
+    prevStatusRef.current = session.status;
+  }, [session.status]);
+
+  const handleAnimationEnd = useCallback(() => {
+    setIsFlashing(false);
+  }, []);
+
+  const flashingStatus = isFlashing ? session.status : undefined;
+
+  // ── Long-press handling ────────────────────────────────────────────
+  const handlePointerDown = useCallback(() => {
+    didLongPressRef.current = false;
+    longPressTimerRef.current = setTimeout(() => {
+      didLongPressRef.current = true;
+      onLongPress(session.sessionId);
+    }, LONG_PRESS_MS);
+  }, [session.sessionId, onLongPress]);
+
+  const handlePointerUp = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  const handlePointerLeave = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  // ── Click handler ──────────────────────────────────────────────────
+  const handleClick = useCallback(() => {
+    if (didLongPressRef.current) {
+      // Consumed by long-press — don't navigate
+      return;
+    }
+    if (selectionMode) {
+      onSelect(session.sessionId);
+    } else {
+      onFocus();
+    }
+  }, [selectionMode, onSelect, session.sessionId, onFocus]);
+
   return (
     <div
-      className={`session-overview-card${isExpanded ? " session-overview-card-expanded" : ""}${isActive ? " session-overview-card-active" : ""}`}
+      className={`session-overview-card${isExpanded ? " session-overview-card-expanded" : ""}${isActive ? " session-overview-card-active" : ""}${isSelected ? " session-overview-card-selected" : ""}`}
       data-status={session.status}
-      onClick={onFocus}
+      data-flashing={flashingStatus}
+      onAnimationEnd={handleAnimationEnd}
+      onClick={handleClick}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerLeave}
       role="link"
       tabIndex={0}
       onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") onFocus();
+        if (e.key === "Enter" || e.key === " ") {
+          if (selectionMode) {
+            onSelect(session.sessionId);
+          } else {
+            onFocus();
+          }
+        }
       }}
     >
-      {/* Header: spinner + agent + title — badge overlaid top-right */}
-      <div style={{ position: "relative" }}>
-        <SessionOverviewHeader session={session} />
+      {/* Header row */}
+      <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 4 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <SessionOverviewHeader session={session} />
+        </div>
         {unreadCount > 0 && (
           <span className="session-overview-card-badge">
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
+        <button
+          className="session-tab-close"
+          type="button"
+          aria-label="Close session"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          style={{ position: "absolute", top: 0, right: 0 }}
+        >
+          ×
+        </button>
       </div>
 
-      {/* Chips row — shared */}
+      {/* Chips row */}
       <SessionOverviewChips session={session} />
 
-      {/* Response preview — always visible, more when expanded */}
+      {/* Response preview */}
       <ResponsePreviewList
         responses={session.recentResponses}
         maxItems={isExpanded ? 5 : 3}

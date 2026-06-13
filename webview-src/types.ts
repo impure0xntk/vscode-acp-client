@@ -13,7 +13,13 @@ export interface SessionOverviewItem {
   unreadCount?: number;
 }
 
-export type SessionOverviewFilter = "all" | "active" | "idle";
+/** Filter modes — "none" means no filter active (show all) */
+export type SessionOverviewFilter = "all" | "running" | "completed" | "error" | "cancelled";
+export type SessionOverviewActiveFilter = SessionOverviewFilter; // alias for clarity
+
+/** Status values that can be used for filtering */
+export const FILTERABLE_STATUSES = ["running", "completed", "error", "cancelled"] as const;
+export type FilterableStatus = (typeof FILTERABLE_STATUSES)[number];
 
 export interface SessionOverviewState {
   sessions: SessionOverviewItem[];
@@ -23,6 +29,10 @@ export interface SessionOverviewState {
   /** Currently active session for highlight synchronisation with tab bar */
   activeSessionId?: string;
   activeAgentId?: string;
+  /** Selected session IDs for batch operations */
+  selectedSessionIds: string[];
+  /** Whether selection mode is active (long-press to select) */
+  selectionMode: boolean;
 }
 
 export interface MessageContent {

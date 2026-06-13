@@ -113,9 +113,13 @@ export interface SessionOverviewState {
   lastUpdated: string;
   filter: SessionOverviewFilter;
   expandedSessions: string[];
+  /** Selected session IDs for batch operations */
+  selectedSessionIds: string[];
 }
 
-export type SessionOverviewFilter = "all" | "active" | "by-agent";
+export type SessionOverviewFilter = "all" | "running" | "completed" | "error" | "cancelled";
+export const FILTERABLE_STATUSES = ["running", "completed", "error", "cancelled"] as const;
+export type FilterableStatus = (typeof FILTERABLE_STATUSES)[number];
 
 /** 1セッション分の概要 */
 export interface SessionOverviewItem {

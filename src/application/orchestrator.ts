@@ -9,6 +9,7 @@
 
 import {
   SessionOrchestrator,
+  RestoreResult,
   AgentConfig,
   AutoConnectEntry,
   AgentConnectionState,
@@ -33,6 +34,7 @@ import type {
 
 export {
   SessionOrchestrator,
+  RestoreResult,
   AgentConfig,
   AutoConnectEntry,
   AgentConnectionState,

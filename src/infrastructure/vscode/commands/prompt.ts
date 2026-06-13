@@ -125,22 +125,23 @@ export function wireChatPanelEvents(
       case "forkSession": {
         const sessionId = data.sessionId as string;
         for (const agent of orchestrator.getAllAgents()) {
-          const srcInfo = orchestrator.getSessionInfo(agent.agentId, sessionId);
-          if (!srcInfo) continue;
+          if (!orchestrator.getSessionInfo(agent.agentId, sessionId)) continue;
           void (async () => {
-            const newId = await orchestrator.createSession(
+            const result = await orchestrator.forkSession(
               agent.agentId,
-              srcInfo.cwd
+              sessionId
             );
-            orchestrator.setActiveSession(agent.agentId, newId);
-            // Copy messages from the source session into the forked session
-            const newInfo = orchestrator.getSessionInfo(agent.agentId, newId);
+            orchestrator.setActiveSession(agent.agentId, result.sessionId);
+            const newInfo = orchestrator.getSessionInfo(
+              agent.agentId,
+              result.sessionId
+            );
             if (newInfo) {
-              for (const msg of srcInfo.messages) {
-                // Use silent append so the webview gets the full snapshot via setActiveSession
-                orchestrator.appendMessageSilent(agent.agentId, newId, msg);
-              }
-              chatPanel?.setActiveSession(agent.agentId, newId, newInfo);
+              chatPanel?.setActiveSession(
+                agent.agentId,
+                result.sessionId,
+                newInfo
+              );
             }
           })();
           break;
@@ -152,9 +153,10 @@ export function wireChatPanelEvents(
         break;
       case "fetchFiles": {
         const query = data.query as string;
+        const reqId = data.reqId as string;
         const cwd = resolveSessionCwd(orchestrator, data);
         void searchFiles(query, cwd).then((candidates) => {
-          chatPanel?.postMessage({ type: "fileCandidates", query, candidates });
+          chatPanel?.postMessage({ type: "fileCandidates", query, reqId, candidates });
         });
         break;
       }
@@ -298,13 +300,9 @@ export function wireChatPanelEvents(
         break;
       }
       case "history:restore": {
-        const sessionId = data.sessionId as string;
-        const agentId = data.agentId as string;
-        chatPanel?.postMessage({
-          type: "history:restored",
-          sessionId,
-          agentId,
-        });
+        // Delegate to the acp.restoreSession command which handles
+        // loading messages from persistent store and calling orchestrator.restoreSession().
+        void vscode.commands.executeCommand("acp.restoreSession");
         break;
       }
       case "history:archive": {

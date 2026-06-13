@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import type { SessionOrchestrator } from "../../../application/orchestrator";
 import type { ChatPanel } from "../vscode-ui/chatPanel";
 import type { ContextAttachmentDTO } from "../../../domain/models/chat";
+import type { PersistentHistoryStore } from "../../../application/session/persistentHistory";
 
 export function registerSessionCommands(
   orchestrator: SessionOrchestrator,
@@ -28,6 +29,7 @@ export function registerSessionCommands(
     }>;
     clear: () => Promise<void>;
   },
+  persistentHistory: PersistentHistoryStore | null,
   resolveFile: (
     path: string,
     cwd?: string
@@ -64,7 +66,6 @@ export function registerSessionCommands(
 
       if (action.label.startsWith("$(git-fork)")) {
         // ---- Fork flow ----
-        // Pick agent
         const agentId = await pickConnectedAgent(
           "Select agent that owns the session to fork"
         );
@@ -76,7 +77,6 @@ export function registerSessionCommands(
           );
           return;
         }
-        // Pick source session
         const pick = await vscode.window.showQuickPick(
           sessions.map((s) => ({
             label: `$(circle-${s.status === "running" ? "filled" : "outline"}) ${s.title}`,
@@ -87,18 +87,20 @@ export function registerSessionCommands(
         );
         if (!pick) return;
         try {
-          const srcInfo = orchestrator.getSessionInfo(agentId, pick.sessionId);
-          if (!srcInfo) return;
-          const newId = await orchestrator.createSession(agentId, srcInfo.cwd);
-          for (const msg of srcInfo.messages) {
-            orchestrator.appendMessageSilent(agentId, newId, msg);
-          }
-          orchestrator.setActiveSession(agentId, newId);
+          const result = await vscode.window.withProgress(
+            {
+              location: vscode.ProgressLocation.Notification,
+              title: `Forking "${pick.label.replace(/^\$\([^)]+\)\s*/, "")}"…`,
+              cancellable: false,
+            },
+            () => orchestrator.forkSession(agentId, pick.sessionId)
+          );
+          orchestrator.setActiveSession(agentId, result.sessionId);
           ensureChatPanel();
-          const info = orchestrator.getSessionInfo(agentId, newId);
-          if (info) getChatPanel()?.setActiveSession(agentId, newId, info);
+          const info = orchestrator.getSessionInfo(agentId, result.sessionId);
+          if (info) getChatPanel()?.setActiveSession(agentId, result.sessionId, info);
           void vscode.window.showInformationMessage(
-            `ACP: Forked session (${newId.slice(0, 8)})`
+            `ACP: Forked session (${result.sessionId.slice(0, 8)}, ${result.replayedMessageCount} msgs replayed)`
           );
         } catch (err) {
           void vscode.window.showErrorMessage(
@@ -190,7 +192,59 @@ export function registerSessionCommands(
     }
   );
 
-  // acp.cancelTurn
+  // acp.gotoSession — jump to any session across all agents in one picker
+  const gotoSessionCmd = vscode.commands.registerCommand(
+    "acp.gotoSession",
+    async () => {
+      const agents = orchestrator.getAllAgents();
+      if (agents.length === 0) {
+        void vscode.window.showWarningMessage("ACP: No connected agents");
+        return;
+      }
+
+      // Collect all sessions across all agents
+      type SessionItem = {
+        label: string;
+        description: string;
+        detail?: string;
+        agentId: string;
+        sessionId: string;
+      };
+      const items: SessionItem[] = [];
+      for (const agent of agents) {
+        const activeSessionId = orchestrator.getActiveSessionId(agent.agentId);
+        for (const s of agent.sessions) {
+          const isActive = activeSessionId === s.sessionId;
+          items.push({
+            label: `$(circle-${isActive ? "filled" : "outline"}) ${s.title}`,
+            description: `${agent.agentId} · ${s.sessionId.slice(0, 8)} · ${s.status}`,
+            detail: isActive ? "active" : undefined,
+            agentId: agent.agentId,
+            sessionId: s.sessionId,
+          });
+        }
+      }
+
+      if (items.length === 0) {
+        void vscode.window.showWarningMessage("ACP: No sessions available");
+        return;
+      }
+
+      const pick = await vscode.window.showQuickPick(items, {
+        placeHolder: "Select session to jump to",
+        matchOnDescription: true,
+      });
+      if (!pick) return;
+
+      ensureChatPanel();
+      orchestrator.setActiveSession(pick.agentId, pick.sessionId);
+      const info = orchestrator.getSessionInfo(pick.agentId, pick.sessionId);
+      if (info) {
+        getChatPanel()?.setActiveSession(pick.agentId, pick.sessionId, info);
+      }
+    }
+  );
+
   const cancelTurnCmd = vscode.commands.registerCommand(
     "acp.cancelTurn",
     async () => {
@@ -271,29 +325,34 @@ export function registerSessionCommands(
       const agentId = await pickConnectedAgent("Select agent");
       if (!agentId) return;
       const sessions = orchestrator.getSessionsForAgent(agentId);
-      if (sessions.length === 0) return;
+      if (sessions.length === 0) {
+        void vscode.window.showWarningMessage(
+          "ACP: No sessions available to fork"
+        );
+        return;
+      }
       const pick = await vscode.window.showQuickPick(
         sessions.map((s) => ({
           label: s.title,
-          description: s.sessionId.slice(0, 8),
+          description: `${s.sessionId.slice(0, 8)} · ${s.messages.length} msgs`,
           sessionId: s.sessionId,
         })),
         { placeHolder: "Select session to fork" }
       );
       if (!pick) return;
       try {
-        const srcInfo = orchestrator.getSessionInfo(agentId, pick.sessionId);
-        if (!srcInfo) return;
-        const newId = await orchestrator.createSession(agentId, srcInfo.cwd);
-        // Copy source messages before activating so the snapshot is complete
-        for (const msg of srcInfo.messages) {
-          orchestrator.appendMessageSilent(agentId, newId, msg);
-        }
-        // setActiveSession emits sessionActiveChanged → chatPanel.setActiveSession(snapshot)
-        orchestrator.setActiveSession(agentId, newId);
+        const result = await vscode.window.withProgress(
+          {
+            location: vscode.ProgressLocation.Notification,
+            title: `Forking "${pick.label}"…`,
+            cancellable: false,
+          },
+          () => orchestrator.forkSession(agentId, pick.sessionId)
+        );
+        orchestrator.setActiveSession(agentId, result.sessionId);
         ensureChatPanel();
         void vscode.window.showInformationMessage(
-          `ACP: Forked session ${newId.slice(0, 8)}`
+          `ACP: Forked session (${result.sessionId.slice(0, 8)}, ${result.replayedMessageCount} msgs replayed)`
         );
       } catch (err) {
         void vscode.window.showErrorMessage(
@@ -303,9 +362,9 @@ export function registerSessionCommands(
     }
   );
 
-  // acp.showHistory
-  const showHistoryCmd = vscode.commands.registerCommand(
-    "acp.showHistory",
+  // acp.restoreSession — select a past session and restore it as a new live session
+  const restoreSessionCmd = vscode.commands.registerCommand(
+    "acp.restoreSession",
     async () => {
       const entries = historyStore.getEntries();
       if (entries.length === 0) {
@@ -319,24 +378,91 @@ export function registerSessionCommands(
           detail: `${e.messageCount} msgs · ↑${e.tokenUsage.input} ↓${e.tokenUsage.output} tokens`,
           entry: e,
         })),
-        { placeHolder: "Session history" }
+        { placeHolder: "Select session to restore" }
       );
       if (!pick) return;
-      const agentConfig = registry.getAgent(pick.entry.agentId);
+
+      const { sessionId: sourceSessionId, agentId } = pick.entry;
+      const agentConfig = registry.getAgent(agentId);
       if (!agentConfig) {
         void vscode.window.showErrorMessage(
-          `ACP: Agent "${pick.entry.agentId}" not found in configuration`
+          `ACP: Agent "${agentId}" not found in configuration`
         );
         return;
       }
-      if (!orchestrator.getConnection(pick.entry.agentId)) {
+
+      // Ensure the agent is connected (needed for createSession + prompt)
+      if (!orchestrator.getConnection(agentId)) {
         void vscode.window.showInformationMessage(
-          `ACP: Agent "${agentConfig.name}" needs reconnection to load session`
+          `ACP: Connecting to "${agentConfig.name}" first…`
+        );
+        try {
+          await orchestrator.connectAgent(agentId, agentConfig);
+        } catch (err) {
+          void vscode.window.showErrorMessage(
+            `ACP: Failed to connect to "${agentConfig.name}" — ${err instanceof Error ? err.message : String(err)}`
+          );
+          return;
+        }
+      }
+
+      // Restore: create a new session and replay messages from persistent history
+      try {
+        // Load full message history from persistent store
+        const { messages } = persistentHistory
+          ? persistentHistory.getSessionMessages(sourceSessionId)
+          : { messages: [] };
+
+        if (messages.length === 0) {
+          void vscode.window.showWarningMessage(
+            `ACP: No messages found for session "${pick.entry.title}"`
+          );
+          return;
+        }
+
+        // Show progress notification for replay
+        const restoreResult = await vscode.window.withProgress(
+          {
+            location: vscode.ProgressLocation.Notification,
+            title: `Restoring "${pick.entry.title}" (${messages.length} messages)…`,
+            cancellable: false,
+          },
+          async () => {
+            return orchestrator.restoreSession(
+              agentId,
+              sourceSessionId,
+              messages,
+              pick.entry.cwd
+            );
+          }
+        );
+
+        // Activate the restored session in the UI
+        ensureChatPanel();
+        const newInfo = orchestrator.getSessionInfo(
+          agentId,
+          restoreResult.sessionId
+        );
+        if (newInfo) {
+          getChatPanel()?.setActiveSession(
+            agentId,
+            restoreResult.sessionId,
+            newInfo
+          );
+        }
+
+        const methodLabel = restoreResult.nativeRestore
+          ? "native restore"
+          : `replayed ${restoreResult.replayedMessageCount} messages`;
+
+        void vscode.window.showInformationMessage(
+          `ACP: Restored "${pick.entry.title}" (${restoreResult.sessionId.slice(0, 8)}, ${methodLabel})`
+        );
+      } catch (err) {
+        void vscode.window.showErrorMessage(
+          `ACP: Restore failed — ${err instanceof Error ? err.message : String(err)}`
         );
       }
-      void vscode.window.showInformationMessage(
-        `ACP: Session history entry selected (${pick.entry.sessionId.slice(0, 8)})`
-      );
     }
   );
 
@@ -493,12 +619,13 @@ export function registerSessionCommands(
   return [
     newSessionCmd,
     switchSessionCmd,
+    gotoSessionCmd,
     cancelTurnCmd,
     attachFileCmd,
     attachSelectionCmd,
     attachDiffCmd,
     forkSessionCmd,
-    showHistoryCmd,
+    restoreSessionCmd,
     clearHistoryCmd,
     closeAllCmd,
     showAgentMenuCmd,

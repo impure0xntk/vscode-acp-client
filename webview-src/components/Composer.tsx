@@ -390,24 +390,25 @@ export function Composer({
           const kw = item.kind;
           // Preserve the "#" and expand: "#query" → "#kw "
           const newText = before + "#" + kw + " " + after;
+          const newCaretOffset = triggerState.caretOffset;
           setText(newText);
           setTriggerState({
             active: true,
             trigger: "#",
             subTrigger: kw,
             query: "",
-            caretOffset: triggerState.caretOffset,
+            caretOffset: newCaretOffset,
           });
           setPickerIndex(0);
-          // Position caret after "#kw "
-          setTimeout(() => {
+          // Position caret after "#kw " — use rAF to ensure DOM is updated
+          requestAnimationFrame(() => {
             if (textareaRef.current) {
               const pos = before.length + 1 + kw.length + 1;
               textareaRef.current.selectionStart = pos;
               textareaRef.current.selectionEnd = pos;
               textareaRef.current.focus();
             }
-          }, 0);
+          });
           return;
         }
         // selection / diff — resolve immediately (handled above)

@@ -71,6 +71,8 @@ export function App(): React.ReactElement {
     []
   );
 
+  const forceScrollToBottomRef = useRef<() => void>();
+
   // Scroll-to-message handler (passed through to TopToolbar)
   const scrollToMessageRef = useRef<(id: string) => void>();
   const handleJumpToMessage = useCallback((messageId: string) => {
@@ -86,11 +88,26 @@ export function App(): React.ReactElement {
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [scrollUnreadCount, setScrollUnreadCount] = useState(0);
 
+  // Per-session scroll position (scrollTop) preserved across tab switches.
+  // Key: `${agentId}:${sessionId}`, Value: scrollTop.
+  const sessionScrollTopsRef = useRef<Map<string, number>>(new Map());
+
   // Derive active session info from sessionInfoMap (source of truth from extension host)
   const activeKey =
     activeAgentId && activeSessionId
       ? sessionKey(activeAgentId, activeSessionId)
       : null;
+
+  // Save scrollTop when leaving a session, restore when switching back.
+  // Defined after activeKey to avoid TDZ access.
+  const handleScrollTopChange = useCallback(
+    (scrollTop: number) => {
+      if (activeKey) {
+        sessionScrollTopsRef.current.set(activeKey, scrollTop);
+      }
+    },
+    [activeKey],
+  );
 
   const activeSessionInfo = activeKey
     ? ctx.sessionInfoMap[activeKey]
@@ -154,6 +171,7 @@ export function App(): React.ReactElement {
         activeAgentId ?? undefined,
         activeSessionId ?? undefined
       );
+      forceScrollToBottomRef.current?.();
     },
     [sendMessage, activeAgentId, activeSessionId]
   );
@@ -199,6 +217,13 @@ export function App(): React.ReactElement {
     []
   );
 
+  const handleOverviewClose = useCallback(
+    (sessionId: string, agentId: string) => {
+      closeSession(sessionId);
+    },
+    [closeSession]
+  );
+
   const handleOverviewToggleExpand = useCallback((sessionId: string) => {
     getVsCodeApi().postMessage({
       type: "sessionOverview:expand",
@@ -220,6 +245,34 @@ export function App(): React.ReactElement {
     });
   }, []);
 
+  const handleOverviewToggleSelect = useCallback(
+    (sessionId: string) => {
+      dispatch({ type: "TOGGLE_SESSION_OVERVIEW_SELECTED", sessionId });
+    },
+    [dispatch]
+  );
+
+  const handleOverviewLongPress = useCallback(
+    (sessionId: string) => {
+      dispatch({ type: "TOGGLE_SESSION_OVERVIEW_SELECTION", sessionId });
+    },
+    [dispatch]
+  );
+
+  const handleOverviewCloseSelected = useCallback(() => {
+    const selectedIds = sessionOverviewState.selectedSessionIds ?? [];
+    for (const sessionId of selectedIds) {
+      closeSession(sessionId);
+    }
+    dispatch({ type: "SET_SESSION_OVERVIEW_SELECTION_MODE", enabled: false });
+    dispatch({ type: "SET_SESSION_OVERVIEW_SELECTED", sessionIds: [] });
+  }, [sessionOverviewState.selectedSessionIds, closeSession, dispatch]);
+
+  const handleOverviewExitSelectionMode = useCallback(() => {
+    dispatch({ type: "SET_SESSION_OVERVIEW_SELECTION_MODE", enabled: false });
+    dispatch({ type: "SET_SESSION_OVERVIEW_SELECTED", sessionIds: [] });
+  }, [dispatch]);
+
   return (
     <div
       className={`app-container${sessionOverviewVisible ? " with-overview" : ""}${overviewOnLeft ? " overview-left" : ""}`}
@@ -233,9 +286,15 @@ export function App(): React.ReactElement {
           onFilterChange={setSessionOverviewFilter}
           onFocus={handleOverviewFocus}
           onCancel={handleOverviewCancel}
+          onClose={handleOverviewClose}
           onToggleExpand={handleOverviewToggleExpand}
           onToggleCollapse={handleOverviewToggleCollapse}
           onResizeEnd={handleOverviewResizeEnd}
+          onNewSession={handleNewSession}
+          onToggleSelect={handleOverviewToggleSelect}
+          onLongPress={handleOverviewLongPress}
+          onCloseSelected={handleOverviewCloseSelected}
+          onExitSelectionMode={handleOverviewExitSelectionMode}
         />
       )}
       <div className="main-content">
@@ -309,6 +368,9 @@ export function App(): React.ReactElement {
             scrollToMessageRef={scrollToMessageRef}
             scrollStateRef={scrollStateRef}
             onScrollStateChange={handleScrollStateChange}
+            forceScrollToBottomRef={forceScrollToBottomRef}
+            savedScrollTop={activeKey ? sessionScrollTopsRef.current.get(activeKey) : undefined}
+            onScrollTopChange={handleScrollTopChange}
           />
           {showScrollButton && (
             <button
@@ -373,9 +435,15 @@ export function App(): React.ReactElement {
           onFilterChange={setSessionOverviewFilter}
           onFocus={handleOverviewFocus}
           onCancel={handleOverviewCancel}
+          onClose={handleOverviewClose}
           onToggleExpand={handleOverviewToggleExpand}
           onToggleCollapse={handleOverviewToggleCollapse}
           onResizeEnd={handleOverviewResizeEnd}
+          onNewSession={handleNewSession}
+          onToggleSelect={handleOverviewToggleSelect}
+          onLongPress={handleOverviewLongPress}
+          onCloseSelected={handleOverviewCloseSelected}
+          onExitSelectionMode={handleOverviewExitSelectionMode}
         />
       )}
     </div>

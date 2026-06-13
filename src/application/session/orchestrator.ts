@@ -26,6 +26,8 @@ import {
   ReadTextFileResponse,
   WriteTextFileRequest,
   WriteTextFileResponse,
+  LoadSessionRequest,
+  ListSessionsRequest,
 } from "@agentclientprotocol/sdk";
 import * as child_process from "child_process";
 import { Readable, Writable } from "stream";
@@ -155,6 +157,19 @@ export interface AgentInfo {
 // ============================================================================
 
 export type PromptContext = ContentBlock[];
+
+// ============================================================================
+// Session Restore Result
+// ============================================================================
+
+export interface RestoreResult {
+  /** New session ID for the restored session */
+  sessionId: string;
+  /** Whether native session/load was used (true) or bridge replay (false) */
+  nativeRestore: boolean;
+  /** Number of messages replayed (0 if native restore) */
+  replayedMessageCount: number;
+}
 
 // ============================================================================
 // Session key helper
@@ -406,6 +421,7 @@ export class SessionOrchestrator extends EventEmitter {
     this.persistSession(sessionId, agentId);
 
     this.emit("sessionCreated", { agentId, sessionId, cwd: effectiveCwd });
+    this.emitOverviewUpdate();
     return sessionId;
   }
 
@@ -437,6 +453,327 @@ export class SessionOrchestrator extends EventEmitter {
     }
 
     this.emit("sessionClosed", { agentId, sessionId });
+    this.emitOverviewUpdate();
+  }
+
+  // ========================================================================
+  // Session Fork
+  // ========================================================================
+
+  /**
+   * Fork an active session into a new one, replaying the full conversation
+   * so the agent reconstructs identical context.
+   *
+   * Unlike restore (which loads persisted history from SQLite), fork operates
+   * on a live in-memory session. Strategy:
+   * 1. Copy ALL messages (including tool/system) to the new session's
+   *    in-memory state so the webview renders the full history immediately.
+   * 2. Then replay user+agent messages via session/prompt so the agent
+   *    reconstructs its internal context window.
+   *    (loadSession is not used for forks because the source session is
+   *    still active and the agent may not support re-loading a live session.)
+   *
+   * @param agentId         The agent that owns the source session.
+   * @param sourceSessionId The active session to fork from.
+   * @returns RestoreResult (nativeRestore is always false for forks).
+   */
+  async forkSession(
+    agentId: string,
+    sourceSessionId: string
+  ): Promise<RestoreResult> {
+    const sourceInfo = this.getSessionInfo(agentId, sourceSessionId);
+    if (!sourceInfo) {
+      throw new Error(
+        `Session ${sourceSessionId} not found for agent ${agentId}`
+      );
+    }
+
+    const allMessages = sourceInfo.messages.map((m) => ({
+      ...m,
+      id: m.id || crypto.randomUUID(),
+    }));
+
+    const newSessionId = await this.createSession(agentId, sourceInfo.cwd);
+
+    const newInfo = this.getSessionInfo(agentId, newSessionId);
+    if (newInfo) {
+      newInfo.messages = allMessages;
+      newInfo.title = `${sourceInfo.title} (fork)`;
+    }
+
+    const replayable = allMessages.filter(
+      (m) => m.role === "user" || m.role === "agent"
+    );
+    let replayed = 0;
+    if (replayable.length > 0) {
+      this.emit("sessionReplayStart", {
+        agentId,
+        sessionId: newSessionId,
+        totalMessages: replayable.length,
+        currentIndex: 0,
+      });
+
+      replayed = await this.replayMessages(
+        agentId,
+        newSessionId,
+        replayable
+      );
+
+      this.emit("sessionReplayComplete", {
+        agentId,
+        sessionId: newSessionId,
+        replayedMessageCount: replayed,
+      });
+    }
+
+    return {
+      sessionId: newSessionId,
+      nativeRestore: false,
+      replayedMessageCount: replayed,
+    };
+  }
+
+  // ========================================================================
+  // Session Restore
+  // ========================================================================
+
+  /**
+   * Restore a historical session by replaying its messages into a new session.
+   *
+   * Strategy:
+   * 1. If the agent advertises `loadSession`, use native `session/load` for
+   *    exact state restoration (agent replays internally).
+   * 2. Otherwise, fall back to bridge replay: create a new session then
+   *    re-send each stored user message via `session/prompt` so the agent
+   *    reconstructs the conversation context.
+   *
+   * @param agentId   The agent that originally owned the session.
+   * @param sourceSessionId  The historical session ID to restore from.
+   * @param messages  Pre-fetched messages (from PersistentHistoryStore).
+   * @returns RestoreResult with the new session ID and replay metadata.
+   */
+  async restoreSession(
+    agentId: string,
+    sourceSessionId: string,
+    messages: ChatMessage[],
+    cwd?: string
+  ): Promise<RestoreResult> {
+    const connection = this.connections.get(agentId);
+    if (!connection) {
+      throw new Error(`Agent ${agentId} is not connected`);
+    }
+
+    const agentInfo = this.agentInfoMap.get(agentId);
+    const sourceInfo = this.getSessionInfo(agentId, sourceSessionId);
+    const effectiveCwd = cwd ?? sourceInfo?.cwd ?? process.cwd();
+
+    // --- Strategy 1: Native session/load ---
+    if (agentInfo?.capabilities?.loadSession) {
+      // loadSession restores the agent-side session state.
+      // The agent replays the conversation history internally.
+      // We use the SAME sessionId (the agent recognizes it).
+      await connection.loadSession({
+        sessionId: sourceSessionId,
+        cwd: effectiveCwd,
+        mcpServers: [],
+      } satisfies LoadSessionRequest);
+
+      const now = new Date();
+
+      // Populate messages from the stored history so the webview can
+      // render the conversation immediately on session switch.
+      const restoredMessages = messages.map((m) => ({
+        ...m,
+        id: m.id || crypto.randomUUID(),
+      }));
+
+      const sessionInfo: SessionInfo = {
+        sessionId: sourceSessionId,
+        agentId,
+        title: sourceInfo?.title ?? `Restored ${sourceSessionId.slice(0, 8)}`,
+        cwd: effectiveCwd,
+        status: "idle",
+        messages: restoredMessages,
+        isTurnActive: false,
+        isStreaming: false,
+        createdAt: now,
+        updatedAt: now,
+        tokenUsage: { input: 0, output: 0, total: 0 },
+        pendingCancel: false,
+      };
+
+      const agentSessions = this.sessions.get(agentId) ?? new Map();
+      agentSessions.set(sourceSessionId, sessionInfo);
+      this.sessions.set(agentId, agentSessions);
+
+      if (!this.activeSessions.has(agentId)) {
+        this.activeSessions.set(agentId, sourceSessionId);
+        this.emit("sessionActiveChanged", {
+          agentId,
+          sessionId: sourceSessionId,
+        });
+      }
+
+      this.persistSession(sourceSessionId, agentId);
+      this.emit("sessionCreated", {
+        agentId,
+        sessionId: sourceSessionId,
+        cwd: effectiveCwd,
+      });
+      this.emitOverviewUpdate();
+
+      return {
+        sessionId: sourceSessionId,
+        nativeRestore: true,
+        replayedMessageCount: 0,
+      };
+    }
+
+    // --- Strategy 2: Bridge replay ---
+    const newSessionId = await this.createSession(agentId, effectiveCwd);
+
+    // Populate messages from stored history BEFORE replay so the webview
+    // has the full conversation context immediately.
+    const newInfo = this.getSessionInfo(agentId, newSessionId);
+    if (newInfo) {
+      newInfo.messages = messages.map((m) => ({
+        ...m,
+        id: m.id || crypto.randomUUID(),
+      }));
+    }
+
+    const replayed = await this.replayMessages(
+      agentId,
+      newSessionId,
+      messages
+    );
+
+    // Update title to indicate restoration
+    if (newInfo && sourceInfo) {
+      newInfo.title = sourceInfo.title;
+    }
+
+    return {
+      sessionId: newSessionId,
+      nativeRestore: false,
+      replayedMessageCount: replayed,
+    };
+  }
+
+  /**
+   * Replay stored messages (user + agent) into a new session via session/prompt.
+   * User and agent messages are replayed; tool and system messages are skipped
+   * since they are side-effects of agent turns and will be regenerated.
+   *
+   * During replay, agent responses are streamed to the UI but marked with
+   * a `_replay` flag so the webview can render them differently.
+   *
+   * @returns Number of messages replayed.
+   */
+  private async replayMessages(
+    agentId: string,
+    sessionId: string,
+    messages: ChatMessage[]
+  ): Promise<number> {
+    // Replay only user + agent messages. Tool messages are excluded because
+    // they represent side-effects of agent turns (file writes, command output,
+    // search results) that have already been applied — re-sending them would
+    // cause duplicate writes or stale tool results in the new session.
+    // System messages are infrastructure-level context, not part of conversation.
+    const replayable = messages.filter(
+      (m) => m.role === "user" || m.role === "agent"
+    );
+    if (replayable.length === 0) return 0;
+
+    let replayed = 0;
+    for (const msg of replayable) {
+      // Build ContentBlock[] from stored message
+      const blocks = this.chatMessageToContentBlocks(msg);
+
+      // Emit replay-start event so UI can show progress
+      this.emit("sessionReplayStart", {
+        agentId,
+        sessionId,
+        totalMessages: replayable.length,
+        currentIndex: replayed,
+      });
+
+      try {
+        await this.prompt(agentId, sessionId, "", blocks);
+        replayed++;
+      } catch (e) {
+        // If a single message fails, log and continue with the next one
+        console.warn(
+          `[ACP] Replay failed for message ${msg.id}: ${e instanceof Error ? e.message : String(e)}`
+        );
+      }
+
+      this.emit("sessionReplayProgress", {
+        agentId,
+        sessionId,
+        totalMessages: replayable.length,
+        currentIndex: replayed,
+      });
+    }
+
+    this.emit("sessionReplayComplete", {
+      agentId,
+      sessionId,
+      replayedMessageCount: replayed,
+    });
+
+    return replayed;
+  }
+
+  /**
+   * Convert a stored ChatMessage into ACP ContentBlock[] suitable for
+   * session/prompt. Handles text content, inline file paths, and
+   * serialized attachments.
+   */
+  private chatMessageToContentBlocks(msg: ChatMessage): ContentBlock[] {
+    const blocks: ContentBlock[] = [];
+
+    // Inline file paths → resource_link blocks
+    if (msg.inlineFilePaths) {
+      for (const fp of msg.inlineFilePaths) {
+        blocks.push({
+          type: "resource_link",
+          uri: fp,
+          name: fp,
+        });
+      }
+    }
+
+    // Attachments → embedded resource blocks (from serialized JSON)
+    if (msg.attachmentsJson) {
+      try {
+        const attachments = JSON.parse(msg.attachmentsJson) as Array<{
+          type: string;
+          path: string;
+          content: string;
+        }>;
+        for (const att of attachments) {
+          if (att.type === "file" || att.type === "selection") {
+            blocks.push({
+              type: "resource",
+              resource: {
+                uri: att.path,
+                text: att.content,
+              },
+            });
+          }
+        }
+      } catch {
+        // Ignore malformed attachment JSON
+      }
+    }
+
+    // Main text content
+    if (msg.content) {
+      blocks.push({ type: "text", text: msg.content });
+    }
+
+    return blocks;
   }
 
   async prompt(
@@ -712,6 +1049,7 @@ export class SessionOrchestrator extends EventEmitter {
 
     this.activeSessions.set(agentId, sessionId);
     this.emit("sessionActiveChanged", { agentId, sessionId });
+    this.emitOverviewUpdate();
   }
 
   getActiveSessionInfo(agentId: string): SessionInfo | undefined {
@@ -1395,6 +1733,11 @@ export class SessionOrchestrator extends EventEmitter {
         this.emit("sessionOverview:update", overview);
       }, 100);
     }
+  }
+
+  /** Public emit for lifecycle events outside handleSessionUpdate */
+  triggerOverviewUpdate(): void {
+    this.emitOverviewUpdate();
   }
 
   // ========================================================================

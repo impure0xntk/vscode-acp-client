@@ -112,6 +112,16 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
       treeProvider.refresh();
       updateContext();
 
+      // Push session overview so newly created sessions appear immediately
+      const cp = getChatPanel();
+      if (cp) {
+        const overview = orchestrator.getSessionOverview();
+        cp.postMessage({
+          type: "sessionOverview:state",
+          payload: overview,
+        });
+      }
+
       // Warn if the session cwd is outside the current workspace
       if (cwd) {
         const wsFolders = vscode.workspace.workspaceFolders ?? [];
@@ -240,6 +250,16 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
       deps.presenter.removeSession(agentId, sessionId);
       treeProvider.refresh();
       sendTabs();
+
+      // Push updated overview after session removal
+      const cpClosed = getChatPanel();
+      if (cpClosed) {
+        const overview = orchestrator.getSessionOverview();
+        cpClosed.postMessage({
+          type: "sessionOverview:state",
+          payload: overview,
+        });
+      }
     }
   );
 
@@ -270,6 +290,15 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
         cp?.pushSessionInfo(agentId, sessionId, info);
       }
       sendTabs();
+
+      // Push updated overview after session completion
+      if (cp) {
+        const overview = orchestrator.getSessionOverview();
+        cp.postMessage({
+          type: "sessionOverview:state",
+          payload: overview,
+        });
+      }
     }
   );
 }
