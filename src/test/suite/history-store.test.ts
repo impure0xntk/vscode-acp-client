@@ -39,7 +39,7 @@ class InMemoryHistoryStore {
         e.title.toLowerCase().includes(q) ||
         (e.lastMessage?.toLowerCase().includes(q) ?? false) ||
         e.agentId.toLowerCase().includes(q) ||
-        e.sessionId.toLowerCase().includes(q),
+        e.sessionId.toLowerCase().includes(q)
     );
   }
 
@@ -164,9 +164,15 @@ describe("InMemoryHistoryStore — Search", () => {
 
   beforeEach(() => {
     store = new InMemoryHistoryStore();
-    store.addEntry(makeEntry({ sessionId: "s1", title: "React Project", agentId: "claude" }));
-    store.addEntry(makeEntry({ sessionId: "s2", title: "Python API", agentId: "gpt4" }));
-    store.addEntry(makeEntry({ sessionId: "s3", title: "Rust CLI", agentId: "claude" }));
+    store.addEntry(
+      makeEntry({ sessionId: "s1", title: "React Project", agentId: "claude" })
+    );
+    store.addEntry(
+      makeEntry({ sessionId: "s2", title: "Python API", agentId: "gpt4" })
+    );
+    store.addEntry(
+      makeEntry({ sessionId: "s3", title: "Rust CLI", agentId: "claude" })
+    );
   });
 
   it("search by title", () => {

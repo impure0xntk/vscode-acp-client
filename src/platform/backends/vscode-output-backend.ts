@@ -3,15 +3,15 @@
 // Log backend that writes to a VSCode OutputChannel.
 // Receives the OutputChannel from extension.ts and aggregates all logger output.
 
-import type { LogRecord, LoggerBackend, LogLevelValue } from './types';
+import type { LogRecord, LoggerBackend, LogLevelValue } from "./types";
 
 const levelLabel: Record<LogLevelValue, string> = {
-  0: 'TRACE',
-  1: 'DEBUG',
-  2: 'INFO ',
-  3: 'WARN ',
-  4: 'ERROR',
-  5: 'SILENT',
+  0: "TRACE",
+  1: "DEBUG",
+  2: "INFO ",
+  3: "WARN ",
+  4: "ERROR",
+  5: "SILENT",
 };
 
 type OutputChannel = {
@@ -37,8 +37,13 @@ export class VsCodeOutputBackend implements LoggerBackend {
     if (record.level < this.minLevel) return;
 
     const ts = new Date(record.timestamp).toISOString();
-    const label = levelLabel[record.level] ?? '?????';
-    const parts = [`[${label}]`, `[${ts}]`, `[${record.category}]`, record.message];
+    const label = levelLabel[record.level] ?? "?????";
+    const parts = [
+      `[${label}]`,
+      `[${ts}]`,
+      `[${record.category}]`,
+      record.message,
+    ];
 
     if (record.context) {
       for (const [k, v] of Object.entries(record.context)) {
@@ -46,7 +51,7 @@ export class VsCodeOutputBackend implements LoggerBackend {
       }
     }
 
-    this.channel.appendLine(parts.join(' '));
+    this.channel.appendLine(parts.join(" "));
 
     if (record.error?.stack) {
       this.channel.appendLine(`  ${record.error.stack}`);

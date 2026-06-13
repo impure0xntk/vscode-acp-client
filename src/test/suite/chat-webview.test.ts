@@ -60,7 +60,9 @@ describe("Phase 2 — ChatContainer / Composer edge cases", () => {
   });
 
   it("non-empty list has at least one message", () => {
-    const messages = [{ id: "1", role: "user" as const, content: "hi", timestamp: 0 }];
+    const messages = [
+      { id: "1", role: "user" as const, content: "hi", timestamp: 0 },
+    ];
     assert.strictEqual(messages.length > 0, true);
   });
 
@@ -123,7 +125,9 @@ describe("Phase 2 — useMessages reducer simulation", () => {
   });
 
   it("ADD_MESSAGE appends", () => {
-    const state: Msg[] = [{ id: "1", role: "user", content: "a", timestamp: 1 }];
+    const state: Msg[] = [
+      { id: "1", role: "user", content: "a", timestamp: 1 },
+    ];
     const next = reducer(state, {
       type: "ADD_MESSAGE",
       message: { id: "2", role: "agent", content: "b", timestamp: 2 },
@@ -236,7 +240,12 @@ describe("Phase 2 — StatusBarManager state", () => {
 
 describe("Phase 2 — Message ordering", () => {
   it("messages preserve insertion order via map", () => {
-    interface Msg { id: string; role: string; content: string; timestamp: number }
+    interface Msg {
+      id: string;
+      role: string;
+      content: string;
+      timestamp: number;
+    }
     const msgs: Msg[] = [];
     msgs.push({ id: "1", role: "user", content: "a", timestamp: 1 });
     msgs.push({ id: "2", role: "agent", content: "b", timestamp: 2 });

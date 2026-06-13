@@ -1,4 +1,6 @@
 import React, { useCallback, useState } from "react";
+import { getVsCodeApi } from "../lib/vscodeApi";
+import { IconCheck, IconCopy } from "../lib/icons";
 
 export interface MessageActionsProps {
   messageId: string;
@@ -12,9 +14,9 @@ export function MessageActions({
 }: MessageActionsProps): React.ReactElement {
   const [copied, setCopied] = useState(false);
 
-  const handleCopy = useCallback(async () => {
+  const handleCopy = useCallback(() => {
     try {
-      await navigator.clipboard.writeText(content);
+      getVsCodeApi().postMessage({ type: "copyToClipboard", text: content });
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -23,57 +25,19 @@ export function MessageActions({
   }, [content]);
 
   return (
-    <div className="message-actions" role="toolbar" aria-label="Message actions">
+    <span className="message-actions-inline" role="toolbar" aria-label="Message actions">
       <button
-        className="message-action-btn"
+        className="message-action-inline-btn"
         onClick={handleCopy}
         title={copied ? "Copied" : "Copy to clipboard"}
         aria-label={copied ? "Copied" : "Copy to clipboard"}
       >
         {copied ? (
-          <svg
-            className="message-action-icon"
-            width="14"
-            height="14"
-            viewBox="0 0 16 16"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M13.5 4.5L6.5 11.5L2.5 7.5"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <IconCheck size={12} />
         ) : (
-          <svg
-            className="message-action-icon"
-            width="14"
-            height="14"
-            viewBox="0 0 16 16"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <rect
-              x="5"
-              y="5"
-              width="8"
-              height="8"
-              rx="1"
-              stroke="currentColor"
-              strokeWidth="1.5"
-            />
-            <path
-              d="M3 11V3H11"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
-          </svg>
+          <IconCopy size={12} />
         )}
       </button>
-    </div>
+    </span>
   );
 }

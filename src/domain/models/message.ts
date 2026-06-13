@@ -6,7 +6,12 @@ export type MessageRole = "user" | "assistant" | "system" | "tool";
 
 export type MessageContent =
   | { type: "text"; text: string }
-  | { type: "tool_use"; toolUseId: string; toolName: string; toolInput: unknown }
+  | {
+      type: "tool_use";
+      toolUseId: string;
+      toolName: string;
+      toolInput: unknown;
+    }
   | { type: "tool_result"; toolUseId: string; toolResult: unknown }
   | { type: "image"; data: string; mimeType: string };
 

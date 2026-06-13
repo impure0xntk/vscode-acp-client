@@ -9,7 +9,7 @@
 //     'orchestrator': LogLevel.trace,
 //   });
 
-import type { LogRecord, LoggerBackend, LogLevelValue } from './types';
+import type { LogRecord, LoggerBackend, LogLevelValue } from "./types";
 
 export class FilterLoggerBackend implements LoggerBackend {
   minLevel: LogLevelValue;
@@ -18,7 +18,7 @@ export class FilterLoggerBackend implements LoggerBackend {
 
   constructor(
     inner: LoggerBackend,
-    categoryOverrides: Record<string, LogLevelValue> = {},
+    categoryOverrides: Record<string, LogLevelValue> = {}
   ) {
     this.inner = inner;
     this.minLevel = inner.minLevel;
@@ -30,7 +30,8 @@ export class FilterLoggerBackend implements LoggerBackend {
   }
 
   emit(record: LogRecord): void {
-    const effectiveLevel = this.categoryOverrides.get(record.category) ?? this.minLevel;
+    const effectiveLevel =
+      this.categoryOverrides.get(record.category) ?? this.minLevel;
     if (record.level < effectiveLevel) return;
     this.inner.emit(record);
   }

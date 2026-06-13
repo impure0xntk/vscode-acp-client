@@ -14,11 +14,11 @@ export async function searchFiles(
     return getVisibleFiles(fs, cwd);
   }
 
-  const pattern = query.includes("*") || query.includes("{")
-    ? query
-    : `**/${query}*`;
+  const pattern =
+    query.includes("*") || query.includes("{") ? query : `**/${query}*`;
 
-  const exclude = "{**/node_modules/**,**/.git/**,**/dist/**,**/build/**,**/.next/**}";
+  const exclude =
+    "{**/node_modules/**,**/.git/**,**/dist/**,**/build/**,**/.next/**}";
   const uris = await fs.findFiles(pattern, exclude, MAX_CANDIDATES);
 
   return uris.map((uri) => ({

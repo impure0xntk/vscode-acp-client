@@ -12,8 +12,8 @@ describe("estimateTokens — Basic", () => {
   });
 
   it("returns ceil(length / 4)", () => {
-    assert.strictEqual(estimateTokens("abcd"), 1);   // 4/4 = 1
-    assert.strictEqual(estimateTokens("abcde"), 2);  // 5/4 = 1.25 -> 2
+    assert.strictEqual(estimateTokens("abcd"), 1); // 4/4 = 1
+    assert.strictEqual(estimateTokens("abcde"), 2); // 5/4 = 1.25 -> 2
     assert.strictEqual(estimateTokens("abcdefgh"), 2); // 8/4 = 2
   });
 

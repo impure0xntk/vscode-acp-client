@@ -1,35 +1,9 @@
 import React from "react";
 import type { AgentInfo, SessionTabStatus } from "../hooks/useSessionContext";
-
-export type ContextColor = "normal" | "warning" | "critical";
-
-export interface ToolbarMeta {
-  key: string;
-  label: string;
-  value: string;
-  icon?: React.ReactElement;
-  category?: "session" | "runtime" | "metrics" | "workspace";
-  statusIndicator?: SessionTabStatus;
-  modeIcon?: string;
-  contextColor?: ContextColor;
-}
-
-// ── status / mode maps ────────────────────────────────────────────────────
-
-const STATUS_DOT: Record<SessionTabStatus, { color: string; glyph: string }> = {
-  running:   { color: "#4ec9b0", glyph: "●" },
-  idle:      { color: "#666666", glyph: "●" },
-  completed: { color: "#4ec9b0", glyph: "✓" },
-  error:     { color: "#f14c4c", glyph: "●" },
-  cancelled: { color: "#666666", glyph: "●" },
-};
-
-const MODE_GLYPH: Record<string, string> = {
-  tool:    "🔧",
-  final:   "✅",
-  clarify: "❓",
-  plan:    "📋",
-};
+import { Chip } from "./ui/Chip";
+import { Icon } from "../lib/icons";
+export type { ToolbarMeta, ContextColor } from "./ui/Chip";
+export { Chip };
 
 // ── Statusline info ───────────────────────────────────────────────────────
 
@@ -105,14 +79,15 @@ function fmtCaps(caps: string[]): string {
 
 /** Build a visual bar string: ████░░░ (10 chars) */
 function visualBar(ratio: number): string {
-  const filled = Math.round(ratio * 10);
+  const clamped = Math.max(0, Math.min(1, ratio));
+  const filled = Math.round(clamped * 10);
   return "█".repeat(filled) + "░".repeat(10 - filled);
 }
 
 /** Context usage color thresholds */
 function contextColor(ratio: number): string {
   if (ratio >= 0.85) return "critical";
-  if (ratio >= 0.70) return "warning";
+  if (ratio >= 0.7) return "warning";
   return "normal";
 }
 
@@ -122,41 +97,6 @@ const CAT_LABEL: Record<string, string> = {
   metrics: "Metrics",
   workspace: "Workspace",
 };
-
-// ── Chip ──────────────────────────────────────────────────────────────────
-
-function Chip({
-  meta,
-  onClick,
-}: {
-  meta: ToolbarMeta;
-  onClick?: () => void;
-}): React.ReactElement {
-  const cat = meta.category ?? "";
-  const dot = meta.statusIndicator ? STATUS_DOT[meta.statusIndicator] : null;
-  const icon = meta.modeIcon ? MODE_GLYPH[meta.modeIcon] : null;
-  const ctxColor = meta.contextColor ? ` toolbar-chip--ctx-${meta.contextColor}` : "";
-
-  return (
-    <span
-      className={`toolbar-chip toolbar-chip--${cat}${ctxColor}${onClick ? " toolbar-chip--clickable" : ""}`}
-      title={`${meta.label}: ${meta.value}`}
-      aria-label={`${meta.label}: ${meta.value}`}
-      onClick={onClick}
-      role={onClick ? "button" : undefined}
-      tabIndex={onClick ? 0 : undefined}
-    >
-      {dot && (
-        <span className="toolbar-chip-dot" style={{ color: dot.color }} aria-hidden="true">
-          {dot.glyph}
-        </span>
-      )}
-      {icon && <span className="toolbar-chip-icon" aria-hidden="true">{icon}</span>}
-      {meta.icon && <span className="toolbar-chip-icon">{meta.icon}</span>}
-      <span className="toolbar-chip-value">{meta.value}</span>
-    </span>
-  );
-}
 
 // ── DetailsPanel ──────────────────────────────────────────────────────────
 
@@ -168,10 +108,12 @@ function AgentSection({ info }: { info: AgentInfo }): React.ReactElement {
   if (info.capabilities?.sessionCapabilities?.resume) caps.push("resume");
   if (info.capabilities?.sessionCapabilities?.delete) caps.push("delete");
   if (info.capabilities?.sessionCapabilities?.close) caps.push("close");
-  if (info.capabilities?.sessionCapabilities?.additionalDirectories) caps.push("addl dirs");
+  if (info.capabilities?.sessionCapabilities?.additionalDirectories)
+    caps.push("addl dirs");
   if (info.capabilities?.promptCapabilities?.image) caps.push("image");
   if (info.capabilities?.promptCapabilities?.audio) caps.push("audio");
-  if (info.capabilities?.promptCapabilities?.embeddedContext) caps.push("embedded ctx");
+  if (info.capabilities?.promptCapabilities?.embeddedContext)
+    caps.push("embedded ctx");
 
   return (
     <section className="toolbar-details-section">
@@ -186,11 +128,19 @@ function AgentSection({ info }: { info: AgentInfo }): React.ReactElement {
   );
 }
 
-function Row({ label, value }: { label: string; value: string }): React.ReactElement {
+function Row({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}): React.ReactElement {
   return (
     <div className="toolbar-detail-item">
       <span className="toolbar-detail-label">{label}</span>
-      <span className="toolbar-detail-value" title={value}>{value}</span>
+      <span className="toolbar-detail-value" title={value}>
+        {value}
+      </span>
     </div>
   );
 }
@@ -208,14 +158,22 @@ function MetricsSection({
   messageCount: number;
   model?: string;
 }): React.ReactElement {
-  const duration = sessionStartMs ? fmtDuration(Date.now() - sessionStartMs) : "—";
+  const duration = sessionStartMs
+    ? fmtDuration(Date.now() - sessionStartMs)
+    : "—";
 
   return (
     <section className="toolbar-details-section">
       <h3 className="toolbar-details-section-title">Metrics</h3>
       <div className="toolbar-details-grid">
-        <Row label="Input" value={`${tokenUsage.inputTokens.toLocaleString()} tokens`} />
-        <Row label="Output" value={`${tokenUsage.outputTokens.toLocaleString()} tokens`} />
+        <Row
+          label="Input"
+          value={`${tokenUsage.inputTokens.toLocaleString()} tokens`}
+        />
+        <Row
+          label="Output"
+          value={`${tokenUsage.outputTokens.toLocaleString()} tokens`}
+        />
         <Row label="Total" value={`${totalTokens.toLocaleString()} tokens`} />
         <Row label="Messages" value={String(messageCount)} />
         <Row label="Duration" value={`▸ ${duration}`} />
@@ -249,19 +207,30 @@ function SessionIdRow({
     setTimeout(() => setCopied(false), 1500);
   };
 
-  const shortId = sessionId.length > 12 ? `${sessionId.slice(0, 12)}...` : sessionId;
+  const shortId =
+    sessionId.length > 12 ? `${sessionId.slice(0, 12)}...` : sessionId;
 
   return (
     <div className="toolbar-detail-item toolbar-detail-item--full">
       <span className="toolbar-detail-label">Session ID</span>
       <div className="toolbar-session-id-row">
-        <span className="toolbar-detail-value" title={sessionId}>{shortId}</span>
-        <button className="toolbar-session-action" onClick={handleCopy} title="Copy session ID">
-          {copied ? "✓" : "📋"}
+        <span className="toolbar-detail-value" title={sessionId}>
+          {shortId}
+        </span>
+        <button
+          className="toolbar-session-action"
+          onClick={handleCopy}
+          title="Copy session ID"
+        >
+          {copied ? <Icon name="check" /> : <Icon name="copy" />}
         </button>
         {onFork && (
-          <button className="toolbar-session-action" onClick={onFork} title="Fork session">
-            🍴
+          <button
+            className="toolbar-session-action"
+            onClick={onFork}
+            title="Fork session"
+          >
+          <Icon name="repo-forked" />
           </button>
         )}
       </div>
@@ -271,18 +240,66 @@ function SessionIdRow({
 
 export function DetailsPanel(p: DetailsPanelProps): React.ReactElement {
   const builtins: ToolbarMeta[] = [];
-  if (p.sessionStatus) builtins.push({ key: "status", label: "Status", value: p.sessionStatus, category: "session" });
-  if (p.sessionId) builtins.push({ key: "sid", label: "Session", value: p.sessionId.slice(0, 8) + "...", category: "session" });
-  if (p.isTurnActive) builtins.push({ key: "turn", label: "Turn", value: "⚡ Active", category: "session" });
+  if (p.sessionStatus)
+    builtins.push({
+      key: "status",
+      label: "Status",
+      value: p.sessionStatus,
+      category: "session",
+    });
+  if (p.sessionId)
+    builtins.push({
+      key: "sid",
+      label: "Session",
+      value: p.sessionId.slice(0, 8) + "...",
+      category: "session",
+    });
+  if (p.isTurnActive)
+    builtins.push({
+      key: "turn",
+      label: "Turn",
+      value: "Active",
+      category: "session",
+    });
 
   const runtime: ToolbarMeta[] = [];
-  if (p.mode) runtime.push({ key: "mode", label: "Mode", value: p.mode, category: "runtime" });
-  if (p.model) runtime.push({ key: "model", label: "Model", value: p.model, category: "runtime" });
-  if (p.provider) runtime.push({ key: "provider", label: "Provider", value: p.provider, category: "runtime" });
-  if (p.maxTokens) runtime.push({ key: "maxTok", label: "Max Tokens", value: p.maxTokens.toLocaleString(), category: "runtime" });
+  if (p.mode)
+    runtime.push({
+      key: "mode",
+      label: "Mode",
+      value: p.mode,
+      category: "runtime",
+    });
+  if (p.model)
+    runtime.push({
+      key: "model",
+      label: "Model",
+      value: p.model,
+      category: "runtime",
+    });
+  if (p.provider)
+    runtime.push({
+      key: "provider",
+      label: "Provider",
+      value: p.provider,
+      category: "runtime",
+    });
+  if (p.maxTokens)
+    runtime.push({
+      key: "maxTok",
+      label: "Max Tokens",
+      value: p.maxTokens.toLocaleString(),
+      category: "runtime",
+    });
 
   const workspace: ToolbarMeta[] = [];
-  if (p.cwd) workspace.push({ key: "cwd", label: "CWD", value: p.cwd, category: "workspace" });
+  if (p.cwd)
+    workspace.push({
+      key: "cwd",
+      label: "CWD",
+      value: p.cwd,
+      category: "workspace",
+    });
 
   const all = [...builtins, ...(p.meta ?? [])];
   const grouped = new Map<string, ToolbarMeta[]>();
@@ -302,15 +319,23 @@ export function DetailsPanel(p: DetailsPanelProps): React.ReactElement {
           {[...grouped.entries()]
             .filter(([c]) => c === "Session")
             .flatMap(([, items]) => items)
-            .map((m) => <Row key={m.key} label={m.label} value={m.value} />)}
-          {p.sessionId && <SessionIdRow sessionId={p.sessionId} onFork={p.onForkSession} />}
+            .map((m) => (
+              <Row key={m.key} label={m.label} value={m.value} />
+            ))}
+          {p.sessionId && (
+            <SessionIdRow sessionId={p.sessionId} onFork={p.onForkSession} />
+          )}
         </div>
       </section>
 
       {runtime.length > 0 && (
         <section className="toolbar-details-section">
           <h3 className="toolbar-details-section-title">Runtime</h3>
-          <div className="toolbar-details-grid">{runtime.map((m) => <Row key={m.key} label={m.label} value={m.value} />)}</div>
+          <div className="toolbar-details-grid">
+            {runtime.map((m) => (
+              <Row key={m.key} label={m.label} value={m.value} />
+            ))}
+          </div>
         </section>
       )}
 
@@ -325,7 +350,11 @@ export function DetailsPanel(p: DetailsPanelProps): React.ReactElement {
       {workspace.length > 0 && (
         <section className="toolbar-details-section">
           <h3 className="toolbar-details-section-title">Workspace</h3>
-          <div className="toolbar-details-grid">{workspace.map((m) => <Row key={m.key} label={m.label} value={m.value} />)}</div>
+          <div className="toolbar-details-grid">
+            {workspace.map((m) => (
+              <Row key={m.key} label={m.label} value={m.value} />
+            ))}
+          </div>
         </section>
       )}
     </div>
@@ -336,30 +365,50 @@ export function DetailsPanel(p: DetailsPanelProps): React.ReactElement {
 
 export function BottomToolbar(props: BottomToolbarProps): React.ReactElement {
   const {
-    model, mode,
-    tokenUsage, contextWindowMax,
-    messageCount, isTurnActive,
-    sessionStatus, agentInfo,
-    sessionId, sessionStartMs,
-    provider, maxTokens, meta,
+    model,
+    mode,
+    tokenUsage,
+    contextWindowMax,
+    messageCount,
+    isTurnActive,
+    sessionStatus,
+    agentInfo,
+    sessionId,
+    sessionStartMs,
+    provider,
+    maxTokens,
+    meta,
     onForkSession,
     statusline,
+    cwd,
   } = props;
 
   const total = tokenUsage.inputTokens + tokenUsage.outputTokens;
   const [open, setOpen] = React.useState(false);
 
-  const ratio = contextWindowMax && total > 0 ? Math.min(total / contextWindowMax, 1) : 0;
+  const ratio =
+    contextWindowMax && total > 0 ? Math.min(total / contextWindowMax, 1) : 0;
 
   // ── chips (priority order per UI-DESIGN.md §4.2) ──────────────────────
   const chips: ToolbarMeta[] = [];
 
   // P2: mode + model (only when turn active)
   if (mode && isTurnActive) {
-    chips.push({ key: "mode", label: "Mode", value: mode, category: "runtime", modeIcon: mode });
+    chips.push({
+      key: "mode",
+      label: "Mode",
+      value: mode,
+      category: "runtime",
+      modeIcon: mode,
+    });
   }
   if (model && isTurnActive) {
-    chips.push({ key: "model", label: "Model", value: model, category: "runtime" });
+    chips.push({
+      key: "model",
+      label: "Model",
+      value: model,
+      category: "runtime",
+    });
   }
 
   // P3: messages (tooltip shows total tokens)
@@ -394,7 +443,7 @@ export function BottomToolbar(props: BottomToolbarProps): React.ReactElement {
       category: "metrics",
       contextColor: colorClass,
     };
-    const tokenIdx = chips.findIndex(c => c.key === "tokens");
+    const tokenIdx = chips.findIndex((c) => c.key === "tokens");
     if (tokenIdx >= 0) {
       chips.splice(tokenIdx, 0, contextChip);
     } else {
@@ -417,7 +466,12 @@ export function BottomToolbar(props: BottomToolbarProps): React.ReactElement {
 
   const toggleDetails = () => setOpen((v) => !v);
 
-  const hasStatusline = statusline && (statusline.hostname || statusline.repoName || statusline.branch || statusline.tag);
+  const hasStatusline =
+    statusline &&
+    (statusline.hostname ||
+      statusline.repoName ||
+      statusline.branch ||
+      statusline.tag);
 
   // Statusline prefix: workspace/repo shown as leftmost text (not chips)
   const statuslinePrefix = hasStatusline
@@ -427,10 +481,20 @@ export function BottomToolbar(props: BottomToolbarProps): React.ReactElement {
   // Branch/tag chips (workspace/repo excluded from chips)
   const statuslineChips: ToolbarMeta[] = [];
   if (statusline?.branch) {
-    statuslineChips.push({ key: "branch", label: "Branch", value: statusline.branch, category: "workspace" });
+    statuslineChips.push({
+      key: "branch",
+      label: "Branch",
+      value: statusline.branch,
+      category: "workspace",
+    });
   }
   if (statusline?.tag) {
-    statuslineChips.push({ key: "tag", label: "Tag", value: statusline.tag, category: "workspace" });
+    statuslineChips.push({
+      key: "tag",
+      label: "Tag",
+      value: statusline.tag,
+      category: "workspace",
+    });
   }
 
   // Session status chip (rendered as a chip, not inline statusline text)
@@ -450,7 +514,9 @@ export function BottomToolbar(props: BottomToolbarProps): React.ReactElement {
       <div className="toolbar-main">
         <div className="toolbar-center">
           {statuslinePrefix && (
-            <span className="toolbar-statusline-prefix">{statuslinePrefix}</span>
+            <span className="toolbar-statusline-prefix">
+              {statuslinePrefix}
+            </span>
           )}
           <div className="toolbar-chips">
             {statuslineChips.map((c) => (
@@ -473,7 +539,10 @@ export function BottomToolbar(props: BottomToolbarProps): React.ReactElement {
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path
                 d={open ? "M3 9L7 5L11 9" : "M3 5L7 9L11 5"}
-                stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               />
             </svg>
           </button>
@@ -483,9 +552,12 @@ export function BottomToolbar(props: BottomToolbarProps): React.ReactElement {
       {/* Row 2: details panel */}
       {open && (
         <DetailsPanel
-          mode={mode} model={model}
+          mode={mode}
+          model={model}
+          cwd={cwd}
           messageCount={messageCount}
-          tokenUsage={tokenUsage} totalTokens={total}
+          tokenUsage={tokenUsage}
+          totalTokens={total}
           isTurnActive={isTurnActive}
           sessionStatus={sessionStatus}
           agentInfo={agentInfo}

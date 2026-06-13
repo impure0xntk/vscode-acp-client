@@ -303,6 +303,19 @@
           "default": 4000,
           "minimum": 100,
           "description": "Max total tokens for context attachments"
+        },
+        "acp.sessionOverviewPosition": {
+          "type": "string",
+          "enum": ["right", "left"],
+          "default": "right",
+          "description": "Position of the session overview panel (right or left)"
+        },
+        "acp.sessionOverviewWidth": {
+          "type": "number",
+          "default": 280,
+          "minimum": 200,
+          "maximum": 600,
+          "description": "Width of the session overview panel in pixels"
         }
       }
     }

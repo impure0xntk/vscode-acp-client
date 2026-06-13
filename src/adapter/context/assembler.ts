@@ -21,7 +21,9 @@ export async function resolveFile(
 ): Promise<ContextAttachment> {
   const ws = fs.workspaceRoot ?? "";
   const base = cwd ?? ws;
-  const absPath = path.isAbsolute(filePath) ? filePath : path.join(base, filePath);
+  const absPath = path.isAbsolute(filePath)
+    ? filePath
+    : path.join(base, filePath);
   const content = await fs.readFile(absPath);
   const label = path.basename(filePath);
 

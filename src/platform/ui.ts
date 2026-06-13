@@ -1,9 +1,9 @@
 // src/platform/ui.ts
 
-import type { Disposable, Event, EventEmitter, PlatformUri } from './types';
+import type { Disposable, Event, EventEmitter, PlatformUri } from "./types";
 
 /** メッセージ重要度 */
-export type MessageSeverity = 'info' | 'warning' | 'error';
+export type MessageSeverity = "info" | "warning" | "error";
 
 /** QuickPick アイテム */
 export interface QuickPickItem {
@@ -57,7 +57,7 @@ export interface OutputChannel {
 /** ツリービューアイテム */
 export interface TreeItem {
   label: string;
-  collapsibleState: 'none' | 'collapsed' | 'expanded';
+  collapsibleState: "none" | "collapsed" | "expanded";
   command?: { command: string; title: string; arguments?: unknown[] };
   iconPath?: string;
   description?: string;
@@ -110,11 +110,13 @@ export interface UIAPI {
   showInputBox(options?: InputBoxOptions): Promise<string | undefined>;
 
   // ── File dialog ──
-  showOpenDialog(options?: OpenDialogOptions): Promise<PlatformUri[] | undefined>;
+  showOpenDialog(
+    options?: OpenDialogOptions
+  ): Promise<PlatformUri[] | undefined>;
 
   // ── Status bar ──
   createStatusBarItem(options: {
-    alignment: 'left' | 'right';
+    alignment: "left" | "right";
     priority?: number;
     command?: string;
   }): StatusBarItem;
@@ -138,13 +140,25 @@ export interface UIAPI {
   ): Disposable;
 
   // ── Commands ──
-  registerCommand(commandId: string, handler: (...args: unknown[]) => unknown): Disposable;
-  executeCommand<T>(commandId: string, ...args: unknown[]): Promise<T | undefined>;
+  registerCommand(
+    commandId: string,
+    handler: (...args: unknown[]) => unknown
+  ): Disposable;
+  executeCommand<T>(
+    commandId: string,
+    ...args: unknown[]
+  ): Promise<T | undefined>;
   setContext(key: string, value: unknown): Promise<void>;
 
   // ── Event emitter ──
   createEventEmitter<T>(): EventEmitter<T>;
 
   // ── Notifications ──
-  showNotification(message: string, items: string[]): Promise<string | undefined>;
+  showNotification(
+    message: string,
+    items: string[]
+  ): Promise<string | undefined>;
+
+  // ── Clipboard ──
+  clipboardWriteText(text: string): Promise<void>;
 }

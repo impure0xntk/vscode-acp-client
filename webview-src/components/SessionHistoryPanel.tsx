@@ -1,4 +1,11 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
+import { Icon } from "../lib/icons";
 
 // ============================================================================
 // Types
@@ -57,9 +64,15 @@ declare function acquireVsCodeApi(): {
 // Helpers
 // ============================================================================
 
-function groupByDate(entries: PersistentSessionEntry[]): Map<string, PersistentSessionEntry[]> {
+function groupByDate(
+  entries: PersistentSessionEntry[]
+): Map<string, PersistentSessionEntry[]> {
   const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const today = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
+  ).getTime();
   const yesterday = today - 86400000;
   const weekAgo = today - 7 * 86400000;
 
@@ -130,12 +143,17 @@ function highlightMatch(text: string, query: string): React.ReactNode {
   );
 }
 
-function exportAsJson(sessions: PersistentSessionEntry[], messages: Map<string, ChatMessage[]>): void {
+function exportAsJson(
+  sessions: PersistentSessionEntry[],
+  messages: Map<string, ChatMessage[]>
+): void {
   const data = sessions.map((s) => ({
     ...s,
     messages: messages.get(s.sessionId) ?? [],
   }));
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json",
+  });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -144,7 +162,10 @@ function exportAsJson(sessions: PersistentSessionEntry[], messages: Map<string, 
   URL.revokeObjectURL(url);
 }
 
-function exportAsMarkdown(sessions: PersistentSessionEntry[], messages: Map<string, ChatMessage[]>): string {
+function exportAsMarkdown(
+  sessions: PersistentSessionEntry[],
+  messages: Map<string, ChatMessage[]>
+): string {
   let md = `# Session History Export\n\n${new Date().toLocaleString()}\n\n---\n\n`;
   for (const s of sessions) {
     md += `## ${s.title}\n\n`;
@@ -195,7 +216,11 @@ function StatusDot({ status }: { status: string }): React.ReactElement {
 // Token usage bar
 // ============================================================================
 
-function TokenBar({ entry }: { entry: PersistentSessionEntry }): React.ReactElement | null {
+function TokenBar({
+  entry,
+}: {
+  entry: PersistentSessionEntry;
+}): React.ReactElement | null {
   const pct = contextUsagePct(entry.tokenUsage.total, entry.contextWindowMax);
   if (!entry.contextWindowMax) return null;
 
@@ -213,7 +238,8 @@ function TokenBar({ entry }: { entry: PersistentSessionEntry }): React.ReactElem
         style={{ width: `${pct}%`, backgroundColor: color }}
       />
       <span className="history-token-bar-label">
-        {pct}% · {formatTokens(entry.tokenUsage.total)}/{formatTokens(entry.contextWindowMax)}
+        {pct}% · {formatTokens(entry.tokenUsage.total)}/
+        {formatTokens(entry.contextWindowMax)}
       </span>
     </div>
   );
@@ -248,13 +274,16 @@ function SessionRow({
         </div>
         <div className="history-item-meta">
           <span className="history-item-agent">{entry.agentId}</span>
-          <span className="history-item-date" title={formatDate(entry.updatedAt)}>
+          <span
+            className="history-item-date"
+            title={formatDate(entry.updatedAt)}
+          >
             {formatRelativeTime(entry.updatedAt)}
           </span>
         </div>
         {entry.workspaceName && (
           <div className="history-item-workspace" title={entry.cwd}>
-            📁 {highlightMatch(entry.workspaceName, query)}
+            <Icon name="folder-opened" size="sm" /> {highlightMatch(entry.workspaceName, query)}
           </div>
         )}
         <TokenBar entry={entry} />
@@ -262,7 +291,8 @@ function SessionRow({
       <div className="history-item-stats">
         <span className="history-item-msgs">{entry.messageCount} msgs</span>
         <span className="history-item-tokens">
-          ↑{formatTokens(entry.tokenUsage.input)} ↓{formatTokens(entry.tokenUsage.output)}
+          ↑{formatTokens(entry.tokenUsage.input)} ↓
+          {formatTokens(entry.tokenUsage.output)}
         </span>
       </div>
       <div className="history-item-actions">
@@ -274,14 +304,14 @@ function SessionRow({
           }}
           title={entry.isArchived ? "Unarchive" : "Archive"}
         >
-          {entry.isArchived ? "📦" : "📥"}
+          {entry.isArchived ? <Icon name="archive" size="sm" /> : <Icon name="save" size="sm" />}
         </button>
         <button
           className="history-item-action-btn history-item-delete"
           onClick={onDelete}
           title="Delete session"
         >
-          ×
+          <Icon name="close" size="sm" />
         </button>
       </div>
     </div>
@@ -323,15 +353,21 @@ function SessionDetailModal({
     setExpandedMsgs(initial);
   }, [messages]);
 
-  const pct = contextUsagePct(session.tokenUsage.total, session.contextWindowMax);
+  const pct = contextUsagePct(
+    session.tokenUsage.total,
+    session.contextWindowMax
+  );
 
   return (
     <div className="history-modal-overlay" onClick={onClose}>
-      <div className="history-modal history-modal-lg" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="history-modal history-modal-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="history-modal-header">
           <h4>{session.title}</h4>
           <button className="history-modal-close" onClick={onClose}>
-            ×
+            <Icon name="close" size="sm" />
           </button>
         </div>
         <div className="history-modal-meta">
@@ -340,7 +376,8 @@ function SessionDetailModal({
           <span>{formatDate(session.updatedAt)}</span>
           <span>{session.messageCount} messages</span>
           <span>
-            ↑{formatTokens(session.tokenUsage.input)} ↓{formatTokens(session.tokenUsage.output)}
+            ↑{formatTokens(session.tokenUsage.input)} ↓
+            {formatTokens(session.tokenUsage.output)}
           </span>
         </div>
         {session.contextWindowMax != null && (
@@ -367,7 +404,9 @@ function SessionDetailModal({
         )}
         <div className="history-modal-messages" ref={msgListRef}>
           {messages.length === 0 ? (
-            <div className="history-modal-empty">No messages in this session.</div>
+            <div className="history-modal-empty">
+              No messages in this session.
+            </div>
           ) : (
             messages.map((msg) => {
               const isExpanded = expandedMsgs.has(msg.id);
@@ -382,7 +421,9 @@ function SessionDetailModal({
                     <span className="history-message-time">
                       {new Date(msg.timestamp).toLocaleString()}
                     </span>
-                    <span className="history-message-chevron">{isExpanded ? "▾" : "▸"}</span>
+                    <span className="history-message-chevron">
+                      {isExpanded ? "▾" : "▸"}
+                    </span>
                   </div>
                   {isExpanded && (
                     <div className="history-message-content">{msg.content}</div>
@@ -393,22 +434,27 @@ function SessionDetailModal({
                       {msg.content.length > 120 ? "…" : ""}
                     </div>
                   )}
-                  {msg.inlineFilePaths && msg.inlineFilePaths.length > 0 && isExpanded && (
-                    <div className="history-message-files">
-                      {msg.inlineFilePaths.map((fp) => (
-                        <span key={fp} className="history-message-file">
-                          📎 {fp}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  {msg.inlineFilePaths &&
+                    msg.inlineFilePaths.length > 0 &&
+                    isExpanded && (
+                      <div className="history-message-files">
+                        {msg.inlineFilePaths.map((fp) => (
+                          <span key={fp} className="history-message-file">
+                            <Icon name="paperclip" size="sm" /> {fp}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                 </div>
               );
             })
           )}
         </div>
         <div className="history-modal-footer">
-          <button className="history-btn history-btn-primary" onClick={onRestore}>
+          <button
+            className="history-btn history-btn-primary"
+            onClick={onRestore}
+          >
             Restore Session
           </button>
           <button className="history-btn" onClick={onClose}>
@@ -436,7 +482,9 @@ function CompareBar({
   const maxMsgs = Math.max(...sessions.map((s) => s.messageCount));
   const maxTokens = Math.max(...sessions.map((s) => s.tokenUsage.total));
   const maxCtx = Math.max(
-    ...sessions.map((s) => (s.contextWindowMax ? s.tokenUsage.total / s.contextWindowMax : 0))
+    ...sessions.map((s) =>
+      s.contextWindowMax ? s.tokenUsage.total / s.contextWindowMax : 0
+    )
   );
 
   return (
@@ -459,7 +507,10 @@ function CompareBar({
         </thead>
         <tbody>
           {sessions.map((s) => {
-            const ctxPct = contextUsagePct(s.tokenUsage.total, s.contextWindowMax);
+            const ctxPct = contextUsagePct(
+              s.tokenUsage.total,
+              s.contextWindowMax
+            );
             return (
               <tr key={s.sessionId}>
                 <td title={s.title} className="history-compare-title">
@@ -564,7 +615,8 @@ export function SessionHistoryPanel({
   const [sessions, setSessions] = useState<PersistentSessionEntry[]>([]);
   const [query, setQuery] = useState("");
   const [selectedAgent, setSelectedAgent] = useState<string>("all");
-  const [selectedSession, setSelectedSession] = useState<PersistentSessionEntry | null>(null);
+  const [selectedSession, setSelectedSession] =
+    useState<PersistentSessionEntry | null>(null);
   const [sessionMessages, setSessionMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [stats, setStats] = useState<{
@@ -577,7 +629,9 @@ export function SessionHistoryPanel({
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [compareSet, setCompareSet] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
-  const [allMessages, setAllMessages] = useState<Map<string, ChatMessage[]>>(new Map());
+  const [allMessages, setAllMessages] = useState<Map<string, ChatMessage[]>>(
+    new Map()
+  );
 
   // Listen for messages from extension host
   useEffect(() => {
@@ -611,7 +665,9 @@ export function SessionHistoryPanel({
           vscode.postMessage({ type: "history:getAll" });
           break;
         case "history:deleted":
-          setSessions((prev) => prev.filter((s) => s.sessionId !== msg.sessionId));
+          setSessions((prev) =>
+            prev.filter((s) => s.sessionId !== msg.sessionId)
+          );
           setSessionMessages([]);
           break;
         case "history:stats":
@@ -675,7 +731,8 @@ export function SessionHistoryPanel({
       let cmp = 0;
       switch (sortField) {
         case "updatedAt":
-          cmp = new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
+          cmp =
+            new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
           break;
         case "messageCount":
           cmp = a.messageCount - b.messageCount;
@@ -724,7 +781,10 @@ export function SessionHistoryPanel({
         setSessionMessages(allMessages.get(session.sessionId)!);
         setIsLoading(false);
       } else {
-        vscode.postMessage({ type: "history:getSession", sessionId: session.sessionId });
+        vscode.postMessage({
+          type: "history:getSession",
+          sessionId: session.sessionId,
+        });
       }
     },
     [vscode, allMessages]
@@ -766,7 +826,10 @@ export function SessionHistoryPanel({
   const handleCleanup = useCallback(() => {
     const days = prompt("Delete sessions older than how many days?", "90");
     if (days) {
-      vscode.postMessage({ type: "history:cleanup", maxAgeDays: parseInt(days, 10) });
+      vscode.postMessage({
+        type: "history:cleanup",
+        maxAgeDays: parseInt(days, 10),
+      });
     }
   }, [vscode]);
 
@@ -804,14 +867,22 @@ export function SessionHistoryPanel({
       <div className="history-header">
         <h3 className="history-title">Session History</h3>
         <div className="history-header-actions">
-          <button className="history-btn" onClick={handleExportJson} title="Export as JSON">
-            📤 JSON
+          <button
+            className="history-btn"
+            onClick={handleExportJson}
+            title="Export as JSON"
+          >
+            <Icon name="desktop-download" size="sm" /> JSON
           </button>
-          <button className="history-btn" onClick={handleExportMarkdown} title="Export as Markdown">
-            📄 MD
+          <button
+            className="history-btn"
+            onClick={handleExportMarkdown}
+            title="Export as Markdown"
+          >
+            <Icon name="file" size="sm" /> MD
           </button>
           <button className="history-close-btn" onClick={onClose} title="Close">
-            ×
+            <Icon name="close" size="sm" />
           </button>
         </div>
       </div>
@@ -900,7 +971,9 @@ export function SessionHistoryPanel({
                   entry={entry}
                   query={query}
                   onClick={() => handleSessionClick(entry)}
-                  onArchive={() => handleArchive(entry.sessionId, entry.isArchived)}
+                  onArchive={() =>
+                    handleArchive(entry.sessionId, entry.isArchived)
+                  }
                   onDelete={(e) => handleDelete(entry.sessionId, e)}
                 />
               ))}

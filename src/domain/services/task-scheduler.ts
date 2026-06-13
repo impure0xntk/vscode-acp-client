@@ -60,7 +60,11 @@ export class TaskSchedulerService extends EventEmitter {
     }
 
     task.status = status;
-    if (status === "completed" || status === "failed" || status === "cancelled") {
+    if (
+      status === "completed" ||
+      status === "failed" ||
+      status === "cancelled"
+    ) {
       task.completedAt = new Date();
     }
 
@@ -80,7 +84,7 @@ export class TaskSchedulerService extends EventEmitter {
     const unresolved = this.resolveDependencies(task.id);
     if (unresolved.length > 0) {
       throw new Error(
-        `Task ${task.id} has unresolved dependencies: ${unresolved.map((t) => t.id).join(", ")}`,
+        `Task ${task.id} has unresolved dependencies: ${unresolved.map((t) => t.id).join(", ")}`
       );
     }
 
@@ -103,16 +107,18 @@ export class TaskSchedulerService extends EventEmitter {
     for (const depId of task.dependencies) {
       const dep = this.tasks.get(depId);
       if (!dep || dep.status !== "completed") {
-        unresolved.push(dep ?? {
-          id: depId,
-          type: "single_agent",
-          status: "pending",
-          assignedAgentId: "",
-          input: undefined,
-          subtasks: [],
-          dependencies: [],
-          createdAt: new Date(),
-        });
+        unresolved.push(
+          dep ?? {
+            id: depId,
+            type: "single_agent",
+            status: "pending",
+            assignedAgentId: "",
+            input: undefined,
+            subtasks: [],
+            dependencies: [],
+            createdAt: new Date(),
+          }
+        );
       }
     }
     return unresolved;
@@ -128,7 +134,7 @@ export class TaskSchedulerService extends EventEmitter {
    */
   async executePipeline(
     taskIds: string[],
-    executeFn: (task: Task) => Promise<unknown>,
+    executeFn: (task: Task) => Promise<unknown>
   ): Promise<unknown[]> {
     const results: unknown[] = [];
     let previousOutput: unknown = undefined;
@@ -167,7 +173,7 @@ export class TaskSchedulerService extends EventEmitter {
    */
   async executeParallel(
     taskIds: string[],
-    executeFn: (task: Task) => Promise<unknown>,
+    executeFn: (task: Task) => Promise<unknown>
   ): Promise<unknown[]> {
     const tasks: Task[] = [];
 
@@ -194,7 +200,9 @@ export class TaskSchedulerService extends EventEmitter {
       for (const task of tasks) {
         this.updateTaskStatus(task.id, "failed");
       }
-      throw new Error(`${failures.length} task(s) failed in parallel execution`);
+      throw new Error(
+        `${failures.length} task(s) failed in parallel execution`
+      );
     }
 
     // Mark all as completed
@@ -218,7 +226,9 @@ export class TaskSchedulerService extends EventEmitter {
   }
 
   getTasksForAgent(agentId: string): Task[] {
-    return Array.from(this.tasks.values()).filter((t) => t.assignedAgentId === agentId);
+    return Array.from(this.tasks.values()).filter(
+      (t) => t.assignedAgentId === agentId
+    );
   }
 
   // ========================================================================

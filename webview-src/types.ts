@@ -1,5 +1,30 @@
 import React from "react";
 
+// ── Session Overview ─────────────────────────────────────────────────────────
+
+export interface SessionOverviewItem {
+  sessionId: string;
+  agentId: string;
+  title: string;
+  status: string;
+  messageCount: number;
+  lastUpdated: string;
+  /** Unread message count — populated by webview from tab state */
+  unreadCount?: number;
+}
+
+export type SessionOverviewFilter = "all" | "active" | "idle";
+
+export interface SessionOverviewState {
+  sessions: SessionOverviewItem[];
+  lastUpdated: string;
+  filter: SessionOverviewFilter;
+  expandedSessions: string[];
+  /** Currently active session for highlight synchronisation with tab bar */
+  activeSessionId?: string;
+  activeAgentId?: string;
+}
+
 export interface MessageContent {
   type: "text";
   text: string;
@@ -118,5 +143,3 @@ export interface FullState {
   tokenUsage: TokenUsage;
   isTurnActive: boolean;
 }
-
-

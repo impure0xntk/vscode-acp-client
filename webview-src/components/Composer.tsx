@@ -1,6 +1,12 @@
-import React, { useState, useRef, useCallback, type KeyboardEvent } from "react";
+import React, {
+  useState,
+  useRef,
+  useCallback,
+  type KeyboardEvent,
+} from "react";
 import type { ContextAttachment, SuggestionItem, TriggerType } from "../types";
 import type { SlashCommand } from "../hooks/useSessionContext";
+import { Icon } from "../lib/icons";
 import { ContextBar } from "./ContextBar";
 import { ContextPicker } from "./ContextPicker";
 import type { FileCandidate } from "./ContextPicker";
@@ -83,7 +89,8 @@ export function Composer({
 
         if (ch === "/") {
           // /command — no space gap allowed between / and query
-          if (afterTrigger.includes(" ") || afterTrigger.includes("\n")) continue;
+          if (afterTrigger.includes(" ") || afterTrigger.includes("\n"))
+            continue;
           return {
             active: true,
             trigger: ch,
@@ -177,7 +184,11 @@ export function Composer({
   // ── Suggestion fetch (delegates to Composer's own fetchers) ─────
 
   const fetchSuggestions = useCallback(
-    async (trigger: TriggerType, query: string, subTrigger?: "symbol" | "file"): Promise<SuggestionItem[]> => {
+    async (
+      trigger: TriggerType,
+      query: string,
+      subTrigger?: "symbol" | "file"
+    ): Promise<SuggestionItem[]> => {
       if (trigger === "/") {
         // Build items from agent-provided commands
         const agentItems: SuggestionItem[] = availableCommands.map((cmd) => ({
@@ -186,20 +197,36 @@ export function Composer({
           label: `/${cmd.name}`,
           value: `/${cmd.name}`,
           detail: cmd.description ?? undefined,
-          icon: "⚡",
+          icon: "zap",
         }));
 
         // Built-in commands (shown when no agent commands or alongside them)
         const builtIn: SuggestionItem[] = [
-          { id: "/new", kind: "command", label: "/new", value: "/new", detail: "Start a new session", icon: "✨" },
-          { id: "/reset", kind: "command", label: "/reset", value: "/reset", detail: "Reset current session", icon: "🔄" },
+          {
+            id: "/new",
+            kind: "command",
+            label: "/new",
+            value: "/new",
+            detail: "Start a new session",
+            icon: "sparkle",
+          },
+          {
+            id: "/reset",
+            kind: "command",
+            label: "/reset",
+            value: "/reset",
+            detail: "Reset current session",
+            icon: "sync",
+          },
         ];
 
         const all = [...agentItems, ...builtIn];
         if (query) {
           const q = query.toLowerCase();
           return all.filter(
-            (c) => c.label.toLowerCase().includes(q) || (c.detail ?? "").toLowerCase().includes(q)
+            (c) =>
+              c.label.toLowerCase().includes(q) ||
+              (c.detail ?? "").toLowerCase().includes(q)
           );
         }
         return all;
@@ -219,7 +246,7 @@ export function Composer({
           label: f.name,
           value: f.relativePath,
           detail: f.relativePath,
-          icon: "📄",
+          icon: "file",
         }));
         fileItems.push(
           {
@@ -227,14 +254,14 @@ export function Composer({
             kind: "selection",
             label: "#selection — Attach current selection",
             value: "__selection__",
-            icon: "🖱",
+            icon: "selection",
           },
           {
             id: "special:diff",
             kind: "diff",
             label: "#diff — Attach working tree diff",
             value: "__diff__",
-            icon: "📋",
+            icon: "diff-single",
           }
         );
         return fileItems;
@@ -242,15 +269,45 @@ export function Composer({
 
       // subTrigger === undefined → "# " — show subcommand completions
       const subCommands: SuggestionItem[] = [
-        { id: "sub:file", kind: "file", label: "file", value: "file", detail: "Attach a file", icon: "📄" },
-        { id: "sub:symbol", kind: "symbol", label: "symbol", value: "symbol", detail: "Attach a symbol", icon: "🔷" },
-        { id: "sub:selection", kind: "selection", label: "selection", value: "__selection__", detail: "Attach current selection", icon: "🖱" },
-        { id: "sub:diff", kind: "diff", label: "diff", value: "__diff__", detail: "Attach working tree diff", icon: "📋" },
+        {
+          id: "sub:file",
+          kind: "file",
+          label: "file",
+          value: "file",
+          detail: "Attach a file",
+          icon: "file",
+        },
+        {
+          id: "sub:symbol",
+          kind: "symbol",
+          label: "symbol",
+          value: "symbol",
+          detail: "Attach a symbol",
+          icon: "symbol-class",
+        },
+        {
+          id: "sub:selection",
+          kind: "selection",
+          label: "selection",
+          value: "__selection__",
+          detail: "Attach current selection",
+          icon: "selection",
+        },
+        {
+          id: "sub:diff",
+          kind: "diff",
+          label: "diff",
+          value: "__diff__",
+          detail: "Attach working tree diff",
+          icon: "diff-single",
+        },
       ];
       if (query) {
         const q = query.toLowerCase();
         return subCommands.filter(
-          (c) => c.label.toLowerCase().includes(q) || (c.detail ?? "").toLowerCase().includes(q)
+          (c) =>
+            c.label.toLowerCase().includes(q) ||
+            (c.detail ?? "").toLowerCase().includes(q)
         );
       }
       return subCommands;
@@ -267,19 +324,16 @@ export function Composer({
    * For "#file":      "#file" = 1 + subTrigger.length (no space, no query)
    * For "#query":     "#query" = 1 + query.length
    */
-  const getConsumedLength = useCallback(
-    (ts: TriggerState): number => {
-      if (ts.trigger === "/") return 1 + ts.query.length;
-      // "#"
-      if (ts.subTrigger) {
-        // "#subTrigger" + optional " query"
-        const base = 1 + ts.subTrigger.length;
-        return ts.query.length > 0 ? base + 1 + ts.query.length : base;
-      }
-      return 1 + ts.query.length;
-    },
-    []
-  );
+  const getConsumedLength = useCallback((ts: TriggerState): number => {
+    if (ts.trigger === "/") return 1 + ts.query.length;
+    // "#"
+    if (ts.subTrigger) {
+      // "#subTrigger" + optional " query"
+      const base = 1 + ts.subTrigger.length;
+      return ts.query.length > 0 ? base + 1 + ts.query.length : base;
+    }
+    return 1 + ts.query.length;
+  }, []);
 
   const handleSelect = useCallback(
     async (item: SuggestionItem) => {
@@ -363,7 +417,15 @@ export function Composer({
       setPickerIndex(0);
       textareaRef.current?.focus();
     },
-    [text, triggerState, resolveFile, resolveSelection, resolveDiff, resolveSymbol, getConsumedLength]
+    [
+      text,
+      triggerState,
+      resolveFile,
+      resolveSelection,
+      resolveDiff,
+      resolveSymbol,
+      getConsumedLength,
+    ]
   );
 
   const handleCloseTrigger = useCallback(() => {
@@ -410,9 +472,12 @@ export function Composer({
 
   const pickerKeyDownRef = useRef<((e: KeyboardEvent) => void) | null>(null);
 
-  const handlePickerKeyDown = useCallback((handler: (e: KeyboardEvent) => void) => {
-    pickerKeyDownRef.current = handler;
-  }, []);
+  const handlePickerKeyDown = useCallback(
+    (handler: (e: KeyboardEvent) => void) => {
+      pickerKeyDownRef.current = handler;
+    },
+    []
+  );
 
   const clearPickerKeyDown = useCallback(() => {
     pickerKeyDownRef.current = null;
@@ -513,7 +578,11 @@ export function Composer({
           rows={1}
         />
         {isTurnActive ? (
-          <button className="stop-button" onClick={onCancel} title="Stop generation">
+          <button
+            className="stop-button"
+            onClick={onCancel}
+            title="Stop generation"
+          >
             ■
           </button>
         ) : (

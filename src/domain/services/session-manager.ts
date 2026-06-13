@@ -4,7 +4,11 @@
 
 import { EventEmitter } from "events";
 import type { Session, SessionStatus, SessionContext } from "../models/session";
-import type { OrchestrationEventType, EventListener, Unsubscribe } from "../models/orchestration";
+import type {
+  OrchestrationEventType,
+  EventListener,
+  Unsubscribe,
+} from "../models/orchestration";
 import { StateManager } from "./state-manager";
 
 // ============================================================================
@@ -30,7 +34,7 @@ export class SessionManager extends EventEmitter {
   createSession(
     agentId: string,
     sessionId: string,
-    context?: Partial<SessionContext>,
+    context?: Partial<SessionContext>
   ): Session {
     const now = new Date();
     const session: Session = {
@@ -73,7 +77,11 @@ export class SessionManager extends EventEmitter {
     return this.sessions.get(agentId)?.get(sessionId);
   }
 
-  updateSessionStatus(agentId: string, sessionId: string, status: SessionStatus): void {
+  updateSessionStatus(
+    agentId: string,
+    sessionId: string,
+    status: SessionStatus
+  ): void {
     const session = this.getSession(agentId, sessionId);
     if (!session) {
       throw new Error(`Session ${sessionId} not found for agent ${agentId}`);
@@ -166,7 +174,7 @@ export class SessionManager extends EventEmitter {
 
   onSessionEvent(
     type: OrchestrationEventType,
-    listener: EventListener,
+    listener: EventListener
   ): Unsubscribe {
     return this.stateManager.subscribe(type, listener);
   }

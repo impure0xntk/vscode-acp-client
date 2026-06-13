@@ -92,7 +92,7 @@ describe("Orchestrator — Handoff", () => {
     assert.strictEqual(newSession.context.parentSessionId, "sess-1");
     assert.strictEqual(
       (newSession.context.metadata as Record<string, unknown>).handedOffFrom,
-      "claude",
+      "claude"
     );
   });
 
@@ -113,14 +113,16 @@ describe("Orchestrator — Handoff", () => {
   it("handoff throws for non-existent source session", () => {
     assert.throws(
       () => orch.handoff("claude", "gpt4", "nonexistent", "sess-2"),
-      /not found/,
+      /not found/
     );
   });
 
   it("handoff emits agent.handoff event", () => {
     orch.startSession("claude", "sess-1");
     let received = false;
-    orch.subscribe("agent.handoff", () => { received = true; });
+    orch.subscribe("agent.handoff", () => {
+      received = true;
+    });
     orch.handoff("claude", "gpt4", "sess-1", "sess-2");
     assert.strictEqual(received, true);
   });
@@ -147,7 +149,7 @@ describe("Orchestrator — Multi-Agent Execution", () => {
       async (agentId, input) => {
         order.push(agentId);
         return `${input}-done`;
-      },
+      }
     );
 
     assert.strictEqual(results.length, 2);
@@ -164,7 +166,7 @@ describe("Orchestrator — Multi-Agent Execution", () => {
         { agentId: "a1", input: 10 },
         { agentId: "a2", input: 0 },
       ],
-      async (_agentId, input) => (input as number) + 1,
+      async (_agentId, input) => (input as number) + 1
     );
 
     assert.strictEqual(results[0], 11);
@@ -173,11 +175,11 @@ describe("Orchestrator — Multi-Agent Execution", () => {
 
   it("executePipeline stops on failure", async () => {
     await assert.rejects(
-      () => orch.executePipeline(
-        [{ agentId: "a1", input: "ok" }],
-        async () => { throw new Error("pipeline error"); },
-      ),
-      /pipeline error/,
+      () =>
+        orch.executePipeline([{ agentId: "a1", input: "ok" }], async () => {
+          throw new Error("pipeline error");
+        }),
+      /pipeline error/
     );
   });
 
@@ -187,7 +189,7 @@ describe("Orchestrator — Multi-Agent Execution", () => {
         { agentId: "claude", input: "x" },
         { agentId: "gpt4", input: "y" },
       ],
-      async (_agentId, input) => `${input}-result`,
+      async (_agentId, input) => `${input}-result`
     );
 
     assert.strictEqual(results.length, 2);
@@ -197,24 +199,26 @@ describe("Orchestrator — Multi-Agent Execution", () => {
 
   it("executeParallel fails all on first error", async () => {
     await assert.rejects(
-      () => orch.executeParallel(
-        [{ agentId: "a1", input: "ok" }],
-        async () => { throw new Error("parallel error"); },
-      ),
-      /task\(s\) failed/,
+      () =>
+        orch.executeParallel([{ agentId: "a1", input: "ok" }], async () => {
+          throw new Error("parallel error");
+        }),
+      /task\(s\) failed/
     );
   });
 
   it("executePipeline creates correct number of task events", async () => {
     let eventCount = 0;
-    orch.subscribeAll(() => { eventCount++; });
+    orch.subscribeAll(() => {
+      eventCount++;
+    });
 
     await orch.executePipeline(
       [
         { agentId: "a", input: "1" },
         { agentId: "b", input: "2" },
       ],
-      async (_agentId, input) => input,
+      async (_agentId, input) => input
     );
 
     // Each task emits task.created + task.status_changed (running) + task.status_changed (completed) = 3 events per task
@@ -312,8 +316,14 @@ describe("Orchestrator — Cleanup", () => {
 
     orch.dispose();
 
-    assert.strictEqual(orch.sessionManager.getSessionsForAgent("claude").length, 0);
+    assert.strictEqual(
+      orch.sessionManager.getSessionsForAgent("claude").length,
+      0
+    );
     assert.strictEqual(orch.agentRegistry.listAgents().length, 0);
-    assert.strictEqual(orch.taskScheduler.getTasksByStatus("pending").length, 0);
+    assert.strictEqual(
+      orch.taskScheduler.getTasksByStatus("pending").length,
+      0
+    );
   });
 });

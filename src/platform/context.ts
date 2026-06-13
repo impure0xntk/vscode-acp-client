@@ -1,6 +1,6 @@
 // src/platform/context.ts
 
-import type { Disposable, PlatformUri } from './types';
+import type { Disposable, PlatformUri } from "./types";
 
 /** Memento (key-value store) */
 export interface Memento {

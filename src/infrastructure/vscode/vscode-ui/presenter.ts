@@ -35,7 +35,11 @@ export interface SessionInfoSnapshot {
   status: import("../../../domain/models/session").SessionStatus;
   isTurnActive: boolean;
   isStreaming: boolean;
-  tokenUsage: { inputTokens: number; outputTokens: number; totalTokens: number };
+  tokenUsage: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+  };
   contextWindowMax?: number;
   cwd?: string;
   model?: string;
@@ -77,7 +81,10 @@ export class ChatPresenter {
   // Configuration
   // -----------------------------------------------------------------------
 
-  setWorkspace(root: string | null, folders: Array<{ name: string; path: string }>): void {
+  setWorkspace(
+    root: string | null,
+    folders: Array<{ name: string; path: string }>
+  ): void {
     this.workspaceRoot = root;
     this.workspaceFolders = folders;
   }
@@ -86,7 +93,12 @@ export class ChatPresenter {
   // Agent updates
   // -----------------------------------------------------------------------
 
-  upsertAgent(agentId: string, name: string, state: string, color?: string): void {
+  upsertAgent(
+    agentId: string,
+    name: string,
+    state: string,
+    color?: string
+  ): void {
     this.agents.set(agentId, { agentId, name, state, color });
   }
 
@@ -107,7 +119,11 @@ export class ChatPresenter {
   // Session updates — only UI-specific fields
   // -----------------------------------------------------------------------
 
-  upsertSession(session: SessionStatusInfo, agentId: string, createdAt: Date): void {
+  upsertSession(
+    session: SessionStatusInfo,
+    agentId: string,
+    createdAt: Date
+  ): void {
     const key = `${agentId}:${session.sessionId}`;
     const existing = this.tabs.get(key);
     const tab: TabData = {
@@ -131,7 +147,8 @@ export class ChatPresenter {
         outputTokens: session.tokenUsage.output,
         totalTokens: session.tokenUsage.total,
       },
-      contextWindowMax: (session as unknown as { contextWindowMax?: number }).contextWindowMax,
+      contextWindowMax: (session as unknown as { contextWindowMax?: number })
+        .contextWindowMax,
       cwd: session.cwd,
       model: session.model,
       mode: session.mode,
@@ -178,7 +195,11 @@ export class ChatPresenter {
     };
   }
 
-  buildTabUpdate(sessionId: string, agentId: string, updates: Partial<TabData>): {
+  buildTabUpdate(
+    sessionId: string,
+    agentId: string,
+    updates: Partial<TabData>
+  ): {
     type: "updateTab";
     sessionId: string;
     agentId: string;
@@ -187,7 +208,11 @@ export class ChatPresenter {
     return { type: "updateTab", sessionId, agentId, updates };
   }
 
-  buildSessionCompleted(sessionId: string, agentId: string, title: string): {
+  buildSessionCompleted(
+    sessionId: string,
+    agentId: string,
+    title: string
+  ): {
     type: "session/completed";
     agentId: string;
     sessionId: string;
@@ -199,13 +224,21 @@ export class ChatPresenter {
   buildSessionUsage(
     agentId: string,
     sessionId: string,
-    tokenUsage: { inputTokens: number; outputTokens: number; totalTokens: number },
-    contextWindowMax?: number,
+    tokenUsage: {
+      inputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+    },
+    contextWindowMax?: number
   ): {
     type: "session/usage";
     agentId: string;
     sessionId: string;
-    tokenUsage: { inputTokens: number; outputTokens: number; totalTokens: number };
+    tokenUsage: {
+      inputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+    };
     contextWindowMax?: number;
   } {
     return {
@@ -220,7 +253,7 @@ export class ChatPresenter {
   buildSessionCommands(
     agentId: string,
     sessionId: string,
-    commands: unknown[],
+    commands: unknown[]
   ): {
     type: "session/commands";
     agentId: string;

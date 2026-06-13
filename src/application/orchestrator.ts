@@ -25,7 +25,11 @@ import { AgentRegistryService } from "../domain/services/agent-registry";
 import { MessageRouterService } from "../domain/services/message-router";
 import { TaskSchedulerService } from "../domain/services/task-scheduler";
 import type { Task, TaskDefinition } from "../domain/models/task";
-import type { OrchestrationEventType, EventListener, Unsubscribe } from "../domain/models/orchestration";
+import type {
+  OrchestrationEventType,
+  EventListener,
+  Unsubscribe,
+} from "../domain/models/orchestration";
 
 export {
   SessionOrchestrator,
@@ -103,7 +107,7 @@ export class Orchestrator {
   startSession(
     agentId: string,
     sessionId: string,
-    context?: Record<string, unknown>,
+    context?: Record<string, unknown>
   ): import("../domain/models/session").Session {
     return this.sessionManager.createSession(agentId, sessionId, {
       variables: context ?? {},
@@ -131,27 +135,40 @@ export class Orchestrator {
     fromAgentId: string,
     toAgentId: string,
     sessionId: string,
-    newSessionId: string,
+    newSessionId: string
   ): import("../domain/models/session").Session {
-    const sourceSession = this.sessionManager.getSession(fromAgentId, sessionId);
+    const sourceSession = this.sessionManager.getSession(
+      fromAgentId,
+      sessionId
+    );
     if (!sourceSession) {
-      throw new Error(`Session ${sessionId} not found for agent ${fromAgentId}`);
+      throw new Error(
+        `Session ${sessionId} not found for agent ${fromAgentId}`
+      );
     }
 
     // Create new session with target agent
-    const newSession = this.sessionManager.createSession(toAgentId, newSessionId, {
-      variables: { ...sourceSession.context.variables },
-      parentSessionId: sessionId,
-      childSessionIds: [],
-      metadata: {
-        ...sourceSession.context.metadata,
-        handedOffFrom: fromAgentId,
-      },
-    });
+    const newSession = this.sessionManager.createSession(
+      toAgentId,
+      newSessionId,
+      {
+        variables: { ...sourceSession.context.variables },
+        parentSessionId: sessionId,
+        childSessionIds: [],
+        metadata: {
+          ...sourceSession.context.metadata,
+          handedOffFrom: fromAgentId,
+        },
+      }
+    );
 
     // Update source session
     sourceSession.context.childSessionIds.push(newSessionId);
-    this.sessionManager.updateSessionStatus(fromAgentId, sessionId, "completed");
+    this.sessionManager.updateSessionStatus(
+      fromAgentId,
+      sessionId,
+      "completed"
+    );
 
     // Emit handoff event
     const event = this.stateManager.createEvent("agent.handoff", {
@@ -175,7 +192,7 @@ export class Orchestrator {
    */
   async executePipeline(
     tasks: Array<{ agentId: string; input: unknown }>,
-    executeFn: (agentId: string, input: unknown) => Promise<unknown>,
+    executeFn: (agentId: string, input: unknown) => Promise<unknown>
   ): Promise<unknown[]> {
     const taskDefinitions: TaskDefinition[] = tasks.map((t) => ({
       type: "single_agent" as const,
@@ -183,7 +200,9 @@ export class Orchestrator {
       input: t.input,
     }));
 
-    const createdTasks = taskDefinitions.map((def) => this.taskScheduler.createTask(def));
+    const createdTasks = taskDefinitions.map((def) =>
+      this.taskScheduler.createTask(def)
+    );
     const taskIds = createdTasks.map((t) => t.id);
 
     return this.taskScheduler.executePipeline(taskIds, async (task) => {
@@ -196,7 +215,7 @@ export class Orchestrator {
    */
   async executeParallel(
     tasks: Array<{ agentId: string; input: unknown }>,
-    executeFn: (agentId: string, input: unknown) => Promise<unknown>,
+    executeFn: (agentId: string, input: unknown) => Promise<unknown>
   ): Promise<unknown[]> {
     const taskDefinitions: TaskDefinition[] = tasks.map((t) => ({
       type: "single_agent" as const,
@@ -204,7 +223,9 @@ export class Orchestrator {
       input: t.input,
     }));
 
-    const createdTasks = taskDefinitions.map((def) => this.taskScheduler.createTask(def));
+    const createdTasks = taskDefinitions.map((def) =>
+      this.taskScheduler.createTask(def)
+    );
     const taskIds = createdTasks.map((t) => t.id);
 
     return this.taskScheduler.executeParallel(taskIds, async (task) => {
@@ -219,7 +240,10 @@ export class Orchestrator {
   /**
    * Subscribe to orchestration events.
    */
-  subscribe(eventType: OrchestrationEventType, listener: EventListener): Unsubscribe {
+  subscribe(
+    eventType: OrchestrationEventType,
+    listener: EventListener
+  ): Unsubscribe {
     return this.stateManager.subscribe(eventType, listener);
   }
 
@@ -233,7 +257,9 @@ export class Orchestrator {
   /**
    * Get current orchestration state.
    */
-  getState(): Readonly<import("../domain/models/orchestration").OrchestrationState> {
+  getState(): Readonly<
+    import("../domain/models/orchestration").OrchestrationState
+  > {
     return this.stateManager.getState();
   }
 

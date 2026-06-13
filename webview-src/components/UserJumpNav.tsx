@@ -6,7 +6,10 @@ export interface UserJumpNavProps {
   onJumpTo: (messageId: string) => void;
 }
 
-export function UserJumpNav({ messages, onJumpTo }: UserJumpNavProps): React.ReactElement {
+export function UserJumpNav({
+  messages,
+  onJumpTo,
+}: UserJumpNavProps): React.ReactElement {
   const userMessages = messages.filter((m) => m.role === "user");
   const total = userMessages.length;
 
@@ -14,7 +17,9 @@ export function UserJumpNav({ messages, onJumpTo }: UserJumpNavProps): React.Rea
 
   // Clamp index when total changes (e.g. new message arrives)
   useEffect(() => {
-    setCurrentIdx((prev) => Math.min(Math.max(0, prev), Math.max(0, total - 1)));
+    setCurrentIdx((prev) =>
+      Math.min(Math.max(0, prev), Math.max(0, total - 1))
+    );
   }, [total]);
 
   // Always enabled when there is at least one user message — wraps around.

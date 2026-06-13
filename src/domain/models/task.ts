@@ -3,7 +3,13 @@
 // ============================================================================
 
 export type TaskType = "single_agent" | "multi_agent" | "pipeline" | "parallel";
-export type TaskStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
+/** @deprecated Use Task.status string literal instead. Kept for backwards compat. */
+export type TaskStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled";
 
 export interface Task {
   id: string;
@@ -13,7 +19,7 @@ export interface Task {
   input: unknown;
   output?: unknown;
   subtasks: Task[];
-  dependencies: string[];  // task IDs this task depends on
+  dependencies: string[]; // task IDs this task depends on
   createdAt: Date;
   completedAt?: Date;
 }

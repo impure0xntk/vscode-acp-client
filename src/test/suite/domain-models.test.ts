@@ -35,7 +35,14 @@ describe("Domain Models — AgentDefinition", () => {
 });
 
 describe("Domain Models — AgentConnectionState", () => {
-  const states = ["connecting", "connected", "idle", "busy", "error", "disconnected"] as const;
+  const states = [
+    "connecting",
+    "connected",
+    "idle",
+    "busy",
+    "error",
+    "disconnected",
+  ] as const;
 
   it("has exactly 6 connection states", () => {
     assert.strictEqual(states.length, 6);
@@ -104,7 +111,14 @@ describe("Domain Models — Session", () => {
 });
 
 describe("Domain Models — SessionStatus", () => {
-  const statuses = ["idle", "running", "waiting_for_input", "completed", "error", "cancelled"] as const;
+  const statuses = [
+    "idle",
+    "running",
+    "waiting_for_input",
+    "completed",
+    "error",
+    "cancelled",
+  ] as const;
 
   it("has exactly 6 session statuses", () => {
     assert.strictEqual(statuses.length, 6);
@@ -165,7 +179,12 @@ describe("Domain Models — ChatMessage", () => {
 });
 
 describe("Domain Models — ToolCall", () => {
-  const validStatuses = ["in_progress", "completed", "failed", "cancelled"] as const;
+  const validStatuses = [
+    "in_progress",
+    "completed",
+    "failed",
+    "cancelled",
+  ] as const;
 
   it("has valid status values", () => {
     assert.strictEqual(validStatuses.length, 4);
@@ -274,12 +293,23 @@ describe("Domain Models — Task", () => {
   });
 
   it("supports all task types", () => {
-    const types = ["single_agent", "multi_agent", "pipeline", "parallel"] as const;
+    const types = [
+      "single_agent",
+      "multi_agent",
+      "pipeline",
+      "parallel",
+    ] as const;
     assert.strictEqual(types.length, 4);
   });
 
   it("supports all task statuses", () => {
-    const statuses = ["pending", "running", "completed", "failed", "cancelled"] as const;
+    const statuses = [
+      "pending",
+      "running",
+      "completed",
+      "failed",
+      "cancelled",
+    ] as const;
     assert.strictEqual(statuses.length, 5);
   });
 

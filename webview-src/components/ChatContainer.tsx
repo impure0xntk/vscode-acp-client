@@ -1,4 +1,11 @@
-import React, { useEffect, useRef, memo, useState, useCallback, useMemo } from "react";
+import React, {
+  useEffect,
+  useRef,
+  memo,
+  useState,
+  useCallback,
+  useMemo,
+} from "react";
 import { Message } from "./Message";
 import type { ChatMessage } from "../types";
 
@@ -13,13 +20,17 @@ export interface ChatContainerProps {
   /** Whether this container's session is currently active (visible tab) */
   isActive?: boolean;
   /** Ref setter that receives the internal scrollToMessage function */
-  scrollToMessageRef?: React.MutableRefObject<((id: string) => void) | undefined>;
+  scrollToMessageRef?: React.MutableRefObject<
+    ((id: string) => void) | undefined
+  >;
   /** Ref that exposes { isAtBottom, unreadCount, scrollToBottom } to parent */
   scrollStateRef?: React.MutableRefObject<{
     isAtBottom: boolean;
     unreadCount: number;
     scrollToBottom: () => void;
   }>;
+  /** Callback fired when scroll state changes (for button visibility) */
+  onScrollStateChange?: (state: { isAtBottom: boolean; unreadCount: number }) => void;
 }
 
 function sessionIdFrom(msg: ChatMessage): string {
@@ -92,7 +103,7 @@ function buildRunKeys(messages: ChatMessage[]): (string | undefined)[] {
       result.push(
         lastAgentId !== undefined && lastSessionId !== undefined
           ? `${lastSessionId}::${lastAgentId}`
-          : undefined,
+          : undefined
       );
     } else {
       lastAgentId = msg.agentId;
@@ -100,7 +111,7 @@ function buildRunKeys(messages: ChatMessage[]): (string | undefined)[] {
       result.push(
         msg.agentId !== undefined && lastSessionId !== undefined
           ? `${lastSessionId}::${msg.agentId}`
-          : undefined,
+          : undefined
       );
     }
   }
@@ -119,6 +130,7 @@ export const ChatContainer = memo(function ChatContainer({
   isActive = true,
   scrollToMessageRef,
   scrollStateRef,
+  onScrollStateChange,
 }: ChatContainerProps): React.ReactElement {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -142,7 +154,9 @@ export const ChatContainer = memo(function ChatContainer({
 
   // Track whether the user is actively scrolling via scrollbar interaction
   const isUserScrollingRef = useRef(false);
-  const userScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const userScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
 
   // Recalculate isAtBottom on content size change (ResizeObserver handles
   // scrollbar appearance / layout shift).
@@ -213,7 +227,8 @@ export const ChatContainer = memo(function ChatContainer({
     if (!isUserScrollingRef.current) return;
     isUserScrollingRef.current = false;
     // After releasing scrollbar, recalc position after layout settles
-    if (userScrollTimeoutRef.current) clearTimeout(userScrollTimeoutRef.current);
+    if (userScrollTimeoutRef.current)
+      clearTimeout(userScrollTimeoutRef.current);
     userScrollTimeoutRef.current = setTimeout(() => {
       recalcIsAtBottom();
     }, 50);
@@ -230,7 +245,8 @@ export const ChatContainer = memo(function ChatContainer({
     isAtBottomRef.current = true;
     // After the smooth scroll finishes, re-enable scroll-position detection.
     // 400ms matches the typical smooth-scroll duration.
-    if (userScrollTimeoutRef.current) clearTimeout(userScrollTimeoutRef.current);
+    if (userScrollTimeoutRef.current)
+      clearTimeout(userScrollTimeoutRef.current);
     userScrollTimeoutRef.current = setTimeout(() => {
       isUserScrollingRef.current = false;
       recalcIsAtBottom();
@@ -291,7 +307,8 @@ export const ChatContainer = memo(function ChatContainer({
         scrollToBottom: handleScrollToBottom,
       };
     }
-  }, [isAtBottom, unreadCount, handleScrollToBottom, scrollStateRef]);
+    onScrollStateChange?.({ isAtBottom, unreadCount });
+  }, [isAtBottom, unreadCount, handleScrollToBottom, scrollStateRef, onScrollStateChange]);
 
   // ResizeObserver: recalculate isAtBottom when container size changes
   // (e.g. scrollbar appears/disappears, layout shift)
@@ -318,7 +335,8 @@ export const ChatContainer = memo(function ChatContainer({
     return () => {
       el.removeEventListener("pointerdown", handlePointerDown);
       window.removeEventListener("pointerup", handleWindowPointerUp);
-      if (userScrollTimeoutRef.current) clearTimeout(userScrollTimeoutRef.current);
+      if (userScrollTimeoutRef.current)
+        clearTimeout(userScrollTimeoutRef.current);
     };
   }, [handlePointerDown, handleWindowPointerUp]);
 

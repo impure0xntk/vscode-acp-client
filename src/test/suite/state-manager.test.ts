@@ -67,21 +67,27 @@ describe("StateManager — Subscription", () => {
 
   it("subscriber receives event on applyEvent", () => {
     let received = false;
-    sm.subscribe("session.created", () => { received = true; });
+    sm.subscribe("session.created", () => {
+      received = true;
+    });
     sm.applyEvent(sm.createEvent("session.created", {}));
     assert.strictEqual(received, true);
   });
 
   it("subscriber receives event payload", () => {
     let payload: unknown = null;
-    sm.subscribe("session.created", (event) => { payload = event.payload; });
+    sm.subscribe("session.created", (event) => {
+      payload = event.payload;
+    });
     sm.applyEvent(sm.createEvent("session.created", { agentId: "test" }));
     assert.deepStrictEqual(payload, { agentId: "test" });
   });
 
   it("unsubscribe stops delivery", () => {
     let count = 0;
-    const unsub = sm.subscribe("session.created", () => { count++; });
+    const unsub = sm.subscribe("session.created", () => {
+      count++;
+    });
     sm.applyEvent(sm.createEvent("session.created", {}));
     unsub();
     sm.applyEvent(sm.createEvent("session.created", {}));
@@ -90,7 +96,9 @@ describe("StateManager — Subscription", () => {
 
   it("subscribeAll receives all event types", () => {
     const types: string[] = [];
-    sm.subscribeAll((event) => { types.push(event.type); });
+    sm.subscribeAll((event) => {
+      types.push(event.type);
+    });
     sm.applyEvent(sm.createEvent("session.created", {}));
     sm.applyEvent(sm.createEvent("message.received", {}));
     sm.applyEvent(sm.createEvent("task.created", {}));
@@ -101,9 +109,14 @@ describe("StateManager — Subscription", () => {
   });
 
   it("multiple subscribers all receive the same event", () => {
-    let c1 = 0, c2 = 0;
-    sm.subscribe("session.created", () => { c1++; });
-    sm.subscribe("session.created", () => { c2++; });
+    let c1 = 0,
+      c2 = 0;
+    sm.subscribe("session.created", () => {
+      c1++;
+    });
+    sm.subscribe("session.created", () => {
+      c2++;
+    });
     sm.applyEvent(sm.createEvent("session.created", {}));
     assert.strictEqual(c1, 1);
     assert.strictEqual(c2, 1);
@@ -111,8 +124,12 @@ describe("StateManager — Subscription", () => {
 
   it("listener error does not prevent other listeners", () => {
     let received = false;
-    sm.subscribe("session.created", () => { throw new Error("test error"); });
-    sm.subscribe("session.created", () => { received = true; });
+    sm.subscribe("session.created", () => {
+      throw new Error("test error");
+    });
+    sm.subscribe("session.created", () => {
+      received = true;
+    });
     sm.applyEvent(sm.createEvent("session.created", {}));
     assert.strictEqual(received, true);
   });
@@ -149,7 +166,9 @@ describe("StateManager — Event Log Query", () => {
 
   it("dispose clears listeners", () => {
     let count = 0;
-    sm.subscribe("session.created", () => { count++; });
+    sm.subscribe("session.created", () => {
+      count++;
+    });
     sm.dispose();
     sm.applyEvent(sm.createEvent("session.created", {}));
     assert.strictEqual(count, 0);

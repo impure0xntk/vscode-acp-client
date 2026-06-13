@@ -1,6 +1,6 @@
 // src/platform/terminal.ts
 
-import type { Disposable } from './types';
+import type { Disposable } from "./types";
 
 /** ターミナル API インターフェース */
 export interface TerminalAPI {

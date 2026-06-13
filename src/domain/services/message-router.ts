@@ -49,7 +49,7 @@ export class MessageRouterService {
 
     const event = this.stateManager.createEvent(
       message.role === "user" ? "message.received" : "message.sent",
-      { sessionId: message.sessionId, messageId: message.id },
+      { sessionId: message.sessionId, messageId: message.id }
     );
     this.stateManager.applyEvent(event);
 

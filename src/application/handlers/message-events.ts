@@ -41,18 +41,33 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
 
   // -----------------------------------------------------------------------
   // Session commands updated (slash commands)
+  // Only push for the active session to prevent cross-tab leakage
   // -----------------------------------------------------------------------
   orchestrator.on(
     "sessionCommandsUpdated",
-    ({ agentId, sessionId, commands }: { agentId: string; sessionId: string; commands: unknown[] }) => {
-      console.log("[handlers/message-events] sessionCommandsUpdated", { agentId, sessionId, commands });
+    ({
+      agentId,
+      sessionId,
+      commands,
+    }: {
+      agentId: string;
+      sessionId: string;
+      commands: unknown[];
+    }) => {
+      const activeSessId = orchestrator.getActiveSessionId(agentId);
+      if (sessionId !== activeSessId) return;
+      console.log("[handlers/message-events] sessionCommandsUpdated", {
+        agentId,
+        sessionId,
+        commands,
+      });
       getChatPanel()?.postMessage({
         type: "session/commands",
         agentId,
         sessionId,
         commands,
       });
-    },
+    }
   );
 
   // -----------------------------------------------------------------------
@@ -60,47 +75,57 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
   // -----------------------------------------------------------------------
   orchestrator.on(
     "sessionUpdate",
-    (event: { agentId: string; sessionId: string; notification: SessionNotification }) => {
+    (event: {
+      agentId: string;
+      sessionId: string;
+      notification: SessionNotification;
+    }) => {
       const { agentId, sessionId, notification } = event;
       const update = notification.update;
       const cp = getChatPanel();
+      const activeSessionId = orchestrator.getActiveSessionId(agentId);
+      const isActive = sessionId === activeSessionId;
 
-      // Forward raw SDK notification to the webview for UI rendering
-      cp?.pushSessionNotification(agentId, sessionId, notification);
+      // Forward raw SDK notification only for the active session
+      if (isActive) {
+        cp?.pushSessionNotification(agentId, sessionId, notification);
+      }
 
       statusTracker.updateSessionStatus(agentId, sessionId, {
         sessionId,
-        title: orchestrator.getSessionInfo(agentId, sessionId)?.title ?? sessionId,
+        title:
+          orchestrator.getSessionInfo(agentId, sessionId)?.title ?? sessionId,
         status: "running",
         isActive: true,
-        messageCount: orchestrator.getSessionInfo(agentId, sessionId)?.messages.length ?? 0,
-        tokenUsage:
-          orchestrator.getSessionInfo(agentId, sessionId)?.tokenUsage ?? {
-            input: 0,
-            output: 0,
-            total: 0,
-          },
+        messageCount:
+          orchestrator.getSessionInfo(agentId, sessionId)?.messages.length ?? 0,
+        tokenUsage: orchestrator.getSessionInfo(agentId, sessionId)
+          ?.tokenUsage ?? {
+          input: 0,
+          output: 0,
+          total: 0,
+        },
       });
       treeProvider.refresh();
       updateContext();
 
-      // Push updated sessionInfo for all session-affecting updates
-      // so the webview always has the latest model state
+      // Push updated sessionInfo only for the active session
       if (
-        update.sessionUpdate === "agent_message_chunk" ||
-        update.sessionUpdate === "agent_thought_chunk" ||
-        update.sessionUpdate === "current_mode_update" ||
-        update.sessionUpdate === "config_option_update" ||
-        update.sessionUpdate === "tool_call" ||
-        update.sessionUpdate === "tool_call_update" ||
-        update.sessionUpdate === "session_info_update" ||
-        update.sessionUpdate === "usage_update"
+        isActive &&
+        (update.sessionUpdate === "agent_message_chunk" ||
+          update.sessionUpdate === "agent_thought_chunk" ||
+          update.sessionUpdate === "current_mode_update" ||
+          update.sessionUpdate === "config_option_update" ||
+          update.sessionUpdate === "tool_call" ||
+          update.sessionUpdate === "tool_call_update" ||
+          update.sessionUpdate === "session_info_update" ||
+          update.sessionUpdate === "usage_update")
       ) {
         const sessionInfo = orchestrator.getSessionInfo(agentId, sessionId);
         if (sessionInfo) {
           cp?.pushSessionInfo(agentId, sessionId, sessionInfo);
         }
       }
-    },
+    }
   );
 }

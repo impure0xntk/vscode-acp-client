@@ -1,6 +1,10 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { SessionOrchestrator, AgentConfig, AutoConnectEntry } from "../../application/orchestrator";
+import {
+  SessionOrchestrator,
+  AgentConfig,
+  AutoConnectEntry,
+} from "../../application/orchestrator";
 import { AgentRegistry } from "../../adapter/agent/registry";
 import { AgentStatusTracker } from "../../adapter/agent/status";
 import { SessionHistoryStore } from "../../application/session/historyStore";
@@ -8,14 +12,28 @@ import { PersistentHistoryStore } from "../../application/session/persistentHist
 import { AgentStatusBar } from "./vscode-ui/statusbar";
 import { ChatPanel } from "./vscode-ui/chatPanel";
 import { ChatPresenter } from "./vscode-ui/presenter";
-import { resolveFile as resolveFilePlatform, resolveSelection as resolveSelectionPlatform, resolveDiff as resolveDiffPlatform } from "../../adapter/context/assembler";
+import {
+  resolveFile as resolveFilePlatform,
+  resolveSelection as resolveSelectionPlatform,
+  resolveDiff as resolveDiffPlatform,
+} from "../../adapter/context/assembler";
 import { searchFiles as searchFilesPlatform } from "../../adapter/context/file";
-import { searchSymbols as searchSymbolsPlatform, resolveSymbolByName as resolveSymbolByNamePlatform } from "../../adapter/context/symbol";
-import { createAgentTreeProvider, type TreeProvider, type AgentTreeItem } from "./vscode-ui/tree";
+import {
+  searchSymbols as searchSymbolsPlatform,
+  resolveSymbolByName as resolveSymbolByNamePlatform,
+} from "../../adapter/context/symbol";
+import {
+  createAgentTreeProvider,
+  type TreeProvider,
+  type AgentTreeItem,
+} from "./vscode-ui/tree";
 import { ensureChatPanel, registerConnectCommands } from "./commands/connect";
 import { registerSessionCommands } from "./commands/session";
 import { wireChatPanelEvents } from "./commands/prompt";
-import { wireSessionEvents, wireMessageEvents } from "../../application/handlers";
+import {
+  wireSessionEvents,
+  wireMessageEvents,
+} from "../../application/handlers";
 import { VscodePlatform } from "../../platform/adapters/vscode";
 import type { PlatformAPI } from "../../platform/platform";
 import type { ContextAttachmentDTO } from "../../domain/models/chat";
@@ -46,16 +64,27 @@ const presenter = new ChatPresenter();
 // Adaptor wrappers (Platform API → plain-function signatures for wireChatPanelEvents / registerSessionCommands)
 // ============================================================================
 
-function resolveFile(filePath: string, cwd?: string): Promise<ContextAttachmentDTO> {
-  return resolveFilePlatform(platform.fs, filePath, cwd) as Promise<ContextAttachmentDTO>;
+function resolveFile(
+  filePath: string,
+  cwd?: string
+): Promise<ContextAttachmentDTO> {
+  return resolveFilePlatform(
+    platform.fs,
+    filePath,
+    cwd
+  ) as Promise<ContextAttachmentDTO>;
 }
 
 function resolveSelection(): Promise<ContextAttachmentDTO | null> {
-  return resolveSelectionPlatform(platform.editor) as Promise<ContextAttachmentDTO | null>;
+  return resolveSelectionPlatform(
+    platform.editor
+  ) as Promise<ContextAttachmentDTO | null>;
 }
 
 function resolveDiff(): Promise<ContextAttachmentDTO | null> {
-  return resolveDiffPlatform(platform.editor) as Promise<ContextAttachmentDTO | null>;
+  return resolveDiffPlatform(
+    platform.editor
+  ) as Promise<ContextAttachmentDTO | null>;
 }
 
 function searchFiles(query: string, cwd?: string) {
@@ -78,7 +107,7 @@ function toTreeItem(item: AgentTreeItem): TreeItem {
       ? TreeItemCollapsibleState.None
       : item.collapsibleState === "collapsed"
         ? TreeItemCollapsibleState.Collapsed
-        : TreeItemCollapsibleState.Expanded,
+        : TreeItemCollapsibleState.Expanded
   );
   if (item.iconPath) vscodeItem.iconPath = new vscode.ThemeIcon(item.iconPath);
   if (item.description) vscodeItem.description = item.description;
@@ -108,7 +137,9 @@ async function getStatuslineInfo(workspaceRoot: string): Promise<{
 
   let repoName = path.basename(workspaceRoot);
   try {
-    const { stdout } = await execAsync("git remote get-url origin", { cwd: workspaceRoot });
+    const { stdout } = await execAsync("git remote get-url origin", {
+      cwd: workspaceRoot,
+    });
     const remote = stdout.trim();
     // Extract repo name from URL: "org/repo.git" or "org/repo"
     const match = remote.match(/[:/]([^/]+?)(\.git)?$/);
@@ -119,12 +150,16 @@ async function getStatuslineInfo(workspaceRoot: string): Promise<{
 
   let branch = "";
   try {
-    const { stdout } = await execAsync("git branch --show-current", { cwd: workspaceRoot });
+    const { stdout } = await execAsync("git branch --show-current", {
+      cwd: workspaceRoot,
+    });
     branch = stdout.trim();
   } catch {
     // Detached HEAD — try short SHA
     try {
-      const { stdout } = await execAsync("git rev-parse --short HEAD", { cwd: workspaceRoot });
+      const { stdout } = await execAsync("git rev-parse --short HEAD", {
+        cwd: workspaceRoot,
+      });
       branch = stdout.trim();
     } catch {
       branch = "—";
@@ -133,7 +168,9 @@ async function getStatuslineInfo(workspaceRoot: string): Promise<{
 
   let tag: string | undefined;
   try {
-    const { stdout } = await execAsync("git describe --tags --exact-match", { cwd: workspaceRoot });
+    const { stdout } = await execAsync("git describe --tags --exact-match", {
+      cwd: workspaceRoot,
+    });
     tag = stdout.trim();
   } catch {
     // No exact tag match — omit
@@ -160,10 +197,26 @@ function setChatPanel(panel: ChatPanel): void {
 function updateContext(): void {
   const agents = orchestrator.getAllAgents();
   const connected = agents.length > 0;
-  const hasRunning = agents.some((a) => a.sessions.some((s) => s.status === "running"));
+  const hasRunning = agents.some((a) =>
+    a.sessions.some((s) => s.status === "running")
+  );
   void vscode.commands.executeCommand("setContext", "acp.connected", connected);
   void vscode.commands.executeCommand("setContext", "acp.hasAgents", connected);
-  void vscode.commands.executeCommand("setContext", "acp.turnActive", hasRunning);
+  void vscode.commands.executeCommand(
+    "setContext",
+    "acp.turnActive",
+    hasRunning
+  );
+}
+
+function sendOverviewPosition(): void {
+  const pos = vscode.workspace
+    .getConfiguration("acp")
+    .get<string>("sessionOverviewPosition", "right");
+  chatPanel?.postMessage({
+    type: "sessionOverview:position",
+    payload: { position: pos },
+  });
 }
 
 function sendTabsToChatPanel(): void {
@@ -171,19 +224,37 @@ function sendTabsToChatPanel(): void {
 
   presenter.setWorkspace(
     vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null,
-    (vscode.workspace.workspaceFolders ?? []).map((f) => ({ name: f.name, path: f.uri.fsPath })),
+    (vscode.workspace.workspaceFolders ?? []).map((f) => ({
+      name: f.name,
+      path: f.uri.fsPath,
+    }))
   );
 
   // Collect valid session keys from orchestrator
   const validKeys = new Set<string>();
   for (const agentStatus of orchestrator.getAllAgents()) {
     const config = registry.getAgent(agentStatus.agentId);
-    presenter.upsertAgent(agentStatus.agentId, agentStatus.agentId, agentStatus.state, config?.color);
-    presenter.setAgentInfo(agentStatus.agentId, orchestrator.getAgentInfo(agentStatus.agentId));
+    presenter.upsertAgent(
+      agentStatus.agentId,
+      agentStatus.agentId,
+      agentStatus.state,
+      config?.color
+    );
+    presenter.setAgentInfo(
+      agentStatus.agentId,
+      orchestrator.getAgentInfo(agentStatus.agentId)
+    );
 
     for (const s of agentStatus.sessions) {
-      const info = orchestrator.getSessionInfo(agentStatus.agentId, s.sessionId);
-      presenter.upsertSession(s, agentStatus.agentId, info?.createdAt ?? new Date());
+      const info = orchestrator.getSessionInfo(
+        agentStatus.agentId,
+        s.sessionId
+      );
+      presenter.upsertSession(
+        s,
+        agentStatus.agentId,
+        info?.createdAt ?? new Date()
+      );
       // Push full SessionInfo to webview so UI can derive all model state
       if (info) {
         chatPanel.pushSessionInfo(agentStatus.agentId, s.sessionId, info);
@@ -201,11 +272,12 @@ function sendTabsToChatPanel(): void {
   }
 
   const allTabs = Array.from(presenter.buildSetTabsMessage().tabs);
-  let activeAgentId = [...orchestrator.getAllAgents()].find(
-    (a) => orchestrator.getActiveSessionId(a.agentId)
-  )?.agentId ?? null;
+  let activeAgentId =
+    [...orchestrator.getAllAgents()].find((a) =>
+      orchestrator.getActiveSessionId(a.agentId)
+    )?.agentId ?? null;
   let activeSessionId = activeAgentId
-    ? orchestrator.getActiveSessionId(activeAgentId) ?? null
+    ? (orchestrator.getActiveSessionId(activeAgentId) ?? null)
     : null;
   if (!activeSessionId && allTabs.length === 1) {
     activeSessionId = allTabs[0].sessionId;
@@ -231,15 +303,19 @@ function wireChatPanelEventsLocal(): void {
     searchFiles,
     searchSymbols,
     resolveSymbolByName,
-    persistentHistory ?? undefined,
+    persistentHistory ?? undefined
   );
 }
 
-async function pickAgentByName(name?: string): Promise<AgentConfig | undefined> {
+async function pickAgentByName(
+  name?: string
+): Promise<AgentConfig | undefined> {
   if (name) {
     const config = registry.getAgent(name);
     if (config) return config;
-    void vscode.window.showErrorMessage(`Agent "${name}" not found in acp.agents configuration.`);
+    void vscode.window.showErrorMessage(
+      `Agent "${name}" not found in acp.agents configuration.`
+    );
     return undefined;
   }
   const agents = registry.getAgents();
@@ -249,21 +325,31 @@ async function pickAgentByName(name?: string): Promise<AgentConfig | undefined> 
   }
   if (agents.length === 1) return agents[0];
   const pick = await vscode.window.showQuickPick(
-    agents.map((a) => ({ label: `$(hubot) ${a.name}`, description: a.command, config: a })),
-    { placeHolder: "Select agent to connect" },
+    agents.map((a) => ({
+      label: `$(hubot) ${a.name}`,
+      description: a.command,
+      config: a,
+    })),
+    { placeHolder: "Select agent to connect" }
   );
   return pick?.config;
 }
 
-async function pickConnectedAgent(placeHolder: string): Promise<string | undefined> {
+async function pickConnectedAgent(
+  placeHolder: string
+): Promise<string | undefined> {
   const agents = orchestrator.getAllAgents();
   if (agents.length === 0) {
     void vscode.window.showWarningMessage("ACP: No connected agents");
     return undefined;
   }
   const pick = await vscode.window.showQuickPick(
-    agents.map((a) => ({ label: `$(hubot) ${a.agentId}`, description: a.state, agentId: a.agentId })),
-    { placeHolder },
+    agents.map((a) => ({
+      label: `$(hubot) ${a.agentId}`,
+      description: a.state,
+      agentId: a.agentId,
+    })),
+    { placeHolder }
   );
   return pick?.agentId;
 }
@@ -272,7 +358,9 @@ async function pickConnectedAgent(placeHolder: string): Promise<string | undefin
 // Activation / Deactivation
 // ============================================================================
 
-export async function activate(context: vscode.ExtensionContext): Promise<void> {
+export async function activate(
+  context: vscode.ExtensionContext
+): Promise<void> {
   console.log("ACP Client extension is now active");
   extensionContext = context;
 
@@ -301,14 +389,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   treeProvider = createAgentTreeProvider(orchestrator, platform.ui);
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider("acp.agentTree", {
-      onDidChangeTreeData: treeProvider.onDidChangeTreeData as unknown as vscode.Event<AgentTreeItem | undefined>,
+      onDidChangeTreeData:
+        treeProvider.onDidChangeTreeData as unknown as vscode.Event<
+          AgentTreeItem | undefined
+        >,
       getTreeItem(element: AgentTreeItem): TreeItem {
         return toTreeItem(element);
       },
-      getChildren(element?: AgentTreeItem): AgentTreeItem[] | Thenable<AgentTreeItem[]> {
+      getChildren(
+        element?: AgentTreeItem
+      ): AgentTreeItem[] | Thenable<AgentTreeItem[]> {
         return treeProvider.getChildren(element);
       },
-    }),
+    })
   );
 
   wireOrchestratorEvents();
@@ -317,7 +410,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
       void sendStatuslineInfo();
-    }),
+    })
+  );
+
+  // Listen for sessionOverviewPosition configuration changes
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration("acp.sessionOverviewPosition")) {
+        void sendOverviewPosition();
+      }
+    })
   );
 
   for (const agent of registry.getAutoConnectAgents()) {
@@ -362,6 +464,18 @@ function wireOrchestratorEvents(): void {
     updateContext,
     sendTabs: sendTabsToChatPanel,
   });
+
+  // Session Overview: push updates to webview on debounced orchestrator event
+  orchestrator.on("sessionOverview:update", (overview) => {
+    if (!chatPanel) return;
+    chatPanel.postMessage({
+      type: "sessionOverview:state",
+      payload: overview,
+    });
+  });
+
+  // Send overview position setting to webview
+  void sendOverviewPosition();
 }
 
 // ============================================================================
@@ -378,37 +492,57 @@ function registerCommands(context: vscode.ExtensionContext): void {
     sendTabsToChatPanel,
     wireChatPanelEventsLocal,
     pickConnectedAgent,
-    pickAgentByName,
+    pickAgentByName
   );
 
   const sessionDisposables = registerSessionCommands(
     orchestrator,
     registry,
     getChatPanel,
-    () => ensureChatPanel(
-      getChatPanel,
-      setChatPanel,
-      context.extensionUri,
-      sendTabsToChatPanel,
-      wireChatPanelEventsLocal,
-      orchestrator,
-    ),
+    () =>
+      ensureChatPanel(
+        getChatPanel,
+        setChatPanel,
+        context.extensionUri,
+        sendTabsToChatPanel,
+        wireChatPanelEventsLocal,
+        orchestrator
+      ),
     pickConnectedAgent,
     historyStore,
     resolveFile,
     resolveSelection,
     resolveDiff,
-    sendTabsToChatPanel,
+    sendTabsToChatPanel
   );
 
   const setModeCmd = vscode.commands.registerCommand("acp.setMode", () => {
     void vscode.window.showWarningMessage("ACP: setMode not yet implemented");
   });
-  const showTrafficCmd = vscode.commands.registerCommand("acp.showTraffic", () => {
-    void vscode.window.showWarningMessage("ACP: showTraffic not yet implemented");
-  });
+  const showTrafficCmd = vscode.commands.registerCommand(
+    "acp.showTraffic",
+    () => {
+      void vscode.window.showWarningMessage(
+        "ACP: showTraffic not yet implemented"
+      );
+    }
+  );
+  const toggleOverviewCmd = vscode.commands.registerCommand(
+    "acp.toggleSessionOverview",
+    () => {
+      if (!chatPanel) return;
+      // Toggle handled by webview message; just trigger the command
+      chatPanel.postMessage({ type: "sessionOverview:toggle" });
+    }
+  );
 
-  for (const d of [...connectDisposables, ...sessionDisposables, setModeCmd, showTrafficCmd]) {
+  for (const d of [
+    ...connectDisposables,
+    ...sessionDisposables,
+    setModeCmd,
+    showTrafficCmd,
+    toggleOverviewCmd,
+  ]) {
     context.subscriptions.push(d);
   }
 }
@@ -420,7 +554,7 @@ function registerCommands(context: vscode.ExtensionContext): void {
 async function cmdConnect(
   agentConfig?: AgentConfig | string,
   entry?: AutoConnectEntry,
-  autoOpenChat: boolean = true,
+  autoOpenChat: boolean = true
 ): Promise<void> {
   let config: AgentConfig;
   if (typeof agentConfig === "string" || !agentConfig) {
@@ -435,7 +569,8 @@ async function cmdConnect(
   try {
     await orchestrator.connectAgent(config.id, config);
 
-    const fallbackWs = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+    const fallbackWs =
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
     let ws: string;
     if (entry?.workspace) {
       const p = entry.workspace;
@@ -458,15 +593,17 @@ async function cmdConnect(
         extensionContext.extensionUri,
         sendTabsToChatPanel,
         wireChatPanelEventsLocal,
-        orchestrator,
+        orchestrator
       );
       const info = orchestrator.getSessionInfo(config.id, sessionId);
       if (info) getChatPanel()?.setActiveSession(config.id, sessionId, info);
     }
-    void vscode.window.showInformationMessage(`ACP: Connected to ${config.name}`);
+    void vscode.window.showInformationMessage(
+      `ACP: Connected to ${config.name}`
+    );
   } catch (err) {
     void vscode.window.showErrorMessage(
-      `ACP: Connection failed — ${err instanceof Error ? err.message : String(err)}`,
+      `ACP: Connection failed — ${err instanceof Error ? err.message : String(err)}`
     );
   }
 }

@@ -1,6 +1,6 @@
 // src/platform/editor.ts
 
-import type { Disposable, LineRange, PlatformUri, DiffResult } from './types';
+import type { Disposable, LineRange, PlatformUri, DiffResult } from "./types";
 
 /** Symbol information */
 export interface SymbolInfo {
@@ -49,7 +49,11 @@ export interface EditorAPI {
 
   // ── Symbols ──
   getSymbols(uri: PlatformUri): Promise<SymbolInfo[]>;
-  findSymbolDefinition(uri: PlatformUri, line: number, character: number): Promise<DefinitionLocation | undefined>;
+  findSymbolDefinition(
+    uri: PlatformUri,
+    line: number,
+    character: number
+  ): Promise<DefinitionLocation | undefined>;
   searchSymbols(query: string): Promise<SymbolInfo[]>;
 
   // ── File operations ──
@@ -57,11 +61,14 @@ export interface EditorAPI {
 
   // ── Diff ──
   computeDiff(oldContent: string, newContent: string, path: string): DiffResult;
-  showDiff(diff: DiffResult, options?: {
-    title?: string;
-    preserveFocus?: boolean;
-    preview?: boolean;
-  }): Promise<void>;
+  showDiff(
+    diff: DiffResult,
+    options?: {
+      title?: string;
+      preserveFocus?: boolean;
+      preview?: boolean;
+    }
+  ): Promise<void>;
 
   // ── Virtual documents ──
   registerDocumentProvider(
@@ -76,4 +83,4 @@ export interface EditorAPI {
 }
 
 /** Diff result (re-exported from editor.ts) */
-export type { DiffResult } from './types';
+export type { DiffResult } from "./types";

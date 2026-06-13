@@ -3,7 +3,7 @@
 // Bridge backend to a Pino logger.
 // Outputs structured JSON logs in Node.js / Electron environments.
 
-import type { LogRecord, LoggerBackend, LogLevelValue } from './types';
+import type { LogRecord, LoggerBackend, LogLevelValue } from "./types";
 
 type PinoLogger = {
   trace(obj: Record<string, unknown>, msg: string): void;

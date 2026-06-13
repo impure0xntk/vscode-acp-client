@@ -17,7 +17,14 @@ export class ErrorBoundary extends Component<
   render() {
     if (this.state.error) {
       return (
-        <div style={{ padding: 16, color: "#f14c4c", fontFamily: "monospace", fontSize: 13 }}>
+        <div
+          style={{
+            padding: 16,
+            color: "#f14c4c",
+            fontFamily: "monospace",
+            fontSize: 13,
+          }}
+        >
           <div style={{ fontWeight: 700, marginBottom: 8 }}>ACP Chat Error</div>
           <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
             {this.state.error.message}

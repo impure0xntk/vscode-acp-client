@@ -6,7 +6,13 @@ import React, { useState, useEffect, useCallback } from "react";
 
 interface AgentInfo {
   agentId: string;
-  state: "connecting" | "connected" | "idle" | "busy" | "error" | "disconnected";
+  state:
+    | "connecting"
+    | "connected"
+    | "idle"
+    | "busy"
+    | "error"
+    | "disconnected";
   command: string;
   sessionCount: number;
   lastError?: string;
@@ -188,7 +194,8 @@ export default function AgentConnectPanel({ onClose }: AgentConnectPanelProps) {
 
               <div className="agent-item-right">
                 <span className="agent-session-count">
-                  {agent.sessionCount} {agent.sessionCount === 1 ? "session" : "sessions"}
+                  {agent.sessionCount}{" "}
+                  {agent.sessionCount === 1 ? "session" : "sessions"}
                 </span>
 
                 {canConnect(agent.state) && (

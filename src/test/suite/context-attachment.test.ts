@@ -29,13 +29,13 @@ describe("estimateTokens — Edge Cases", () => {
 
   it("handles unicode characters (multi-byte)", () => {
     // Each unicode char may be >1 byte, but estimateTokens uses .length (code units)
-    const text = "日本語テスト";  // 6 chars
-    assert.strictEqual(estimateTokens(text), 2);  // ceil(6/4) = 2
+    const text = "日本語テスト"; // 6 chars
+    assert.strictEqual(estimateTokens(text), 2); // ceil(6/4) = 2
   });
 
   it("handles newlines and whitespace", () => {
-    const text = "line1\nline2\nline3";  // 17 chars
-    assert.strictEqual(estimateTokens(text), 5);  // ceil(17/4) = 5
+    const text = "line1\nline2\nline3"; // 17 chars
+    assert.strictEqual(estimateTokens(text), 5); // ceil(17/4) = 5
   });
 
   it("handles very large text", () => {

@@ -261,10 +261,9 @@ export class PersistentHistoryStore {
 
     for (const msg of msgs) {
       // Skip if already exists
-      const existing = this.db.exec(
-        "SELECT id FROM messages WHERE id = ?",
-        [msg.id]
-      );
+      const existing = this.db.exec("SELECT id FROM messages WHERE id = ?", [
+        msg.id,
+      ]);
       if (existing.length > 0 && existing[0].values.length > 0) continue;
 
       this.db.run(
@@ -296,19 +295,18 @@ export class PersistentHistoryStore {
       "SELECT COUNT(*) as cnt FROM messages WHERE session_id = ?",
       [sessionId]
     );
-    const count = result[0]?.values[0]?.[0] as number ?? 0;
-    this.db.run(
-      "UPDATE sessions SET message_count = ? WHERE session_id = ?",
-      [count, sessionId]
-    );
+    const count = (result[0]?.values[0]?.[0] as number) ?? 0;
+    this.db.run("UPDATE sessions SET message_count = ? WHERE session_id = ?", [
+      count,
+      sessionId,
+    ]);
   }
 
   getSession(sessionId: string): PersistentSessionEntry | undefined {
     if (!this.db) return undefined;
-    const result = this.db.exec(
-      "SELECT * FROM sessions WHERE session_id = ?",
-      [sessionId]
-    );
+    const result = this.db.exec("SELECT * FROM sessions WHERE session_id = ?", [
+      sessionId,
+    ]);
     if (result.length === 0 || result[0].values.length === 0) return undefined;
     return this.rowToEntry(this.parseRow<SessionRow>(result[0]));
   }
@@ -344,13 +342,16 @@ export class PersistentHistoryStore {
   // ========================================================================
 
   getSessionMessages(sessionId: string): SessionMessages {
-    if (!this.db) return { messages: [], tokenUsage: { input: 0, output: 0, total: 0 } };
+    if (!this.db)
+      return { messages: [], tokenUsage: { input: 0, output: 0, total: 0 } };
 
     const result = this.db.exec(
       "SELECT * FROM messages WHERE session_id = ? ORDER BY timestamp ASC",
       [sessionId]
     );
-    const msgs = this.parseRows<MessageRow>(result[0]).map((m) => this.rowToMessage(m));
+    const msgs = this.parseRows<MessageRow>(result[0]).map((m) =>
+      this.rowToMessage(m)
+    );
 
     const session = this.getSession(sessionId);
     return {
@@ -382,7 +383,9 @@ export class PersistentHistoryStore {
       "SELECT * FROM messages WHERE session_id = ? AND content LIKE ? ORDER BY timestamp DESC",
       [sessionId, pattern]
     );
-    return this.parseRows<MessageRow>(result[0]).map((m) => this.rowToMessage(m));
+    return this.parseRows<MessageRow>(result[0]).map((m) =>
+      this.rowToMessage(m)
+    );
   }
 
   // ========================================================================
@@ -398,28 +401,39 @@ export class PersistentHistoryStore {
 
   async archiveSession(sessionId: string): Promise<void> {
     if (!this.db) return;
-    this.db.run("UPDATE sessions SET is_archived = 1 WHERE session_id = ?", [sessionId]);
+    this.db.run("UPDATE sessions SET is_archived = 1 WHERE session_id = ?", [
+      sessionId,
+    ]);
     this.persist();
   }
 
   async unarchiveSession(sessionId: string): Promise<void> {
     if (!this.db) return;
-    this.db.run("UPDATE sessions SET is_archived = 0 WHERE session_id = ?", [sessionId]);
+    this.db.run("UPDATE sessions SET is_archived = 0 WHERE session_id = ?", [
+      sessionId,
+    ]);
     this.persist();
   }
 
-  async cleanupExpiredSessions(maxAgeDays: number = this.config.maxAgeDays): Promise<number> {
+  async cleanupExpiredSessions(
+    maxAgeDays: number = this.config.maxAgeDays
+  ): Promise<number> {
     if (!this.db) return 0;
-    const cutoff = new Date(Date.now() - maxAgeDays * 24 * 60 * 60 * 1000).toISOString();
+    const cutoff = new Date(
+      Date.now() - maxAgeDays * 24 * 60 * 60 * 1000
+    ).toISOString();
 
     // Get count before deletion
     const before = this.db.exec(
       "SELECT COUNT(*) as cnt FROM sessions WHERE is_archived = 0 AND updated_at < ?",
       [cutoff]
     );
-    const count = before[0]?.values[0]?.[0] as number ?? 0;
+    const count = (before[0]?.values[0]?.[0] as number) ?? 0;
 
-    this.db.run("DELETE FROM sessions WHERE is_archived = 0 AND updated_at < ?", [cutoff]);
+    this.db.run(
+      "DELETE FROM sessions WHERE is_archived = 0 AND updated_at < ?",
+      [cutoff]
+    );
     this.persist();
     return count;
   }
@@ -429,7 +443,7 @@ export class PersistentHistoryStore {
     const countResult = this.db.exec(
       "SELECT COUNT(*) as cnt FROM sessions WHERE is_archived = 0"
     );
-    const count = countResult[0]?.values[0]?.[0] as number ?? 0;
+    const count = (countResult[0]?.values[0]?.[0] as number) ?? 0;
     if (count <= this.config.maxSessions) return 0;
 
     const excess = count - this.config.maxSessions;
@@ -438,11 +452,15 @@ export class PersistentHistoryStore {
       [excess]
     );
 
-    if (oldSessions.length === 0 || oldSessions[0].values.length === 0) return 0;
+    if (oldSessions.length === 0 || oldSessions[0].values.length === 0)
+      return 0;
 
     const ids = oldSessions[0].values.map((row) => row[0] as string);
     const placeholders = ids.map(() => "?").join(",");
-    this.db.run(`DELETE FROM sessions WHERE session_id IN (${placeholders})`, ids);
+    this.db.run(
+      `DELETE FROM sessions WHERE session_id IN (${placeholders})`,
+      ids
+    );
     this.persist();
     return ids.length;
   }
@@ -451,8 +469,13 @@ export class PersistentHistoryStore {
   // Statistics
   // ========================================================================
 
-  getStats(): { totalSessions: number; totalMessages: number; oldestSession: string | null } {
-    if (!this.db) return { totalSessions: 0, totalMessages: 0, oldestSession: null };
+  getStats(): {
+    totalSessions: number;
+    totalMessages: number;
+    oldestSession: string | null;
+  } {
+    if (!this.db)
+      return { totalSessions: 0, totalMessages: 0, oldestSession: null };
 
     const sessionCount = this.db.exec(
       "SELECT COUNT(*) as cnt FROM sessions WHERE is_archived = 0"
@@ -523,7 +546,9 @@ export class PersistentHistoryStore {
       timestamp: row.timestamp,
       toolCallsJson: row.tool_calls_json ?? undefined,
       attachmentsJson: row.attachments_json ?? undefined,
-      inlineFilePaths: row.inline_file_paths ? JSON.parse(row.inline_file_paths) : undefined,
+      inlineFilePaths: row.inline_file_paths
+        ? JSON.parse(row.inline_file_paths)
+        : undefined,
       sessionCwd: row.session_cwd ?? undefined,
     } as ChatMessage;
   }

@@ -7,7 +7,9 @@ import type { SessionStatusInfo } from "../../domain/models/agent";
 // ChatPresenter Tests
 // ============================================================================
 
-function makeSessionInfo(overrides: Partial<SessionStatusInfo> = {}): SessionStatusInfo {
+function makeSessionInfo(
+  overrides: Partial<SessionStatusInfo> = {}
+): SessionStatusInfo {
   return {
     sessionId: "sess-1",
     title: "Test Session",
@@ -93,7 +95,11 @@ describe("ChatPresenter — Agent Management", () => {
 
   it("removeAgent removes agent and tabs but preserves active session tracking", () => {
     p.upsertAgent("claude", "Claude", "idle");
-    p.upsertSession(makeSessionInfo({ sessionId: "sess-1" }), "claude", new Date());
+    p.upsertSession(
+      makeSessionInfo({ sessionId: "sess-1" }),
+      "claude",
+      new Date()
+    );
     p.setActiveSession("claude", "sess-1");
     p.removeAgent("claude");
     const msg = p.buildSetTabsMessage();
@@ -223,14 +229,27 @@ describe("ChatPresenter — Build Messages", () => {
   });
 
   it("buildSessionUsage returns correct shape with contextWindowMax", () => {
-    const msg = p.buildSessionUsage("claude", "sess-1", { inputTokens: 100, outputTokens: 50, totalTokens: 150 }, 4096);
+    const msg = p.buildSessionUsage(
+      "claude",
+      "sess-1",
+      { inputTokens: 100, outputTokens: 50, totalTokens: 150 },
+      4096
+    );
     assert.strictEqual(msg.type, "session/usage");
-    assert.deepStrictEqual(msg.tokenUsage, { inputTokens: 100, outputTokens: 50, totalTokens: 150 });
+    assert.deepStrictEqual(msg.tokenUsage, {
+      inputTokens: 100,
+      outputTokens: 50,
+      totalTokens: 150,
+    });
     assert.strictEqual(msg.contextWindowMax, 4096);
   });
 
   it("buildSessionUsage returns correct shape without contextWindowMax", () => {
-    const msg = p.buildSessionUsage("claude", "sess-1", { inputTokens: 10, outputTokens: 5, totalTokens: 15 });
+    const msg = p.buildSessionUsage("claude", "sess-1", {
+      inputTokens: 10,
+      outputTokens: 5,
+      totalTokens: 15,
+    });
     assert.strictEqual(msg.contextWindowMax, undefined);
   });
 
@@ -248,8 +267,16 @@ describe("ChatPresenter — Multi-Agent Tabs", () => {
     p.upsertAgent("claude", "Claude", "idle");
     p.upsertAgent("gpt4", "GPT-4", "idle");
 
-    p.upsertSession(makeSessionInfo({ sessionId: "s1", title: "Claude Tab" }), "claude", new Date());
-    p.upsertSession(makeSessionInfo({ sessionId: "s2", title: "GPT-4 Tab" }), "gpt4", new Date());
+    p.upsertSession(
+      makeSessionInfo({ sessionId: "s1", title: "Claude Tab" }),
+      "claude",
+      new Date()
+    );
+    p.upsertSession(
+      makeSessionInfo({ sessionId: "s2", title: "GPT-4 Tab" }),
+      "gpt4",
+      new Date()
+    );
 
     const msg = p.buildSetTabsMessage();
     assert.strictEqual(msg.tabs.length, 2);
@@ -293,9 +320,11 @@ describe("ChatPresenter — Token Usage in SessionInfo", () => {
     const p = new ChatPresenter();
     p.upsertAgent("claude", "Claude", "idle");
     p.upsertSession(
-      makeSessionInfo({ tokenUsage: { input: 1000, output: 500, total: 1500 } }),
+      makeSessionInfo({
+        tokenUsage: { input: 1000, output: 500, total: 1500 },
+      }),
       "claude",
-      new Date(),
+      new Date()
     );
 
     const msg = p.buildSetTabsMessage();
@@ -311,7 +340,11 @@ describe("ChatPresenter — Token Usage in SessionInfo", () => {
     // Build a presenter with pre-populated sessionInfoMap entry to test contextWindowMax mapping
     const p2 = new ChatPresenter();
     p2.upsertAgent("claude", "Claude", "idle");
-    p2.upsertSession(makeSessionInfo({ status: "running" }), "claude", new Date());
+    p2.upsertSession(
+      makeSessionInfo({ status: "running" }),
+      "claude",
+      new Date()
+    );
     // Directly inject contextWindowMax via buildSessionUsage-roundtrip is not possible from presenter,
     // so test via the known-good session/usage path: send session/usage to webview, sessionInfoMap is
     // rebuilt from SessionInfo which carries contextWindowMax.

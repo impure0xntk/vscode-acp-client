@@ -109,7 +109,9 @@ export async function resolveSymbolByName(
 
   const content = await fs.readFile(best.filePath);
   const lines = content.split("\n");
-  const symbolContent = lines.slice(best.startLine - 1, best.endLine).join("\n");
+  const symbolContent = lines
+    .slice(best.startLine - 1, best.endLine)
+    .join("\n");
 
   const label = best.containerName
     ? `${best.containerName}.${best.name} (${best.kind})`

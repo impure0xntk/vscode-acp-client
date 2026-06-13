@@ -1,13 +1,19 @@
 import * as assert from "assert";
 import { describe, it, beforeEach } from "mocha";
 import { AgentStatusTracker } from "../../adapter/agent/status";
-import type { AgentStatus, SessionStatusInfo, AgentConnectionState } from "../../adapter/agent/status";
+import type {
+  AgentStatus,
+  SessionStatusInfo,
+  AgentConnectionState,
+} from "../../adapter/agent/status";
 
 // ============================================================================
 // AgentStatusTracker Tests
 // ============================================================================
 
-function makeSessionStatus(overrides: Partial<SessionStatusInfo> = {}): SessionStatusInfo {
+function makeSessionStatus(
+  overrides: Partial<SessionStatusInfo> = {}
+): SessionStatusInfo {
   return {
     sessionId: "sess-1",
     title: "Test Session",
@@ -174,7 +180,9 @@ describe("AgentStatusTracker — Events", () => {
       sessions: [makeSessionStatus({ sessionId: "sess-1" })],
     });
     let emitted = false;
-    tracker.on("agentStatusChanged", () => { emitted = true; });
+    tracker.on("agentStatusChanged", () => {
+      emitted = true;
+    });
     tracker.setActiveSession("claude", "sess-1");
     assert.strictEqual(emitted, true);
   });
@@ -199,12 +207,18 @@ describe("AgentStatusTracker — Events", () => {
 describe("AgentStatusTracker — Default Status Shape", () => {
   it("creates correct default shape for new agent", () => {
     const tracker = new AgentStatusTracker();
-    tracker.updateAgentStatus("new-agent", { state: "connecting" as AgentConnectionState });
+    tracker.updateAgentStatus("new-agent", {
+      state: "connecting" as AgentConnectionState,
+    });
     const status = tracker.getAgentStatus("new-agent")!;
     assert.strictEqual(status.agentId, "new-agent");
     assert.strictEqual(status.state, "connecting");
     assert.deepStrictEqual(status.sessions, []);
-    assert.deepStrictEqual(status.totalTokenUsage, { input: 0, output: 0, total: 0 });
+    assert.deepStrictEqual(status.totalTokenUsage, {
+      input: 0,
+      output: 0,
+      total: 0,
+    });
     assert.ok(status.lastActivity);
   });
 });
@@ -214,7 +228,9 @@ describe("AgentStatusTracker — Cleanup", () => {
     const tracker = new AgentStatusTracker();
     tracker.updateAgentStatus("claude", { state: "connected" });
     let count = 0;
-    tracker.on("agentStatusChanged", () => { count++; });
+    tracker.on("agentStatusChanged", () => {
+      count++;
+    });
     tracker.dispose();
     assert.strictEqual(tracker.getAllAgentStatuses().length, 0);
     // After dispose, events should not fire

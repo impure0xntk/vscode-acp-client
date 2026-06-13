@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { IconBrain } from "../lib/icons";
 
 // ============================================================================
 // Props
@@ -24,7 +25,7 @@ export function ThinkingBlock({
   return (
     <div className="thinking-block">
       <div className="thinking-block-header" onClick={toggle}>
-        <span className="thinking-icon">🧠</span>
+        <IconBrain size={14} className="thinking-icon" />
         <span className="thinking-label">
           {isStreaming ? "Thinking…" : "Thought"}
         </span>
@@ -33,9 +34,7 @@ export function ThinkingBlock({
       {isOpen && (
         <div className="thinking-body">
           {content}
-          {isStreaming && (
-            <span className="cursor-blink">▋</span>
-          )}
+          {isStreaming && <span className="cursor-blink">▋</span>}
         </div>
       )}
     </div>

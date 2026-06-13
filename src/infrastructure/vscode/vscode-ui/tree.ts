@@ -20,7 +20,9 @@ export interface TreeProvider {
   readonly onDidChangeTreeData: Event<AgentTreeItem | undefined>;
   refresh(): void;
   getTreeItem(element: AgentTreeItem): AgentTreeItem;
-  getChildren(element?: AgentTreeItem): AgentTreeItem[] | Promise<AgentTreeItem[]>;
+  getChildren(
+    element?: AgentTreeItem
+  ): AgentTreeItem[] | Promise<AgentTreeItem[]>;
 }
 
 export function createAgentTreeProvider(
@@ -41,34 +43,42 @@ export function createAgentTreeProvider(
       if (!element) {
         const agents = orchestrator.getAllAgents();
         if (agents.length === 0) {
-          return [{
+          return [
+            {
+              kind: "item",
+              itemKind: "agent",
+              agentId: "",
+              label: "No agent connected",
+              collapsibleState: "none",
+              iconPath: "circle-slash",
+              contextValue: "acp.agent",
+            },
+          ];
+        }
+        return agents.map(
+          (status): AgentTreeItem => ({
             kind: "item",
             itemKind: "agent",
-            agentId: "",
-            label: "No agent connected",
-            collapsibleState: "none",
-            iconPath: "circle-slash",
+            agentId: status.agentId,
+            label: status.agentId,
+            collapsibleState: "expanded",
+            iconPath:
+              status.state === "busy"
+                ? "loading~spin"
+                : status.state === "idle"
+                  ? "hubot"
+                  : "circle-slash",
             contextValue: "acp.agent",
-          }];
-        }
-        return agents.map((status): AgentTreeItem => ({
-          kind: "item",
-          itemKind: "agent",
-          agentId: status.agentId,
-          label: status.agentId,
-          collapsibleState: "expanded",
-          iconPath: status.state === "busy" ? "loading~spin" :
-                    status.state === "idle" ? "hubot" :
-                    "circle-slash",
-          contextValue: "acp.agent",
-          description: status.state,
-        }));
+            description: status.state,
+          })
+        );
       }
 
       if (element.itemKind === "agent") {
         const sessions = orchestrator.getSessionsForAgent(element.agentId);
         return sessions.map((s): AgentTreeItem => {
-          const isActive = orchestrator.getActiveSessionId(element.agentId) === s.sessionId;
+          const isActive =
+            orchestrator.getActiveSessionId(element.agentId) === s.sessionId;
           return {
             kind: "item",
             itemKind: "session",
@@ -76,8 +86,12 @@ export function createAgentTreeProvider(
             sessionId: s.sessionId,
             label: s.title,
             collapsibleState: "none",
-            iconPath: s.status === "running" ? "loading~spin" :
-                      isActive ? "circle-filled" : "circle-outline",
+            iconPath:
+              s.status === "running"
+                ? "loading~spin"
+                : isActive
+                  ? "circle-filled"
+                  : "circle-outline",
             contextValue: "acp.session",
             description: s.status,
           };

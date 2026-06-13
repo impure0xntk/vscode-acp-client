@@ -102,19 +102,30 @@ export class AgentRegistry {
     }
     return Object.entries(agentsObj).map(([key, raw]) => {
       const a = raw as unknown as Record<string, unknown>;
-      let autoConnect: import("../../application/orchestrator").AutoConnectEntry[] | undefined;
+      let autoConnect:
+        | import("../../application/orchestrator").AutoConnectEntry[]
+        | undefined;
       if (Array.isArray(a.autoConnect)) {
-        autoConnect = (a.autoConnect as Array<Record<string, unknown>>).map((entry) => ({
-          workspace: typeof entry.workspace === "string" ? entry.workspace : undefined,
-          sessionName: typeof entry.sessionName === "string" ? entry.sessionName : undefined,
-        }));
+        autoConnect = (a.autoConnect as Array<Record<string, unknown>>).map(
+          (entry) => ({
+            workspace:
+              typeof entry.workspace === "string" ? entry.workspace : undefined,
+            sessionName:
+              typeof entry.sessionName === "string"
+                ? entry.sessionName
+                : undefined,
+          })
+        );
       }
       return {
         id: key,
         name: (a.name as string) ?? key,
         command: (a.command as string) ?? "",
         args: Array.isArray(a.args) ? (a.args as string[]) : [],
-        env: a.env && typeof a.env === "object" ? (a.env as Record<string, string>) : {},
+        env:
+          a.env && typeof a.env === "object"
+            ? (a.env as Record<string, string>)
+            : {},
         autoConnect,
         openChat: (a.openChat as boolean) !== false,
         icon: a.icon as string | undefined,

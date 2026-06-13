@@ -4,15 +4,13 @@
   "nixEnvSelector.flakeShell": "default",
   "acp.agents": {
     "Goose CLI": {
-      "args": [
-        "acp"
-      ],
+      "args": ["acp"],
       "command": "goose",
       "autoConnect": [
         { "workspace": "../../", "sessionName": "1" },
-        { "workspace": "../../", "sessionName": "2" },
+        { "workspace": "../../", "sessionName": "2" }
       ],
       "openChat": true
-    },
-  },
+    }
+  }
 }

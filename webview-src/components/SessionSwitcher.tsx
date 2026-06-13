@@ -101,7 +101,9 @@ export function SessionSwitcher({
                         {s.title}
                       </span>
                       {s.unreadCount > 0 && (
-                        <span className="switcher-item-badge">{s.unreadCount}</span>
+                        <span className="switcher-item-badge">
+                          {s.unreadCount}
+                        </span>
                       )}
                     </div>
                   );

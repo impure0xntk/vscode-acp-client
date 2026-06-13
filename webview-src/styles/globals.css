@@ -15,15 +15,65 @@
   --fg-muted: var(--vscode-disabledForeground, #666);
   --accent: var(--vscode-focusBorder, #007acc);
   --accent-hover: var(--vscode-list-hoverBackground, #2a2d2e);
-  --border: color-mix(in srgb, var(--vscode-panel-border, #333) 40%, transparent);
+  --border: color-mix(
+    in srgb,
+    var(--vscode-panel-border, #333) 40%,
+    transparent
+  );
   --success: #4ec9b0;
   --error: #f14c4c;
   --warning: #cca700;
   --user-bubble: var(--vscode-button-background, #0e639c);
   --user-fg: var(--vscode-button-foreground, #fff);
   --code-bg: var(--vscode-textCodeBlock-background, #1e1e1e);
-  --font-mono: var(--vscode-editor-font-family, "JetBrains Mono", "Fira Code", monospace);
-  --font-ui: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, sans-serif);
+  --font-mono: var(
+    --vscode-editor-font-family,
+    "JetBrains Mono",
+    "Fira Code",
+    monospace
+  );
+  --font-ui: var(
+    --vscode-font-family,
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif
+  );
+}
+
+/* ============================================================================
+   SVG icon helpers — inline SVG icons need consistent sizing
+   ============================================================================ */
+
+/* SVG icons inside chips / small contexts */
+.toolbar-chip svg,
+.context-chip svg,
+.user-attach-chip svg,
+.file-chip svg {
+  flex-shrink: 0;
+}
+
+/* SVG icons in status dots — align with text */
+.session-overview-status-dot svg,
+.so-popup-dot svg {
+  display: block;
+}
+
+/* Inline code link icon (SVG) */
+.inline-code-link-icon {
+  flex-shrink: 0;
+  opacity: 0.8;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Thinking block icon */
+.thinking-icon svg {
+  display: block;
+}
+
+/* Completion notification icon */
+.completion-notification-icon svg {
+  display: block;
 }
 
 /* ============================================================================
@@ -58,7 +108,6 @@ body {
   overflow: hidden;
   position: relative;
 }
-
 
 /* ── TopToolbar ─────────────────────────────────────────────────────── */
 
@@ -125,6 +174,9 @@ body {
 }
 
 .top-toolbar-cwd {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-family: var(--font-mono);
   max-width: 160px;
 }
@@ -347,28 +399,36 @@ body {
 }
 
 /* Category accent colours */
-.toolbar-chip--session { border-left: 2px solid var(--accent); }
-.toolbar-chip--runtime { border-left: 2px solid var(--warning); }
-.toolbar-chip--metrics { border-left: 2px solid var(--success); }
-.toolbar-chip--workspace { border-left: 2px solid var(--fg-muted); }
+.toolbar-chip--session {
+  border-left: 2px solid var(--accent);
+}
+.toolbar-chip--runtime {
+  border-left: 2px solid var(--warning);
+}
+.toolbar-chip--metrics {
+  border-left: 2px solid var(--success);
+}
+.toolbar-chip--workspace {
+  border-left: 2px solid var(--fg-muted);
+}
 
 /* ── Context usage color states ─────────────────────────────────────────── */
 .toolbar-chip--ctx-normal {
-  border-left: 2px solid #4fc3f7;  /* blue */
+  border-left: 2px solid #4fc3f7; /* blue */
 }
 .toolbar-chip--ctx-normal .toolbar-chip-value {
   color: #4fc3f7;
 }
 
 .toolbar-chip--ctx-warning {
-  border-left: 2px solid #ffd54f;  /* yellow */
+  border-left: 2px solid #ffd54f; /* yellow */
 }
 .toolbar-chip--ctx-warning .toolbar-chip-value {
   color: #ffd54f;
 }
 
 .toolbar-chip--ctx-critical {
-  border-left: 2px solid #ef5350;  /* red */
+  border-left: 2px solid #ef5350; /* red */
   animation: context-pulse 1.2s ease-in-out infinite;
 }
 .toolbar-chip--ctx-critical .toolbar-chip-value {
@@ -376,8 +436,13 @@ body {
 }
 
 @keyframes context-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .toolbar-toggle {
@@ -393,7 +458,9 @@ body {
   color: var(--fg-secondary);
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .toolbar-toggle:hover {
@@ -413,8 +480,14 @@ body {
 }
 
 @keyframes toolbar-details-in {
-  from { opacity: 0; max-height: 0; }
-  to   { opacity: 1; max-height: 400px; }
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 400px;
+  }
 }
 
 .toolbar-details-section-title {
@@ -488,7 +561,9 @@ body {
   color: var(--fg-secondary);
   font-size: 12px;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .toolbar-session-action:hover {
@@ -497,12 +572,23 @@ body {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ============================================================================
    Chat Container
    ============================================================================ */
+
+/* Wrapper for ChatContainer + scroll-to-bottom button overlay */
+.chat-container-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-height: 0; /* Prevent flex child overflow */
+}
 
 .chat-container {
   flex: 1;
@@ -510,7 +596,6 @@ body {
   padding: 16px 14px;
   display: flex;
   flex-direction: column;
-  position: relative;
 }
 
 .empty-state {
@@ -525,7 +610,7 @@ body {
 
 .empty-title {
   font-size: 16px;
-    font-weight: 500;
+  font-weight: 500;
   color: var(--fg-secondary);
 }
 
@@ -536,7 +621,7 @@ body {
 .message-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 /* ============================================================================
@@ -544,10 +629,11 @@ body {
    ============================================================================ */
 
 .scroll-to-bottom-button {
-  position: fixed;
-  bottom: 120px;
+  position: absolute;
+  bottom: 80px;
   right: 24px;
-  z-index: 100;
+  z-index: 10;
+  pointer-events: auto;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -560,7 +646,10 @@ body {
   color: var(--fg-primary);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
 }
 
 .scroll-to-bottom-button:hover {
@@ -606,10 +695,14 @@ body {
 
 @keyframes message-body-jump-flash {
   0% {
-    box-shadow: 0 0 0 2px var(--accent), 0 0 12px 2px color-mix(in srgb, var(--accent) 40%, transparent);
+    box-shadow:
+      0 0 0 2px var(--accent),
+      0 0 12px 2px color-mix(in srgb, var(--accent) 40%, transparent);
   }
   60% {
-    box-shadow: 0 0 0 2px var(--accent), 0 0 6px 1px color-mix(in srgb, var(--accent) 20%, transparent);
+    box-shadow:
+      0 0 0 2px var(--accent),
+      0 0 6px 1px color-mix(in srgb, var(--accent) 20%, transparent);
   }
   100% {
     box-shadow: none;
@@ -624,87 +717,68 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 4px 0 4px;
+  padding: 4px 0 2px;
   position: relative;
   overflow: visible;
 }
 
 /* ============================================================================
-   Message Actions — hover toolbar for copy, fork
-   Positioned below message content, outside the text area.
+   Message Actions — inline icons at end of message text
    ============================================================================ */
 
-.message-actions {
-  position: absolute;
-  bottom: -26px;
+.message-markdown-wrap {
   display: flex;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.message-actions-inline {
+  display: inline-flex;
   align-items: center;
   gap: 2px;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.15s ease, visibility 0.15s ease;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 2px;
-  z-index: 10;
+  transition:
+    opacity 0.15s ease,
+    visibility 0.15s ease;
+  flex-shrink: 0;
+  line-height: 1;
+  align-self: flex-end;
+  margin-bottom: 2px;
 }
 
-.message:hover .message-actions,
-.message-actions:focus-within {
+.message:hover .message-actions-inline,
+.message-actions-inline:focus-within {
   opacity: 1;
   visibility: visible;
 }
 
-/* User messages: actions aligned to right wall, outside the bubble */
-.message-user .message-actions {
-  right: 0;
-}
-
-/* Agent messages: actions aligned to left wall, outside the bubble */
-.message-agent .message-actions {
-  left: 0;
-}
-
-/* Ensure message has enough bottom space for the actions bar */
-.message-user,
-.message-agent {
-  margin-bottom: 24px;
-}
-
-.message-action-btn {
+.message-action-inline-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   border: none;
-  border-radius: 3px;
-  background: transparent;
-  color: var(--fg-secondary);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--bg-secondary) 80%, transparent);
+  color: var(--fg-muted);
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+  flex-shrink: 0;
 }
 
-.message-action-btn:hover {
+.message-action-inline-btn:hover {
   background: var(--accent-hover);
   color: var(--fg-primary);
 }
 
-.message-action-btn:focus-visible {
+.message-action-inline-btn:focus-visible {
   outline: 1px solid var(--accent);
   outline-offset: -1px;
-}
-
-.message-action-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.message-action-icon {
-  display: block;
-  flex-shrink: 0;
 }
 
 .message-user {
@@ -743,12 +817,12 @@ body {
   gap: 6px;
   font-size: 11px;
   color: var(--fg-muted);
-    margin-bottom: 2px;
+  margin-bottom: 2px;
 }
 
 .message-role {
   font-weight: 500;
-    color: var(--fg-secondary);
+  color: var(--fg-secondary);
 }
 
 .message-time {
@@ -757,22 +831,21 @@ body {
 }
 
 .message-body {
-  max-width: 95%;
+  max-width: 100%;
 }
 
 /* User messages: subtle tinted background, no border-radius bubble */
 .message-user .message-body {
   background: color-mix(in srgb, var(--user-bubble) 12%, transparent);
-    color: var(--fg-primary);
-    padding: 6px 10px;
-    border-radius: 6px;
-    border: 1px solid color-mix(in srgb, var(--user-bubble) 20%, transparent);
+  color: var(--fg-primary);
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--user-bubble) 20%, transparent);
 }
 
 /* Agent messages: no background, plain text */
 .message-agent .message-body {
-  padding: 0;
-    color: var(--fg-primary);
+  color: var(--fg-primary);
 }
 
 .message-text {
@@ -792,8 +865,8 @@ body {
   margin-bottom: 0;
 }
 
+/* Plain pre (not inside .code-block-wrapper) — standalone code blocks without wrapper */
 .message-markdown pre {
-  background: var(--code-bg);
   border-radius: 4px;
   padding: 10px 12px;
   overflow-x: auto;
@@ -807,6 +880,7 @@ body {
   background: none;
   border-radius: 0;
   margin: 0;
+  padding: 8px 12px;
 }
 
 .message-markdown code {
@@ -865,7 +939,9 @@ body {
 .user-attach-chip--link {
   cursor: pointer;
   color: var(--accent);
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .user-attach-chip--link:hover {
@@ -943,7 +1019,7 @@ body {
 }
 
 /* ============================================================================
-   Code Block Wrapper — language label + copy button
+   Code Block Wrapper — language label (top-left) + copy button (top-right)
    ============================================================================ */
 
 .code-block-wrapper {
@@ -961,6 +1037,16 @@ body {
   padding: 2px 8px 2px 10px;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
   min-height: 22px;
+}
+
+.code-block-header--no-label {
+  border-bottom: none;
+  padding: 2px 6px;
+  min-height: auto;
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
 }
 
 .code-block-lang {
@@ -985,7 +1071,9 @@ body {
   background: transparent;
   color: var(--fg-muted);
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
   position: relative;
   flex-shrink: 0;
 }
@@ -1000,13 +1088,28 @@ body {
   outline-offset: -1px;
 }
 
+.code-block-copy--only {
+  opacity: 0;
+  transition:
+    opacity 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.code-block-wrapper:hover .code-block-copy--only,
+.code-block-copy--only:focus-visible {
+  opacity: 1;
+}
+
 .code-block-copy .icon-copy,
 .code-block-copy .icon-check {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
 }
 
 .code-block-copy .icon-check {
@@ -1022,8 +1125,16 @@ body {
   opacity: 1;
 }
 
+/* Prevent double background: .code-block-wrapper provides the bg,
+   so pre.hljs inside it must be transparent */
 .code-block-wrapper pre {
   margin: 0;
+  background: transparent !important;
+}
+
+/* Also override highlight.js default background on the pre.hljs itself */
+pre.hljs {
+  background: transparent !important;
 }
 
 /* ============================================================================
@@ -1203,14 +1314,7 @@ body {
   overflow: hidden;
   font-size: 11px;
   background: color-mix(in srgb, var(--bg-secondary) 6%, transparent);
-  border-left: 2px solid var(--fg-muted);
 }
-
-/* Status accent colours on the left border */
-.tool-call-completed { border-left-color: var(--success); }
-.tool-call-in_progress { border-left-color: var(--warning); }
-.tool-call-failed { border-left-color: var(--error); }
-.tool-call-cancelled { border-left-color: var(--fg-muted); }
 
 .tool-call-header {
   display: flex;
@@ -1264,7 +1368,7 @@ body {
 }
 
 .tool-call-body {
-  padding: 1px 8px 4px;
+  padding: 1px 8px 4px 10px;
   background: color-mix(in srgb, var(--bg-secondary) 8%, transparent);
 }
 
@@ -1285,7 +1389,9 @@ body {
   font-family: var(--font-ui);
   cursor: pointer;
   line-height: 1.4;
-  transition: color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s;
 }
 
 .tool-section-toggle:hover {
@@ -1336,14 +1442,9 @@ body {
   overflow: hidden;
   font-size: 11px;
   background: color-mix(in srgb, var(--bg-secondary) 6%, transparent);
-  border-left: 2px solid var(--fg-muted);
 }
 
-.tool-call-group-completed { border-left-color: var(--success); }
-.tool-call-group-in_progress { border-left-color: var(--warning); }
-.tool-call-group-failed { border-left-color: var(--error); }
-.tool-call-group-cancelled { border-left-color: var(--fg-muted); }
-.tool-call-group-warning { border-left-color: var(--warning); }
+/* Status colours are conveyed via StatusIcon, not a left border */
 
 /* ── Summary header (always visible, clickable) ── */
 .tool-group-header {
@@ -1389,9 +1490,11 @@ body {
   opacity: 0.6;
 }
 
-/* ── Expanded body ── */
+/* ── Expanded body ──
+   Left padding creates a visual gutter that groups child calls under
+   the summary row, making it clear where the group starts and ends. */
 .tool-group-body {
-  padding: 2px 6px 4px;
+  padding: 2px 6px 4px 14px;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -1400,8 +1503,14 @@ body {
 }
 
 @keyframes tool-group-expand {
-  from { opacity: 0; max-height: 0; }
-  to   { opacity: 1; max-height: 2000px; }
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 2000px;
+  }
 }
 
 .tool-group-item {
@@ -1411,7 +1520,6 @@ body {
 
 .tool-group-item .tool-call {
   margin-top: 0;
-  margin-left: 0;
   background: transparent;
 }
 
@@ -1431,8 +1539,13 @@ body {
 }
 
 @keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 /* ============================================================================
@@ -1551,7 +1664,7 @@ body {
   color: var(--fg-muted);
 }
 .status-icon-running {
-  color: #4fc3f7;                        /* blue — normal (matches ProgressBar) */
+  color: #4fc3f7; /* blue — normal (matches ProgressBar) */
 }
 .status-icon-completed {
   color: var(--success);
@@ -1569,7 +1682,7 @@ body {
 
 /* ── Running elapsed-time colour tiers (mirrors ProgressBar thresholds) ── */
 .status-icon-running-warning {
-  color: #ffd54f;                        /* yellow — ≥10s */
+  color: #ffd54f; /* yellow — ≥10s */
 }
 
 .status-icon-running-warning .status-icon-spinner {
@@ -1577,7 +1690,7 @@ body {
 }
 
 .status-icon-running-critical {
-  color: #ef5350;                         /* red — ≥30s */
+  color: #ef5350; /* red — ≥30s */
   animation: status-pulse 1.2s ease-in-out infinite;
 }
 
@@ -1592,8 +1705,12 @@ body {
 }
 
 @keyframes status-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ── Subtle pulse on the wrapper so the eye is drawn ── */
@@ -1602,8 +1719,13 @@ body {
 }
 
 @keyframes status-pulse {
-  0%, 100% { opacity: 1; }
-  50%      { opacity: 0.55; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
 }
 
 /* ── Completed: brief pop (triggered via CSS on first render is not
@@ -1616,12 +1738,24 @@ body {
 }
 
 @keyframes status-shake {
-  0%   { transform: translateX(0); }
-  20%  { transform: translateX(-2px); }
-  40%  { transform: translateX(2px); }
-  60%  { transform: translateX(-1px); }
-  80%  { transform: translateX(1px); }
-  100% { transform: translateX(0); }
+  0% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-2px);
+  }
+  40% {
+    transform: translateX(2px);
+  }
+  60% {
+    transform: translateX(-1px);
+  }
+  80% {
+    transform: translateX(1px);
+  }
+  100% {
+    transform: translateX(0);
+  }
 }
 
 /* ============================================================================
@@ -1659,7 +1793,7 @@ body {
 }
 
 .session-tab-active::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
@@ -1787,15 +1921,15 @@ body {
   font-size: 12px;
   line-height: 1;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .session-tab-close:hover {
   background: var(--error);
   color: var(--user-fg);
 }
-
-
 
 /* ============================================================================
    Scrollbar
@@ -1811,7 +1945,7 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--fg-muted) 25%, transparent);
-    border-radius: 3px;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -1839,7 +1973,9 @@ body {
   height: 100%;
   background: var(--warning);
   animation: progress-indeterminate 1.6s ease-in-out infinite;
-  transition: background 0.6s ease, opacity 0.3s ease;
+  transition:
+    background 0.6s ease,
+    opacity 0.3s ease;
 }
 
 /* While idle: show a very subtle full-width bar so Composer never shifts */
@@ -1853,26 +1989,37 @@ body {
 
 /* Running: color transitions based on elapsed time */
 .progress-bar--normal .progress-bar-fill {
-  background: #4fc3f7;                          /* blue — normal */
+  background: #4fc3f7; /* blue — normal */
 }
 
 .progress-bar--warning .progress-bar-fill {
-  background: #ffd54f;                          /* yellow — waiting ≥10s */
+  background: #ffd54f; /* yellow — waiting ≥10s */
 }
 
 .progress-bar--critical .progress-bar-fill {
-  background: #ef5350;                          /* red — waiting ≥30s */
-  animation: progress-indeterminate 1.6s ease-in-out infinite, critical-pulse 1.2s ease-in-out infinite;
+  background: #ef5350; /* red — waiting ≥30s */
+  animation:
+    progress-indeterminate 1.6s ease-in-out infinite,
+    critical-pulse 1.2s ease-in-out infinite;
 }
 
 @keyframes progress-indeterminate {
-  0%   { transform: translateX(-100%); }
-  100% { transform: translateX(350%); }
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(350%);
+  }
 }
 
 @keyframes critical-pulse {
-  0%, 100% { opacity: 1; }
-  50%      { opacity: 0.6; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
 }
 
 /* ============================================================================
@@ -1912,7 +2059,9 @@ body {
   color: var(--fg-secondary);
   font-size: 16px;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .session-new-btn:hover {
@@ -2132,10 +2281,6 @@ body {
   word-break: break-word;
 }
 
-
-
-
-
 /* ============================================================================
    Context Picker — autocomplete popup for @file /command #symbol
    ============================================================================ */
@@ -2166,7 +2311,9 @@ body {
   color: var(--fg-muted);
   font-size: 11px;
   cursor: pointer;
-  transition: color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s;
   text-align: center;
 }
 
@@ -2430,7 +2577,9 @@ body {
   font-size: 12px;
   line-height: 1;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .completion-notification-close:hover {
@@ -2834,7 +2983,9 @@ body {
   color: var(--fg-muted);
   font-size: 12px;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .history-item-action-btn:hover {
@@ -2986,8 +3137,12 @@ body {
 }
 
 @keyframes modal-fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .history-modal {
@@ -3009,8 +3164,14 @@ body {
 }
 
 @keyframes modal-slide-in {
-  from { transform: translateY(8px); opacity: 0; }
-  to   { transform: translateY(0); opacity: 1; }
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .history-modal-header {
@@ -3252,4 +3413,598 @@ body {
   color: var(--fg-muted);
   z-index: 10;
   animation: modal-fade-in 0.15s ease-out;
+}
+
+/* ============================================================================
+   Session Overview Panel
+   ============================================================================ */
+
+/* ── Layout: side-by-side with main content ── */
+
+.app-container {
+  display: flex;
+  flex-direction: row;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ── Overview toggle button in TopToolbar ── */
+
+.top-toolbar-overview-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 14px;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.top-toolbar-overview-btn:hover {
+  background: var(--accent-hover);
+  color: var(--fg-primary);
+}
+
+.top-toolbar-overview-btn.active {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+/* ── Resizable overview wrapper ── */
+
+.session-overview-resize-container {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  flex-shrink: 0;
+}
+
+.session-overview-resize-handle {
+  width: 4px;
+  height: 100%;
+  cursor: col-resize;
+  flex-shrink: 0;
+  background: transparent;
+  transition: background 0.15s ease;
+  position: relative;
+}
+
+.session-overview-resize-handle::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  background: var(--border);
+  transition: background 0.15s ease;
+}
+
+.session-overview-resize-handle:hover::before,
+.session-overview-resize-handle.resizing::before {
+  background: var(--accent);
+  width: 3px;
+}
+
+/* ── Overview panel sidebar (right default) ── */
+
+.session-overview-panel {
+  height: 100%;
+  border-left: 1px solid var(--border);
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+/* ── Overview panel sidebar (left position) ── */
+
+.app-container.overview-left {
+  flex-direction: row-reverse;
+}
+
+.app-container.overview-left .session-overview-panel {
+  border-left: none;
+  border-right: 1px solid var(--border);
+}
+
+/* ── Toolbar ── */
+
+.session-overview-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  min-height: 32px;
+}
+
+.session-overview-toolbar-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg-secondary);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-overview-toolbar-count {
+  font-size: 10px;
+  color: var(--fg-muted);
+  background: var(--bg-input);
+  padding: 1px 5px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.session-overview-toolbar-filters {
+  display: flex;
+  gap: 2px;
+}
+
+.session-overview-filter-btn {
+  font-size: 10px;
+  padding: 1px 5px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.session-overview-filter-btn:hover {
+  background: var(--accent-hover);
+  color: var(--fg-secondary);
+}
+
+.session-overview-filter-btn.active {
+  background: var(--accent);
+  color: var(--user-fg);
+}
+
+.session-overview-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.session-overview-close-btn:hover {
+  background: var(--error);
+  color: var(--user-fg);
+}
+
+/* ── Session list ── */
+
+.session-overview-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+/* ============================================================================
+   Session Overview Card Base — shared between card and popup
+   ============================================================================ */
+
+.soc-title-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.soc-agent-accent-border {
+  display: inline-block;
+  width: 2px;
+  height: 12px;
+  border-radius: 1px;
+  flex-shrink: 0;
+  margin: 0 2px;
+}
+
+.soc-agent {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--fg-secondary);
+  font-family: var(--font-mono);
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.soc-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--fg-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.soc-model {
+  flex-shrink: 0;
+  font-size: 9px;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Session card ── */
+
+.session-overview-card {
+  margin: 2px 4px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: var(--bg-primary);
+  border: 1px solid transparent;
+  border-left: 2px solid transparent;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+/* Status accent colours on left border */
+.session-overview-card[data-status="running"],
+.session-overview-card[data-status="waiting"],
+.session-overview-card[data-status="waiting_for_input"] {
+  border-left-color: #4fc3f7;
+}
+.session-overview-card[data-status="completed"] {
+  border-left-color: var(--success);
+}
+.session-overview-card[data-status="error"] {
+  border-left-color: var(--error);
+}
+.session-overview-card[data-status="cancelled"] {
+  border-left-color: var(--fg-muted);
+}
+
+/* Running: pulse the left border using status-icon-running blue */
+.session-overview-card[data-status="running"] {
+  animation: soc-running-pulse 2s ease-in-out infinite;
+}
+
+@keyframes soc-running-pulse {
+  0%, 100% { border-left-color: #4fc3f7; }
+  50%      { border-left-color: color-mix(in srgb, #4fc3f7 30%, transparent); }
+}
+
+.session-overview-card:hover {
+  background: var(--accent-hover);
+}
+
+.session-overview-card:active {
+  background: var(--bg-input);
+}
+
+.session-overview-card:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.session-overview-card-expanded {
+  border-color: var(--border);
+}
+
+/* Active: visible background + left accent bar — stands out in vertical list */
+.session-overview-card-active {
+  background: var(--accent-hover);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.session-overview-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  min-width: 0;
+}
+
+.session-overview-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.session-overview-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.session-overview-card-cancel,
+.session-overview-card-toggle {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 9px;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.session-overview-card-cancel:hover {
+  background: var(--error);
+  color: var(--user-fg);
+}
+
+.session-overview-card-toggle:hover {
+  background: var(--accent-hover);
+  color: var(--fg-primary);
+}
+
+/* Chevron rotation for collapsed state */
+.icon-rotate-270 {
+  transform: rotate(-90deg);
+}
+
+/* ── Card footer (timestamp + actions) ── */
+
+.session-overview-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
+}
+
+.session-overview-card-timestamp {
+  font-size: 9px;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+}
+
+/* ── Chips inside card (reuse toolbar-chip styles) ── */
+
+.session-overview-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.session-overview-chips .toolbar-chip {
+  font-size: 10px;
+  padding: 1px 4px;
+}
+
+/* ── Session overview card badge (unread count) ── */
+
+.session-overview-card-badge {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--user-fg);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+/* ── Response preview list ── */
+
+.response-preview-list {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.response-preview-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 2px 4px;
+  border-radius: 2px;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.response-preview-item--agent {
+  color: var(--fg-secondary);
+}
+
+.response-preview-item--tool {
+  color: var(--fg-muted);
+}
+
+.response-preview-status {
+  flex-shrink: 0;
+  font-size: 9px;
+  width: 10px;
+  text-align: center;
+  margin-top: 1px;
+}
+
+.response-preview-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Footer ── */
+
+.session-overview-footer {
+  padding: 4px 8px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.session-overview-total-tokens {
+  font-size: 10px;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+}
+
+/* ============================================================================
+   Session Overview Popup — hover tooltip on tab bar
+   ============================================================================ */
+
+.so-popup {
+  z-index: 1000;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: auto;
+  animation: so-popup-in 0.12s ease-out;
+}
+
+@keyframes so-popup-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Popup uses soc-* header inside so-popup-header wrapper */
+.so-popup-header {
+  /* soc-title-row handles layout */
+}
+
+.so-popup-header .soc-title {
+  font-size: 12px;
+}
+
+.so-popup-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.so-popup-chips .toolbar-chip {
+  font-size: 10px;
+  padding: 1px 4px;
+}
+
+.so-popup-previews {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+  padding-top: 4px;
+  margin-top: 2px;
+}
+
+.so-popup-preview {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  font-size: 10px;
+  line-height: 1.4;
+  min-width: 0;
+}
+
+.so-popup-preview--agent {
+  color: var(--fg-secondary);
+}
+
+.so-popup-preview--tool {
+  color: var(--fg-muted);
+}
+
+.so-popup-preview-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.so-popup-footer {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+  padding-top: 4px;
+  margin-top: 2px;
+}
+
+.so-popup-timestamp {
+  font-size: 9px;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
 }

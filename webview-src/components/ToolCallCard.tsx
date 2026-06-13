@@ -35,7 +35,10 @@ function DiffView({ diff }: { diff: ToolCallDiffContent }): React.ReactElement {
   let truncated = false;
 
   for (const l of diffLines) {
-    if (lines.length >= maxLines) { truncated = true; break; }
+    if (lines.length >= maxLines) {
+      truncated = true;
+      break;
+    }
     const prefix = l.startsWith("-") ? "-" : l.startsWith("+") ? "+" : " ";
     lines.push({ prefix, text: l });
   }
@@ -51,9 +54,11 @@ function DiffView({ diff }: { diff: ToolCallDiffContent }): React.ReactElement {
           <div
             key={i}
             className={
-              l.prefix === "-" ? "diff-line-removed" :
-              l.prefix === "+" ? "diff-line-added" :
-              "diff-line-meta"
+              l.prefix === "-"
+                ? "diff-line-removed"
+                : l.prefix === "+"
+                  ? "diff-line-added"
+                  : "diff-line-meta"
             }
           >
             <span className="diff-prefix">{l.prefix}</span>
@@ -92,18 +97,37 @@ export function getFileExtension(path: string): string {
 /** File icon badge shown in location chips */
 export function fileIcon(ext: string): string {
   switch (ext) {
-    case "ts": case "tsx": case "js": case "jsx": return "TS";
-    case "py": return "PY";
-    case "rs": return "RS";
-    case "go": return "GO";
-    case "java": return "JV";
-    case "c": case "cpp": case "h": case "hpp": return "C";
-    case "md": return "MD";
-    case "json": return "{}";
-    case "yaml": case "yml": return "Y";
-    case "toml": return "T";
-    case "nix": return "N";
-    default: return "•";
+    case "ts":
+    case "tsx":
+    case "js":
+    case "jsx":
+      return "TS";
+    case "py":
+      return "PY";
+    case "rs":
+      return "RS";
+    case "go":
+      return "GO";
+    case "java":
+      return "JV";
+    case "c":
+    case "cpp":
+    case "h":
+    case "hpp":
+      return "C";
+    case "md":
+      return "MD";
+    case "json":
+      return "{}";
+    case "yaml":
+    case "yml":
+      return "Y";
+    case "toml":
+      return "T";
+    case "nix":
+      return "N";
+    default:
+      return "•";
   }
 }
 
@@ -140,7 +164,9 @@ export function ToolCallCard({
   const handleFileClick = (path: string, line?: number) => {
     try {
       getVsCodeApi().postMessage({ type: "openFile", path, line });
-    } catch { /* vscodeApi not available */ }
+    } catch {
+      /* vscodeApi not available */
+    }
   };
 
   return (
@@ -157,24 +183,36 @@ export function ToolCallCard({
         <span className="tool-kind">{displayKind}</span>
         <span className="tool-title">{title}</span>
         {/* Inline file location chips inside the header row */}
-        {hasLocations && locations.map((loc, idx) => {
-          const basename = loc.path.split("/").pop() ?? loc.path;
-          const ext = getFileExtension(loc.path);
-          return (
-            <span
-              key={`${loc.path}:${loc.line ?? 0}-${idx}`}
-              className="file-chip file-chip-inline"
-              onClick={(e) => { e.stopPropagation(); handleFileClick(loc.path, loc.line); }}
-              title={loc.line ? `${loc.path}:${loc.line}` : loc.path}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); handleFileClick(loc.path, loc.line); }}}
-            >
-              <span className="file-chip-ext">{fileIcon(ext)}</span>
-              <span className="file-chip-label">{basename}{loc.line ? `:${loc.line}` : ""}</span>
-            </span>
-          );
-        })}
+        {hasLocations &&
+          locations.map((loc, idx) => {
+            const basename = loc.path.split("/").pop() ?? loc.path;
+            const ext = getFileExtension(loc.path);
+            return (
+              <span
+                key={`${loc.path}:${loc.line ?? 0}-${idx}`}
+                className="file-chip file-chip-inline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleFileClick(loc.path, loc.line);
+                }}
+                title={loc.line ? `${loc.path}:${loc.line}` : loc.path}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.stopPropagation();
+                    handleFileClick(loc.path, loc.line);
+                  }
+                }}
+              >
+                <span className="file-chip-ext">{fileIcon(ext)}</span>
+                <span className="file-chip-label">
+                  {basename}
+                  {loc.line ? `:${loc.line}` : ""}
+                </span>
+              </span>
+            );
+          })}
         {durationMs !== undefined && (
           <span className="tool-duration">{formatDuration(durationMs)}</span>
         )}
@@ -188,7 +226,10 @@ export function ToolCallCard({
             <div className="tool-section">
               <button
                 className="tool-section-toggle"
-                onClick={(e) => { e.stopPropagation(); setDiffOpen(!diffOpen); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDiffOpen(!diffOpen);
+                }}
                 aria-expanded={diffOpen}
               >
                 <Chevron open={diffOpen} />
@@ -201,7 +242,10 @@ export function ToolCallCard({
             <div className="tool-section">
               <button
                 className="tool-section-toggle"
-                onClick={(e) => { e.stopPropagation(); setInputOpen(!inputOpen); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setInputOpen(!inputOpen);
+                }}
                 aria-expanded={inputOpen}
               >
                 <Chevron open={inputOpen} />
@@ -222,7 +266,10 @@ export function ToolCallCard({
             <div className="tool-section">
               <button
                 className="tool-section-toggle"
-                onClick={(e) => { e.stopPropagation(); setOutputOpen(!outputOpen); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOutputOpen(!outputOpen);
+                }}
                 aria-expanded={outputOpen}
               >
                 <Chevron open={outputOpen} />
@@ -230,7 +277,11 @@ export function ToolCallCard({
               </button>
               {outputOpen && (
                 <pre className="tool-content">
-                  <code>{typeof output === "string" ? tryFormatJson(output) : String(output)}</code>
+                  <code>
+                    {typeof output === "string"
+                      ? tryFormatJson(output)
+                      : String(output)}
+                  </code>
                 </pre>
               )}
             </div>
@@ -293,7 +344,9 @@ export function GroupedToolCallCard({
     e.stopPropagation();
     try {
       getVsCodeApi().postMessage({ type: "openFile", path });
-    } catch { /* vscodeApi not available */ }
+    } catch {
+      /* vscodeApi not available */
+    }
   };
 
   return (
@@ -310,24 +363,34 @@ export function GroupedToolCallCard({
         <span className="tool-kind">{kind}</span>
         <span className="tool-group-count">×{count}</span>
         {/* Inline file chips inside the header row */}
-        {uniqueFiles.length > 0 && uniqueFiles.map((path, idx) => {
-          const ext = getFileExtension(path);
-          const basename = path.split("/").pop() ?? path;
-          return (
-            <span
-              key={`${path}-${idx}`}
-              className="tool-group-file-chip tool-group-file-chip-inline"
-              onClick={(e) => handleFileClick(e, path)}
-              title={path}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); try { getVsCodeApi().postMessage({ type: "openFile", path }); } catch { /* */ } } }}
-            >
-              <span className="tool-group-file-icon">{fileIcon(ext)}</span>
-              <span className="tool-group-file-name">{basename}</span>
-            </span>
-          );
-        })}
+        {uniqueFiles.length > 0 &&
+          uniqueFiles.map((path, idx) => {
+            const ext = getFileExtension(path);
+            const basename = path.split("/").pop() ?? path;
+            return (
+              <span
+                key={`${path}-${idx}`}
+                className="tool-group-file-chip tool-group-file-chip-inline"
+                onClick={(e) => handleFileClick(e, path)}
+                title={path}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.stopPropagation();
+                    try {
+                      getVsCodeApi().postMessage({ type: "openFile", path });
+                    } catch {
+                      /* */
+                    }
+                  }
+                }}
+              >
+                <span className="tool-group-file-icon">{fileIcon(ext)}</span>
+                <span className="tool-group-file-name">{basename}</span>
+              </span>
+            );
+          })}
         <Chevron open={expanded} />
       </button>
 

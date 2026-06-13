@@ -28,7 +28,7 @@ export interface PlatformUri {
 
 /** ファイル情報 */
 export interface FileStat {
-  type: 'file' | 'directory';
+  type: "file" | "directory";
   mtime: number;
   size: number;
 }
@@ -36,7 +36,7 @@ export interface FileStat {
 /** ファイル変更イベント */
 export interface FileWatchEvent {
   path: string;
-  type: 'change' | 'add' | 'unlink';
+  type: "change" | "add" | "unlink";
 }
 
 /** ファイルスナップショット */
@@ -48,8 +48,8 @@ export interface FileSnapshot {
 
 /** 行範囲 */
 export interface LineRange {
-  start: number;  // 1-based
-  end: number;    // 1-based
+  start: number; // 1-based
+  end: number; // 1-based
 }
 
 /** Diff Hunk */

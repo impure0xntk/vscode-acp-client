@@ -5,7 +5,10 @@
 // These handlers bridge the event bus to VS Code UI (tree, status bar, webview).
 // ============================================================================
 
-import type { OrchestrationEvent, OrchestrationEventType } from "../../domain/models/orchestration";
+import type {
+  OrchestrationEvent,
+  OrchestrationEventType,
+} from "../../domain/models/orchestration";
 import type { TreeProvider } from "../../infrastructure/vscode/vscode-ui/tree";
 import type { AgentStatusBar } from "../../infrastructure/vscode/vscode-ui/statusbar";
 
@@ -27,13 +30,13 @@ export interface TaskEventDeps {
 export interface StateManagerHandle {
   subscribe: (
     type: OrchestrationEventType,
-    listener: (e: OrchestrationEvent) => void,
+    listener: (e: OrchestrationEvent) => void
   ) => () => void;
 }
 
 export function wireTaskEvents(
   stateManager: StateManagerHandle,
-  deps: TaskEventDeps,
+  deps: TaskEventDeps
 ): (() => void)[] {
   const { treeProvider, statusBar, onTaskUpdate } = deps;
 
@@ -43,14 +46,17 @@ export function wireTaskEvents(
     stateManager.subscribe("task.created", (event: OrchestrationEvent) => {
       treeProvider.refresh();
       onTaskUpdate?.(event);
-    }),
+    })
   );
 
   unsubs.push(
-    stateManager.subscribe("task.status_changed", (event: OrchestrationEvent) => {
-      treeProvider.refresh();
-      onTaskUpdate?.(event);
-    }),
+    stateManager.subscribe(
+      "task.status_changed",
+      (event: OrchestrationEvent) => {
+        treeProvider.refresh();
+        onTaskUpdate?.(event);
+      }
+    )
   );
 
   unsubs.push(
@@ -58,13 +64,13 @@ export function wireTaskEvents(
       treeProvider.refresh();
       statusBar.refresh();
       onTaskUpdate?.(event);
-    }),
+    })
   );
 
   unsubs.push(
     stateManager.subscribe("error.occurred", (event: OrchestrationEvent) => {
       onTaskUpdate?.(event);
-    }),
+    })
   );
 
   return unsubs;

@@ -126,10 +126,7 @@ describe("AgentRegistryService — Cleanup", () => {
   it("dispose clears all agents", () => {
     const sm = new StateManager();
     const registry = new AgentRegistryService(sm);
-    registry.loadAgents([
-      makeAgent({ id: "a1" }),
-      makeAgent({ id: "a2" }),
-    ]);
+    registry.loadAgents([makeAgent({ id: "a1" }), makeAgent({ id: "a2" })]);
     registry.dispose();
     assert.strictEqual(registry.listAgents().length, 0);
   });

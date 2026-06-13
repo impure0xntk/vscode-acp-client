@@ -46,7 +46,10 @@ describe("MessageRouterService — Routing", () => {
 
   it("route calls registered handler", async () => {
     let handled = false;
-    router.registerHandler("user", async () => { handled = true; return true; });
+    router.registerHandler("user", async () => {
+      handled = true;
+      return true;
+    });
     await router.route(makeMessage({ role: "user" }));
     assert.strictEqual(handled, true);
   });
@@ -73,7 +76,10 @@ describe("MessageRouterService — Handler Registration", () => {
 
   it("registerHandler and unregisterHandler work correctly", async () => {
     let count = 0;
-    router.registerHandler("user", async () => { count++; return true; });
+    router.registerHandler("user", async () => {
+      count++;
+      return true;
+    });
     await router.route(makeMessage({ role: "user" }));
     assert.strictEqual(count, 1);
 
@@ -83,12 +89,19 @@ describe("MessageRouterService — Handler Registration", () => {
   });
 
   it("handler can be replaced", async () => {
-    let v1 = 0, v2 = 0;
-    router.registerHandler("user", async () => { v1++; return true; });
+    let v1 = 0,
+      v2 = 0;
+    router.registerHandler("user", async () => {
+      v1++;
+      return true;
+    });
     await router.route(makeMessage({ role: "user" }));
     assert.strictEqual(v1, 1);
 
-    router.registerHandler("user", async () => { v2++; return true; });
+    router.registerHandler("user", async () => {
+      v2++;
+      return true;
+    });
     await router.route(makeMessage({ role: "user" }));
     assert.strictEqual(v1, 1); // not called again
     assert.strictEqual(v2, 1);

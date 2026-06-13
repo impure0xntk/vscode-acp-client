@@ -1,11 +1,21 @@
 import * as vscode from "vscode";
 import * as path from "path";
+import type { ContentBlock } from "@agentclientprotocol/sdk";
 import type { SessionOrchestrator } from "../../../application/orchestrator";
 import type { ChatPanel } from "../vscode-ui/chatPanel";
-import type { ChatMessage, ContextAttachmentDTO } from "../../../domain/models/chat";
+import type {
+  ChatMessage,
+  ContextAttachmentDTO,
+} from "../../../domain/models/chat";
 import type { SuggestionItem } from "../../../adapter/context/symbol";
-import type { PersistentHistoryStore, PersistentSessionEntry } from "../../../application/session/persistentHistory";
-import { searchSymbols, resolveSymbolByName } from "../../../adapter/context/symbol";
+import type {
+  PersistentHistoryStore,
+  PersistentSessionEntry,
+} from "../../../application/session/persistentHistory";
+import {
+  searchSymbols,
+  resolveSymbolByName,
+} from "../../../adapter/context/symbol";
 
 /**
  * Wire chat panel events to the orchestrator.
@@ -18,10 +28,13 @@ export function wireChatPanelEvents(
   resolveFile: (path: string, cwd?: string) => Promise<ContextAttachmentDTO>,
   resolveSelection: () => Promise<ContextAttachmentDTO | null>,
   resolveDiff: () => Promise<ContextAttachmentDTO | null>,
-  searchFiles: (query: string, cwd?: string) => Promise<{ relativePath: string; name: string; absolutePath?: string }[]>,
+  searchFiles: (
+    query: string,
+    cwd?: string
+  ) => Promise<{ relativePath: string; name: string; absolutePath?: string }[]>,
   searchSymbols: (query: string) => Promise<SuggestionItem[]>,
   resolveSymbolByName: (name: string) => Promise<ContextAttachmentDTO>,
-  persistentHistory?: PersistentHistoryStore,
+  persistentHistory?: PersistentHistoryStore
 ): void {
   if (!chatPanel) return;
 
@@ -32,7 +45,8 @@ export function wireChatPanelEvents(
       role: "user",
       content: text,
       timestamp: Date.now(),
-      attachmentsJson: attachments.length > 0 ? JSON.stringify(attachments) : undefined,
+      attachmentsJson:
+        attachments.length > 0 ? JSON.stringify(attachments) : undefined,
     };
     orchestrator.appendMessageSilent(agentId, sessionId, userMessage);
 
@@ -53,14 +67,19 @@ export function wireChatPanelEvents(
   chatPanel.onOpenFile(({ path: openPath, line }) => {
     void (async () => {
       const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "";
-      const absPath = path.isAbsolute(openPath) ? openPath : path.join(ws, openPath);
+      const absPath = path.isAbsolute(openPath)
+        ? openPath
+        : path.join(ws, openPath);
       const uri = vscode.Uri.file(absPath);
       try {
         const doc = await vscode.workspace.openTextDocument(uri);
         const selection = line
           ? new vscode.Range(line - 1, 0, line - 1, 0)
           : undefined;
-        await vscode.window.showTextDocument(doc, { selection, viewColumn: vscode.ViewColumn.Beside });
+        await vscode.window.showTextDocument(doc, {
+          selection,
+          viewColumn: vscode.ViewColumn.Beside,
+        });
       } catch {
         void vscode.window.showWarningMessage(`File not found: ${openPath}`);
       }
@@ -76,7 +95,10 @@ export function wireChatPanelEvents(
   chatPanel.onDidReceiveMessage((data: Record<string, unknown>) => {
     switch (data.type as string) {
       case "switchSession":
-        orchestrator.setActiveSession(data.agentId as string, data.sessionId as string);
+        orchestrator.setActiveSession(
+          data.agentId as string,
+          data.sessionId as string
+        );
         break;
       case "newSession": {
         const agentId = data.agentId as string;
@@ -90,9 +112,11 @@ export function wireChatPanelEvents(
         const sessionId = data.sessionId as string;
         for (const agent of orchestrator.getAllAgents()) {
           if (agent.sessions.some((s) => s.sessionId === sessionId)) {
-            void orchestrator.closeSession(agent.agentId, sessionId).then(() => {
-              sendTabs();
-            });
+            void orchestrator
+              .closeSession(agent.agentId, sessionId)
+              .then(() => {
+                sendTabs();
+              });
             break;
           }
         }
@@ -104,7 +128,10 @@ export function wireChatPanelEvents(
           const srcInfo = orchestrator.getSessionInfo(agent.agentId, sessionId);
           if (!srcInfo) continue;
           void (async () => {
-            const newId = await orchestrator.createSession(agent.agentId, srcInfo.cwd);
+            const newId = await orchestrator.createSession(
+              agent.agentId,
+              srcInfo.cwd
+            );
             orchestrator.setActiveSession(agent.agentId, newId);
             // Copy messages from the source session into the forked session
             const newInfo = orchestrator.getSessionInfo(agent.agentId, newId);
@@ -135,28 +162,62 @@ export function wireChatPanelEvents(
         const filePath = data.path as string;
         const cwd = resolveSessionCwd(orchestrator, data);
         void resolveFile(filePath, cwd)
-          .then((a) => chatPanel?.postMessage({ type: "resolvedFile", path: filePath, attachment: a }))
-          .catch((err: Error) => chatPanel?.postMessage({ type: "resolvedFile", path: filePath, attachment: null, error: err.message }));
+          .then((a) =>
+            chatPanel?.postMessage({
+              type: "resolvedFile",
+              path: filePath,
+              attachment: a,
+            })
+          )
+          .catch((err: Error) =>
+            chatPanel?.postMessage({
+              type: "resolvedFile",
+              path: filePath,
+              attachment: null,
+              error: err.message,
+            })
+          );
         break;
       }
       case "resolveSelection":
-        void resolveSelection().then((a) => chatPanel?.postMessage({ type: "resolvedSelection", attachment: a }));
+        void resolveSelection().then((a) =>
+          chatPanel?.postMessage({ type: "resolvedSelection", attachment: a })
+        );
         break;
       case "resolveDiff":
-        void resolveDiff().then((a) => chatPanel?.postMessage({ type: "resolvedDiff", attachment: a }));
+        void resolveDiff().then((a) =>
+          chatPanel?.postMessage({ type: "resolvedDiff", attachment: a })
+        );
         break;
       case "fetchSymbols": {
         const query = data.query as string;
         void searchSymbols(query).then((candidates) => {
-          chatPanel?.postMessage({ type: "symbolCandidates", query, candidates });
+          chatPanel?.postMessage({
+            type: "symbolCandidates",
+            query,
+            candidates,
+          });
         });
         break;
       }
       case "resolveSymbol": {
         const name = data.name as string;
         void resolveSymbolByName(name)
-          .then((a) => chatPanel?.postMessage({ type: "resolvedSymbol", name, attachment: a }))
-          .catch((err: Error) => chatPanel?.postMessage({ type: "resolvedSymbol", name, attachment: null, error: err.message }));
+          .then((a) =>
+            chatPanel?.postMessage({
+              type: "resolvedSymbol",
+              name,
+              attachment: a,
+            })
+          )
+          .catch((err: Error) =>
+            chatPanel?.postMessage({
+              type: "resolvedSymbol",
+              name,
+              attachment: null,
+              error: err.message,
+            })
+          );
         break;
       }
       case "selectAgent":
@@ -184,7 +245,9 @@ export function wireChatPanelEvents(
       }
       case "history:search": {
         if (persistentHistory) {
-          const results = persistentHistory.searchSessions(data.query as string);
+          const results = persistentHistory.searchSessions(
+            data.query as string
+          );
           chatPanel?.postMessage({ type: "history:searchResults", results });
         }
         break;
@@ -216,9 +279,14 @@ export function wireChatPanelEvents(
       case "history:cleanup": {
         if (persistentHistory) {
           const maxAgeDays = data.maxAgeDays as number;
-          void persistentHistory.cleanupExpiredSessions(maxAgeDays).then((deletedCount) => {
-            chatPanel?.postMessage({ type: "history:cleanupComplete", deletedCount });
-          });
+          void persistentHistory
+            .cleanupExpiredSessions(maxAgeDays)
+            .then((deletedCount) => {
+              chatPanel?.postMessage({
+                type: "history:cleanupComplete",
+                deletedCount,
+              });
+            });
         }
         break;
       }
@@ -232,7 +300,11 @@ export function wireChatPanelEvents(
       case "history:restore": {
         const sessionId = data.sessionId as string;
         const agentId = data.agentId as string;
-        chatPanel?.postMessage({ type: "history:restored", sessionId, agentId });
+        chatPanel?.postMessage({
+          type: "history:restored",
+          sessionId,
+          agentId,
+        });
         break;
       }
       case "history:archive": {
@@ -264,6 +336,36 @@ export function wireChatPanelEvents(
         }
         break;
       }
+
+      // ==================================================================
+      // Session Overview messages
+      // ==================================================================
+      case "sessionOverview:toggle": {
+        // Webview toggles its own visibility state;
+        // extension host just forwards the current state from the webview.
+        // No-op here — visibility is managed in webview state.
+        break;
+      }
+      case "sessionOverview:focus": {
+        const { sessionId, agentId } = data as {
+          sessionId: string;
+          agentId: string;
+        };
+        orchestrator.setActiveSession(agentId, sessionId);
+        break;
+      }
+      case "sessionOverview:cancel": {
+        const { sessionId, agentId } = data as {
+          sessionId: string;
+          agentId: string;
+        };
+        void orchestrator.cancelSession(sessionId, agentId);
+        break;
+      }
+      case "sessionOverview:expand":
+      case "sessionOverview:collapse":
+        // Webview manages expanded state internally; no extension host action needed.
+        break;
     }
   });
 }
@@ -296,18 +398,44 @@ function resolveSessionCwd(
   return undefined;
 }
 
-function buildPromptContext(attachments: ContextAttachmentDTO[]): { files?: string[]; selection?: string; diff?: string } {
-  const files: string[] = [];
-  let selection: string | undefined;
-  let diff: string | undefined;
+function buildPromptContext(attachments: ContextAttachmentDTO[]): ContentBlock[] {
+  const blocks: ContentBlock[] = [];
   for (const a of attachments) {
     switch (a.type) {
-      case "file": files.push(a.path); break;
-      case "selection": selection = a.content; break;
-      case "diff": diff = a.content; break;
+      case "file":
+      case "symbol":
+        blocks.push({
+          type: "resource",
+          resource: {
+            uri: `file://${a.path}`,
+            mimeType: "text/plain",
+            text: a.content,
+          },
+        });
+        break;
+      case "selection":
+        blocks.push({
+          type: "resource",
+          resource: {
+            uri: `file://${a.path}`,
+            mimeType: "text/plain",
+            text: a.content,
+          },
+        });
+        break;
+      case "diff":
+        blocks.push({
+          type: "resource",
+          resource: {
+            uri: `file://${a.path}`,
+            mimeType: "text/plain",
+            text: a.content,
+          },
+        });
+        break;
     }
   }
-  return { files: files.length > 0 ? files : undefined, selection, diff };
+  return blocks;
 }
 
 function addContextToChat(
@@ -318,13 +446,20 @@ function addContextToChat(
   const agents = orchestrator.getAllAgents();
   if (agents.length === 0) return;
   const agent = agents[0];
-  const activeSessionId = orchestrator.getActiveSessionId(agent.agentId) ?? agent.sessions[0]?.sessionId;
+  const activeSessionId =
+    orchestrator.getActiveSessionId(agent.agentId) ??
+    agent.sessions[0]?.sessionId;
   if (!activeSessionId) return;
   const info = orchestrator.getSessionInfo(agent.agentId, activeSessionId);
-  getChatPanel()?.pushMessage(agent.agentId, activeSessionId, {
-    id: crypto.randomUUID(),
-    role: "system",
-    content: `📎 ${attachment.label} (${attachment.tokenCount} tokens)`,
-    timestamp: Date.now(),
-  }, info?.cwd);
+  getChatPanel()?.pushMessage(
+    agent.agentId,
+    activeSessionId,
+    {
+      id: crypto.randomUUID(),
+      role: "system",
+      content: `📎 ${attachment.label} (${attachment.tokenCount} tokens)`,
+      timestamp: Date.now(),
+    },
+    info?.cwd
+  );
 }

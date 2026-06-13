@@ -1,6 +1,6 @@
 // src/platform/adapters/vscode.ts
 
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
 import type {
   Disposable,
   EventEmitter,
@@ -9,22 +9,45 @@ import type {
   FileStat,
   FileWatchEvent,
   PlatformUri,
-} from '../types';
-import type { ConfigValue } from '../types';
-import type { UIAPI, QuickPickItem, QuickPickButton, InputBoxOptions, OpenDialogOptions, StatusBarItem, OutputChannel, TreeItem, TreeDataProvider, WebviewPanel, Webview } from '../ui';
-import type { FileSystemAPI, FileCandidate } from '../filesystem';
-import type { EditorAPI, SymbolInfo, DefinitionLocation, Selection, ActiveEditor, DiffResult } from '../editor';
-import type { ExtensionContextAPI, Memento, OrchestrationStateSnapshot } from '../context';
-import type { TerminalAPI, Terminal } from '../terminal';
-import type { OrchestrationStateAPI } from '../orchestration';
-import type { PlatformAPI } from '../platform';
+} from "../types";
+import type { ConfigValue } from "../types";
+import type {
+  UIAPI,
+  QuickPickItem,
+  QuickPickButton,
+  InputBoxOptions,
+  OpenDialogOptions,
+  StatusBarItem,
+  OutputChannel,
+  TreeItem,
+  TreeDataProvider,
+  WebviewPanel,
+  Webview,
+} from "../ui";
+import type { FileSystemAPI, FileCandidate } from "../filesystem";
+import type {
+  EditorAPI,
+  SymbolInfo,
+  DefinitionLocation,
+  Selection,
+  ActiveEditor,
+  DiffResult,
+} from "../editor";
+import type {
+  ExtensionContextAPI,
+  Memento,
+  OrchestrationStateSnapshot,
+} from "../context";
+import type { TerminalAPI, Terminal } from "../terminal";
+import type { OrchestrationStateAPI } from "../orchestration";
+import type { PlatformAPI } from "../platform";
 
 // ---------------------------------------------------------------------------
 // VSCode Platform
 // ---------------------------------------------------------------------------
 
 export class VscodePlatform implements PlatformAPI {
-  readonly platform = 'vscode' as const;
+  readonly platform = "vscode" as const;
   readonly version: string;
 
   readonly ui: UIAPI;
@@ -61,10 +84,13 @@ export class VscodePlatform implements PlatformAPI {
 // ---------------------------------------------------------------------------
 
 export class VscodeUIAPI implements UIAPI {
-  async showMessage(message: string, severity: 'info' | 'warning' | 'error' = 'info'): Promise<void> {
-    if (severity === 'error') {
+  async showMessage(
+    message: string,
+    severity: "info" | "warning" | "error" = "info"
+  ): Promise<void> {
+    if (severity === "error") {
       await vscode.window.showErrorMessage(message);
-    } else if (severity === 'warning') {
+    } else if (severity === "warning") {
       await vscode.window.showWarningMessage(message);
     } else {
       await vscode.window.showInformationMessage(message);
@@ -80,7 +106,7 @@ export class VscodeUIAPI implements UIAPI {
       onDidTriggerButton?: (button: QuickPickButton) => void;
     }
   ): Promise<QuickPickItem | QuickPickItem[] | undefined> {
-    const vscodeItems = items.map(item => ({
+    const vscodeItems = items.map((item) => ({
       label: item.label,
       description: item.description,
       detail: item.detail,
@@ -99,27 +125,30 @@ export class VscodeUIAPI implements UIAPI {
     return vscode.window.showInputBox(options);
   }
 
-  async showOpenDialog(options?: OpenDialogOptions): Promise<PlatformUri[] | undefined> {
+  async showOpenDialog(
+    options?: OpenDialogOptions
+  ): Promise<PlatformUri[] | undefined> {
     const result = await vscode.window.showOpenDialog(options);
     if (!result) return undefined;
-    return result.map(uri => toPlatformUri(uri));
+    return result.map((uri) => toPlatformUri(uri));
   }
 
   createStatusBarItem(options: {
-    alignment: 'left' | 'right';
+    alignment: "left" | "right";
     priority?: number;
     command?: string;
   }): StatusBarItem {
-    const alignment = options.alignment === 'left'
-      ? vscode.StatusBarAlignment.Left
-      : vscode.StatusBarAlignment.Right;
+    const alignment =
+      options.alignment === "left"
+        ? vscode.StatusBarAlignment.Left
+        : vscode.StatusBarAlignment.Right;
     const item = vscode.window.createStatusBarItem(alignment, options.priority);
     if (options.command) {
       item.command = options.command;
     }
     return {
-      text: '',
-      tooltip: '',
+      text: "",
+      tooltip: "",
       show: () => item.show(),
       hide: () => item.hide(),
       dispose: () => item.dispose(),
@@ -156,19 +185,27 @@ export class VscodeUIAPI implements UIAPI {
 
     // Keep a mutable reference so callers can update html / read cspSource live
     const webviewRef: Webview = {
-      get html() { return panel.webview.html; },
-      set html(value: string) { panel.webview.html = value; },
-      postMessage: async (message: unknown) => panel.webview.postMessage(message),
+      get html() {
+        return panel.webview.html;
+      },
+      set html(value: string) {
+        panel.webview.html = value;
+      },
+      postMessage: async (message: unknown) =>
+        panel.webview.postMessage(message),
       onDidReceiveMessage: (listener: (e: unknown) => void): Disposable => {
         const sub = panel.webview.onDidReceiveMessage(listener);
         return { dispose: () => sub.dispose() };
       },
-      asWebviewUri: (uri: PlatformUri) => panel.webview.asWebviewUri(uri as unknown as vscode.Uri),
+      asWebviewUri: (uri: PlatformUri) =>
+        panel.webview.asWebviewUri(uri as unknown as vscode.Uri),
       cspSource: panel.webview.cspSource,
     };
 
     return {
-      get webview() { return webviewRef; },
+      get webview() {
+        return webviewRef;
+      },
       reveal: () => panel.reveal(),
       onDidDispose: (listener: () => void): Disposable => {
         const sub = panel.onDidDispose(listener);
@@ -183,40 +220,52 @@ export class VscodeUIAPI implements UIAPI {
     provider: TreeDataProvider<T>
   ): Disposable {
     const vscodeProvider: vscode.TreeDataProvider<T> = {
-      onDidChangeTreeData: provider.onDidChangeTreeData as unknown as vscode.Event<T | undefined>,
+      onDidChangeTreeData:
+        provider.onDidChangeTreeData as unknown as vscode.Event<T | undefined>,
       getTreeItem: (element: T): vscode.TreeItem => {
         const item = provider.getTreeItem(element);
         const vscodeItem = new vscode.TreeItem(
           item.label,
-          item.collapsibleState === 'none'
+          item.collapsibleState === "none"
             ? vscode.TreeItemCollapsibleState.None
-            : item.collapsibleState === 'collapsed'
+            : item.collapsibleState === "collapsed"
               ? vscode.TreeItemCollapsibleState.Collapsed
               : vscode.TreeItemCollapsibleState.Expanded
         );
         if (item.command) vscodeItem.command = item.command;
-        if (item.iconPath) vscodeItem.iconPath = new vscode.ThemeIcon(item.iconPath);
+        if (item.iconPath)
+          vscodeItem.iconPath = new vscode.ThemeIcon(item.iconPath);
         if (item.description) vscodeItem.description = item.description;
         if (item.tooltip) vscodeItem.tooltip = item.tooltip;
         return vscodeItem;
       },
-      getChildren: (element?: T): T[] | Promise<T[]> => provider.getChildren(element),
+      getChildren: (element?: T): T[] | Promise<T[]> =>
+        provider.getChildren(element),
     };
-    const disposable = vscode.window.registerTreeDataProvider(viewId, vscodeProvider);
+    const disposable = vscode.window.registerTreeDataProvider(
+      viewId,
+      vscodeProvider
+    );
     return { dispose: () => disposable.dispose() };
   }
 
-  registerCommand(commandId: string, handler: (...args: unknown[]) => unknown): Disposable {
+  registerCommand(
+    commandId: string,
+    handler: (...args: unknown[]) => unknown
+  ): Disposable {
     const disposable = vscode.commands.registerCommand(commandId, handler);
     return { dispose: () => disposable.dispose() };
   }
 
-  async executeCommand<T>(commandId: string, ...args: unknown[]): Promise<T | undefined> {
+  async executeCommand<T>(
+    commandId: string,
+    ...args: unknown[]
+  ): Promise<T | undefined> {
     return vscode.commands.executeCommand<T>(commandId, ...args);
   }
 
   async setContext(key: string, value: unknown): Promise<void> {
-    await vscode.commands.executeCommand('setContext', key, value);
+    await vscode.commands.executeCommand("setContext", key, value);
   }
 
   createEventEmitter<T>(): EventEmitter<T> {
@@ -228,9 +277,19 @@ export class VscodeUIAPI implements UIAPI {
     };
   }
 
-  async showNotification(message: string, items: string[]): Promise<string | undefined> {
-    const result = await vscode.window.showInformationMessage(message, ...items);
+  async showNotification(
+    message: string,
+    items: string[]
+  ): Promise<string | undefined> {
+    const result = await vscode.window.showInformationMessage(
+      message,
+      ...items
+    );
     return result;
+  }
+
+  async clipboardWriteText(text: string): Promise<void> {
+    await vscode.env.clipboard.writeText(text);
   }
 }
 
@@ -262,22 +321,33 @@ class VscodeFileSystemAPI implements FileSystemAPI {
   async stat(path: string): Promise<FileStat> {
     const stat = await vscode.workspace.fs.stat(vscode.Uri.file(path));
     return {
-      type: stat.type === vscode.FileType.Directory ? 'directory' : 'file',
+      type: stat.type === vscode.FileType.Directory ? "directory" : "file",
       mtime: stat.mtime,
       size: stat.size,
     };
   }
 
-  async findFiles(pattern: string, exclude?: string, maxResults = 50): Promise<PlatformUri[]> {
+  async findFiles(
+    pattern: string,
+    exclude?: string,
+    maxResults = 50
+  ): Promise<PlatformUri[]> {
     const uris = await vscode.workspace.findFiles(pattern, exclude, maxResults);
-    return uris.map(uri => toPlatformUri(uri));
+    return uris.map((uri) => toPlatformUri(uri));
   }
 
-  watchFiles(pattern: string, callback: (event: FileWatchEvent) => void): () => void {
+  watchFiles(
+    pattern: string,
+    callback: (event: FileWatchEvent) => void
+  ): () => void {
     const watcher = vscode.workspace.createFileSystemWatcher(pattern);
-    watcher.onDidChange(uri => callback({ path: uri.fsPath, type: 'change' }));
-    watcher.onDidCreate(uri => callback({ path: uri.fsPath, type: 'add' }));
-    watcher.onDidDelete(uri => callback({ path: uri.fsPath, type: 'unlink' }));
+    watcher.onDidChange((uri) =>
+      callback({ path: uri.fsPath, type: "change" })
+    );
+    watcher.onDidCreate((uri) => callback({ path: uri.fsPath, type: "add" }));
+    watcher.onDidDelete((uri) =>
+      callback({ path: uri.fsPath, type: "unlink" })
+    );
     return () => watcher.dispose();
   }
 
@@ -298,14 +368,14 @@ class VscodeFileSystemAPI implements FileSystemAPI {
   }
 
   basename(path: string): string {
-    const parts = path.split('/');
+    const parts = path.split("/");
     return parts[parts.length - 1];
   }
 
   dirname(path: string): string {
-    const parts = path.split('/');
+    const parts = path.split("/");
     parts.pop();
-    return parts.join('/');
+    return parts.join("/");
   }
 
   relativePath(from: string, to: string): string {
@@ -315,7 +385,7 @@ class VscodeFileSystemAPI implements FileSystemAPI {
   }
 
   isAbsolutePath(path: string): boolean {
-    return path.startsWith('/') || /^[A-Za-z]:\\/.test(path);
+    return path.startsWith("/") || /^[A-Za-z]:\\/.test(path);
   }
 
   getConfiguration(section: string): ConfigValue {
@@ -326,7 +396,7 @@ class VscodeFileSystemAPI implements FileSystemAPI {
   }
 
   get workspaceRoots(): string[] {
-    return (vscode.workspace.workspaceFolders ?? []).map(f => f.uri.fsPath);
+    return (vscode.workspace.workspaceFolders ?? []).map((f) => f.uri.fsPath);
   }
 
   get workspaceRoot(): string | undefined {
@@ -335,7 +405,7 @@ class VscodeFileSystemAPI implements FileSystemAPI {
 
   resolvePath(base: string, relative: string): string {
     if (this.isAbsolutePath(relative)) return relative;
-    const path = require('node:path');
+    const path = require("node:path");
     return path.resolve(base, relative);
   }
 }
@@ -346,12 +416,16 @@ class VscodeFileSystemAPI implements FileSystemAPI {
 
 class VscodeEditorAPI implements EditorAPI {
   async openDocument(uri: PlatformUri): Promise<PlatformUri> {
-    const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(uri.fsPath));
+    const doc = await vscode.workspace.openTextDocument(
+      vscode.Uri.file(uri.fsPath)
+    );
     return toPlatformUri(doc.uri);
   }
 
   async getDocumentContent(uri: PlatformUri): Promise<string> {
-    const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(uri.fsPath));
+    const doc = await vscode.workspace.openTextDocument(
+      vscode.Uri.file(uri.fsPath)
+    );
     return doc.getText();
   }
 
@@ -369,7 +443,7 @@ class VscodeEditorAPI implements EditorAPI {
         endCharacter: editor.selection.end.character,
         isEmpty: editor.selection.isEmpty,
       },
-      visibleRanges: editor.visibleRanges.map(r => ({
+      visibleRanges: editor.visibleRanges.map((r) => ({
         start: r.start.line + 1,
         end: r.end.line + 1,
       })),
@@ -377,7 +451,7 @@ class VscodeEditorAPI implements EditorAPI {
   }
 
   get visibleEditors(): ActiveEditor[] {
-    return vscode.window.visibleTextEditors.map(editor => ({
+    return vscode.window.visibleTextEditors.map((editor) => ({
       documentUri: toPlatformUri(editor.document.uri),
       filePath: editor.document.fileName,
       languageId: editor.document.languageId,
@@ -388,7 +462,7 @@ class VscodeEditorAPI implements EditorAPI {
         endCharacter: editor.selection.end.character,
         isEmpty: editor.selection.isEmpty,
       },
-      visibleRanges: editor.visibleRanges.map(r => ({
+      visibleRanges: editor.visibleRanges.map((r) => ({
         start: r.start.line + 1,
         end: r.end.line + 1,
       })),
@@ -396,20 +470,22 @@ class VscodeEditorAPI implements EditorAPI {
   }
 
   async getSymbols(uri: PlatformUri): Promise<SymbolInfo[]> {
-    const symbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
-      'vscode.executeDocumentSymbolProvider',
-      vscode.Uri.file(uri.fsPath)
-    );
+    const symbols = await vscode.commands.executeCommand<
+      vscode.DocumentSymbol[]
+    >("vscode.executeDocumentSymbolProvider", vscode.Uri.file(uri.fsPath));
     if (!symbols) return [];
     return this.flattenSymbols(symbols, uri.fsPath);
   }
 
-  private flattenSymbols(symbols: vscode.DocumentSymbol[], filePath: string): SymbolInfo[] {
+  private flattenSymbols(
+    symbols: vscode.DocumentSymbol[],
+    filePath: string
+  ): SymbolInfo[] {
     const result: SymbolInfo[] = [];
     for (const sym of symbols) {
       result.push({
         name: sym.name,
-        kind: vscode.SymbolKind[sym.kind]?.toLowerCase() ?? 'unknown',
+        kind: vscode.SymbolKind[sym.kind]?.toLowerCase() ?? "unknown",
         filePath,
         startLine: sym.range.start.line + 1,
         endLine: sym.range.end.line + 1,
@@ -422,9 +498,13 @@ class VscodeEditorAPI implements EditorAPI {
     return result;
   }
 
-  async findSymbolDefinition(uri: PlatformUri, line: number, character: number): Promise<DefinitionLocation | undefined> {
+  async findSymbolDefinition(
+    uri: PlatformUri,
+    line: number,
+    character: number
+  ): Promise<DefinitionLocation | undefined> {
     const locations = await vscode.commands.executeCommand<vscode.Location[]>(
-      'vscode.executeDefinitionProvider',
+      "vscode.executeDefinitionProvider",
       vscode.Uri.file(uri.fsPath),
       new vscode.Position(line - 1, character)
     );
@@ -437,15 +517,14 @@ class VscodeEditorAPI implements EditorAPI {
   }
 
   async searchSymbols(query: string): Promise<SymbolInfo[]> {
-    const symbols = await vscode.commands.executeCommand<vscode.SymbolInformation[]>(
-      'vscode.executeWorkspaceSymbolProvider',
-      query
-    );
+    const symbols = await vscode.commands.executeCommand<
+      vscode.SymbolInformation[]
+    >("vscode.executeWorkspaceSymbolProvider", query);
     if (!symbols) return [];
-    const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
-    return symbols.map(sym => ({
+    const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "";
+    return symbols.map((sym) => ({
       name: sym.name,
-      kind: vscode.SymbolKind[sym.kind]?.toLowerCase() ?? 'unknown',
+      kind: vscode.SymbolKind[sym.kind]?.toLowerCase() ?? "unknown",
       filePath: vscode.workspace.asRelativePath(sym.location.uri, false),
       startLine: sym.location.range.start.line + 1,
       endLine: sym.location.range.end.line + 1,
@@ -463,15 +542,23 @@ class VscodeEditorAPI implements EditorAPI {
     await vscode.window.showTextDocument(doc, options);
   }
 
-  computeDiff(oldContent: string, newContent: string, path: string): DiffResult {
+  computeDiff(
+    oldContent: string,
+    newContent: string,
+    path: string
+  ): DiffResult {
     // Compute a simple line-based diff without using the diff package
-    const oldLines = oldContent.split('\n');
-    const newLines = newContent.split('\n');
-    const hunts: DiffResult['hunks'] = [];
+    const oldLines = oldContent.split("\n");
+    const newLines = newContent.split("\n");
+    const hunks: DiffResult["hunks"] = [];
     let i = 0;
     let j = 0;
     while (i < oldLines.length || j < newLines.length) {
-      if (i < oldLines.length && j < newLines.length && oldLines[i] === newLines[j]) {
+      if (
+        i < oldLines.length &&
+        j < newLines.length &&
+        oldLines[i] === newLines[j]
+      ) {
         i++;
         j++;
         continue;
@@ -479,15 +566,21 @@ class VscodeEditorAPI implements EditorAPI {
       const oldStart = i + 1;
       const newStart = j + 1;
       const hunkLines: string[] = [];
-      while (i < oldLines.length && (j >= newLines.length || oldLines[i] !== newLines[j])) {
+      while (
+        i < oldLines.length &&
+        (j >= newLines.length || oldLines[i] !== newLines[j])
+      ) {
         hunkLines.push(`-${oldLines[i]}`);
         i++;
       }
-      while (j < newLines.length && (i >= oldLines.length || oldLines[i] !== newLines[j])) {
+      while (
+        j < newLines.length &&
+        (i >= oldLines.length || oldLines[i] !== newLines[j])
+      ) {
         hunkLines.push(`+${newLines[j]}`);
         j++;
       }
-      hunts.push({
+      hunks.push({
         oldStart,
         oldLines: i - (oldStart - 1),
         newStart,
@@ -495,19 +588,25 @@ class VscodeEditorAPI implements EditorAPI {
         lines: hunkLines,
       });
     }
-    return { path, oldContent, newContent, hunks: hunts };
+    return { path, oldContent, newContent, hunks };
   }
 
-  async showDiff(diff: DiffResult, options?: {
-    title?: string;
-    preserveFocus?: boolean;
-    preview?: boolean;
-  }): Promise<void> {
+  async showDiff(
+    diff: DiffResult,
+    options?: {
+      title?: string;
+      preserveFocus?: boolean;
+      preview?: boolean;
+    }
+  ): Promise<void> {
     const uri = vscode.Uri.parse(`acp-diff:${diff.path}`);
     const provider = {
       provideTextDocumentContent: () => diff.oldContent,
     };
-    const disposable = vscode.workspace.registerTextDocumentContentProvider('acp-diff', provider);
+    const disposable = vscode.workspace.registerTextDocumentContentProvider(
+      "acp-diff",
+      provider
+    );
     const doc = await vscode.workspace.openTextDocument(uri);
     await vscode.window.showTextDocument(doc, {
       preserveFocus: options?.preserveFocus,
@@ -521,14 +620,20 @@ class VscodeEditorAPI implements EditorAPI {
     scheme: string,
     provider: { provideContent(path: string): string | undefined }
   ): Disposable {
-    const disposable = vscode.workspace.registerTextDocumentContentProvider(scheme, {
-      provideTextDocumentContent: (uri: vscode.Uri) => provider.provideContent(uri.path),
-    });
+    const disposable = vscode.workspace.registerTextDocumentContentProvider(
+      scheme,
+      {
+        provideTextDocumentContent: (uri: vscode.Uri) =>
+          provider.provideContent(uri.path),
+      }
+    );
     return { dispose: () => disposable.dispose() };
   }
 
   async getGitDiff(): Promise<string | undefined> {
-    const gitExtension = vscode.extensions.getExtension<{ getAPI(version: number): GitAPI }>('vscode.git');
+    const gitExtension = vscode.extensions.getExtension<{
+      getAPI(version: number): GitAPI;
+    }>("vscode.git");
     if (!gitExtension) return undefined;
     const git = gitExtension.exports.getAPI(1);
     if (git.repositories.length === 0) return undefined;
@@ -538,7 +643,7 @@ class VscodeEditorAPI implements EditorAPI {
     if (staged) diffs.push(staged);
     const unstaged = await repo.diff(false);
     if (unstaged) diffs.push(unstaged);
-    return diffs.length > 0 ? diffs.join('\n') : undefined;
+    return diffs.length > 0 ? diffs.join("\n") : undefined;
   }
 }
 
@@ -568,7 +673,7 @@ class VscodeContextAPI implements ExtensionContextAPI {
       update: (key: string, value: unknown) =>
         Promise.resolve(this.ctx.workspaceState.update(key, value)),
       keys: () => this.ctx.workspaceState.keys().slice(),
-      setKeysForSync: () => {},  // workspaceState does not support sync keys
+      setKeysForSync: () => {}, // workspaceState does not support sync keys
     };
   }
 
@@ -601,11 +706,11 @@ class VscodeTerminalAPI implements TerminalAPI {
       cwd: options.cwd,
     });
     return {
-      id: options.name ?? '',
+      id: options.name ?? "",
       show: () => vscodeTerminal.show(),
       sendText: (text: string) => vscodeTerminal.sendText(text),
-      getOutput: async () => '',  // VSCode API does not support direct terminal output retrieval
-      waitForExit: async () => 0,  // Not supported
+      getOutput: async () => "", // VSCode API does not support direct terminal output retrieval
+      waitForExit: async () => 0, // Not supported
       kill: () => vscodeTerminal.dispose(),
       dispose: () => vscodeTerminal.dispose(),
     };
@@ -618,7 +723,7 @@ class VscodeTerminalAPI implements TerminalAPI {
 
 class VscodeOrchestrationStateAPI implements OrchestrationStateAPI {
   private context: vscode.ExtensionContext;
-  private storagePrefix = 'orchestration.';
+  private storagePrefix = "orchestration.";
 
   constructor(context: vscode.ExtensionContext) {
     this.context = context;
@@ -640,7 +745,9 @@ class VscodeOrchestrationStateAPI implements OrchestrationStateAPI {
     }
   }
 
-  async loadState(sessionId: string): Promise<OrchestrationStateSnapshot | undefined> {
+  async loadState(
+    sessionId: string
+  ): Promise<OrchestrationStateSnapshot | undefined> {
     const key = `${this.storagePrefix}${sessionId}`;
     return this.context.globalState.get<OrchestrationStateSnapshot>(key);
   }
@@ -651,9 +758,10 @@ class VscodeOrchestrationStateAPI implements OrchestrationStateAPI {
   }
 
   async listPersistedSessions(): Promise<string[]> {
-    return this.context.globalState.keys()
-      .filter(k => k.startsWith(this.storagePrefix))
-      .map(k => k.slice(this.storagePrefix.length));
+    return this.context.globalState
+      .keys()
+      .filter((k) => k.startsWith(this.storagePrefix))
+      .map((k) => k.slice(this.storagePrefix.length));
   }
 
   async appendEventLogEntry(sessionId: string, entry: unknown): Promise<void> {
@@ -690,7 +798,9 @@ export function toPlatformUri(uri: vscode.Uri): PlatformUri {
   };
   return {
     ...base,
-    toString() { return uri.toString(); },
+    toString() {
+      return uri.toString();
+    },
   };
 }
 

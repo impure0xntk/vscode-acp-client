@@ -3,7 +3,13 @@
 // Concrete implementations of Logger and LoggerFactory.
 // Backend injection allows the same interface to be used across all platforms.
 
-import type { LogRecord, Logger, LoggerBackend, LoggerFactory, LogLevelValue } from './types';
+import type {
+  LogRecord,
+  Logger,
+  LoggerBackend,
+  LoggerFactory,
+  LogLevelValue,
+} from "./types";
 
 // ── LoggerImpl ─────────────────────────────────────────────────────────────
 
@@ -47,7 +53,7 @@ export class LoggerImpl implements Logger {
     level: LogLevelValue,
     message: string,
     context?: Record<string, unknown>,
-    error?: Error,
+    error?: Error
   ): void {
     if (level < this.minLevel) return;
     const record: LogRecord = {

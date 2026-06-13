@@ -1,7 +1,11 @@
 import * as fs from "fs";
 import * as path from "path";
 import type { TokenUsage } from "../../../application/session/types";
-import type { ChatMessage, ToolCall, ContextAttachmentDTO } from "../../../domain/models/chat";
+import type {
+  ChatMessage,
+  ToolCall,
+  ContextAttachmentDTO,
+} from "../../../domain/models/chat";
 import type { UIAPI, WebviewPanel } from "../../../platform/ui";
 import type { EventEmitter, PlatformUri } from "../../../platform/types";
 import { VscodeUIAPI, toPlatformUri } from "../../../platform/adapters/vscode";
@@ -46,8 +50,14 @@ function extractCandidatePaths(text: string): string[] {
 }
 
 function resolveCandidate(candidate: string, cwd: string): string {
-  if (candidate.startsWith("/") || candidate.startsWith("~") || /^[A-Za-z]:\\/.test(candidate)) {
-    return candidate.startsWith("~") ? candidate.replace("~", process.env.HOME ?? "~") : candidate;
+  if (
+    candidate.startsWith("/") ||
+    candidate.startsWith("~") ||
+    /^[A-Za-z]:\\/.test(candidate)
+  ) {
+    return candidate.startsWith("~")
+      ? candidate.replace("~", process.env.HOME ?? "~")
+      : candidate;
   }
   return path.resolve(cwd, candidate);
 }
@@ -93,23 +103,39 @@ export class ChatPanel {
     attachments: ContextAttachmentDTO[];
   }>;
   private _onCancelTurn: EventEmitter<{ agentId: string; sessionId: string }>;
-  private _onAttachFile: EventEmitter<{ path: string; lineRange?: [number, number] }>;
+  private _onAttachFile: EventEmitter<{
+    path: string;
+    lineRange?: [number, number];
+  }>;
   private _onDidReceiveMessage: EventEmitter<Record<string, unknown>>;
   private _onOpenFile: EventEmitter<{ path: string; line?: number }>;
 
-  get onSendMessage() { return this._onSendMessage.event; }
-  get onCancelTurn() { return this._onCancelTurn.event; }
-  get onAttachFile() { return this._onAttachFile.event; }
-  get onDidReceiveMessage() { return this._onDidReceiveMessage.event; }
-  get onOpenFile() { return this._onOpenFile.event; }
+  get onSendMessage() {
+    return this._onSendMessage.event;
+  }
+  get onCancelTurn() {
+    return this._onCancelTurn.event;
+  }
+  get onAttachFile() {
+    return this._onAttachFile.event;
+  }
+  get onDidReceiveMessage() {
+    return this._onDidReceiveMessage.event;
+  }
+  get onOpenFile() {
+    return this._onOpenFile.event;
+  }
 
-  _onGetSessionCommands: ((agentId: string, sessionId: string) => unknown[]) | null = null;
+  _onGetSessionCommands:
+    | ((agentId: string, sessionId: string) => unknown[])
+    | null = null;
 
   static reveal(extensionUri: PlatformUri): ChatPanel {
     if (ChatPanel.instance?.panel) {
       ChatPanel.instance.panel.reveal();
       return ChatPanel.instance;
     }
+    // Instance exists but panel was disposed — create a fresh instance
     const ui = new VscodeUIAPI();
     ChatPanel.instance = new ChatPanel(ui, extensionUri);
     return ChatPanel.instance;
@@ -165,7 +191,9 @@ export class ChatPanel {
     const p = this.panel;
     if (!p) return;
     const nonce = crypto.randomUUID();
-    const cssUri = p.webview.asWebviewUri(this.distUri("webview.css")).toString();
+    const cssUri = p.webview
+      .asWebviewUri(this.distUri("webview.css"))
+      .toString();
     const jsUri = p.webview.asWebviewUri(this.distUri("webview.js")).toString();
     const csp = [
       "default-src 'none'",
@@ -192,14 +220,20 @@ export class ChatPanel {
   }
 
   private distUri(filename: string): PlatformUri {
-    return this.extensionUri.with({ path: this.extensionUri.path + "/dist/" + filename });
+    return this.extensionUri.with({
+      path: this.extensionUri.path + "/dist/" + filename,
+    });
   }
 
   reveal(): void {
     this.panel?.reveal();
   }
 
-  setActiveSession(agentId: string, sessionId: string, info: import("../../../application/session/types").SessionInfo): void {
+  setActiveSession(
+    agentId: string,
+    sessionId: string,
+    info: import("../../../application/session/types").SessionInfo
+  ): void {
     // Send full message snapshot (session/switch) — high cost but only on session switch
     const cwd = info.cwd;
     const enriched = info.messages.map((m) => attachInlineFilePaths(m, cwd));
@@ -231,9 +265,19 @@ export class ChatPanel {
     }
   }
 
-  pushMessage(agentId: string, sessionId: string, message: ChatMessage, cwd?: string): void {
+  pushMessage(
+    agentId: string,
+    sessionId: string,
+    message: ChatMessage,
+    cwd?: string
+  ): void {
     const enriched = cwd ? attachInlineFilePaths(message, cwd) : message;
-    this.postMessage({ type: "session/message", agentId, sessionId, message: enriched });
+    this.postMessage({
+      type: "session/message",
+      agentId,
+      sessionId,
+      message: enriched,
+    });
   }
 
   pushStreamChunk(agentId: string, sessionId: string, chunk: string): void {
@@ -244,12 +288,26 @@ export class ChatPanel {
     this.postMessage({ type: "session/streamEnd", agentId, sessionId });
   }
 
-  pushSessionNotification(agentId: string, sessionId: string, notification: unknown): void {
-    this.postMessage({ type: "session/notification", agentId, sessionId, notification });
+  pushSessionNotification(
+    agentId: string,
+    sessionId: string,
+    notification: unknown
+  ): void {
+    this.postMessage({
+      type: "session/notification",
+      agentId,
+      sessionId,
+      notification,
+    });
   }
 
   pushTurnActive(agentId: string, sessionId: string, active: boolean): void {
-    this.postMessage({ type: "session/turnActive", agentId, sessionId, active });
+    this.postMessage({
+      type: "session/turnActive",
+      agentId,
+      sessionId,
+      active,
+    });
   }
 
   setAgentName(name: string): void {
@@ -260,16 +318,44 @@ export class ChatPanel {
     this.postMessage({ type: "agentInfo", agentId, info });
   }
 
-  pushAvailableCommands(agentId: string, sessionId: string, commands: unknown[]): void {
-    this.postMessage({ type: "session/availableCommands", agentId, sessionId, commands });
+  pushAvailableCommands(
+    agentId: string,
+    sessionId: string,
+    commands: unknown[]
+  ): void {
+    this.postMessage({
+      type: "session/availableCommands",
+      agentId,
+      sessionId,
+      commands,
+    });
   }
 
-  pushSessionUsage(agentId: string, sessionId: string, tokenUsage: { inputTokens: number; outputTokens: number; totalTokens: number }, contextWindowMax?: number): void {
-    this.postMessage({ type: "session/usage", agentId, sessionId, tokenUsage, contextWindowMax });
+  pushSessionUsage(
+    agentId: string,
+    sessionId: string,
+    tokenUsage: {
+      inputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+    },
+    contextWindowMax?: number
+  ): void {
+    this.postMessage({
+      type: "session/usage",
+      agentId,
+      sessionId,
+      tokenUsage,
+      contextWindowMax,
+    });
   }
 
   /** Push SessionInfo metadata to webview (no messages — use setActiveSession for full snapshot) */
-  pushSessionInfo(agentId: string, sessionId: string, info: import("../../../application/session/types").SessionInfo): void {
+  pushSessionInfo(
+    agentId: string,
+    sessionId: string,
+    info: import("../../../application/session/types").SessionInfo
+  ): void {
     this.postMessage({
       type: "session/info",
       agentId,
@@ -300,7 +386,12 @@ export class ChatPanel {
         const agentId = data.agentId as string;
         const sessionId = data.sessionId as string;
         if (agentId && sessionId) {
-          this.handleSendMessage(agentId, sessionId, data.text as string, (data.attachments as ContextAttachmentDTO[]) ?? []);
+          this.handleSendMessage(
+            agentId,
+            sessionId,
+            data.text as string,
+            (data.attachments as ContextAttachmentDTO[]) ?? []
+          );
         }
         break;
       }
@@ -313,7 +404,10 @@ export class ChatPanel {
         break;
       }
       case "attachFile":
-        this._onAttachFile.fire({ path: data.path as string, lineRange: data.lineRange as [number, number] | undefined });
+        this._onAttachFile.fire({
+          path: data.path as string,
+          lineRange: data.lineRange as [number, number] | undefined,
+        });
         break;
       // fetchFiles, resolveFile, resolveSelection, resolveDiff, fetchSymbols, resolveSymbol
       // are handled via onDidReceiveMessage in wireChatPanelEvents().
@@ -329,16 +423,29 @@ export class ChatPanel {
         }
         break;
       }
+      case "copyToClipboard": {
+        const text = data.text as string;
+        if (text) {
+          void this.ui.clipboardWriteText(text);
+        }
+        break;
+      }
     }
   }
 
-  private handleSendMessage(agentId: string, sessionId: string, text: string, attachments: ContextAttachmentDTO[]): void {
+  private handleSendMessage(
+    agentId: string,
+    sessionId: string,
+    text: string,
+    attachments: ContextAttachmentDTO[]
+  ): void {
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
       content: text,
       timestamp: Date.now(),
-      attachmentsJson: attachments.length > 0 ? JSON.stringify(attachments) : undefined,
+      attachmentsJson:
+        attachments.length > 0 ? JSON.stringify(attachments) : undefined,
     };
     this.pushMessage(agentId, sessionId, userMessage);
     this._onSendMessage.fire({ agentId, sessionId, text, attachments });

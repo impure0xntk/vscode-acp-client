@@ -89,7 +89,7 @@ export class SessionHistoryStore {
         e.title.toLowerCase().includes(q) ||
         (e.lastMessage?.toLowerCase().includes(q) ?? false) ||
         e.agentId.toLowerCase().includes(q) ||
-        e.sessionId.toLowerCase().includes(q),
+        e.sessionId.toLowerCase().includes(q)
     );
   }
 

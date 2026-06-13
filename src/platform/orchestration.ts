@@ -1,6 +1,6 @@
 // src/platform/orchestration.ts
 
-import type { OrchestrationStateSnapshot } from './context';
+import type { OrchestrationStateSnapshot } from "./context";
 
 /**
  * API for persisting orchestration state.
@@ -22,7 +22,10 @@ export interface OrchestrationStateAPI {
   // ── Event log output ──
   appendEventLogEntry(sessionId: string, entry: unknown): Promise<void>;
 
-  readEventLog(sessionId: string, options?: {
-    maxLines?: number;
-  }): Promise<unknown[]>;
+  readEventLog(
+    sessionId: string,
+    options?: {
+      maxLines?: number;
+    }
+  ): Promise<unknown[]>;
 }

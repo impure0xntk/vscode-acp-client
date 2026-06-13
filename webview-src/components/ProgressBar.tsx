@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import type { SessionTabStatus } from "../hooks/useSessionContext";
 import { type ElapsedColor, elapsedColor } from "../shared/elapsedColor";
 
@@ -9,39 +9,44 @@ interface ProgressBarProps {
   /**
    * Last activity timestamp (ms since epoch) for this session.
    * When running, elapsed time is measured from this point so that
-   * each new activity resets the color back to "normal".
+   * each new activity resets the elapsed timer to 0
+   * and therefore keeps the bar "normal" (blue).
+   * Only when no activity occurs for a sustained period does the
+   * color decay through warning → critical.
+   * Pass undefined when the session has no prior activity yet
+   * (e.g. just connected).
    */
   lastActivityMs?: number;
 }
 
-/**
- * Elapsed-time color driven by time since the last activity.
- * While the session is "running", every new message or tool call
- * bumps `lastActivityMs`, which resets the elapsed timer to 0
- * and therefore keeps the bar "normal" (blue).
- * Only when no activity occurs for a sustained period does the
- * color decay through warning → critical.
- *
- * This is a pure component — no internal state, no intervals.
- * Elapsed time is computed at render time from Date.now().
- */
 function colorForElapsed(elapsed: number): ProgressColor {
   return elapsedColor(elapsed);
 }
 
-export function ProgressBar({ status, lastActivityMs }: ProgressBarProps): React.ReactElement {
+export function ProgressBar({
+  status,
+  lastActivityMs,
+}: ProgressBarProps): React.ReactElement {
   const isRunning = status === "running";
+  const [elapsed, setElapsed] = useState(0);
 
-  // Compute elapsed at render time — no state, no interval
-  const elapsed = isRunning && lastActivityMs
-    ? Date.now() - lastActivityMs
-    : 0;
+  // Tick while running — update at 200ms so the color-tier logic
+  // (normal → warning → critical) advances visibly.
+  useEffect(() => {
+    if (!isRunning) {
+      setElapsed(0);
+      return;
+    }
+    const baseline = lastActivityMs ?? Date.now();
+    // Immediately compute so there is no 1-frame stale value
+    setElapsed(Date.now() - baseline);
+    const id = setInterval(() => {
+      setElapsed(Date.now() - baseline);
+    }, 200);
+    return () => clearInterval(id);
+  }, [isRunning, lastActivityMs]);
 
   const color = isRunning ? colorForElapsed(elapsed) : "idle";
-
-  // When idle, apply styles directly to avoid a flash of the running color
-  // during the CSS class transition from running → idle.
-  const idleStyle: React.CSSProperties = { animation: "none", width: "100%", opacity: 0.12 };
 
   return (
     <div
@@ -51,10 +56,7 @@ export function ProgressBar({ status, lastActivityMs }: ProgressBarProps): React
       aria-busy={isRunning}
     >
       <div className="progress-bar-track">
-        <div
-          className="progress-bar-fill"
-          style={isRunning ? undefined : idleStyle}
-        />
+        <div className="progress-bar-fill" />
       </div>
     </div>
   );

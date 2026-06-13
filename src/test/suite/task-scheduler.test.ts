@@ -2,13 +2,19 @@ import * as assert from "assert";
 import { describe, it, beforeEach } from "mocha";
 import { TaskSchedulerService } from "../../domain/services/task-scheduler";
 import { StateManager } from "../../domain/services/state-manager";
-import type { Task, TaskDefinition, TaskStatus } from "../../domain/models/task";
+import type {
+  Task,
+  TaskDefinition,
+  TaskStatus,
+} from "../../domain/models/task";
 
 // ============================================================================
 // Task Scheduler Service Tests
 // ============================================================================
 
-function makeDefinition(overrides: Partial<TaskDefinition> = {}): TaskDefinition {
+function makeDefinition(
+  overrides: Partial<TaskDefinition> = {}
+): TaskDefinition {
   return {
     type: "single_agent",
     assignedAgentId: "claude",
@@ -91,7 +97,7 @@ describe("TaskSchedulerService — CRUD", () => {
   it("updateTaskStatus throws for unknown task", () => {
     assert.throws(
       () => scheduler.updateTaskStatus("unknown", "running"),
-      /Task unknown not found/,
+      /Task unknown not found/
     );
   });
 });
@@ -111,18 +117,24 @@ describe("TaskSchedulerService — Scheduling", () => {
   });
 
   it("schedule throws when dependencies are unresolved", async () => {
-    const task = scheduler.createTask(makeDefinition({ dependencies: ["dep-1"] }));
+    const task = scheduler.createTask(
+      makeDefinition({ dependencies: ["dep-1"] })
+    );
     await assert.rejects(
       () => scheduler.schedule(task),
-      /unresolved dependencies/,
+      /unresolved dependencies/
     );
   });
 
   it("schedule succeeds when dependency is completed", async () => {
-    const dep = scheduler.createTask(makeDefinition({ assignedAgentId: "claude" }));
+    const dep = scheduler.createTask(
+      makeDefinition({ assignedAgentId: "claude" })
+    );
     scheduler.updateTaskStatus(dep.id, "completed");
 
-    const task = scheduler.createTask(makeDefinition({ dependencies: [dep.id] }));
+    const task = scheduler.createTask(
+      makeDefinition({ dependencies: [dep.id] })
+    );
     await scheduler.schedule(task);
     assert.strictEqual(scheduler.getTask(task.id)!.status, "running");
   });
@@ -146,7 +158,9 @@ describe("TaskSchedulerService — Dependency Resolution", () => {
     const dep = scheduler.createTask(makeDefinition());
     scheduler.updateTaskStatus(dep.id, "completed");
 
-    const task = scheduler.createTask(makeDefinition({ dependencies: [dep.id] }));
+    const task = scheduler.createTask(
+      makeDefinition({ dependencies: [dep.id] })
+    );
     const unresolved = scheduler.resolveDependencies(task.id);
     assert.strictEqual(unresolved.length, 0);
   });
@@ -155,7 +169,9 @@ describe("TaskSchedulerService — Dependency Resolution", () => {
     const dep = scheduler.createTask(makeDefinition());
     // dep is still pending
 
-    const task = scheduler.createTask(makeDefinition({ dependencies: [dep.id] }));
+    const task = scheduler.createTask(
+      makeDefinition({ dependencies: [dep.id] })
+    );
     const unresolved = scheduler.resolveDependencies(task.id);
     assert.strictEqual(unresolved.length, 1);
     assert.strictEqual(unresolved[0].id, dep.id);
@@ -189,7 +205,7 @@ describe("TaskSchedulerService — Pipeline Execution", () => {
       async (task) => {
         order.push(task.id);
         return `result-${task.id}`;
-      },
+      }
     );
 
     assert.strictEqual(results.length, 2);
@@ -199,15 +215,19 @@ describe("TaskSchedulerService — Pipeline Execution", () => {
   });
 
   it("executePipeline chains output to next input", async () => {
-    const t1 = scheduler.createTask(makeDefinition({ type: "pipeline", input: 1 }));
-    const t2 = scheduler.createTask(makeDefinition({ type: "pipeline", input: 0 }));
+    const t1 = scheduler.createTask(
+      makeDefinition({ type: "pipeline", input: 1 })
+    );
+    const t2 = scheduler.createTask(
+      makeDefinition({ type: "pipeline", input: 0 })
+    );
 
     const results = await scheduler.executePipeline(
       [t1.id, t2.id],
       async (task) => {
         const input = task.input as number;
         return input * 2;
-      },
+      }
     );
 
     assert.strictEqual(results[0], 2);
@@ -219,11 +239,11 @@ describe("TaskSchedulerService — Pipeline Execution", () => {
     const t2 = scheduler.createTask(makeDefinition({ type: "pipeline" }));
 
     await assert.rejects(
-      () => scheduler.executePipeline(
-        [t1.id, t2.id],
-        async () => { throw new Error("fail"); },
-      ),
-      /fail/,
+      () =>
+        scheduler.executePipeline([t1.id, t2.id], async () => {
+          throw new Error("fail");
+        }),
+      /fail/
     );
 
     assert.strictEqual(scheduler.getTask(t1.id)!.status, "failed");
@@ -233,7 +253,7 @@ describe("TaskSchedulerService — Pipeline Execution", () => {
   it("executePipeline throws for unknown task", async () => {
     await assert.rejects(
       () => scheduler.executePipeline(["unknown"], async () => "ok"),
-      /Task unknown not found/,
+      /Task unknown not found/
     );
   });
 });
@@ -252,7 +272,7 @@ describe("TaskSchedulerService — Parallel Execution", () => {
 
     const results = await scheduler.executeParallel(
       [t1.id, t2.id],
-      async (task) => `done-${task.id}`,
+      async (task) => `done-${task.id}`
     );
 
     assert.strictEqual(results.length, 2);
@@ -265,11 +285,11 @@ describe("TaskSchedulerService — Parallel Execution", () => {
     const t2 = scheduler.createTask(makeDefinition({ type: "parallel" }));
 
     await assert.rejects(
-      () => scheduler.executeParallel(
-        [t1.id, t2.id],
-        async () => { throw new Error("parallel fail"); },
-      ),
-      /task\(s\) failed/,
+      () =>
+        scheduler.executeParallel([t1.id, t2.id], async () => {
+          throw new Error("parallel fail");
+        }),
+      /task\(s\) failed/
     );
 
     assert.strictEqual(scheduler.getTask(t1.id)!.status, "failed");
@@ -279,7 +299,7 @@ describe("TaskSchedulerService — Parallel Execution", () => {
   it("executeParallel throws for unknown task", async () => {
     await assert.rejects(
       () => scheduler.executeParallel(["unknown"], async () => "ok"),
-      /Task unknown not found/,
+      /Task unknown not found/
     );
   });
 });
@@ -326,7 +346,9 @@ describe("TaskSchedulerService — Events", () => {
 
   it("emits taskCreated on createTask", () => {
     let created: Task | null = null;
-    scheduler.on("taskCreated", (task) => { created = task; });
+    scheduler.on("taskCreated", (task) => {
+      created = task;
+    });
     scheduler.createTask(makeDefinition());
     assert.ok(created);
   });
@@ -334,7 +356,9 @@ describe("TaskSchedulerService — Events", () => {
   it("emits taskStatusChanged on updateTaskStatus", () => {
     const task = scheduler.createTask(makeDefinition());
     let event: any = null;
-    scheduler.on("taskStatusChanged", (e) => { event = e; });
+    scheduler.on("taskStatusChanged", (e) => {
+      event = e;
+    });
     scheduler.updateTaskStatus(task.id, "running");
     assert.ok(event);
     assert.strictEqual(event.taskId, task.id);
@@ -348,7 +372,9 @@ describe("TaskSchedulerService — Cleanup", () => {
     const scheduler = new TaskSchedulerService(sm);
     scheduler.createTask(makeDefinition());
     let count = 0;
-    scheduler.on("taskCreated", () => { count++; });
+    scheduler.on("taskCreated", () => {
+      count++;
+    });
     scheduler.dispose();
     assert.strictEqual(scheduler.getTasksByStatus("pending").length, 0);
   });

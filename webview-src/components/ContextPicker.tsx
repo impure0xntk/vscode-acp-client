@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import type { SuggestionItem, TriggerType, FileCandidate } from "../types";
+import { Icon } from "../lib/icons";
 
 // Re-export for backward compatibility
 export type { FileCandidate };
@@ -12,8 +13,8 @@ const TRIGGER_LABELS: Record<TriggerType, string> = {
 };
 
 const SUB_TRIGGER_LABELS: Record<string, string> = {
-  "file": "Files",
-  "symbol": "Symbols",
+  file: "Files",
+  symbol: "Symbols",
 };
 
 // ── Public API ──────────────────────────────────────────────────────
@@ -24,7 +25,11 @@ export interface ContextPickerProps {
   query: string;
   onSelect: (item: SuggestionItem) => void;
   onClose: () => void;
-  fetchItems: (trigger: TriggerType, query: string, subTrigger?: "symbol" | "file") => Promise<SuggestionItem[]>;
+  fetchItems: (
+    trigger: TriggerType,
+    query: string,
+    subTrigger?: "symbol" | "file"
+  ) => Promise<SuggestionItem[]>;
   selectedIndex: number;
   onSelectedIndexChange: (index: number) => void;
   /**
@@ -102,7 +107,9 @@ export function ContextPicker({
   // ── Scroll selected item into view ───────────────────────────────
 
   useEffect(() => {
-    const el = listRef.current?.children[selectedIndex] as HTMLElement | undefined;
+    const el = listRef.current?.children[selectedIndex] as
+      | HTMLElement
+      | undefined;
     el?.scrollIntoView({ block: "nearest" });
   }, [selectedIndex]);
 
@@ -127,7 +134,7 @@ export function ContextPicker({
             onMouseEnter={() => onSelectedIndexChange(i)}
           >
             {item.icon && (
-              <span className="context-picker-icon">{item.icon}</span>
+              <Icon name={item.icon} className="context-picker-icon" size="sm" />
             )}
             <span className="context-picker-label">{item.label}</span>
             {item.detail && (

@@ -11,7 +11,7 @@ export interface OrchestrationState {
   sessions: Map<string, Session>;
   agents: Map<string, AgentDefinition>;
   activeTasks: Map<string, Task>;
-  messageHistory: Map<string, Message[]>;  // sessionId -> messages
+  messageHistory: Map<string, Message[]>; // sessionId -> messages
   eventLog: OrchestrationEvent[];
 }
 

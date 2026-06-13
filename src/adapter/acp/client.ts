@@ -33,8 +33,14 @@ export class PlatformAcpClient implements Client {
 
   constructor(
     deps: AcpClientDeps,
-    private readonly onSessionUpdate: (agentId: string, notification: SessionNotification) => void,
-    private readonly onRequestPermission: (agentId: string, request: RequestPermissionRequest) => Promise<RequestPermissionResponse>,
+    private readonly onSessionUpdate: (
+      agentId: string,
+      notification: SessionNotification
+    ) => void,
+    private readonly onRequestPermission: (
+      agentId: string,
+      request: RequestPermissionRequest
+    ) => Promise<RequestPermissionResponse>
   ) {
     this.deps = deps;
   }
@@ -43,7 +49,9 @@ export class PlatformAcpClient implements Client {
     this.agentId = id;
   }
 
-  async requestPermission(params: RequestPermissionRequest): Promise<RequestPermissionResponse> {
+  async requestPermission(
+    params: RequestPermissionRequest
+  ): Promise<RequestPermissionResponse> {
     return this.onRequestPermission(this.agentId, params);
   }
 
@@ -51,28 +59,38 @@ export class PlatformAcpClient implements Client {
     this.onSessionUpdate(this.agentId, params);
   }
 
-  async readTextFile(params: ReadTextFileRequest): Promise<ReadTextFileResponse> {
+  async readTextFile(
+    params: ReadTextFileRequest
+  ): Promise<ReadTextFileResponse> {
     const content = await this.deps.fs.readFile(params.path);
     return { content };
   }
 
-  async writeTextFile(params: WriteTextFileRequest): Promise<WriteTextFileResponse> {
+  async writeTextFile(
+    params: WriteTextFileRequest
+  ): Promise<WriteTextFileResponse> {
     await this.deps.fs.writeFile(params.path, params.content);
     return {};
   }
 
-  async createTerminal(params: CreateTerminalRequest): Promise<CreateTerminalResponse> {
+  async createTerminal(
+    params: CreateTerminalRequest
+  ): Promise<CreateTerminalResponse> {
     const terminal = this.deps.ui.createOutputChannel("ACP Terminal");
     return { terminalId: `term-${Date.now()}` };
   }
 
-  async terminalOutput(params: TerminalOutputRequest): Promise<TerminalOutputResponse> {
+  async terminalOutput(
+    params: TerminalOutputRequest
+  ): Promise<TerminalOutputResponse> {
     return { output: "", truncated: false };
   }
 
   async releaseTerminal(_params: ReleaseTerminalRequest): Promise<void> {}
 
-  async waitForTerminalExit(_params: WaitForTerminalExitRequest): Promise<WaitForTerminalExitResponse> {
+  async waitForTerminalExit(
+    _params: WaitForTerminalExitRequest
+  ): Promise<WaitForTerminalExitResponse> {
     return { exitCode: 0 };
   }
 
@@ -82,4 +100,3 @@ export class PlatformAcpClient implements Client {
 /**
  * VSCode-specific client that uses VSCode QuickPick for permission requests.
  */
-

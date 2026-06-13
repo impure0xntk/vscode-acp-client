@@ -47,16 +47,16 @@ webview-src/                       # React webview UI
 
 ## Tech Stack
 
-| Component | Technology |
-|-----------|-----------|
-| Language | TypeScript 5.7+ (strict) |
-| Runtime | Node 20+, VS Code Extension Host 1.95+ |
-| ACP SDK | `@agentclientprotocol/sdk` ^0.25.0 |
-| UI (Webview) | React 18 + Tailwind CSS 4 |
-| Markdown | `markdown-it` + `highlight.js` |
-| Bundler | esbuild |
-| Testing | Mocha (extension host), Vitest (webview) |
-| Linting | ESLint 9 + Prettier 3 |
+| Component    | Technology                               |
+| ------------ | ---------------------------------------- |
+| Language     | TypeScript 5.7+ (strict)                 |
+| Runtime      | Node 20+, VS Code Extension Host 1.95+   |
+| ACP SDK      | `@agentclientprotocol/sdk` ^0.25.0       |
+| UI (Webview) | React 18 + Tailwind CSS 4                |
+| Markdown     | `markdown-it` + `highlight.js`           |
+| Bundler      | esbuild                                  |
+| Testing      | Mocha (extension host), Vitest (webview) |
+| Linting      | ESLint 9 + Prettier 3                    |
 
 ## Build & Development
 
@@ -72,16 +72,16 @@ echo "use flake" > .envrc && direnv allow
 
 ### Commands
 
-| Command | Description |
-|---------|-------------|
-| `npm run typecheck` | Type-check without emitting (`tsc --noEmit`) |
-| `npm run compile` | Compile TypeScript + bundle webview via esbuild |
-| `npm run watch` | Watch mode (tsc + esbuild) |
-| `npm run lint` | ESLint |
-| `npm run format` | Prettier |
-| `npm test` | Run Mocha extension host tests |
-| `npm run package` | Produce `.vsix` via vsce |
-| `npm run clean` | Remove `out/` and `dist/` |
+| Command             | Description                                     |
+| ------------------- | ----------------------------------------------- |
+| `npm run typecheck` | Type-check without emitting (`tsc --noEmit`)    |
+| `npm run compile`   | Compile TypeScript + bundle webview via esbuild |
+| `npm run watch`     | Watch mode (tsc + esbuild)                      |
+| `npm run lint`      | ESLint                                          |
+| `npm run format`    | Prettier                                        |
+| `npm test`          | Run Mocha extension host tests                  |
+| `npm run package`   | Produce `.vsix` via vsce                        |
+| `npm run clean`     | Remove `out/` and `dist/`                       |
 
 ### Debugging
 
@@ -94,19 +94,19 @@ echo "use flake" > .envrc && direnv allow
 
 Settings are under the `acp.` prefix:
 
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `acp.agents` | `object` | `{}` | Agent configurations keyed by name |
-| `acp.defaultAgent` | `string` | `""` | Default agent for new sessions |
-| `acp.permissions.defaultPolicy` | `string` | `"ask"` | Default permission policy |
-| `acp.permissions.tools` | `object` | `{}` | Per-tool permission overrides |
-| `acp.maxConcurrentAgents` | `number` | `5` | Max concurrent agent connections |
-| `acp.showTokenUsage` | `boolean` | `true` | Show token usage in status bar |
-| `acp.logTraffic` | `boolean` | `false` | Log protocol traffic |
-| `acp.autoOpenChat` | `boolean` | `true` | Auto-open chat on agent connect |
-| `acp.workingDirectory` | `string` | `""` | Working directory for agents |
-| `acp.context.maxFileSizeKB` | `number` | `100` | Max file size for context attachment |
-| `acp.context.maxTotalTokens` | `number` | `4000` | Max total tokens for context |
+| Setting                         | Type      | Default | Description                          |
+| ------------------------------- | --------- | ------- | ------------------------------------ |
+| `acp.agents`                    | `object`  | `{}`    | Agent configurations keyed by name   |
+| `acp.defaultAgent`              | `string`  | `""`    | Default agent for new sessions       |
+| `acp.permissions.defaultPolicy` | `string`  | `"ask"` | Default permission policy            |
+| `acp.permissions.tools`         | `object`  | `{}`    | Per-tool permission overrides        |
+| `acp.maxConcurrentAgents`       | `number`  | `5`     | Max concurrent agent connections     |
+| `acp.showTokenUsage`            | `boolean` | `true`  | Show token usage in status bar       |
+| `acp.logTraffic`                | `boolean` | `false` | Log protocol traffic                 |
+| `acp.autoOpenChat`              | `boolean` | `true`  | Auto-open chat on agent connect      |
+| `acp.workingDirectory`          | `string`  | `""`    | Working directory for agents         |
+| `acp.context.maxFileSizeKB`     | `number`  | `100`   | Max file size for context attachment |
+| `acp.context.maxTotalTokens`    | `number`  | `4000`  | Max total tokens for context         |
 
 ### Agent Configuration Schema
 
@@ -120,11 +120,11 @@ Settings are under the `acp.` prefix:
       "autoConnect": [
         {
           "workspace": "/path/to/project",
-          "sessionName": "My Session"
-        }
-      ]
-    }
-  }
+          "sessionName": "My Session",
+        },
+      ],
+    },
+  },
 }
 ```
 
@@ -132,34 +132,34 @@ Settings are under the `acp.` prefix:
 
 ### Methods (Extension → Agent)
 
-| ACP Method | Trigger |
-|-----------|---------|
-| `initialize` | First connection handshake |
-| `authenticate` | Auth challenge from agent |
-| `session/new` | New chat session |
-| `session/load` | Resume existing session |
-| `session/prompt` | Send user message + context |
-| `session/cancel` | Cancel current turn (Escape key) |
-| `session/set_mode` | Switch agent mode |
+| ACP Method         | Trigger                          |
+| ------------------ | -------------------------------- |
+| `initialize`       | First connection handshake       |
+| `authenticate`     | Auth challenge from agent        |
+| `session/new`      | New chat session                 |
+| `session/load`     | Resume existing session          |
+| `session/prompt`   | Send user message + context      |
+| `session/cancel`   | Cancel current turn (Escape key) |
+| `session/set_mode` | Switch agent mode                |
 
 ### Notifications (Agent → Extension)
 
-| ACP Notification | UI Action |
-|-----------------|-----------|
-| `session/update` (message chunk) | Append to chat stream |
-| `session/update` (tool call) | Render tool call card |
-| `session/update` (thought) | Append to thinking block |
-| `session/update` (plan) | Render plan/roadmap |
+| ACP Notification                 | UI Action                |
+| -------------------------------- | ------------------------ |
+| `session/update` (message chunk) | Append to chat stream    |
+| `session/update` (tool call)     | Render tool call card    |
+| `session/update` (thought)       | Append to thinking block |
+| `session/update` (plan)          | Render plan/roadmap      |
 
 ### Client Methods (Agent → Extension)
 
-| Client Method | Implementation |
-|--------------|---------------|
-| `fs/read_text_file` | `vscode.workspace.fs.readFile` |
-| `fs/write_text_file` | Write with permission check |
-| `terminal/create` | `vscode.window.createTerminal` |
-| `terminal/output` | Terminal output capture |
-| `terminal/kill` | Process termination |
+| Client Method        | Implementation                 |
+| -------------------- | ------------------------------ |
+| `fs/read_text_file`  | `vscode.workspace.fs.readFile` |
+| `fs/write_text_file` | Write with permission check    |
+| `terminal/create`    | `vscode.window.createTerminal` |
+| `terminal/output`    | Terminal output capture        |
+| `terminal/kill`      | Process termination            |
 
 ## Multi-Agent Architecture
 
@@ -171,47 +171,47 @@ Settings are under the `acp.` prefix:
 
 ## Commands
 
-| Command | ID | Description |
-|---------|-----|-------------|
-| Open Chat | `acp.openChat` | Open/focus the chat panel |
-| Connect | `acp.connect` | Connect to an agent |
-| Disconnect | `acp.disconnect` | Disconnect from agent |
-| New Session | `acp.newSession` | Start new session |
-| Switch Session | `acp.switchSession` | Switch to existing session |
-| Cancel Turn | `acp.cancelTurn` | Cancel current turn |
-| Attach File | `acp.attachFile` | Attach file to prompt |
-| Attach Selection | `acp.attachSelection` | Attach selection to prompt |
-| Attach Diff | `acp.attachDiff` | Attach git diff to prompt |
-| Set Mode | `acp.setMode` | Change agent mode |
-| Show Traffic | `acp.showTraffic` | Open protocol traffic log |
-| Fork Session | `acp.forkSession` | Fork current session |
-| Show History | `acp.showHistory` | Show session history |
-| Clear History | `acp.clearHistory` | Clear session history |
-| Close All Sessions | `acp.closeAllSessions` | Close all sessions |
+| Command            | ID                     | Description                |
+| ------------------ | ---------------------- | -------------------------- |
+| Open Chat          | `acp.openChat`         | Open/focus the chat panel  |
+| Connect            | `acp.connect`          | Connect to an agent        |
+| Disconnect         | `acp.disconnect`       | Disconnect from agent      |
+| New Session        | `acp.newSession`       | Start new session          |
+| Switch Session     | `acp.switchSession`    | Switch to existing session |
+| Cancel Turn        | `acp.cancelTurn`       | Cancel current turn        |
+| Attach File        | `acp.attachFile`       | Attach file to prompt      |
+| Attach Selection   | `acp.attachSelection`  | Attach selection to prompt |
+| Attach Diff        | `acp.attachDiff`       | Attach git diff to prompt  |
+| Set Mode           | `acp.setMode`          | Change agent mode          |
+| Show Traffic       | `acp.showTraffic`      | Open protocol traffic log  |
+| Fork Session       | `acp.forkSession`      | Fork current session       |
+| Show History       | `acp.showHistory`      | Show session history       |
+| Clear History      | `acp.clearHistory`     | Clear session history      |
+| Close All Sessions | `acp.closeAllSessions` | Close all sessions         |
 
 ## Keyboard Shortcuts
 
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+Shift+N` / `Cmd+Shift+N` | New session (when connected) |
-| `Escape` | Cancel current turn (when turn active) |
+| Shortcut                       | Action                                 |
+| ------------------------------ | -------------------------------------- |
+| `Ctrl+Shift+N` / `Cmd+Shift+N` | New session (when connected)           |
+| `Escape`                       | Cancel current turn (when turn active) |
 
 ## Implementation Phases
 
-| Phase | Status | Description |
-|-------|--------|-------------|
-| 0 | Done | Project scaffolding |
-| 1 | Done | Core ACP protocol (JSON-RPC over stdio) |
-| 2 | In Progress | Chat panel UI (React webview) |
-| 3 | Planned | Rich chat, session management, multi-agent |
-| 4 | Planned | Context attachment (`#file`,`#selection`,`#diff`) |
-| 5 | Planned | Auto-attach context (open tabs, diagnostics) |
-| 5.5 | Planned | Multi-agent orchestration (fan-out, supervisor) |
-| 6 | Planned | Permissions & terminal integration |
-| 7 | Planned | Polish & production |
-| 8 | Planned | Editor integration (Quick Fix, Code Lens, diff) |
-| 9 | Planned | Multi-file edit review |
-| 10 | Stretch | ACP-native inline completion |
+| Phase | Status      | Description                                       |
+| ----- | ----------- | ------------------------------------------------- |
+| 0     | Done        | Project scaffolding                               |
+| 1     | Done        | Core ACP protocol (JSON-RPC over stdio)           |
+| 2     | In Progress | Chat panel UI (React webview)                     |
+| 3     | Planned     | Rich chat, session management, multi-agent        |
+| 4     | Planned     | Context attachment (`#file`,`#selection`,`#diff`) |
+| 5     | Planned     | Auto-attach context (open tabs, diagnostics)      |
+| 5.5   | Planned     | Multi-agent orchestration (fan-out, supervisor)   |
+| 6     | Planned     | Permissions & terminal integration                |
+| 7     | Planned     | Polish & production                               |
+| 8     | Planned     | Editor integration (Quick Fix, Code Lens, diff)   |
+| 9     | Planned     | Multi-file edit review                            |
+| 10    | Stretch     | ACP-native inline completion                      |
 
 ## Coding Conventions
 
@@ -267,7 +267,7 @@ After modifying your code, always run the following three commands in order and 
 `npm run compile` # 2. Compile + webview bundle
 `npm test` # 3. Run test suite
 
-```text
+````text
 
 - **Proceed with everything in green** — If any of them fail, fix it immediately and rerun.
 
@@ -286,7 +286,7 @@ Webview uses CSS variables bridged from VS Code:
   --accent: var(--vscode-focusBorder);
   --border: var(--vscode-panel-border);
 }
-```
+````
 
 These are consumed by Tailwind utility classes via config.
 
@@ -294,16 +294,16 @@ These are consumed by Tailwind utility classes via config.
 
 The primary differentiator. Supported triggers:
 
-| Trigger | Behavior |
-|---------|----------|
-| `#file` | File picker, attaches full file |
-| `#file:10-20` | Attaches specific line range |
-| `#selection` | Current editor selection |
-| `#symbol` | Symbol definition via VS Code symbol provider |
-| `#diff` | Current git diff |
-| `#terminal` | Last terminal output |
-| Drag & drop | File drop into chat |
-| Right-click → "Send to Agent" | Context menu on files/selections |
+| Trigger                       | Behavior                                      |
+| ----------------------------- | --------------------------------------------- |
+| `#file`                       | File picker, attaches full file               |
+| `#file:10-20`                 | Attaches specific line range                  |
+| `#selection`                  | Current editor selection                      |
+| `#symbol`                     | Symbol definition via VS Code symbol provider |
+| `#diff`                       | Current git diff                              |
+| `#terminal`                   | Last terminal output                          |
+| Drag & drop                   | File drop into chat                           |
+| Right-click → "Send to Agent" | Context menu on files/selections              |
 
 Context is rendered as **collapsible chips** above the chat input showing file path, line range, token estimate, and remove button.
 
@@ -318,11 +318,11 @@ Context is rendered as **collapsible chips** above the chat input showing file p
 
 Three-tier policy:
 
-| Policy | Behavior |
-|--------|----------|
-| `ask` | Show permission dialog for each tool call |
-| `allowAll` | Auto-approve all tool calls |
-| `denyAll` | Deny all tool calls |
+| Policy     | Behavior                                  |
+| ---------- | ----------------------------------------- |
+| `ask`      | Show permission dialog for each tool call |
+| `allowAll` | Auto-approve all tool calls               |
+| `denyAll`  | Deny all tool calls                       |
 
 Per-tool overrides via `acp.permissions.tools`.
 

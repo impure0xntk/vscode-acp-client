@@ -1,6 +1,13 @@
 // src/platform/filesystem.ts
 
-import type { ConfigValue, Disposable, FileSnapshot, FileStat, FileWatchEvent, PlatformUri } from './types';
+import type {
+  ConfigValue,
+  Disposable,
+  FileSnapshot,
+  FileStat,
+  FileWatchEvent,
+  PlatformUri,
+} from "./types";
 
 /** File candidate */
 export interface FileCandidate {

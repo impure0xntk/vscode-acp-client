@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { Icon } from "../lib/icons";
 
 // ============================================================================
 // Props
@@ -48,10 +49,12 @@ export function CompletionNotification({
       onClick={handleClick}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleClick(); }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") handleClick();
+      }}
     >
       <div className="completion-notification-content">
-        <span className="completion-notification-icon">✓</span>
+        <Icon name="pass-filled" className="completion-notification-icon" size="sm" />
         <span className="completion-notification-text">
           <span className="completion-notification-title">{displayName}</span>
           <span className="completion-notification-agent">{agentId}</span>
@@ -59,10 +62,13 @@ export function CompletionNotification({
       </div>
       <button
         className="completion-notification-close"
-        onClick={(e) => { e.stopPropagation(); handleDismiss(); }}
+        onClick={(e) => {
+          e.stopPropagation();
+          handleDismiss();
+        }}
         aria-label="Dismiss"
       >
-        ×
+        <Icon name="close" size="sm" />
       </button>
     </div>
   );

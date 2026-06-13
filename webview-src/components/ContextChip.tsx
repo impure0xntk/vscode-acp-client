@@ -1,17 +1,22 @@
 import React from "react";
 import type { ContextAttachment } from "../types";
+import { Icon, iconForType } from "../lib/icons";
 
 export interface ContextChipProps {
   attachment: ContextAttachment;
   onRemove: (id: string) => void;
 }
 
-export function ContextChip({ attachment, onRemove }: ContextChipProps): React.ReactElement {
-  const icon = typeIcon(attachment.type);
-
+export function ContextChip({
+  attachment,
+  onRemove,
+}: ContextChipProps): React.ReactElement {
   return (
-    <span className="context-chip" title={`${attachment.path}\n${attachment.tokenCount} tokens`}>
-      <span className="context-chip-icon">{icon}</span>
+    <span
+      className="context-chip"
+      title={`${attachment.path}\n${attachment.tokenCount} tokens`}
+    >
+      <Icon name={iconForType(attachment.type)} className="context-chip-icon" size="sm" />
       <span className="context-chip-label">{attachment.label}</span>
       <span className="context-chip-tokens">{attachment.tokenCount}t</span>
       <button
@@ -19,21 +24,8 @@ export function ContextChip({ attachment, onRemove }: ContextChipProps): React.R
         onClick={() => onRemove(attachment.id)}
         title="Remove"
       >
-        ×
+        <Icon name="close" size="sm" />
       </button>
     </span>
   );
-}
-
-function typeIcon(type: ContextAttachment["type"]): string {
-  switch (type) {
-    case "file":
-      return "📄";
-    case "selection":
-      return "✂️";
-    case "symbol":
-      return "🔷";
-    case "diff":
-      return "📋";
-  }
 }

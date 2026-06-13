@@ -31,7 +31,10 @@ describe("abbreviatePath — Basic Behavior", () => {
 
 describe("abbreviatePath — Abbreviation Strategy", () => {
   it("abbreviates long paths by keeping last segment full", () => {
-    const result = abbreviatePath("/home/user/github/workspace/src/index.ts", 25);
+    const result = abbreviatePath(
+      "/home/user/github/workspace/src/index.ts",
+      25
+    );
     // Should abbreviate to something like /h/u/g/w/src/index.ts
     assert.strictEqual(result.length <= 25, true);
     assert.ok(result.endsWith("index.ts"));
@@ -44,7 +47,8 @@ describe("abbreviatePath — Abbreviation Strategy", () => {
   });
 
   it("uses ellipsis fallback for very long paths", () => {
-    const longPath = "/very/long/path/that/exceeds/the/maximum/length/limit/file.ts";
+    const longPath =
+      "/very/long/path/that/exceeds/the/maximum/length/limit/file.ts";
     const result = abbreviatePath(longPath, 25);
     assert.strictEqual(result.length <= 25, true);
     assert.ok(result.includes("…") || result.includes("..."));

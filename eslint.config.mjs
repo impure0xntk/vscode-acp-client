@@ -17,9 +17,8 @@ export default [
       },
     },
     plugins: {
-      "@typescript-eslint": (
-        await import("@typescript-eslint/eslint-plugin")
-      ).default,
+      "@typescript-eslint": (await import("@typescript-eslint/eslint-plugin"))
+        .default,
     },
     rules: {
       "@typescript-eslint/no-unused-vars": [
@@ -49,9 +48,8 @@ export default [
       },
     },
     plugins: {
-      "@typescript-eslint": (
-        await import("@typescript-eslint/eslint-plugin")
-      ).default,
+      "@typescript-eslint": (await import("@typescript-eslint/eslint-plugin"))
+        .default,
     },
     rules: {
       "@typescript-eslint/no-unused-vars": [

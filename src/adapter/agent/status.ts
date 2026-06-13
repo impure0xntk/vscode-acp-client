@@ -98,9 +98,7 @@ export class AgentStatusTracker extends EventEmitter {
     if (!current) return;
 
     const sessions = current.sessions.map((s) =>
-      s.sessionId === sessionId
-        ? { ...s, ...update }
-        : s
+      s.sessionId === sessionId ? { ...s, ...update } : s
     );
 
     // If session not found, add it

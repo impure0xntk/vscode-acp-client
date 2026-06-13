@@ -2,6 +2,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./components/App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { SessionContextProvider } from "./hooks/useSessionContext";
 // CSS is built separately via esbuild.js postcss pipeline
 
 const container = document.getElementById("root");
@@ -13,7 +14,9 @@ const root = createRoot(container);
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-      <App />
+      <SessionContextProvider>
+        <App />
+      </SessionContextProvider>
     </ErrorBoundary>
   </React.StrictMode>
 );

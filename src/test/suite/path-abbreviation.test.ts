@@ -53,8 +53,14 @@ describe("abbreviatePath — Abbreviation Strategy", () => {
     const longPath = `${home}/github/workspace/deep/nested/sub/project`;
     const result = abbreviatePath(longPath, 30);
     // Should abbreviate intermediate segments
-    assert.ok(result.length <= 30, `Expected <= 30, got ${result.length}: ${result}`);
-    assert.ok(result.endsWith("project"), `Should end with last segment: ${result}`);
+    assert.ok(
+      result.length <= 30,
+      `Expected <= 30, got ${result.length}: ${result}`
+    );
+    assert.ok(
+      result.endsWith("project"),
+      `Should end with last segment: ${result}`
+    );
   });
 
   it("uses first character for intermediate segments", () => {
@@ -63,7 +69,10 @@ describe("abbreviatePath — Abbreviation Strategy", () => {
     const longPath = `${home}/github/workspace/project`;
     const result = abbreviatePath(longPath, 25);
     // ~/g/w/project style
-    assert.ok(result.includes("g") && result.includes("w"), `Should abbreviate intermediates: ${result}`);
+    assert.ok(
+      result.includes("g") && result.includes("w"),
+      `Should abbreviate intermediates: ${result}`
+    );
   });
 
   it("uses ellipsis fallback for very long paths", () => {
@@ -102,10 +111,13 @@ describe("abbreviatePath — Edge Cases", () => {
 
   it("abbreviates when path exceeds maxLength", () => {
     const { abbreviatePath } = require("../../shared/util/path");
-    const p = "/usr/local/bin/node";  // 19 chars
+    const p = "/usr/local/bin/node"; // 19 chars
     const result = abbreviatePath(p, 15);
     // Abbreviates intermediates: /u/l/bin/node = 14 chars <= 15
-    assert.ok(result.length <= 15, `Should abbreviate to fit: ${result.length}`);
+    assert.ok(
+      result.length <= 15,
+      `Should abbreviate to fit: ${result.length}`
+    );
     assert.ok(result.endsWith("node"), `Should keep last segment: ${result}`);
   });
 
@@ -122,16 +134,19 @@ describe("abbreviatePath — Edge Cases", () => {
 
   it("handles path that is exactly at maxLength", () => {
     const { abbreviatePath } = require("../../shared/util/path");
-    const p = "/abc/def";  // 8 chars
+    const p = "/abc/def"; // 8 chars
     assert.strictEqual(abbreviatePath(p, 8), p);
   });
 
   it("handles path that exceeds maxLength by 1", () => {
     const { abbreviatePath } = require("../../shared/util/path");
     // For non-home paths: /a/b/cde (9 chars)
-    const p = "/abc/defg";  // 9 chars
+    const p = "/abc/defg"; // 9 chars
     const result = abbreviatePath(p, 8);
-    assert.ok(result.length <= 8, `Should abbreviate when over by 1: ${result.length}`);
+    assert.ok(
+      result.length <= 8,
+      `Should abbreviate when over by 1: ${result.length}`
+    );
   });
 
   it("handles deeply nested paths with 3+ segments", () => {
@@ -147,7 +162,7 @@ describe("abbreviatePath — Edge Cases", () => {
 
   it("2-segment path that fits is returned as-is", () => {
     const { abbreviatePath } = require("../../shared/util/path");
-    const p = "/x/ab";  // 5 chars
+    const p = "/x/ab"; // 5 chars
     const result = abbreviatePath(p, 10);
     assert.strictEqual(result, "/x/ab");
   });

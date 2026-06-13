@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useCallback, useState } from "react";
+import React, { useMemo, useRef, useCallback, useState, useEffect } from "react";
 import { ChatContainer } from "./ChatContainer";
 import { Composer } from "./Composer";
 import { BottomToolbar } from "./BottomToolbar";
@@ -6,9 +6,12 @@ import { TopToolbar } from "./TopToolbar";
 import { SessionTabs } from "./SessionTabs";
 import { ProgressBar } from "./ProgressBar";
 import { CompletionNotification } from "./CompletionNotification";
-import { SessionHistoryPanel, PersistentSessionEntry } from "./SessionHistoryPanel";
+import {
+  SessionHistoryPanel,
+  PersistentSessionEntry,
+} from "./SessionHistoryPanel";
+import { SessionOverviewPanel, ResizableSessionOverviewPanel } from "./SessionOverview/SessionOverviewPanel";
 import { useSessionContext } from "../hooks/useSessionContext";
-import { ErrorBoundary } from "./ErrorBoundary";
 import type { ContextAttachment } from "../types";
 import { getVsCodeApi } from "../lib/vscodeApi";
 
@@ -43,12 +46,30 @@ export function App(): React.ReactElement {
     resolveSymbol,
     availableCommands,
     statusline,
+    sessionOverviewVisible,
+    sessionOverviewState,
+    sessionOverviewPosition,
+    sessionOverviewWidth,
+    toggleSessionOverview,
+    setSessionOverviewFilter,
     dispatch,
   } = ctx;
 
   // History panel state
   const [showHistory, setShowHistory] = React.useState(false);
-  const [selectedHistorySession, setSelectedHistorySession] = React.useState<PersistentSessionEntry | null>(null);
+  const [selectedHistorySession, setSelectedHistorySession] =
+    React.useState<PersistentSessionEntry | null>(null);
+
+  // Handle scroll state changes from ChatContainer
+  const handleScrollStateChange = useCallback(
+    (state: { isAtBottom: boolean; unreadCount: number }) => {
+      // Show button when user has scrolled up and there are unread messages
+      // or when not at bottom
+      setShowScrollButton(!state.isAtBottom);
+      setScrollUnreadCount(state.unreadCount);
+    },
+    []
+  );
 
   // Scroll-to-message handler (passed through to TopToolbar)
   const scrollToMessageRef = useRef<(id: string) => void>();
@@ -65,22 +86,15 @@ export function App(): React.ReactElement {
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [scrollUnreadCount, setScrollUnreadCount] = useState(0);
 
-  // Poll scroll state at 200ms interval (lightweight, avoids prop-drilling complexity)
-  React.useEffect(() => {
-    const interval = setInterval(() => {
-      const s = scrollStateRef.current;
-      setShowScrollButton(!s.isAtBottom);
-      setScrollUnreadCount(s.unreadCount);
-    }, 200);
-    return () => clearInterval(interval);
-  }, []);
-
   // Derive active session info from sessionInfoMap (source of truth from extension host)
-  const activeKey = activeAgentId && activeSessionId
-    ? sessionKey(activeAgentId, activeSessionId)
-    : null;
+  const activeKey =
+    activeAgentId && activeSessionId
+      ? sessionKey(activeAgentId, activeSessionId)
+      : null;
 
-  const activeSessionInfo = activeKey ? ctx.sessionInfoMap[activeKey] : undefined;
+  const activeSessionInfo = activeKey
+    ? ctx.sessionInfoMap[activeKey]
+    : undefined;
 
   const handleTabClick = React.useCallback(
     (sessionId: string, agentId: string) => {
@@ -109,10 +123,17 @@ export function App(): React.ReactElement {
     setSelectedHistorySession(null);
   }, []);
 
-  const handleRestoreSession = React.useCallback((sessionId: string, agentId: string) => {
-    getVsCodeApi().postMessage({ type: "history:restore", sessionId, agentId });
-    setShowHistory(false);
-  }, []);
+  const handleRestoreSession = React.useCallback(
+    (sessionId: string, agentId: string) => {
+      getVsCodeApi().postMessage({
+        type: "history:restore",
+        sessionId,
+        agentId,
+      });
+      setShowHistory(false);
+    },
+    []
+  );
 
   // Listen for history restore message from extension
   React.useEffect(() => {
@@ -127,7 +148,12 @@ export function App(): React.ReactElement {
 
   const handleSend = React.useCallback(
     (text: string, attachments: ContextAttachment[]) => {
-      sendMessage(text, attachments, activeAgentId ?? undefined, activeSessionId ?? undefined);
+      sendMessage(
+        text,
+        attachments,
+        activeAgentId ?? undefined,
+        activeSessionId ?? undefined
+      );
     },
     [sendMessage, activeAgentId, activeSessionId]
   );
@@ -142,106 +168,216 @@ export function App(): React.ReactElement {
   const displayCwd = activeSessionInfo?.cwd;
   const displayStatus = activeSessionInfo?.status;
   const displayIsTurnActive = activeSessionInfo?.isTurnActive ?? false;
-  const displayTokenUsage = activeSessionInfo?.tokenUsage ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+  const displayTokenUsage = activeSessionInfo?.tokenUsage ?? {
+    inputTokens: 0,
+    outputTokens: 0,
+    totalTokens: 0,
+  };
   const displayContextWindowMax = activeSessionInfo?.contextWindowMax;
   const displayMessageCount = activeSessionInfo?.messageCount ?? 0;
   const displaySessionStartMs = activeSessionInfo?.createdAt
     ? new Date(activeSessionInfo.createdAt).getTime()
     : undefined;
 
+  const overviewOnLeft = sessionOverviewPosition === "left";
+
+  // SessionOverview panel actions
+  const handleOverviewFocus = useCallback(
+    (sessionId: string, agentId: string) => {
+      switchTab(sessionId, agentId);
+    },
+    [switchTab]
+  );
+
+  const handleOverviewCancel = useCallback(
+    (sessionId: string, agentId: string) => {
+      getVsCodeApi().postMessage({
+        type: "sessionOverview:cancel",
+        payload: { sessionId, agentId },
+      });
+    },
+    []
+  );
+
+  const handleOverviewToggleExpand = useCallback((sessionId: string) => {
+    getVsCodeApi().postMessage({
+      type: "sessionOverview:expand",
+      payload: { sessionId },
+    });
+  }, []);
+
+  const handleOverviewToggleCollapse = useCallback((sessionId: string) => {
+    getVsCodeApi().postMessage({
+      type: "sessionOverview:collapse",
+      payload: { sessionId },
+    });
+  }, []);
+
+  const handleOverviewResizeEnd = useCallback((w: number) => {
+    getVsCodeApi().postMessage({
+      type: "sessionOverview:setWidth",
+      payload: { width: w },
+    });
+  }, []);
+
   return (
-    <div className="app-container">
-      <SessionTabs
-        tabs={tabs}
-        activeSessionId={activeSessionId}
-        sessionInfoMap={ctx.sessionInfoMap}
-        connectedAgents={connectedAgents}
-        onTabClick={handleTabClick}
-        onTabClose={handleTabClose}
-        onTabReorder={() => {}}
-        onNewSession={handleNewSession}
-      />
-      {completedNotifications.length > 0 && (() => {
-        // Filter out notifications for sessions that have been closed
-        const validNotifications = completedNotifications.filter((notif) =>
-          tabs.some((t) => t.sessionId === notif.sessionId && t.agentId === notif.agentId)
-        );
-        if (validNotifications.length === 0) return null;
-        return (
-          <div className="completion-notification-stack">
-            {validNotifications.map((notif, idx) => (
-              <CompletionNotification
-                key={`${notif.agentId}:${notif.sessionId}:${idx}`}
-                agentId={notif.agentId}
-                sessionId={notif.sessionId}
-                title={notif.title}
-                onDismiss={dismissCompletedNotification}
-                onSwitchTab={handleTabClick}
-              />
-            ))}
-          </div>
-        );
-      })()}
-      <TopToolbar
-        messages={ctx.messages}
-        agentName={activeAgentId ? agentInfoMap[activeAgentId]?.name : undefined}
-        model={displayModel}
-        mode={displayMode}
-        cwd={displayCwd}
-        workspaceRoot={workspaceRoot}
-        isTurnActive={displayIsTurnActive}
-        onJumpToMessage={handleJumpToMessage}
-      />
-      <ChatContainer
-        messages={ctx.messages}
-        isStreaming={ctx.isStreaming}
-        sessionId={activeSessionId ?? undefined}
-        status={displayStatus}
-        isActive={true}
-        scrollToMessageRef={scrollToMessageRef}
-        scrollStateRef={scrollStateRef}
-      />
-      {showScrollButton && (
-        <button
-          className="scroll-to-bottom-button"
-          onClick={() => scrollStateRef.current.scrollToBottom()}
-          aria-label="Scroll to bottom"
-        >
-          <span className="scroll-to-bottom-icon">↓</span>
-          {scrollUnreadCount > 0 && (
-            <span className="scroll-to-bottom-badge">{scrollUnreadCount}</span>
-          )}
-        </button>
+    <div
+      className={`app-container${sessionOverviewVisible ? " with-overview" : ""}${overviewOnLeft ? " overview-left" : ""}`}
+    >
+      {overviewOnLeft && sessionOverviewVisible && (
+        <ResizableSessionOverviewPanel
+          isVisible={sessionOverviewVisible}
+          state={sessionOverviewState}
+          tabs={tabs}
+          width={sessionOverviewWidth}
+          onFilterChange={setSessionOverviewFilter}
+          onFocus={handleOverviewFocus}
+          onCancel={handleOverviewCancel}
+          onToggleExpand={handleOverviewToggleExpand}
+          onToggleCollapse={handleOverviewToggleCollapse}
+          onResizeEnd={handleOverviewResizeEnd}
+        />
       )}
-      <Composer
-        onSend={handleSend}
-        onCancel={handleCancel}
-        isTurnActive={displayIsTurnActive}
-        disabled={!activeSessionId}
-        fetchFiles={fetchFiles}
-        resolveFile={resolveFile}
-        resolveSelection={resolveSelection}
-        resolveDiff={resolveDiff}
-        fetchSymbols={fetchSymbols}
-        resolveSymbol={resolveSymbol}
-        availableCommands={availableCommands}
-      />
-      <ProgressBar status={displayStatus} lastActivityMs={activeSessionInfo?.updatedAt ? new Date(activeSessionInfo.updatedAt).getTime() : undefined} />
-      <BottomToolbar
-        model={displayModel}
-        mode={displayMode}
-        tokenUsage={displayTokenUsage}
-        contextWindowMax={displayContextWindowMax}
-        messageCount={displayMessageCount}
-        isTurnActive={displayIsTurnActive}
-        sessionStatus={displayStatus}
-        agentInfo={activeAgentId ? agentInfoMap[activeAgentId] : undefined}
-        sessionId={activeSessionId ?? undefined}
-        sessionStartMs={displaySessionStartMs}
-        onForkSession={activeSessionId ? () => ctx.forkSession(activeSessionId) : undefined}
-        statusline={statusline}
-        cwd={displayCwd}
-      />
+      <div className="main-content">
+        {!sessionOverviewVisible && (
+          <SessionTabs
+            tabs={tabs}
+            activeSessionId={activeSessionId}
+            sessionInfoMap={ctx.sessionInfoMap}
+            connectedAgents={connectedAgents}
+            overviewItems={sessionOverviewState.sessions.reduce(
+              (acc, item) => {
+                acc[`${item.agentId}:${item.sessionId}`] = item;
+                return acc;
+              },
+              {} as Record<string, import("../types").SessionOverviewItem>
+            )}
+            onTabClick={handleTabClick}
+            onTabClose={handleTabClose}
+            onTabReorder={() => {}}
+            onNewSession={handleNewSession}
+          />
+        )}
+        {completedNotifications.length > 0 &&
+          (() => {
+            // Filter out notifications for sessions that have been closed
+            const validNotifications = completedNotifications.filter((notif) =>
+              tabs.some(
+                (t) =>
+                  t.sessionId === notif.sessionId && t.agentId === notif.agentId
+              )
+            );
+            if (validNotifications.length === 0) return null;
+            return (
+              <div className="completion-notification-stack">
+                {validNotifications.map((notif, idx) => (
+                  <CompletionNotification
+                    key={`${notif.agentId}:${notif.sessionId}:${idx}`}
+                    agentId={notif.agentId}
+                    sessionId={notif.sessionId}
+                    title={notif.title}
+                    onDismiss={dismissCompletedNotification}
+                    onSwitchTab={handleTabClick}
+                  />
+                ))}
+              </div>
+            );
+          })()}
+        <TopToolbar
+          messages={ctx.messages}
+          agentName={
+            activeAgentId ? agentInfoMap[activeAgentId]?.name : undefined
+          }
+          model={displayModel}
+          mode={displayMode}
+          cwd={displayCwd}
+          workspaceRoot={workspaceRoot}
+          isTurnActive={displayIsTurnActive}
+          onJumpToMessage={handleJumpToMessage}
+          sessionOverviewVisible={sessionOverviewVisible}
+          onToggleSessionOverview={toggleSessionOverview}
+          sessionOverviewPosition={sessionOverviewPosition}
+        />
+        <div className="chat-container-wrapper">
+          <ChatContainer
+            key={activeKey ?? "none"}
+            messages={ctx.messages}
+            isStreaming={ctx.isStreaming}
+            sessionId={activeSessionId ?? undefined}
+            status={displayStatus}
+            isActive={true}
+            scrollToMessageRef={scrollToMessageRef}
+            scrollStateRef={scrollStateRef}
+            onScrollStateChange={handleScrollStateChange}
+          />
+          {showScrollButton && (
+            <button
+              className="scroll-to-bottom-button"
+              onClick={() => scrollStateRef.current?.scrollToBottom()}
+              aria-label="Scroll to bottom"
+            >
+              <span className="scroll-to-bottom-icon">↓</span>
+              {scrollUnreadCount > 0 && (
+                <span className="scroll-to-bottom-badge">
+                  {scrollUnreadCount}
+                </span>
+              )}
+            </button>
+          )}
+        </div>
+        <Composer
+          onSend={handleSend}
+          onCancel={handleCancel}
+          isTurnActive={displayIsTurnActive}
+          disabled={!activeSessionId}
+          fetchFiles={fetchFiles}
+          resolveFile={resolveFile}
+          resolveSelection={resolveSelection}
+          resolveDiff={resolveDiff}
+          fetchSymbols={fetchSymbols}
+          resolveSymbol={resolveSymbol}
+          availableCommands={availableCommands}
+        />
+        <ProgressBar
+          status={displayStatus}
+          lastActivityMs={
+            activeSessionInfo?.updatedAt
+              ? new Date(activeSessionInfo.updatedAt).getTime()
+              : undefined
+          }
+        />
+        <BottomToolbar
+          model={displayModel}
+          mode={displayMode}
+          tokenUsage={displayTokenUsage}
+          contextWindowMax={displayContextWindowMax}
+          messageCount={displayMessageCount}
+          isTurnActive={displayIsTurnActive}
+          sessionStatus={displayStatus}
+          agentInfo={activeAgentId ? agentInfoMap[activeAgentId] : undefined}
+          sessionId={activeSessionId ?? undefined}
+          sessionStartMs={displaySessionStartMs}
+          onForkSession={
+            activeSessionId ? () => ctx.forkSession(activeSessionId) : undefined
+          }
+          statusline={statusline}
+          cwd={displayCwd}
+        />
+      </div>
+      {!overviewOnLeft && sessionOverviewVisible && (
+        <ResizableSessionOverviewPanel
+          isVisible={sessionOverviewVisible}
+          state={sessionOverviewState}
+          tabs={tabs}
+          width={sessionOverviewWidth}
+          onFilterChange={setSessionOverviewFilter}
+          onFocus={handleOverviewFocus}
+          onCancel={handleOverviewCancel}
+          onToggleExpand={handleOverviewToggleExpand}
+          onToggleCollapse={handleOverviewToggleCollapse}
+          onResizeEnd={handleOverviewResizeEnd}
+        />
+      )}
     </div>
   );
 }

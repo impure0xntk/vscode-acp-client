@@ -6,7 +6,10 @@ import type { UIAPI } from "../../../platform/ui";
 
 export class OutputChannelManager {
   private ui: UIAPI;
-  private channels = new Map<string, ReturnType<UIAPI["createOutputChannel"]>>();
+  private channels = new Map<
+    string,
+    ReturnType<UIAPI["createOutputChannel"]>
+  >();
 
   constructor(ui: UIAPI) {
     this.ui = ui;

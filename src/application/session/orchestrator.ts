@@ -30,8 +30,16 @@ import {
 import * as child_process from "child_process";
 import { Readable, Writable } from "stream";
 import type { SessionInfo, SessionStatus } from "./types";
-import type { ChatMessage, TokenUsage, ToolCall } from "../../domain/models/chat";
-import type { ToolCallContent, AvailableCommand } from "@agentclientprotocol/sdk";
+import type {
+  ChatMessage,
+  TokenUsage,
+  ToolCall,
+} from "../../domain/models/chat";
+import type {
+  ContentBlock,
+  ToolCallContent,
+  AvailableCommand,
+} from "@agentclientprotocol/sdk";
 import type { PersistentHistoryStore } from "./persistentHistory";
 import type { SessionHistoryStore, HistoryEntry } from "./historyStore";
 
@@ -146,11 +154,7 @@ export interface AgentInfo {
 // Prompt Context (for @file, @selection, @diff)
 // ============================================================================
 
-export interface PromptContext {
-  files?: string[];
-  selection?: string;
-  diff?: string;
-}
+export type PromptContext = ContentBlock[];
 
 // ============================================================================
 // Session key helper
@@ -194,6 +198,9 @@ export class SessionOrchestrator extends EventEmitter {
   private historyStore: PersistentHistoryStore | null = null;
   // Session history store (globalState — metadata for history view)
   private sessionHistoryStore: SessionHistoryStore | null = null;
+  // Debounce timer for session overview updates
+  private sessionOverviewDebounceTimer: ReturnType<typeof setTimeout> | null =
+    null;
 
   constructor(deps: OrchestratorDeps) {
     super();
@@ -234,15 +241,19 @@ export class SessionOrchestrator extends EventEmitter {
     this.processes.set(agentId, proc);
 
     // Convert Node.js streams to Web Streams for ndJsonStream
-    const stdinWritable = Writable.toWeb(proc.stdin) as WritableStream<Uint8Array>;
-    const stdoutReadable = Readable.toWeb(proc.stdout) as ReadableStream<Uint8Array>;
+    const stdinWritable = Writable.toWeb(
+      proc.stdin
+    ) as WritableStream<Uint8Array>;
+    const stdoutReadable = Readable.toWeb(
+      proc.stdout
+    ) as ReadableStream<Uint8Array>;
     const stream = ndJsonStream(stdinWritable, stdoutReadable);
 
     // Create the VS Code client implementation
     const client = new PlatformAcpClient(
       { fs: this.deps.fs, ui: this.deps.ui },
       (aId, notification) => this.handleSessionUpdate(aId, notification),
-      (aId, request) => this.handleRequestPermission(aId, request),
+      (aId, request) => this.handleRequestPermission(aId, request)
     );
     client.setAgentId(agentId);
 
@@ -257,7 +268,8 @@ export class SessionOrchestrator extends EventEmitter {
       console.error(`Agent ${agentId} process error: ${err.message}`);
     });
 
-    // Initialize the connection
+    // Initialize the connection — request embeddedContext so the agent
+    // advertises support for ContentBlock::Resource in prompt requests.
     const initResponse = await connection.initialize({
       protocolVersion: PROTOCOL_VERSION,
       clientCapabilities: {
@@ -276,22 +288,35 @@ export class SessionOrchestrator extends EventEmitter {
       title: initResponse.agentInfo?.title ?? undefined,
       version: initResponse.agentInfo?.version ?? undefined,
       protocolVersion: initResponse.protocolVersion,
-      capabilities: initResponse.agentCapabilities ? {
-        loadSession: initResponse.agentCapabilities.loadSession ?? false,
-        promptCapabilities: initResponse.agentCapabilities.promptCapabilities ? {
-          image: initResponse.agentCapabilities.promptCapabilities.image ?? false,
-          audio: initResponse.agentCapabilities.promptCapabilities.audio ?? false,
-          embeddedContext: initResponse.agentCapabilities.promptCapabilities.embeddedContext ?? false,
-        } : undefined,
-        sessionCapabilities: sc ? {
-          fork: sc.fork != null,
-          list: sc.list != null,
-          resume: sc.resume != null,
-          delete: sc.delete != null,
-          close: sc.close != null,
-          additionalDirectories: sc.additionalDirectories != null,
-        } : undefined,
-      } : undefined,
+      capabilities: initResponse.agentCapabilities
+        ? {
+            loadSession: initResponse.agentCapabilities.loadSession ?? false,
+            promptCapabilities: initResponse.agentCapabilities
+              .promptCapabilities
+              ? {
+                  image:
+                    initResponse.agentCapabilities.promptCapabilities.image ??
+                    false,
+                  audio:
+                    initResponse.agentCapabilities.promptCapabilities.audio ??
+                    false,
+                  embeddedContext:
+                    initResponse.agentCapabilities.promptCapabilities
+                      .embeddedContext ?? false,
+                }
+              : undefined,
+            sessionCapabilities: sc
+              ? {
+                  fork: sc.fork != null,
+                  list: sc.list != null,
+                  resume: sc.resume != null,
+                  delete: sc.delete != null,
+                  close: sc.close != null,
+                  additionalDirectories: sc.additionalDirectories != null,
+                }
+              : undefined,
+          }
+        : undefined,
     });
 
     this.emit("agentConnected", agentId);
@@ -436,23 +461,16 @@ export class SessionOrchestrator extends EventEmitter {
     sessionInfo.isTurnActive = true;
     sessionInfo.isStreaming = true;
 
-    // Build prompt with context
-    let fullText = text;
-    if (context?.files?.length) {
-      const fileContexts = context.files.map((f) => `@file:${f}`).join(" ");
-      fullText = `${fileContexts}\n\n${text}`;
-    }
-    if (context?.selection) {
-      fullText += `\n\nSelected text:\n${context.selection}`;
-    }
-    if (context?.diff) {
-      fullText += `\n\nDiff:\n${context.diff}`;
-    }
+    // Build prompt with embedded context blocks
+    const promptBlocks: ContentBlock[] = [
+      ...(context ?? []),
+      { type: "text", text },
+    ];
 
     try {
       const response = await connection.prompt({
         sessionId,
-        prompt: [{ type: "text", text: fullText }],
+        prompt: promptBlocks,
       } satisfies PromptRequest);
 
       // Update token usage from PromptResponse.usage (per-turn)
@@ -469,7 +487,11 @@ export class SessionOrchestrator extends EventEmitter {
       sessionInfo.isStreaming = false;
       // Flush any remaining buffered tool calls
       this.flushPendingToolCalls(agentId, sessionId);
-      this.emit("sessionCompleted", { agentId, sessionId, title: sessionInfo.title });
+      this.emit("sessionCompleted", {
+        agentId,
+        sessionId,
+        title: sessionInfo.title,
+      });
     } catch (e) {
       sessionInfo.status = "error";
       sessionInfo.isStreaming = false;
@@ -477,7 +499,11 @@ export class SessionOrchestrator extends EventEmitter {
     } finally {
       sessionInfo.isTurnActive = false;
       sessionInfo.updatedAt = new Date();
-      this.emit("sessionTurnActiveChanged", { agentId, sessionId, active: false });
+      this.emit("sessionTurnActiveChanged", {
+        agentId,
+        sessionId,
+        active: false,
+      });
     }
   }
 
@@ -493,7 +519,11 @@ export class SessionOrchestrator extends EventEmitter {
       sessionInfo.isTurnActive = false;
       sessionInfo.isStreaming = false;
       sessionInfo.updatedAt = new Date();
-      this.emit("sessionTurnActiveChanged", { agentId, sessionId, active: false });
+      this.emit("sessionTurnActiveChanged", {
+        agentId,
+        sessionId,
+        active: false,
+      });
     }
 
     await connection.cancel({ sessionId } satisfies CancelNotification);
@@ -504,7 +534,11 @@ export class SessionOrchestrator extends EventEmitter {
   // ========================================================================
 
   /** Emit-backed append (used when the webview doesn't have the message yet) */
-  appendMessage(agentId: string, sessionId: string, message: ChatMessage): void {
+  appendMessage(
+    agentId: string,
+    sessionId: string,
+    message: ChatMessage
+  ): void {
     const sessionInfo = this.getSessionInfo(agentId, sessionId);
     if (!sessionInfo) {
       throw new Error(`Session ${sessionId} not found for agent ${agentId}`);
@@ -525,7 +559,11 @@ export class SessionOrchestrator extends EventEmitter {
   }
 
   /** Upsert a history entry for a session, keyed by sessionId */
-  private syncSessionHistory(agentId: string, sessionId: string, lastMessage: ChatMessage): void {
+  private syncSessionHistory(
+    agentId: string,
+    sessionId: string,
+    lastMessage: ChatMessage
+  ): void {
     if (!this.sessionHistoryStore) return;
     const sessionInfo = this.getSessionInfo(agentId, sessionId);
     if (!sessionInfo) return;
@@ -570,7 +608,11 @@ export class SessionOrchestrator extends EventEmitter {
   }
 
   /** Append without emitting (caller already pushed to webview) */
-  appendMessageSilent(agentId: string, sessionId: string, message: ChatMessage): void {
+  appendMessageSilent(
+    agentId: string,
+    sessionId: string,
+    message: ChatMessage
+  ): void {
     const sessionInfo = this.getSessionInfo(agentId, sessionId);
     if (!sessionInfo) return;
     sessionInfo.messages.push(message);
@@ -582,7 +624,11 @@ export class SessionOrchestrator extends EventEmitter {
   // ========================================================================
 
   /** Buffer a tool call grouped by kind; flush previous kind when kind changes */
-  private bufferToolCall(agentId: string, sessionId: string, newCall: ToolCall): void {
+  private bufferToolCall(
+    agentId: string,
+    sessionId: string,
+    newCall: ToolCall
+  ): void {
     const key = sessionKey(agentId, sessionId);
     let buffered = this.pendingToolCalls.get(key);
     if (!buffered) {
@@ -608,7 +654,7 @@ export class SessionOrchestrator extends EventEmitter {
     agentId: string,
     sessionId: string,
     kind: string,
-    calls: ToolCall[],
+    calls: ToolCall[]
   ): void {
     if (calls.length === 0) return;
     const toolCallMsg: ChatMessage = {
@@ -697,6 +743,97 @@ export class SessionOrchestrator extends EventEmitter {
   }
 
   // ========================================================================
+  // Global Session Lookup (cross-agent)
+  // ========================================================================
+
+  /**
+   * Find a session by sessionId across all agents.
+   * Returns the agentId and SessionInfo, or undefined if not found.
+   */
+  findSessionGlobally(
+    sessionId: string
+  ): { agentId: string; info: SessionInfo } | undefined {
+    for (const [agentId, agentSessions] of this.sessions) {
+      const info = agentSessions.get(sessionId);
+      if (info) return { agentId, info };
+    }
+    return undefined;
+  }
+
+  /**
+   * Send a prompt to a specific session by sessionId (cross-agent).
+   * If agentId is provided, skip the global lookup.
+   */
+  async promptSession(
+    sessionId: string,
+    text: string,
+    context?: PromptContext,
+    agentId?: string
+  ): Promise<void> {
+    if (agentId) {
+      return this.prompt(agentId, sessionId, text, context);
+    }
+    const found = this.findSessionGlobally(sessionId);
+    if (!found) {
+      throw new Error(`Session ${sessionId} not found in any connected agent`);
+    }
+    return this.prompt(found.agentId, sessionId, text, context);
+  }
+
+  /**
+   * Cancel a specific session by sessionId (cross-agent).
+   */
+  async cancelSession(sessionId: string, agentId?: string): Promise<void> {
+    if (agentId) {
+      return this.cancel(agentId, sessionId);
+    }
+    const found = this.findSessionGlobally(sessionId);
+    if (!found) {
+      throw new Error(`Session ${sessionId} not found in any connected agent`);
+    }
+    return this.cancel(found.agentId, sessionId);
+  }
+
+  /**
+   * Append a message to a specific session by sessionId (cross-agent).
+   */
+  appendMessageToSession(
+    sessionId: string,
+    message: ChatMessage,
+    agentId?: string
+  ): void {
+    if (agentId) {
+      return this.appendMessage(agentId, sessionId, message);
+    }
+    const found = this.findSessionGlobally(sessionId);
+    if (!found) {
+      throw new Error(`Session ${sessionId} not found in any connected agent`);
+    }
+    return this.appendMessage(found.agentId, sessionId, message);
+  }
+
+  /**
+   * Get all sessions as a flat list with agentId attached.
+   */
+  getAllSessionsFlat(): Array<{
+    agentId: string;
+    sessionId: string;
+    info: SessionInfo;
+  }> {
+    const result: Array<{
+      agentId: string;
+      sessionId: string;
+      info: SessionInfo;
+    }> = [];
+    for (const [agentId, agentSessions] of this.sessions) {
+      for (const [sessionId, info] of agentSessions) {
+        result.push({ agentId, sessionId, info });
+      }
+    }
+    return result;
+  }
+
+  // ========================================================================
   // Status
   // ========================================================================
 
@@ -768,7 +905,10 @@ export class SessionOrchestrator extends EventEmitter {
   // Internal Handlers
   // ========================================================================
 
-  private handleSessionUpdate(agentId: string, notification: SessionNotification): void {
+  private handleSessionUpdate(
+    agentId: string,
+    notification: SessionNotification
+  ): void {
     const { sessionId, update } = notification;
     const agentSessions = this.sessions.get(agentId);
     const sessionInfo = agentSessions?.get(sessionId);
@@ -827,15 +967,26 @@ export class SessionOrchestrator extends EventEmitter {
           sessionInfo.isStreaming = true;
           this.emit("sessionStreamStart", { agentId, sessionId });
         }
-        const tcLocations = update.locations?.map((loc) => ({ path: loc.path, line: loc.line ?? undefined }));
+        const tcLocations = update.locations?.map((loc) => ({
+          path: loc.path,
+          line: loc.line ?? undefined,
+        }));
         const tcDiff = extractDiffContent(update.content);
         const newCall: ToolCall = {
           id: update.toolCallId,
           title: update.title ?? "",
           status: normalizeToolStatus(update.status),
           kind: update.kind ?? "",
-          input: typeof update.rawInput === "string" ? update.rawInput : JSON.stringify(update.rawInput),
-          output: update.rawOutput !== undefined ? (typeof update.rawOutput === "string" ? update.rawOutput : JSON.stringify(update.rawOutput)) : undefined,
+          input:
+            typeof update.rawInput === "string"
+              ? update.rawInput
+              : JSON.stringify(update.rawInput),
+          output:
+            update.rawOutput !== undefined
+              ? typeof update.rawOutput === "string"
+                ? update.rawOutput
+                : JSON.stringify(update.rawOutput)
+              : undefined,
           locations: tcLocations,
           diffContent: tcDiff,
         };
@@ -844,20 +995,37 @@ export class SessionOrchestrator extends EventEmitter {
         break;
       }
       case "tool_call_update": {
-        const tcUpdateDiff = update.content ? extractDiffContent(update.content) : undefined;
+        const tcUpdateDiff = update.content
+          ? extractDiffContent(update.content)
+          : undefined;
         // Try to update in buffered messages first
-        const buffered = this.pendingToolCalls.get(sessionKey(agentId, sessionId));
+        const buffered = this.pendingToolCalls.get(
+          sessionKey(agentId, sessionId)
+        );
         if (buffered) {
           let foundInBuffer = false;
           for (const [, calls] of buffered) {
             const tc = calls.find((c) => c.id === update.toolCallId);
             if (tc) {
               if (update.title !== undefined) tc.title = update.title ?? "";
-              if (update.status !== undefined) tc.status = normalizeToolStatus(update.status);
+              if (update.status !== undefined)
+                tc.status = normalizeToolStatus(update.status);
               if (update.kind !== undefined) tc.kind = update.kind ?? "";
-              if (update.rawInput !== undefined) tc.input = typeof update.rawInput === "string" ? update.rawInput : JSON.stringify(update.rawInput);
-              if (update.rawOutput !== undefined) tc.output = typeof update.rawOutput === "string" ? update.rawOutput : JSON.stringify(update.rawOutput);
-              if (update.locations) tc.locations = update.locations.map((loc) => ({ path: loc.path, line: loc.line ?? undefined }));
+              if (update.rawInput !== undefined)
+                tc.input =
+                  typeof update.rawInput === "string"
+                    ? update.rawInput
+                    : JSON.stringify(update.rawInput);
+              if (update.rawOutput !== undefined)
+                tc.output =
+                  typeof update.rawOutput === "string"
+                    ? update.rawOutput
+                    : JSON.stringify(update.rawOutput);
+              if (update.locations)
+                tc.locations = update.locations.map((loc) => ({
+                  path: loc.path,
+                  line: loc.line ?? undefined,
+                }));
               if (tcUpdateDiff) tc.diffContent = tcUpdateDiff;
               foundInBuffer = true;
               break;
@@ -867,8 +1035,8 @@ export class SessionOrchestrator extends EventEmitter {
         }
         // Fall back: find in emitted messages and update in place
         const sessionMsgs = sessionInfo.messages;
-        const existingIdx = sessionMsgs.findIndex(
-          (m) => m.toolCalls?.some((tc) => tc.id === update.toolCallId)
+        const existingIdx = sessionMsgs.findIndex((m) =>
+          m.toolCalls?.some((tc) => tc.id === update.toolCallId)
         );
         if (existingIdx >= 0) {
           const existing = sessionMsgs[existingIdx];
@@ -879,9 +1047,23 @@ export class SessionOrchestrator extends EventEmitter {
                   title: update.title ?? tc.title,
                   status: normalizeToolStatus(update.status ?? tc.status),
                   kind: update.kind ?? tc.kind,
-                  input: update.rawInput !== undefined ? (typeof update.rawInput === "string" ? update.rawInput : JSON.stringify(update.rawInput)) : tc.input,
-                  output: update.rawOutput !== undefined ? (typeof update.rawOutput === "string" ? update.rawOutput : JSON.stringify(update.rawOutput)) : tc.output,
-                  locations: update.locations?.map((loc) => ({ path: loc.path, line: loc.line ?? undefined })) ?? tc.locations,
+                  input:
+                    update.rawInput !== undefined
+                      ? typeof update.rawInput === "string"
+                        ? update.rawInput
+                        : JSON.stringify(update.rawInput)
+                      : tc.input,
+                  output:
+                    update.rawOutput !== undefined
+                      ? typeof update.rawOutput === "string"
+                        ? update.rawOutput
+                        : JSON.stringify(update.rawOutput)
+                      : tc.output,
+                  locations:
+                    update.locations?.map((loc) => ({
+                      path: loc.path,
+                      line: loc.line ?? undefined,
+                    })) ?? tc.locations,
                   diffContent: tcUpdateDiff ?? tc.diffContent,
                 }
               : tc
@@ -901,7 +1083,11 @@ export class SessionOrchestrator extends EventEmitter {
       case "available_commands_update": {
         const key = sessionKey(agentId, sessionId);
         this.sessionCommands.set(key, update.availableCommands ?? []);
-        this.emit("sessionCommandsUpdated", { agentId, sessionId, commands: update.availableCommands ?? [] });
+        this.emit("sessionCommandsUpdated", {
+          agentId,
+          sessionId,
+          commands: update.availableCommands ?? [],
+        });
         break;
       }
       case "current_mode_update": {
@@ -925,7 +1111,9 @@ export class SessionOrchestrator extends EventEmitter {
                   }
                 }
               }
-              const selected = flatOptions.find((o: typeof flatOptions[number]) => o.value === currentVal);
+              const selected = flatOptions.find(
+                (o: (typeof flatOptions)[number]) => o.value === currentVal
+              );
               sessionInfo.model = selected?.name ?? currentVal;
             }
           }
@@ -947,9 +1135,13 @@ export class SessionOrchestrator extends EventEmitter {
         // However, during the turn the webview needs a live token display,
         // so we attribute the growing 'used' to input (the prompt tokens
         // dominate early in the turn). Output gets corrected on turn end.
-        console.log('[ACP] usage_update:', JSON.stringify(notification.update));
+        console.log("[ACP] usage_update:", JSON.stringify(notification.update));
         const prevTotal = sessionInfo.tokenUsage.total;
-        if (update.used !== undefined && update.used !== null && update.used > 0) {
+        if (
+          update.used !== undefined &&
+          update.used !== null &&
+          update.used > 0
+        ) {
           sessionInfo.tokenUsage.total = update.used;
           const delta = update.used - prevTotal;
           if (delta > 0) {
@@ -958,7 +1150,11 @@ export class SessionOrchestrator extends EventEmitter {
             sessionInfo.tokenUsage.input += delta;
           }
         }
-        if (update.size !== undefined && update.size !== null && update.size > 0) {
+        if (
+          update.size !== undefined &&
+          update.size !== null &&
+          update.size > 0
+        ) {
           sessionInfo.contextWindowMax = update.size;
         }
         break;
@@ -969,11 +1165,14 @@ export class SessionOrchestrator extends EventEmitter {
 
     // Forward the full notification to extension.ts for UI routing
     this.emit("sessionUpdate", { agentId, sessionId, notification });
+
+    // Debounced overview update
+    this.emitOverviewUpdate();
   }
 
   private async handleRequestPermission(
     agentId: string,
-    request: RequestPermissionRequest,
+    request: RequestPermissionRequest
   ): Promise<RequestPermissionResponse> {
     const qpItems = request.options.map((o) => ({
       label: o.name ?? o.optionId,
@@ -982,10 +1181,13 @@ export class SessionOrchestrator extends EventEmitter {
     }));
 
     const kindLabel =
-      request.toolCall.kind === "edit" ? "📝 Edit" :
-      request.toolCall.kind === "execute" ? "⚡ Execute" :
-      request.toolCall.kind === "fetch" ? "🌐 Fetch" :
-      request.toolCall.kind ?? "Action";
+      request.toolCall.kind === "edit"
+        ? "📝 Edit"
+        : request.toolCall.kind === "execute"
+          ? "⚡ Execute"
+          : request.toolCall.kind === "fetch"
+            ? "🌐 Fetch"
+            : (request.toolCall.kind ?? "Action");
 
     const title = `[${agentId}] ${kindLabel}: ${request.toolCall.title ?? "(no title)"}`;
 
@@ -999,7 +1201,9 @@ export class SessionOrchestrator extends EventEmitter {
 
     // Map back to optionId via label match (showQuickPick may return a copy)
     const label = (result as { label: string }).label;
-    const matchedOption = request.options.find((o) => (o.name ?? o.optionId) === label);
+    const matchedOption = request.options.find(
+      (o) => (o.name ?? o.optionId) === label
+    );
     const optionId = matchedOption?.optionId;
     if (!optionId) {
       return { outcome: { outcome: "cancelled" } };
@@ -1015,6 +1219,185 @@ export class SessionOrchestrator extends EventEmitter {
   }
 
   // ========================================================================
+  // Session Overview
+  // ========================================================================
+
+  getSessionOverview(): {
+    sessions: Array<{
+      sessionId: string;
+      agentId: string;
+      title: string;
+      status:
+        | "idle"
+        | "running"
+        | "waiting"
+        | "completed"
+        | "error"
+        | "cancelled";
+      model?: string;
+      mode?: string;
+      progress: {
+        elapsedMs: number;
+        tokenUsage: { input: number; output: number; total: number };
+        contextWindow?: { used: number; max: number; percentage: number };
+        messageCount: number;
+        toolCallCount: number;
+        toolCallsCompleted: number;
+      };
+      recentResponses: Array<{
+        messageId: string;
+        role: "agent" | "tool";
+        preview: string;
+        toolName?: string;
+        status?: "completed" | "running" | "failed";
+        timestamp: string;
+      }>;
+      cwd?: string;
+      createdAt: string;
+      updatedAt: string;
+    }>;
+    lastUpdated: string;
+  } {
+    const sessions: Array<{
+      sessionId: string;
+      agentId: string;
+      title: string;
+      status:
+        | "idle"
+        | "running"
+        | "waiting"
+        | "completed"
+        | "error"
+        | "cancelled";
+      model?: string;
+      mode?: string;
+      progress: {
+        elapsedMs: number;
+        tokenUsage: { input: number; output: number; total: number };
+        contextWindow?: { used: number; max: number; percentage: number };
+        messageCount: number;
+        toolCallCount: number;
+        toolCallsCompleted: number;
+      };
+      recentResponses: Array<{
+        messageId: string;
+        role: "agent" | "tool";
+        preview: string;
+        toolName?: string;
+        status?: "completed" | "running" | "failed";
+        timestamp: string;
+      }>;
+      cwd?: string;
+      createdAt: string;
+      updatedAt: string;
+    }> = [];
+
+    for (const [agentId, agentSessions] of this.sessions) {
+      for (const [sessionId, info] of agentSessions) {
+        const toolCallCount = info.messages.reduce(
+          (count, msg) => count + (msg.toolCalls?.length ?? 0),
+          0
+        );
+        const toolCallsCompleted = info.messages.reduce(
+          (count, msg) =>
+            count +
+            (msg.toolCalls?.filter((tc) => tc.status === "completed").length ??
+              0),
+          0
+        );
+
+        sessions.push({
+          sessionId,
+          agentId,
+          title: info.title,
+          status: info.status,
+          model: info.model,
+          mode: info.mode,
+          progress: {
+            elapsedMs:
+              info.status === "running"
+                ? Date.now() - info.updatedAt.getTime()
+                : 0,
+            tokenUsage: {
+              input: info.tokenUsage.input,
+              output: info.tokenUsage.output,
+              total: info.tokenUsage.total,
+            },
+            contextWindow: info.contextWindowMax
+              ? {
+                  used: info.tokenUsage.total,
+                  max: info.contextWindowMax,
+                  percentage: Math.round(
+                    (info.tokenUsage.total / info.contextWindowMax) * 100
+                  ),
+                }
+              : undefined,
+            messageCount: info.messages.length,
+            toolCallCount,
+            toolCallsCompleted,
+          },
+          recentResponses: this.extractRecentResponses(info.messages, 3),
+          cwd: info.cwd,
+          createdAt: info.createdAt.toISOString(),
+          updatedAt: info.updatedAt.toISOString(),
+        });
+      }
+    }
+
+    return {
+      sessions,
+      lastUpdated: new Date().toISOString(),
+    };
+  }
+
+  private extractRecentResponses(
+    messages: import("../../domain/models/chat").ChatMessage[],
+    limit: number
+  ): Array<{
+    messageId: string;
+    role: "agent" | "tool";
+    preview: string;
+    toolName?: string;
+    status?: "completed" | "running" | "failed";
+    timestamp: string;
+  }> {
+    const responses: Array<{
+      messageId: string;
+      role: "agent" | "tool";
+      preview: string;
+      toolName?: string;
+      status?: "completed" | "running" | "failed";
+      timestamp: string;
+    }> = [];
+
+    for (let i = messages.length - 1; i >= 0 && responses.length < limit; i--) {
+      const msg = messages[i];
+      if (msg.role === "agent" && msg.content) {
+        responses.unshift({
+          messageId: msg.id,
+          role: "agent",
+          preview: msg.content.slice(0, 120),
+          timestamp: new Date(msg.timestamp).toISOString(),
+        });
+      }
+    }
+
+    return responses;
+  }
+
+  private emitOverviewUpdate(): void {
+    if (this.listenerCount("sessionOverview:update") > 0) {
+      if (this.sessionOverviewDebounceTimer) {
+        clearTimeout(this.sessionOverviewDebounceTimer);
+      }
+      this.sessionOverviewDebounceTimer = setTimeout(() => {
+        const overview = this.getSessionOverview();
+        this.emit("sessionOverview:update", overview);
+      }, 100);
+    }
+  }
+
+  // ========================================================================
   // Cleanup
   // ========================================================================
 
@@ -1024,7 +1407,9 @@ export class SessionOrchestrator extends EventEmitter {
       for (const [sessionId, sessionInfo] of agentSessions) {
         this.historyStore?.saveSession(sessionInfo);
         if (sessionInfo.messages.length > 0) {
-          const msgs = sessionInfo.messages.map((m) => this.serializeMessageForStorage(m));
+          const msgs = sessionInfo.messages.map((m) =>
+            this.serializeMessageForStorage(m)
+          );
           this.historyStore?.saveMessages(sessionId, msgs);
         }
       }
@@ -1053,10 +1438,15 @@ export class SessionOrchestrator extends EventEmitter {
 // ============================================================================
 
 function normalizeToolStatus(
-  raw: string | null | undefined,
+  raw: string | null | undefined
 ): "in_progress" | "completed" | "failed" | "cancelled" {
   if (raw === "pending") return "in_progress";
-  if (raw === "in_progress" || raw === "completed" || raw === "failed" || raw === "cancelled") {
+  if (
+    raw === "in_progress" ||
+    raw === "completed" ||
+    raw === "failed" ||
+    raw === "cancelled"
+  ) {
     return raw;
   }
   return "in_progress";

@@ -7,7 +7,10 @@ export interface ContextBarProps {
   onRemove: (id: string) => void;
 }
 
-export function ContextBar({ attachments, onRemove }: ContextBarProps): React.ReactElement | null {
+export function ContextBar({
+  attachments,
+  onRemove,
+}: ContextBarProps): React.ReactElement | null {
   if (attachments.length === 0) return null;
 
   const totalTokens = attachments.reduce((sum, a) => sum + a.tokenCount, 0);

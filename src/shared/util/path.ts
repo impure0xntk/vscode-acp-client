@@ -20,7 +20,7 @@ const ELLIPSIS = "…";
  */
 export function abbreviatePath(
   inputPath: string | null | undefined,
-  maxLength: number = DEFAULT_MAX_LENGTH,
+  maxLength: number = DEFAULT_MAX_LENGTH
 ): string {
   if (!inputPath) return "";
 
@@ -39,7 +39,7 @@ export function abbreviatePath(
   // Step 1: abbreviate intermediate segments to first char, keep last full
   if (segments.length >= 2) {
     const last = segments[segments.length - 1];
-    const initials = segments.slice(0, -1).map(s => s[0]);
+    const initials = segments.slice(0, -1).map((s) => s[0]);
     const abbreviated = prefix
       ? `${prefix}/${initials.join("/")}/${last}`
       : `/${initials.join("/")}/${last}`;

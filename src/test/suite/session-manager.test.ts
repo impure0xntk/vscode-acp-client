@@ -58,7 +58,10 @@ describe("SessionManager — Status Updates", () => {
 
   it("updateSessionStatus changes status", () => {
     manager.updateSessionStatus("claude", "sess-1", "running");
-    assert.strictEqual(manager.getSession("claude", "sess-1")!.status, "running");
+    assert.strictEqual(
+      manager.getSession("claude", "sess-1")!.status,
+      "running"
+    );
   });
 
   it("updateSessionStatus updates updatedAt timestamp", () => {
@@ -72,7 +75,7 @@ describe("SessionManager — Status Updates", () => {
   it("updateSessionStatus throws for non-existent session", () => {
     assert.throws(
       () => manager.updateSessionStatus("claude", "unknown", "running"),
-      /Session unknown not found/,
+      /Session unknown not found/
     );
   });
 });
@@ -95,7 +98,7 @@ describe("SessionManager — Active Session", () => {
   it("setActiveSession throws for non-existent session", () => {
     assert.throws(
       () => manager.setActiveSession("claude", "unknown"),
-      /Session unknown not found/,
+      /Session unknown not found/
     );
   });
 
@@ -196,7 +199,9 @@ describe("SessionManager — Events", () => {
 
   it("emits sessionCreated on createSession", () => {
     let event: any = null;
-    manager.on("sessionCreated", (e) => { event = e; });
+    manager.on("sessionCreated", (e) => {
+      event = e;
+    });
     manager.createSession("claude", "sess-1");
     assert.ok(event);
     assert.strictEqual(event.agentId, "claude");
@@ -206,7 +211,9 @@ describe("SessionManager — Events", () => {
   it("emits sessionStatusChanged on updateSessionStatus", () => {
     manager.createSession("claude", "sess-1");
     let event: any = null;
-    manager.on("sessionStatusChanged", (e) => { event = e; });
+    manager.on("sessionStatusChanged", (e) => {
+      event = e;
+    });
     manager.updateSessionStatus("claude", "sess-1", "running");
     assert.ok(event);
     assert.strictEqual(event.status, "running");
@@ -215,7 +222,9 @@ describe("SessionManager — Events", () => {
   it("emits sessionClosed on destroySession", () => {
     manager.createSession("claude", "sess-1");
     let event: any = null;
-    manager.on("sessionClosed", (e) => { event = e; });
+    manager.on("sessionClosed", (e) => {
+      event = e;
+    });
     manager.destroySession("claude", "sess-1");
     assert.ok(event);
     assert.strictEqual(event.sessionId, "sess-1");
@@ -225,7 +234,9 @@ describe("SessionManager — Events", () => {
     manager.createSession("claude", "sess-1");
     manager.createSession("claude", "sess-2");
     let event: any = null;
-    manager.on("sessionActiveChanged", (e) => { event = e; });
+    manager.on("sessionActiveChanged", (e) => {
+      event = e;
+    });
     manager.setActiveSession("claude", "sess-2");
     assert.ok(event);
     assert.strictEqual(event.sessionId, "sess-2");
@@ -233,7 +244,9 @@ describe("SessionManager — Events", () => {
 
   it("onSessionEvent subscribes via stateManager", () => {
     let received = false;
-    manager.onSessionEvent("session.created", () => { received = true; });
+    manager.onSessionEvent("session.created", () => {
+      received = true;
+    });
     manager.createSession("claude", "sess-1");
     assert.strictEqual(received, true);
   });
@@ -245,7 +258,9 @@ describe("SessionManager — Cleanup", () => {
     const manager = new SessionManager(sm);
     manager.createSession("claude", "sess-1");
     let count = 0;
-    manager.on("sessionCreated", () => { count++; });
+    manager.on("sessionCreated", () => {
+      count++;
+    });
     manager.dispose();
     assert.strictEqual(manager.getSessionsForAgent("claude").length, 0);
   });

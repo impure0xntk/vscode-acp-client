@@ -15,10 +15,7 @@ function ensureDir(dirPath) {
 
 async function processCss(inputFile, outputFile) {
   const css = fs.readFileSync(inputFile, "utf8");
-  const result = await postcss([
-    tailwindcss(),
-    autoprefixer,
-  ]).process(css, {
+  const result = await postcss([tailwindcss(), autoprefixer]).process(css, {
     from: inputFile,
     to: outputFile,
   });

@@ -3,15 +3,15 @@
 // Common console-based backend for all platforms.
 // Works on VSCode / Node.js / Electron.
 
-import type { LogRecord, LoggerBackend, LogLevelValue } from './types';
+import type { LogRecord, LoggerBackend, LogLevelValue } from "./types";
 
 const levelLabel: Record<LogLevelValue, string> = {
-  0: 'TRACE',
-  1: 'DEBUG',
-  2: 'INFO ',
-  3: 'WARN ',
-  4: 'ERROR',
-  5: 'SILENT',
+  0: "TRACE",
+  1: "DEBUG",
+  2: "INFO ",
+  3: "WARN ",
+  4: "ERROR",
+  5: "SILENT",
 };
 
 /**
@@ -25,7 +25,8 @@ const levelLabel: Record<LogLevelValue, string> = {
 export class ConsoleLoggerBackend implements LoggerBackend {
   minLevel: LogLevelValue;
 
-  constructor(minLevel: LogLevelValue = 2) { // default: info
+  constructor(minLevel: LogLevelValue = 2) {
+    // default: info
     this.minLevel = minLevel;
   }
 
@@ -33,8 +34,13 @@ export class ConsoleLoggerBackend implements LoggerBackend {
     if (record.level < this.minLevel) return;
 
     const ts = new Date(record.timestamp).toISOString();
-    const label = levelLabel[record.level] ?? '?????';
-    const parts = [`[${label}]`, `[${ts}]`, `[${record.category}]`, record.message];
+    const label = levelLabel[record.level] ?? "?????";
+    const parts = [
+      `[${label}]`,
+      `[${ts}]`,
+      `[${record.category}]`,
+      record.message,
+    ];
 
     // Append structured context in key=value format
     if (record.context) {
@@ -43,7 +49,7 @@ export class ConsoleLoggerBackend implements LoggerBackend {
       }
     }
 
-    const line = parts.join(' ');
+    const line = parts.join(" ");
 
     switch (record.level) {
       case 0: // trace

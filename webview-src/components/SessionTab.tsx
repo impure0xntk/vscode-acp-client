@@ -73,16 +73,16 @@ export function SessionTab({
     >
       <StatusIcon status={status} />
 
-      {agentIcon && (
-        <span className="session-tab-agent-icon">{agentIcon}</span>
-      )}
+      {agentIcon && <span className="session-tab-agent-icon">{agentIcon}</span>}
 
       <span className="session-tab-title" title={title}>
         {title}
       </span>
 
       {unreadCount > 0 && !isActive && (
-        <span className="session-tab-badge">{unreadCount > 99 ? "99+" : unreadCount}</span>
+        <span className="session-tab-badge">
+          {unreadCount > 99 ? "99+" : unreadCount}
+        </span>
       )}
 
       <button

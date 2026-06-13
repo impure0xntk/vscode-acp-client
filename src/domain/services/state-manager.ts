@@ -66,7 +66,7 @@ export class StateManager {
 
   createEvent(
     type: OrchestrationEventType,
-    payload: unknown,
+    payload: unknown
   ): OrchestrationEvent {
     return {
       id: generateEventId(),
@@ -80,7 +80,10 @@ export class StateManager {
   // Subscription
   // ========================================================================
 
-  subscribe(eventType: OrchestrationEventType, listener: EventListener): Unsubscribe {
+  subscribe(
+    eventType: OrchestrationEventType,
+    listener: EventListener
+  ): Unsubscribe {
     let set = this.listeners.get(eventType);
     if (!set) {
       set = new Set();
@@ -88,7 +91,9 @@ export class StateManager {
     }
     set.add(listener);
 
-    return () => { set?.delete(listener); };
+    return () => {
+      set?.delete(listener);
+    };
   }
 
   subscribeAll(listener: EventListener): Unsubscribe {
@@ -96,7 +101,10 @@ export class StateManager {
     return () => unsubs.forEach((fn) => fn());
   }
 
-  private emit(eventType: OrchestrationEventType, event: OrchestrationEvent): void {
+  private emit(
+    eventType: OrchestrationEventType,
+    event: OrchestrationEvent
+  ): void {
     const set = this.listeners.get(eventType);
     if (!set) return;
     for (const listener of set) {
