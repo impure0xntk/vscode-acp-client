@@ -11,12 +11,15 @@ import {
   ResizableSessionOverviewPanel,
 } from "../components/SessionOverview/SessionOverviewPanel";
 import { useSessionContext } from "../hooks/useSessionContext";
+import { useSessionStore, sessionKeyOf } from "../store/sessionStore";
+import { useMessageStore } from "../store/messageStore";
 import { useChatHandlers } from "./hooks/useChatHandlers";
 import { useOverviewHandlers } from "./hooks/useOverviewHandlers";
 import { ChatArea } from "./ChatArea";
 
+// ── Legacy compat: sessionKey for components that still use agentId+sessionId ──
 function sessionKey(agentId: string, sessionId: string): string {
-  return `${agentId}:${sessionId}`;
+  return sessionKeyOf(agentId, sessionId);
 }
 
 export function AppContainer(): React.ReactElement {
@@ -66,7 +69,7 @@ export function AppContainer(): React.ReactElement {
     ? ctx.sessionInfoMap[activeKey]
     : undefined;
 
-  // Derived display values
+  // Derived display values — all from sessionInfoMap
   const displayModel = activeSessionInfo?.model;
   const displayMode = activeSessionInfo?.mode;
   const displayCwd = activeSessionInfo?.cwd;
@@ -122,8 +125,8 @@ export function AppContainer(): React.ReactElement {
     switchTab(sessionId, agentId);
   };
 
-  const handleTabClose = (sessionId: string) => {
-    closeSession(sessionId);
+  const handleTabClose = (sessionId: string, agentId: string) => {
+    closeSession(agentId, sessionId);
   };
 
   const handleNewSession = () => {
@@ -165,13 +168,16 @@ export function AppContainer(): React.ReactElement {
     [ctx.completedNotifications, tabs],
   );
 
+  // Derive overview items as a lookup map — single source of truth via getOverviewItems()
   const overviewItemsMap = useMemo(() => {
+    const items = useSessionStore.getState().getOverviewItems();
     const acc: Record<string, import("../types").SessionOverviewItem> = {};
-    for (const item of sessionOverviewState.sessions) {
+    for (const item of items) {
       acc[`${item.agentId}:${item.sessionId}`] = item;
     }
     return acc;
-  }, [sessionOverviewState.sessions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabs, ctx.sessionInfoMap, useMessageStore.getState().perSession]);
 
   // ── Render ────────────────────────────────────────────────────────────
 
@@ -183,7 +189,7 @@ export function AppContainer(): React.ReactElement {
         <ResizableSessionOverviewPanel
           isVisible={sessionOverviewVisible}
           state={sessionOverviewState}
-          tabs={tabs}
+          connectedAgents={connectedAgents}
           width={sessionOverviewWidth}
           onFilterChange={setSessionOverviewFilter}
           onFocus={handleOverviewFocus}
@@ -204,12 +210,14 @@ export function AppContainer(): React.ReactElement {
           <SessionTabs
             tabs={tabs}
             activeSessionId={activeSessionId}
-            sessionInfoMap={ctx.sessionInfoMap}
+            activeAgentId={activeAgentId}
             connectedAgents={connectedAgents}
             overviewItems={overviewItemsMap}
             onTabClick={handleTabClick}
             onTabClose={handleTabClose}
-            onTabReorder={() => {}}
+            onTabReorder={(tabs) => {
+              dispatch({ type: "REORDER_TABS", tabs });
+            }}
             onNewSession={handleNewSession}
           />
         )}
@@ -249,6 +257,7 @@ export function AppContainer(): React.ReactElement {
           disabled={!activeSessionId}
           onSend={handleSend}
           onCancel={handleCancel}
+          onSwitchSession={switchTab}
           fetchFiles={fetchFiles}
           resolveFile={resolveFile}
           resolveSelection={resolveSelection}
@@ -256,6 +265,7 @@ export function AppContainer(): React.ReactElement {
           fetchSymbols={fetchSymbols}
           resolveSymbol={resolveSymbol}
           availableCommands={availableCommands}
+          scrollToMessageRef={scrollToMessageRef}
         />
         <BottomToolbar
           model={displayModel}
@@ -282,7 +292,7 @@ export function AppContainer(): React.ReactElement {
         <ResizableSessionOverviewPanel
           isVisible={sessionOverviewVisible}
           state={sessionOverviewState}
-          tabs={tabs}
+          connectedAgents={connectedAgents}
           width={sessionOverviewWidth}
           onFilterChange={setSessionOverviewFilter}
           onFocus={handleOverviewFocus}

@@ -5,13 +5,14 @@ import React, {
   type KeyboardEvent,
 } from "react";
 import type { ContextAttachment, SuggestionItem, TriggerType } from "../types";
-import type { SlashCommand } from "../hooks/useSessionContext";
+import type { SlashCommand, SessionTabState } from "../hooks/useSessionContext";
 import { Icon } from "../lib/icons";
 import { ContextBar } from "./ContextBar";
 import { ContextPicker } from "./ContextPicker";
 import type { FileCandidate } from "./ContextPicker";
+import { useSessionContext } from "../hooks/useSessionContext";
 
-const TRIGGER_CHARS: TriggerType[] = ["/", "#"];
+const TRIGGER_CHARS: TriggerType[] = ["/", "#", "@"];
 const MAX_HISTORY = 50;
 
 // ── Trigger state ──────────────────────────────────────────────────
@@ -21,8 +22,11 @@ interface TriggerState {
   trigger: TriggerType;
   query: string;
   caretOffset: number;
-  /** For #: "symbol" | "file" | null (not yet disambiguated) */
-  subTrigger?: "symbol" | "file";
+  /**
+   * For #: "symbol" | "file" | "switch" | null (not yet disambiguated)
+   * For @: always undefined (session search uses query directly)
+   */
+  subTrigger?: "symbol" | "file" | "switch";
 }
 
 const NO_TRIGGER: TriggerState = {
@@ -35,9 +39,15 @@ const NO_TRIGGER: TriggerState = {
 // ── Props ──────────────────────────────────────────────────────────
 
 export interface ComposerProps {
-  onSend: (text: string, attachments: ContextAttachment[]) => void;
+  onSend: (
+    text: string,
+    attachments: ContextAttachment[],
+    agentId?: string,
+    sessionId?: string
+  ) => void;
   onCancel: () => void;
   onNewSession?: () => void;
+  onSwitchSession?: (agentId: string, sessionId: string) => void;
   disabled?: boolean;
   isTurnActive?: boolean;
   fetchFiles: (query: string) => Promise<FileCandidate[]>;
@@ -49,12 +59,41 @@ export interface ComposerProps {
   availableCommands?: SlashCommand[];
 }
 
+// ── Session suggestion factory (shared by @ and #switch) ───────────
+
+function buildSessionSuggestions(
+  tabs: SessionTabState[],
+  query: string
+): SuggestionItem[] {
+  const items: SuggestionItem[] = tabs.map((tab) => ({
+    id: `session:${tab.agentId}:${tab.sessionId}`,
+    kind: "session" as const,
+    label: tab.title ?? tab.sessionId.slice(0, 8),
+    value: `${tab.agentId}:${tab.sessionId}`,
+    detail: tab.agentId,
+    icon: "chat",
+    agentId: tab.agentId,
+    sessionId: tab.sessionId,
+  }));
+
+  if (!query) return items;
+
+  const q = query.toLowerCase();
+  return items.filter(
+    (s) =>
+      s.label.toLowerCase().includes(q) ||
+      s.detail?.toLowerCase().includes(q) ||
+      s.value.toLowerCase().includes(q)
+  );
+}
+
 // ── Component ───────────────────────────────────────────────────────
 
 export function Composer({
   onSend,
   onCancel,
   onNewSession,
+  onSwitchSession,
   disabled = false,
   isTurnActive = false,
   fetchFiles,
@@ -65,6 +104,8 @@ export function Composer({
   resolveSymbol,
   availableCommands = [],
 }: ComposerProps): React.ReactElement {
+  const { tabs } = useSessionContext();
+
   const [text, setText] = useState("");
   const [attachments, setAttachments] = useState<ContextAttachment[]>([]);
   const [triggerState, setTriggerState] = useState<TriggerState>(NO_TRIGGER);
@@ -76,6 +117,11 @@ export function Composer({
   const historyRef = useRef<string[]>([]);
   const historyIdxRef = useRef(-1);
   const inputBeforeNavRef = useRef("");
+  // Send target for @mention cross-session send
+  const sendTargetRef = useRef<{
+    agentId: string;
+    sessionId: string;
+  } | null>(null);
 
   // ── Trigger detection ────────────────────────────────────────────
 
@@ -96,6 +142,19 @@ export function Composer({
           return {
             active: true,
             trigger: ch,
+            query: afterTrigger,
+            caretOffset: idx,
+          };
+        }
+
+        if (ch === "@") {
+          // @ — session picker
+          // Word boundary check: don't trigger if preceded by alphanumeric (email addresses)
+          if (idx > 0 && /\w/.test(beforeCaret[idx - 1])) continue;
+
+          return {
+            active: true,
+            trigger: "@",
             query: afterTrigger,
             caretOffset: idx,
           };
@@ -141,9 +200,30 @@ export function Composer({
           };
         }
 
-        // "#something" where something is not "symbol" or "file"
+        if (first === "switch") {
+          // #switch — session switcher
+          if (tokens.length === 1) {
+            return {
+              active: true,
+              trigger: "#",
+              subTrigger: "switch",
+              query: "",
+              caretOffset: idx,
+            };
+          }
+          // "#switch codex" — filter by query
+          const rest = afterTrigger.slice("switch".length).trimStart();
+          return {
+            active: true,
+            trigger: "#",
+            subTrigger: "switch",
+            query: rest,
+            caretOffset: idx,
+          };
+        }
+
+        // "#something" where something is not "symbol", "file", or "switch"
         // Show subcommand completions filtered by the typed text
-        // This allows "#f" to show "file" and "symbol" as suggestions
         return {
           active: true,
           trigger: "#",
@@ -189,11 +269,10 @@ export function Composer({
     async (
       trigger: TriggerType,
       query: string,
-      subTrigger?: "symbol" | "file"
+      subTrigger?: "symbol" | "file" | "switch"
     ): Promise<SuggestionItem[]> => {
       if (trigger === "/") {
         // Build items from agent-provided commands only
-        // (/new and /reset are now # actions, not slash commands)
         const agentItems: SuggestionItem[] = availableCommands.map((cmd) => ({
           id: `agent:${cmd.name}`,
           kind: "command" as const,
@@ -212,6 +291,11 @@ export function Composer({
           );
         }
         return agentItems;
+      }
+
+      if (trigger === "@") {
+        // @ — session picker for cross-session send
+        return buildSessionSuggestions(tabs, query);
       }
 
       // trigger === "#"
@@ -247,6 +331,11 @@ export function Composer({
           }
         );
         return fileItems;
+      }
+
+      if (subTrigger === "switch") {
+        // #switch — session switcher
+        return buildSessionSuggestions(tabs, query);
       }
 
       // subTrigger === undefined → "# " — show subcommand completions
@@ -299,6 +388,14 @@ export function Composer({
           detail: "Attach working tree diff",
           icon: "diff-single",
         },
+        {
+          id: "sub:switch",
+          kind: "action",
+          label: "switch",
+          value: "switch",
+          detail: "Switch to another session",
+          icon: "arrow-right-left",
+        },
       ];
       if (query) {
         const q = query.toLowerCase();
@@ -310,20 +407,21 @@ export function Composer({
       }
       return subCommands;
     },
-    [fetchFiles, fetchSymbols]
+    [fetchFiles, fetchSymbols, tabs, availableCommands]
   );
 
   // ── Suggestion selected ──────────────────────────────────────────
 
   /**
    * Calculate the length of text consumed by the trigger expression.
-   * For "/cmd":       "/" + "cmd" = 1 + query.length
-   * For "#file src/": "#file" + " " + "src/" = 1 + subTrigger.length + 1 + query.length
-   * For "#file":      "#file" = 1 + subTrigger.length (no space, no query)
-   * For "#query":     "#query" = 1 + query.length
+   * For "/cmd":         "/" + "cmd" = 1 + query.length
+   * For "#file src/":   "#file" + " " + "src/" = 1 + subTrigger.length + 1 + query.length
+   * For "#file":        "#file" = 1 + subTrigger.length (no space, no query)
+   * For "#query":       "#query" = 1 + query.length
+   * For "@claude re":   "@claude re" = 1 + query.length
    */
   const getConsumedLength = useCallback((ts: TriggerState): number => {
-    if (ts.trigger === "/") return 1 + ts.query.length;
+    if (ts.trigger === "/" || ts.trigger === "@") return 1 + ts.query.length;
     // "#"
     if (ts.subTrigger) {
       // "#subTrigger" + optional " query"
@@ -368,7 +466,6 @@ export function Composer({
         // Slash command — replace trigger text, user edits before sending
         setText(before + item.value + space + after);
       } else if (item.kind === "action") {
-        // Client-side action — execute immediately, don't send as message
         if (item.value === "new") {
           onNewSession?.();
         }
@@ -382,6 +479,31 @@ export function Composer({
           /* silently fail */
         }
         setText(before + after);
+      } else if (item.kind === "session") {
+        if (triggerState.subTrigger === "switch") {
+          // #switch — switch to the selected session
+          onSwitchSession?.(item.agentId!, item.sessionId!);
+          // Clear textarea, don't insert completion text
+          setText("");
+        } else {
+          // @mention — insert completion text and set send target
+          const completion = `@${item.value} `;
+          const newText = before + completion + after;
+          setText(newText);
+          sendTargetRef.current = {
+            agentId: item.agentId!,
+            sessionId: item.sessionId!,
+          };
+          // Position caret after completion
+          requestAnimationFrame(() => {
+            if (textareaRef.current) {
+              const pos = before.length + completion.length;
+              textareaRef.current.selectionStart = pos;
+              textareaRef.current.selectionEnd = pos;
+              textareaRef.current.focus();
+            }
+          });
+        }
       }
 
       // Subcommand selected from bare "#" picker — expand and reopen
@@ -411,6 +533,29 @@ export function Composer({
           });
           return;
         }
+        if (item.value === "switch") {
+          // "#switch" selected from bare # picker — expand to "#switch "
+          const newText = before + "#switch " + after;
+          const newCaretOffset = triggerState.caretOffset;
+          setText(newText);
+          setTriggerState({
+            active: true,
+            trigger: "#",
+            subTrigger: "switch",
+            query: "",
+            caretOffset: newCaretOffset,
+          });
+          setPickerIndex(0);
+          requestAnimationFrame(() => {
+            if (textareaRef.current) {
+              const pos = before.length + 1 + "switch".length + 1;
+              textareaRef.current.selectionStart = pos;
+              textareaRef.current.selectionEnd = pos;
+              textareaRef.current.focus();
+            }
+          });
+          return;
+        }
         // selection / diff — resolve immediately (handled above)
       }
 
@@ -427,6 +572,7 @@ export function Composer({
       resolveSymbol,
       getConsumedLength,
       onNewSession,
+      onSwitchSession,
     ]
   );
 
@@ -461,7 +607,18 @@ export function Composer({
       }
       historyIdxRef.current = -1;
       inputBeforeNavRef.current = "";
-      onSend(trimmed, attachments);
+
+      // If we have a send target from @mention, pass agentId/sessionId
+      const target = sendTargetRef.current;
+      onSend(
+        trimmed,
+        attachments,
+        target?.agentId,
+        target?.sessionId
+      );
+
+      // Clear send target after each send
+      sendTargetRef.current = null;
       setText("");
       setAttachments([]);
       setTriggerState(NO_TRIGGER);
@@ -551,7 +708,7 @@ export function Composer({
 
   const placeholder = disabled
     ? "Connect to an agent first\u2026"
-    : "Message (Enter to send, Shift+Enter for newline, # file / command)";
+    : "Message (Enter to send, Shift+Enter for newline, # file / command, @ session)";
 
   return (
     <div className="composer">

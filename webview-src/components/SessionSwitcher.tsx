@@ -1,5 +1,8 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import type { SessionTabState } from "../hooks/useSessionContext";
+import { useSessionUiStateStore } from "../store/sessionUiStateStore";
+import { useMessageStore } from "../store/messageStore";
+import { useStore } from "zustand";
 import { StatusIcon } from "./StatusIcon";
 
 // ============================================================================
@@ -55,6 +58,20 @@ export function SessionSwitcher({
 
   const activeTab = tabs.find((t) => t.sessionId === activeSessionId);
 
+  // Derive unread counts — read via getState() to avoid subscribing to
+  // the entire uiStates/perSession objects (prevents infinite update loops).
+  const unreadMap = useMemo(() => {
+    const uiStore = useSessionUiStateStore.getState();
+    const msgStore = useMessageStore.getState();
+    const map = new Map<string, number>();
+    for (const tab of tabs) {
+      const key = `${tab.agentId}:${tab.sessionId}`;
+      const ids = (msgStore.perSession[key] ?? []).map((m) => m.id);
+      map.set(key, uiStore.computeUnreadCount(key, ids));
+    }
+    return map;
+  }, [tabs]);
+
   return (
     <div className="session-switcher" ref={ref}>
       <button
@@ -100,9 +117,9 @@ export function SessionSwitcher({
                       <span className="switcher-item-title" title={s.title}>
                         {s.title}
                       </span>
-                      {s.unreadCount > 0 && (
+                      {(unreadMap.get(`${s.agentId}:${s.sessionId}`) ?? 0) > 0 && (
                         <span className="switcher-item-badge">
-                          {s.unreadCount}
+                          {unreadMap.get(`${s.agentId}:${s.sessionId}`) ?? 0}
                         </span>
                       )}
                     </div>

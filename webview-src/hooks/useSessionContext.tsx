@@ -13,7 +13,7 @@ import type {
   SessionOverviewFilter,
 } from "../types";
 import { getVsCodeApi } from "../lib/vscodeApi";
-import { useSessionStore } from "../store/sessionStore";
+import { useSessionStore, sessionKeyOf } from "../store/sessionStore";
 import { useMessageStore } from "../store/messageStore";
 import { useSessionUiStateStore } from "../store/sessionUiStateStore";
 import type {
@@ -39,21 +39,23 @@ export type {
 // Tab types — UI-only state (no duplicated model fields)
 // ============================================================================
 
-export type SessionTabStatus =
-  | "idle"
-  | "running"
-  | "completed"
-  | "error"
-  | "cancelled";
+/**
+ * Per-tab UI state. Status, tokenUsage, model, mode, etc. are all
+ * derived from `sessionInfoMap` — do NOT duplicate them here.
+ */
+export interface SessionTabState {
+  sessionId: string;
+  agentId: string;
+  title: string;
+  agentIcon?: string;
+}
 
 // ============================================================================
 // Session key helper
 // ============================================================================
 
-type SessionKey = string; // `${agentId}:${sessionId}`
-
-function sessionKey(agentId: string, sessionId: string): SessionKey {
-  return `${agentId}:${sessionId}`;
+function sessionKey(agentId: string, sessionId: string): string {
+  return sessionKeyOf(agentId, sessionId);
 }
 
 // ============================================================================
@@ -113,7 +115,7 @@ export interface SessionContext {
   switchTab: (sessionId: string, agentId: string) => void;
   newSession: (agentId: string) => void;
   newSessionWithPicker: () => void;
-  closeSession: (sessionId: string) => void;
+  closeSession: (agentId: string, sessionId: string) => void;
   forkSession: (sessionId: string) => void;
 
   // File resolution
@@ -147,7 +149,7 @@ export interface SessionContext {
 // Internal action type kept for backward compat
 type SessionAction =
   | { type: "SET_SESSION_OVERVIEW_VISIBLE"; visible: boolean }
-  | { type: "SET_SESSION_OVERVIEW_STATE"; state: SessionOverviewState }
+  // setSessionOverviewState — removed, no longer needed
   | { type: "SET_SESSION_OVERVIEW_POSITION"; position: "right" | "left" }
   | { type: "SET_SESSION_OVERVIEW_FILTER"; filter: SessionOverviewFilter }
   | { type: "SET_SESSION_OVERVIEW_EXPANDED"; sessions: string[] }
@@ -159,10 +161,9 @@ type SessionAction =
   | { type: "SET_TABS"; tabs: SessionTabState[] }
   | { type: "ADD_TAB"; tab: SessionTabState }
   | { type: "REMOVE_TAB"; sessionId: string }
-  | { type: "UPDATE_TAB"; sessionId: string; agentId?: string; updates: Partial<SessionTabState> }
+  | { type: "UPDATE_TAB"; sessionId: string; updates: Partial<SessionTabState> }
   | { type: "SET_ACTIVE_SESSION"; sessionId: string; agentId: string }
   | { type: "REORDER_TABS"; tabs: SessionTabState[] }
-  | { type: "INCREMENT_UNREAD"; sessionId: string; agentId: string }
   | { type: "SET_WORKSPACE_ROOT"; root?: string }
   | { type: "SET_AGENT_INFO"; agentId: string; info: AgentInfo }
   | { type: "SET_CONNECTED_AGENTS"; agents: ConnectedAgentInfo[] }
@@ -202,30 +203,52 @@ export function SessionContextProvider({
     Array<{ agentId: string; sessionId: string; title: string }>
   >([]);
 
-  // Subscribe to store state
-  const tabs = useSessionStore((s) => s.tabs);
-  const activeSessionId = useSessionStore((s) => s.activeSessionId);
-  const activeAgentId = useSessionStore((s) => s.activeAgentId);
-  const workspaceRoot = useSessionStore((s) => s.workspaceRoot);
-  const connectedAgents = useSessionStore((s) => s.connectedAgents);
-  const agentInfoMap = useSessionStore((s) => s.agentInfoMap);
-  const workspaceFolders = useSessionStore((s) => s.workspaceFolders);
-  const sessionInfoMap = useSessionStore((s) => s.sessionInfoMap);
-  const sessionCommands = useSessionStore((s) => s.sessionCommands);
-  const statusline = useSessionStore((s) => s.statusline);
-  const sessionOverviewVisible = useSessionStore((s) => s.sessionOverviewVisible);
-  const sessionOverviewState = useSessionStore((s) => s.sessionOverviewState);
-  const sessionOverviewPosition = useSessionStore((s) => s.sessionOverviewPosition);
-  const sessionOverviewWidth = useSessionStore((s) => s.sessionOverviewWidth);
+  // Force re-render counter. We use a manual subscription instead of
+  // useSessionStore(selector) because every store write creates new
+  // object/array references via spread, and Zustand's useSyncExternalStore
+  // uses Object.is for snapshot comparison — causing infinite re-renders.
+  const [, setRenderTick] = React.useState(0);
+  const storeRef = useRef(useSessionStore.getState());
+  const msgStoreRef = useRef(useMessageStore.getState());
+
+  useEffect(() => {
+    const unsubSession = useSessionStore.subscribe(() => {
+      storeRef.current = useSessionStore.getState();
+      setRenderTick((n) => n + 1);
+    });
+    const unsubMessage = useMessageStore.subscribe(() => {
+      msgStoreRef.current = useMessageStore.getState();
+      setRenderTick((n) => n + 1);
+    });
+    return () => { unsubSession(); unsubMessage(); };
+  }, []);
+
+  const storeState = storeRef.current;
+  const sessionInfoMap = storeState.sessionInfoMap;
+  const tabOrder = storeState.tabOrder;
+  const activeSessionKey = storeState.activeSessionKey;
+  const workspaceRoot = storeState.workspaceRoot;
+  const connectedAgents = storeState.connectedAgents;
+  const agentInfoMap = storeState.agentInfoMap;
+  const workspaceFolders = storeState.workspaceFolders;
+  const sessionCommands = storeState.sessionCommands;
+  const statusline = storeState.statusline;
+  const sessionOverviewVisible = storeState.sessionOverviewVisible;
+  const sessionOverviewState = storeState.sessionOverviewState;
+  const sessionOverviewPosition = storeState.sessionOverviewPosition;
+  const sessionOverviewWidth = storeState.sessionOverviewWidth;
+
+  // Derived: tabs from store getter
+  const tabs = storeState.getTabs();
+
+  // Derived: activeSessionId / activeAgentId from activeSessionKey
+  const activeSessionId = activeSessionKey ? activeSessionKey.split(":")[1] : null;
+  const activeAgentId = activeSessionKey ? activeSessionKey.split(":")[0] : null;
 
   // Message store
-  const perSessionMessages = useMessageStore((s) => s.perSession);
-  const streamingMap = useMessageStore((s) => s.streaming);
-
-  const activeSessionKey =
-    activeAgentId && activeSessionId
-      ? sessionKey(activeAgentId, activeSessionId)
-      : null;
+  const msgState = msgStoreRef.current;
+  const perSessionMessages = msgState.perSession;
+  const streamingMap = msgState.streaming;
 
   const availableCommands = activeSessionKey
     ? (sessionCommands[activeSessionKey] ?? [])
@@ -265,7 +288,19 @@ export function SessionContextProvider({
 
         case "setTabs": {
           const store = useSessionStore.getState();
-          store.setTabs(data.tabs as SessionTabState[]);
+          const tabs = data.tabs as SessionTabState[];
+          // Rebuild tabOrder and tabTitles from incoming tabs
+          const order: string[] = [];
+          const titles: Record<string, string> = {};
+          for (const t of tabs) {
+            const key = sessionKeyOf(t.agentId, t.sessionId);
+            order.push(key);
+            titles[key] = t.title;
+          }
+          store.setTabOrder(order);
+          for (const [k, v] of Object.entries(titles)) {
+            store.setTabTitle(k, v);
+          }
           if (data.workspaceRoot) store.setWorkspaceRoot(data.workspaceRoot as string);
           if (data.agents) store.setConnectedAgents(data.agents as ConnectedAgentInfo[]);
           if (data.workspaceFolders) store.setWorkspaceFolders(data.workspaceFolders as WorkspaceFolder[]);
@@ -281,23 +316,29 @@ export function SessionContextProvider({
           return;
         }
 
-        case "addTab":
-          useSessionStore.getState().addTab(data.tab as SessionTabState);
+        case "addTab": {
+          const t = data.tab as SessionTabState;
+          useSessionStore.getState().addTab(t.agentId, t.sessionId, t.title);
           return;
+        }
 
-        case "updateTab":
-          useSessionStore.getState().updateTab(
-            data.sessionId as string,
-            data.updates as Partial<SessionTabState>
-          );
+        case "updateTab": {
+          const sessionId = data.sessionId as string;
+          const agentId = stateRef.current.activeSessionKey?.split(":")[0] ?? "";
+          const key = sessionKeyOf(agentId, sessionId);
+          const updates = data.updates as Partial<SessionTabState>;
+          if (updates.title) {
+            useSessionStore.getState().setTabTitle(key, updates.title);
+          }
           return;
+        }
 
-        case "setActiveSession":
-          useSessionStore.getState().setActiveSession(
-            data.sessionId as string,
-            data.agentId as string
-          );
+        case "setActiveSession": {
+          const sId = data.sessionId as string;
+          const aId = data.agentId as string;
+          useSessionStore.getState().setActiveSession(sessionKeyOf(aId, sId));
           return;
+        }
 
         case "session/completed":
           setCompletedNotifications((prev) => [
@@ -329,16 +370,7 @@ export function SessionContextProvider({
           const aId = data.agentId as string;
           const sId = data.sessionId as string;
           const msgKey = sessionKey(aId, sId);
-          const cur = stateRef.current;
-          const curActiveKey =
-            cur.activeAgentId && cur.activeSessionId
-              ? sessionKey(cur.activeAgentId, cur.activeSessionId)
-              : null;
-          if (msgKey === curActiveKey) {
-            useMessageStore.getState().appendMessage(msgKey, data.message as ChatMessage);
-          } else {
-            useSessionStore.getState().incrementUnread(sId, aId);
-          }
+          useMessageStore.getState().appendMessage(msgKey, data.message as ChatMessage);
           return;
         }
 
@@ -346,18 +378,9 @@ export function SessionContextProvider({
           const aId = data.agentId as string;
           const sId = data.sessionId as string;
           const msgKey = sessionKey(aId, sId);
-          const cur = stateRef.current;
-          const curActiveKey =
-            cur.activeAgentId && cur.activeSessionId
-              ? sessionKey(cur.activeAgentId, cur.activeSessionId)
-              : null;
-          if (msgKey === curActiveKey) {
-            useMessageStore.getState().appendStreamChunk(
-              msgKey, aId, sId, data.chunk as string
-            );
-          } else {
-            useSessionStore.getState().incrementUnread(sId, aId);
-          }
+          useMessageStore.getState().appendStreamChunk(
+            msgKey, aId, sId, data.chunk as string
+          );
           return;
         }
 
@@ -365,14 +388,7 @@ export function SessionContextProvider({
           const aId = data.agentId as string;
           const sId = data.sessionId as string;
           const msgKey = sessionKey(aId, sId);
-          const cur = stateRef.current;
-          const curActiveKey =
-            cur.activeAgentId && cur.activeSessionId
-              ? sessionKey(cur.activeAgentId, cur.activeSessionId)
-              : null;
-          if (msgKey === curActiveKey) {
-            useMessageStore.getState().setStreaming(msgKey, false);
-          }
+          useMessageStore.getState().setStreaming(msgKey, false);
           return;
         }
 
@@ -380,7 +396,7 @@ export function SessionContextProvider({
           const aId = data.agentId as string;
           const sId = data.sessionId as string;
           const store = useSessionStore.getState();
-          store.setActiveSession(sId, aId);
+          store.setActiveSession(sessionKeyOf(aId, sId));
           useMessageStore.getState().setMessages(
             sessionKey(aId, sId),
             data.messages as ChatMessage[]
@@ -393,10 +409,7 @@ export function SessionContextProvider({
           const sId = data.sessionId as string;
           const msgKey = sessionKey(aId, sId);
           const cur = stateRef.current;
-          const curActiveKey =
-            cur.activeAgentId && cur.activeSessionId
-              ? sessionKey(cur.activeAgentId, cur.activeSessionId)
-              : null;
+          const curActiveKey = cur.activeSessionKey;
           if (msgKey === curActiveKey && !(data.active as boolean)) {
             useMessageStore.getState().setStreaming(msgKey, false);
           }
@@ -406,33 +419,10 @@ export function SessionContextProvider({
         case "session/update":
           return;
 
+        // Legacy — sessions are now derived from sessionInfoMap
         case "sessionOverview:state":
-          useSessionStore.getState().setSessionOverviewState(
-            data.payload as SessionOverviewState
-          );
+        case "sessionOverview:update":
           return;
-
-        case "sessionOverview:update": {
-          const item = data.payload as import("../types").SessionOverviewItem;
-          const current = stateRef.current.sessionOverviewState;
-          const idx = current.sessions.findIndex(
-            (s) => s.sessionId === item.sessionId && s.agentId === item.agentId
-          );
-          const sessions = [...current.sessions];
-          if (idx >= 0) {
-            sessions[idx] = item;
-          } else {
-            sessions.push(item);
-          }
-          useSessionStore.getState().setSessionOverviewState({
-            ...current,
-            sessions,
-            lastUpdated: new Date().toISOString(),
-            activeSessionId: stateRef.current.activeSessionId ?? current.activeSessionId,
-            activeAgentId: stateRef.current.activeAgentId ?? current.activeAgentId,
-          });
-          return;
-        }
 
         case "sessionOverview:toggle":
           useSessionStore.getState().setSessionOverviewVisible(
@@ -503,9 +493,15 @@ export function SessionContextProvider({
   }, []);
 
   const switchTab = useCallback((sessionId: string, agentId: string) => {
+    const key = sessionKeyOf(agentId, sessionId);
     const store = useSessionStore.getState();
-    store.setActiveSession(sessionId, agentId);
-    store.updateTab(sessionId, { unreadCount: 0 });
+    store.setActiveSession(key);
+    // Mark all messages as seen by setting lastSeenMessageId to the newest
+    const msgs = useMessageStore.getState().perSession[key] ?? [];
+    const newestId = msgs.length > 0 ? msgs[msgs.length - 1].id : null;
+    if (newestId) {
+      useSessionUiStateStore.getState().save(key, { lastSeenMessageId: newestId });
+    }
     getVsCodeApi().postMessage({ type: "switchSession", sessionId, agentId });
   }, []);
 
@@ -517,15 +513,12 @@ export function SessionContextProvider({
     getVsCodeApi().postMessage({ type: "openNewSessionPicker" });
   }, []);
 
-  const closeSession = useCallback((sessionId: string) => {
+  const closeSession = useCallback((agentId: string, sessionId: string) => {
     const store = useSessionStore.getState();
-    const tab = store.tabs.find((t) => t.sessionId === sessionId);
-    store.removeTab(sessionId);
-    // Clean up persisted UI state for the closed session
-    if (tab) {
-      useSessionUiStateStore.getState().clear(sessionKey(tab.agentId, sessionId));
-    }
-    getVsCodeApi().postMessage({ type: "closeSession", sessionId });
+    const key = sessionKeyOf(agentId, sessionId);
+    store.removeTab(key);
+    useSessionUiStateStore.getState().clear(key);
+    getVsCodeApi().postMessage({ type: "closeSession", sessionId, agentId });
   }, []);
 
   const forkSession = useCallback((sessionId: string) => {
@@ -543,10 +536,7 @@ export function SessionContextProvider({
       };
       window.addEventListener("message", handler);
       const cur = stateRef.current;
-      const key =
-        cur.activeAgentId && cur.activeSessionId
-          ? sessionKey(cur.activeAgentId, cur.activeSessionId)
-          : null;
+      const key = cur.activeSessionKey;
       const info = key ? cur.sessionInfoMap[key] : undefined;
       getVsCodeApi().postMessage({
         type: "fetchFiles",
@@ -575,10 +565,7 @@ export function SessionContextProvider({
         };
         window.addEventListener("message", handler);
         const cur = stateRef.current;
-        const key =
-          cur.activeAgentId && cur.activeSessionId
-            ? sessionKey(cur.activeAgentId, cur.activeSessionId)
-            : null;
+        const key = cur.activeSessionKey;
         const info = key ? cur.sessionInfoMap[key] : undefined;
         getVsCodeApi().postMessage({
           type: "resolveFile",
@@ -681,13 +668,44 @@ export function SessionContextProvider({
     const store = useSessionStore.getState();
     const msgStore = useMessageStore.getState();
     switch (action.type) {
-      case "SET_TABS": store.setTabs(action.tabs); break;
-      case "ADD_TAB": store.addTab(action.tab); break;
-      case "REMOVE_TAB": store.removeTab(action.sessionId); break;
-      case "UPDATE_TAB": store.updateTab(action.sessionId, action.updates); break;
-      case "SET_ACTIVE_SESSION": store.setActiveSession(action.sessionId, action.agentId); break;
-      case "REORDER_TABS": store.reorderTabs(action.tabs); break;
-      case "INCREMENT_UNREAD": store.incrementUnread(action.sessionId, action.agentId); break;
+      case "SET_TABS": {
+        const tabs = action.tabs;
+        const order: string[] = [];
+        const titles: Record<string, string> = {};
+        for (const t of tabs) {
+          const key = sessionKeyOf(t.agentId, t.sessionId);
+          order.push(key);
+          titles[key] = t.title;
+        }
+        store.setTabOrder(order);
+        for (const [k, v] of Object.entries(titles)) {
+          store.setTabTitle(k, v);
+        }
+        break;
+      }
+      case "ADD_TAB":
+        store.addTab(action.tab.agentId, action.tab.sessionId, action.tab.title);
+        break;
+      case "REMOVE_TAB": {
+        const key = store.activeSessionKey;
+        if (key) store.removeTab(key);
+        break;
+      }
+      case "UPDATE_TAB": {
+        const key = store.activeSessionKey;
+        if (key && action.updates.title) {
+          store.setTabTitle(key, action.updates.title);
+        }
+        break;
+      }
+      case "SET_ACTIVE_SESSION":
+        store.setActiveSession(sessionKeyOf(action.agentId, action.sessionId));
+        break;
+      case "REORDER_TABS": {
+        const order = action.tabs.map((t) => sessionKeyOf(t.agentId, t.sessionId));
+        store.setTabOrder(order);
+        break;
+      }
       case "SET_WORKSPACE_ROOT": store.setWorkspaceRoot(action.root); break;
       case "SET_AGENT_INFO": store.setAgentInfo(action.agentId, action.info); break;
       case "SET_CONNECTED_AGENTS": store.setConnectedAgents(action.agents); break;
@@ -724,7 +742,6 @@ export function SessionContextProvider({
         break;
       }
       case "SET_SESSION_OVERVIEW_VISIBLE": store.setSessionOverviewVisible(action.visible); break;
-      case "SET_SESSION_OVERVIEW_STATE": store.setSessionOverviewState(action.state); break;
       case "SET_SESSION_OVERVIEW_POSITION": store.setSessionOverviewPosition(action.position); break;
       case "SET_SESSION_OVERVIEW_FILTER": store.setSessionOverviewFilter(action.filter); break;
       case "SET_SESSION_OVERVIEW_EXPANDED": store.setSessionOverviewExpanded(action.sessions); break;

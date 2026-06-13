@@ -62,10 +62,11 @@ export const useSessionUiStateStore = create<SessionUiStateStore>((set, get) => 
   clearAll: () => set({ states: {} }),
 
   computeUnreadCount: (key, messageIds) => {
+    if (messageIds.length === 0) return 0;
     const state = get().states[key];
     if (!state || !state.lastSeenMessageId) {
-      // Never seen → 0 unread (all are "old")
-      return 0;
+      // Never seen → all messages are unread
+      return messageIds.length;
     }
     const idx = messageIds.indexOf(state.lastSeenMessageId);
     if (idx < 0) return 0;

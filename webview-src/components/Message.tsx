@@ -368,38 +368,40 @@ export const Message = React.memo(function Message({
           <span className="message-time">{time}</span>
         </div>
       )}
-      {isUser && !isTool && (
-        <div className="message-user-actions">
-          <MessageActions
-            messageId={id}
-            content={content}
-            isUserMessage={isUser}
-            sessionId={sessionId ?? ""}
-          />
-        </div>
-      )}
-      <div className="message-body">
-        {isUser ? (
-          <div className="message-text">{content}</div>
-        ) : (
-          <div className="message-markdown-wrap">
-            <div
-              className={`message-markdown${isSystem ? " message-system-markdown" : ""}`}
-              dangerouslySetInnerHTML={{
-                __html: renderMarkdown(content, renderCtx),
-              }}
-              onClick={handleMarkdownClick}
+      <div className={isUser ? "message-body-row" : ""}>
+        {isUser && !isTool && (
+          <div className="message-user-actions">
+            <MessageActions
+              messageId={id}
+              content={content}
+              isUserMessage={isUser}
+              sessionId={sessionId ?? ""}
             />
-            {!isTool && (
-              <MessageActions
-                messageId={id}
-                content={content}
-                isUserMessage={isUser}
-                sessionId={sessionId ?? ""}
-              />
-            )}
           </div>
         )}
+        <div className="message-body">
+          {isUser ? (
+            <div className="message-text">{content}</div>
+          ) : (
+            <div className="message-markdown-wrap">
+              <div
+                className={`message-markdown${isSystem ? " message-system-markdown" : ""}`}
+                dangerouslySetInnerHTML={{
+                  __html: renderMarkdown(content, renderCtx),
+                }}
+                onClick={handleMarkdownClick}
+              />
+              {!isTool && (
+                <MessageActions
+                  messageId={id}
+                  content={content}
+                  isUserMessage={isUser}
+                  sessionId={sessionId ?? ""}
+                />
+              )}
+            </div>
+          )}
+        </div>
       </div>
       {thinking && (
         <ThinkingBlock

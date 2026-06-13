@@ -413,6 +413,33 @@ body {
   border-left: 2px solid var(--fg-muted);
 }
 
+/* ── Context bar (CSS-based, zoom-safe) ──────────────────────────────── */
+
+.toolbar-chip-bar-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 60px;
+}
+
+.toolbar-chip-bar-track {
+  display: inline-block;
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--fg-muted) 20%, transparent);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.toolbar-chip-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: currentColor;
+  transition: width 0.3s ease;
+}
+
 /* ── Context usage color states ─────────────────────────────────────────── */
 .toolbar-chip--ctx-normal {
   border-left: 2px solid #4fc3f7; /* blue */
@@ -782,17 +809,17 @@ body {
   outline-offset: -1px;
 }
 
-.message-user {
-  align-items: flex-end;
+/* User message body row: actions left, bubble right */
+.message-body-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
 }
 
-/* User message actions — positioned to the left of the bubble */
+/* User message actions — inline, vertically centered with the bubble */
 .message-user-actions {
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 2px;
   opacity: 0;
@@ -801,22 +828,24 @@ body {
     opacity 0.15s ease,
     visibility 0.15s ease;
   pointer-events: none;
+  flex-shrink: 0;
+  align-self: center;
+  order: -1;
 }
 
-.message-user .message-user-actions,
+.message-user:hover .message-user-actions,
 .message-user-actions:focus-within {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
 }
 
-/* Pad the message to avoid overlap with the actions column */
-.message-user {
-  padding-left: 32px;
-}
-
 .message-agent {
   align-items: flex-start;
+}
+
+.message-user .message-header {
+  justify-content: flex-end;
 }
 
 .message-system {
@@ -880,6 +909,8 @@ body {
   padding: 6px 10px;
   border-radius: 6px;
   border: 1px solid color-mix(in srgb, var(--user-bubble) 20%, transparent);
+  align-self: flex-end;
+  max-width: 80%;
 }
 
 /* Agent messages: no background, plain text */
@@ -959,6 +990,7 @@ body {
   justify-content: flex-end;
   margin-bottom: 4px;
   padding-right: 2px;
+  width: 100%;
 }
 
 .user-attach-chip {

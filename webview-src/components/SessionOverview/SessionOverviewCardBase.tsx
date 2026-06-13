@@ -1,6 +1,7 @@
 import React from "react";
 import type { SessionOverviewItem, ToolbarMeta, ResponsePreview } from "../../types";
 import { Chip } from "../ui/Chip";
+import { AgentBadge } from "../ui/AgentBadge";
 import { StatusIcon } from "../StatusIcon";
 import type { StatusIconType } from "../StatusIcon";
 import { elapsedColor } from "../../shared/elapsedColor";
@@ -73,12 +74,6 @@ export function fmtDuration(ms: number): string {
   return `${s}s`;
 }
 
-function visualBar(ratio: number): string {
-  const clamped = Math.max(0, Math.min(1, ratio));
-  const filled = Math.round(clamped * 10);
-  return "█".repeat(filled) + "░".repeat(10 - filled);
-}
-
 function contextColor(ratio: number): "normal" | "warning" | "critical" {
   if (ratio >= 0.85) return "critical";
   if (ratio >= 0.7) return "warning";
@@ -110,9 +105,10 @@ export function sessionToChips(session: SessionOverviewItem): ToolbarMeta[] {
     chips.push({
       key: "context",
       label: "Context",
-      value: `${visualBar(pct / 100)} ${pct}%`,
+      value: `${pct}%`,
       category: "metrics",
       contextColor: contextColor(pct / 100),
+      barPct: pct,
     });
   }
 
@@ -148,9 +144,12 @@ export interface CardProps {
 export function SessionOverviewHeader({
   session,
   className = "",
+  agentColor,
 }: {
   session: SessionOverviewItem;
   className?: string;
+  /** Optional agent color for the badge dot */
+  agentColor?: string;
 }): React.ReactElement {
   const styleInfo =
     STATUS_STYLE_MAP[session.status] ?? STATUS_STYLE_MAP.idle;
@@ -169,7 +168,7 @@ export function SessionOverviewHeader({
           style={{ borderColor: "#cca700" }}
         />
       )}
-      <span className="soc-agent">{session.agentId}</span>
+      <AgentBadge agentId={session.agentId} agentColor={agentColor} className="soc-agent" />
       <span className="soc-title">{session.title}</span>
       {session.model && <span className="soc-model">{session.model}</span>}
     </div>

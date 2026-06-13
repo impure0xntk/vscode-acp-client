@@ -2,15 +2,44 @@ import React from "react";
 
 // ── Session Overview ─────────────────────────────────────────────────────────
 
+export interface SessionProgress {
+  elapsedMs: number;
+  tokenUsage: {
+    input: number;
+    output: number;
+    total: number;
+  };
+  contextWindow?: {
+    used: number;
+    max: number;
+    percentage: number;
+  };
+  messageCount: number;
+  toolCallCount: number;
+  toolCallsCompleted: number;
+}
+
+export interface ResponsePreview {
+  messageId: string;
+  role: "agent" | "tool";
+  preview: string;
+  toolName?: string;
+  status?: "completed" | "running" | "failed";
+  timestamp: string;
+}
+
 export interface SessionOverviewItem {
   sessionId: string;
   agentId: string;
   title: string;
   status: string;
-  messageCount: number;
-  lastUpdated: string;
-  /** Unread message count — populated by webview from tab state */
-  unreadCount?: number;
+  model?: string;
+  mode?: string;
+  progress: SessionProgress;
+  recentResponses: ResponsePreview[];
+  cwd?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /** Filter modes — "none" means no filter active (show all) */
@@ -22,13 +51,8 @@ export const FILTERABLE_STATUSES = ["running", "completed", "error", "cancelled"
 export type FilterableStatus = (typeof FILTERABLE_STATUSES)[number];
 
 export interface SessionOverviewState {
-  sessions: SessionOverviewItem[];
-  lastUpdated: string;
   filter: SessionOverviewFilter;
   expandedSessions: string[];
-  /** Currently active session for highlight synchronisation with tab bar */
-  activeSessionId?: string;
-  activeAgentId?: string;
   /** Selected session IDs for batch operations */
   selectedSessionIds: string[];
   /** Whether selection mode is active (long-press to select) */
@@ -114,7 +138,7 @@ export interface ContextAttachment {
  *   #file.py or just # → file search
  *   #symbol → symbol search
  */
-export type TriggerType = "/" | "#";
+export type TriggerType = "/" | "#" | "@";
 
 /** A file candidate returned by the extension host */
 export interface FileCandidate {
@@ -132,14 +156,18 @@ export interface FileCandidate {
  */
 export interface SuggestionItem {
   id: string;
-  kind: "file" | "selection" | "diff" | "command" | "symbol" | "action";
+  kind: "file" | "selection" | "diff" | "command" | "symbol" | "action" | "session";
   label: string;
-  /** Relative path for files, command id for commands, symbol name for symbols, action id for actions */
+  /** Relative path for files, command id for commands, symbol name for symbols, action id for actions, "agentId:sessionId" for sessions */
   value: string;
-  /** Optional detail line (e.g. file path tail, symbol type, command description) */
+  /** Optional detail line (e.g. file path tail, symbol type, command description, agentId for sessions) */
   detail?: string;
   /** Icon hint for the renderer */
   icon?: string;
+  /** Agent identifier — populated for session suggestions */
+  agentId?: string;
+  /** Session identifier — populated for session suggestions */
+  sessionId?: string;
 }
 
 export interface StreamChunk {

@@ -10,25 +10,27 @@ export type { FileCandidate };
 const TRIGGER_LABELS: Record<TriggerType, string> = {
   "/": "Commands",
   "#": "Files & Context",
+  "@": "Sessions",
 };
 
 const SUB_TRIGGER_LABELS: Record<string, string> = {
   file: "Files",
   symbol: "Symbols",
+  switch: "Switch to session",
 };
 
 // ── Public API ──────────────────────────────────────────────────────
 
 export interface ContextPickerProps {
   trigger: TriggerType;
-  subTrigger?: "symbol" | "file";
+  subTrigger?: "symbol" | "file" | "switch";
   query: string;
   onSelect: (item: SuggestionItem) => void;
   onClose: () => void;
   fetchItems: (
     trigger: TriggerType,
     query: string,
-    subTrigger?: "symbol" | "file"
+    subTrigger?: "symbol" | "file" | "switch"
   ) => Promise<SuggestionItem[]>;
   selectedIndex: number;
   onSelectedIndexChange: (index: number) => void;
@@ -116,9 +118,13 @@ export function ContextPicker({
   const placeholder =
     trigger === "/"
       ? "No commands found"
-      : subTrigger === "symbol"
-        ? "No symbols found"
-        : "No files found";
+      : trigger === "@"
+        ? "No sessions found"
+        : subTrigger === "symbol"
+          ? "No symbols found"
+          : subTrigger === "switch"
+            ? "No sessions found"
+            : "No files found";
 
   // Check if we need a separator between main items and action items
   const firstActionIdx = items.findIndex((it) => it.kind === "action");

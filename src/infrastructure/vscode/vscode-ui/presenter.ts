@@ -15,8 +15,6 @@ export interface TabData {
   sessionId: string;
   agentId: string;
   title: string;
-  /** UI-only: unread message count for badge */
-  unreadCount: number;
   /** UI-only: dirty flag */
   isDirty: boolean;
 }
@@ -130,7 +128,6 @@ export class ChatPresenter {
       sessionId: session.sessionId,
       agentId,
       title: session.title,
-      unreadCount: existing?.unreadCount ?? 0,
       isDirty: existing?.isDirty ?? false,
     };
     this.tabs.set(key, tab);
@@ -158,11 +155,17 @@ export class ChatPresenter {
   }
 
   removeSession(agentId: string, sessionId: string): void {
-    this.tabs.delete(`${agentId}:${sessionId}`);
+    const key = `${agentId}:${sessionId}`;
+    this.tabs.delete(key);
+    delete this.sessionInfoMap[key];
     if (this.activeSessionId === sessionId && this.activeAgentId === agentId) {
       this.activeSessionId = null;
       this.activeAgentId = null;
     }
+  }
+
+  hasSession(agentId: string, sessionId: string): boolean {
+    return this.tabs.has(`${agentId}:${sessionId}`);
   }
 
   setActiveSession(agentId: string, sessionId: string): void {

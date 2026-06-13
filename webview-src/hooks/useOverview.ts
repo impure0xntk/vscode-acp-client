@@ -5,21 +5,27 @@ import type { SessionOverviewFilter } from "../types";
 // ── Overview hooks ──────────────────────────────────────────────────────────
 
 export function useOverview() {
-  const visible = useSessionStore((s) => s.sessionOverviewVisible);
-  const width = useSessionStore((s) => s.sessionOverviewWidth);
-  const position = useSessionStore((s) => s.sessionOverviewPosition);
-  const state = useSessionStore((s) => s.sessionOverviewState);
-
-  const setVisible = useSessionStore((s) => s.setSessionOverviewVisible);
-  const setWidth = useSessionStore((s) => s.setSessionOverviewWidth);
-  const setPosition = useSessionStore((s) => s.setSessionOverviewPosition);
-  const setState = useSessionStore((s) => s.setSessionOverviewState);
-  const setFilter = useSessionStore((s) => s.setSessionOverviewFilter);
-  const setExpanded = useSessionStore((s) => s.setSessionOverviewExpanded);
-  const setSelected = useSessionStore((s) => s.setSessionOverviewSelected);
-  const toggleSelected = useSessionStore((s) => s.toggleSessionOverviewSelected);
-  const setSelectionMode = useSessionStore((s) => s.setSessionOverviewSelectionMode);
-  const toggleSelection = useSessionStore((s) => s.toggleSessionOverviewSelection);
+  // Read via getState() to avoid useSyncExternalStore subscription.
+  // sessionOverviewState is an object that gets a new reference on every mutation,
+  // which would cause infinite re-renders via useSyncExternalStore's Object.is check.
+  const s = useSessionStore.getState();
+  const visible = s.sessionOverviewVisible;
+  const width = s.sessionOverviewWidth;
+  const position = s.sessionOverviewPosition;
+  // state object is destructured to primitives to avoid reference equality issues
+  const filter = s.sessionOverviewState.filter;
+  const expandedSessions = s.sessionOverviewState.expandedSessions;
+  const selectedSessionIds = s.sessionOverviewState.selectedSessionIds;
+  const selectionMode = s.sessionOverviewState.selectionMode;
+  const setVisible = s.setSessionOverviewVisible;
+  const setWidth = s.setSessionOverviewWidth;
+  const setPosition = s.setSessionOverviewPosition;
+  const setFilter = s.setSessionOverviewFilter;
+  const setExpanded = s.setSessionOverviewExpanded;
+  const setSelected = s.setSessionOverviewSelected;
+  const toggleSelected = s.toggleSessionOverviewSelected;
+  const setSelectionMode = s.setSessionOverviewSelectionMode;
+  const toggleSelection = s.toggleSessionOverviewSelection;
 
   const toggle = useCallback(() => {
     setVisible(!visible);
@@ -29,11 +35,13 @@ export function useOverview() {
     visible,
     width,
     position,
-    state,
+    filter,
+    expandedSessions,
+    selectedSessionIds,
+    selectionMode,
     setVisible,
     setWidth,
     setPosition,
-    setState,
     setFilter,
     setExpanded,
     setSelected,

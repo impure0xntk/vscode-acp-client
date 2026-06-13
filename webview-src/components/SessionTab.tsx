@@ -1,98 +1,134 @@
 import React from "react";
+import type { SessionTabState } from "../hooks/useSessionContext";
 import { StatusIcon } from "./StatusIcon";
+import type { StatusIconType } from "./StatusIcon";
+import { UnreadBadge } from "./ui/UnreadBadge";
+import { AgentBadge } from "./ui/AgentBadge";
+
+// ============================================================================
+// SessionTab — compact horizontal tab for the tab bar
+// ============================================================================
+//
+// ┌─ SessionTab ──────────────────────────────────────────────────┐
+// │ [●] agent-name          ← StatusIcon + AgentBadge (shared)   │
+// │ session-title           ← title only, no chips/preview       │
+// │                                          [×] ← hover/active  │
+// └───────────────────────────────────────────────────────────────┘
+//
+// ═══ Design contrast: SessionTab vs SessionOverviewCard ═══
+//
+//   Aspect          SessionOverviewCard              SessionTab
+//   ──────────────  ──────────────────────────────    ────────────────────────
+//   Layout          vertical stack                    2-row compact horizontal
+//   Structure       Header → Chips → Preview → Footer Row1: status+agent
+//                                                       Row2: title only
+//   StatusIcon      in SessionOverviewHeader           left of agent name
+//   AgentBadge      in SessionOverviewHeader           left of title row
+//   UnreadBadge     footer-right                       absolute top-right
+//   Chips           duration/tokens/context/msgs       (none)
+//   Preview         recent agent responses             (none)
+//   Footer          timestamp                          (none)
+//   Close button    always visible                     hover/active only
+//   Width           full card width                    compact, flex-shrink
+//
+// ═══ Shared building blocks (from ui/) ═══
+//   - StatusIcon  → both use for session status indicator
+//   - AgentBadge  → both use colored dot + truncated name
+//   - UnreadBadge → both use for unread message count
+//
+// ═══ Data flow ═══
+//   SessionOverviewCard ← SessionOverviewItem (derived from sessionInfoMap)
+//   SessionTab          ← SessionTabState (lightweight) + status resolved by parent
+//
+// ═══ Responsibility split ═══
+//   SessionTabs (parent) owns: drag/drop, hover timers, popup, unread computation
+//   SessionTab (this)   owns:  click, close, hover visual, layout
+//
+// Drag/drop is handled by the parent wrapper <div>, not by SessionTab itself.
+// ============================================================================
 
 interface SessionTabProps {
-  sessionId: string;
-  title: string;
-  status: "idle" | "running" | "completed" | "error" | "cancelled";
+  tab: SessionTabState;
   isActive: boolean;
-  unreadCount: number;
-  agentId: string;
+  isHovered: boolean;
+  /** Pre-resolved status from sessionInfoMap (parent reads via getState()) */
+  status: StatusIconType;
+  /** Elapsed time for running indicator (ms) */
+  elapsedMs?: number;
+  /** Agent color from connected agents list */
   agentColor?: string;
+  /** Optional agent icon (emoji) */
   agentIcon?: string;
-  onClose: (sessionId: string) => void;
-  onClick: (sessionId: string, agentId: string) => void;
-  onDragStart?: (e: React.DragEvent, sessionId: string) => void;
-  onDragOver?: (e: React.DragEvent) => void;
-  onDrop?: (e: React.DragEvent, sessionId: string) => void;
+  /** Unread message count */
+  unreadCount: number;
+  onClick: () => void;
+  onClose: () => void;
+  onMouseEnter: (e: React.MouseEvent) => void;
+  onMouseLeave: () => void;
 }
 
 export function SessionTab({
-  sessionId,
-  title,
-  status,
+  tab,
   isActive,
-  unreadCount,
-  agentId,
+  isHovered,
+  status,
+  elapsedMs,
   agentColor,
   agentIcon,
-  onClose,
+  unreadCount,
   onClick,
-  onDragStart,
-  onDragOver,
-  onDrop,
+  onClose,
+  onMouseEnter,
+  onMouseLeave,
 }: SessionTabProps): React.ReactElement {
-  const handleClick = () => {
-    onClick(sessionId, agentId);
-  };
-
-  const handleClose = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onClose(sessionId);
-  };
-
-  const handleDragStart = (e: React.DragEvent) => {
-    onDragStart?.(e, sessionId);
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    onDragOver?.(e);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    onDrop?.(e, sessionId);
-  };
+  const showCloseButton = isActive || isHovered;
 
   return (
     <div
-      className={`session-tab ${isActive ? "session-tab-active" : ""}${isActive && (status === "running" || status === "working") ? " status-tab-has-running-status" : ""}`}
-      role="tab"
-      aria-selected={isActive}
-      tabIndex={0}
-      draggable
-      onClick={handleClick}
-      onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          handleClick();
-        }
-      }}
+      className={`session-tab${isActive ? " session-tab-active" : ""}${isHovered ? " session-tab-hovered" : ""}`}
+      onClick={onClick}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
     >
-      <StatusIcon status={status} />
+      {/* Row 1: Status + Agent name — mirrors SessionOverviewCard header */}
+      <div className="session-tab-row session-tab-row-agent">
+        <StatusIcon status={status} elapsedMs={elapsedMs} />
+        {agentIcon ? (
+          <span className="session-tab-agent-icon">{agentIcon}</span>
+        ) : (
+          <AgentBadge agentId={tab.agentId} agentColor={agentColor} />
+        )}
+      </div>
 
-      {agentIcon && <span className="session-tab-agent-icon">{agentIcon}</span>}
-
-      <span className="session-tab-title" title={title}>
-        {title}
-      </span>
-
-      {unreadCount > 0 && !isActive && (
-        <span className="session-tab-badge">
-          {unreadCount > 99 ? "99+" : unreadCount}
+      {/* Row 2: Session title — compact, no chips/preview/footer */}
+      <div className="session-tab-row session-tab-row-session">
+        <span className="session-tab-title" title={tab.title}>
+          {tab.title}
         </span>
-      )}
+      </div>
 
-      <button
-        className="session-tab-close"
-        type="button"
-        aria-label="Close tab"
-        onClick={handleClose}
+      {/* Unread badge — absolute top-right, shared UnreadBadge */}
+      <UnreadBadge
+        count={unreadCount}
+        hidden={isActive}
+        className="session-tab-badge"
+      />
+
+      {/* Close button — visible on hover or active (not always, unlike card) */}
+      <div
+        className={`session-tab-actions${showCloseButton ? " session-tab-actions-visible" : ""}`}
       >
-        ×
-      </button>
+        <button
+          className="session-tab-close"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          title="Close session"
+        >
+          ×
+        </button>
+      </div>
     </div>
   );
 }

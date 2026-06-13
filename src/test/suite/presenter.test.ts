@@ -138,7 +138,6 @@ describe("ChatPresenter — Session / Tab Management", () => {
     assert.strictEqual(msg.tabs[0].sessionId, "sess-1");
     assert.strictEqual(msg.tabs[0].agentId, "claude");
     assert.strictEqual(msg.tabs[0].title, "Test Session");
-    assert.strictEqual(msg.tabs[0].unreadCount, 0);
     assert.strictEqual(msg.tabs[0].isDirty, false);
   });
 
@@ -155,7 +154,7 @@ describe("ChatPresenter — Session / Tab Management", () => {
     assert.strictEqual(info.isStreaming, true);
   });
 
-  it("upsertSession preserves unreadCount on subsequent updates", () => {
+  it("upsertSession preserves isDirty on subsequent updates", () => {
     p.upsertSession(makeSessionInfo(), "claude", new Date());
     p.updateTabFromMessage("claude", "sess-1");
     const tab0 = p.buildSetTabsMessage().tabs[0];

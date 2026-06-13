@@ -7,8 +7,6 @@ interface Props {
   sessionCount: number;
   onFilterChange: (filter: SessionOverviewFilter) => void;
   onNewSession?: () => void;
-  selectionMode: boolean;
-  onExitSelectionMode: () => void;
 }
 
 const FILTER_LABELS: Record<SessionOverviewFilter, string> = {
@@ -24,8 +22,6 @@ export function SessionOverviewToolbar({
   sessionCount,
   onFilterChange,
   onNewSession,
-  selectionMode,
-  onExitSelectionMode,
 }: Props): React.ReactElement {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -62,90 +58,73 @@ export function SessionOverviewToolbar({
 
   return (
     <div className="session-overview-toolbar">
-      {selectionMode ? (
-        <>
-          <span className="session-overview-toolbar-title">Select</span>
-          <div className="session-overview-toolbar-actions">
-            <button
-              className="session-overview-batch-close"
-              onClick={onExitSelectionMode}
-              title="Exit selection mode"
+      <span className="session-overview-toolbar-title">Sessions</span>
+      <span className="session-overview-toolbar-count">{sessionCount}</span>
+
+      <div className="session-overview-toolbar-actions">
+        <div className="session-overview-filter" ref={ref}>
+          <button
+            className={`session-overview-filter-trigger${isActive ? " active" : ""}`}
+            onClick={() => setOpen(!open)}
+            aria-haspopup="listbox"
+            aria-expanded={open}
+            title="Filter sessions by status"
+          >
+            <span className="session-overview-filter-label">
+              {isActive ? FILTER_LABELS[filter] : "Filter"}
+            </span>
+            <span className={`session-overview-filter-arrow${open ? " open" : ""}`}>
+              ▾
+            </span>
+          </button>
+
+          {open && (
+            <div
+              className="session-overview-filter-dropdown"
+              role="listbox"
+              aria-label="Session status filter"
             >
-              Cancel
-            </button>
-          </div>
-        </>
-      ) : (
-        <>
-          <span className="session-overview-toolbar-title">Sessions</span>
-          <span className="session-overview-toolbar-count">{sessionCount}</span>
-
-          <div className="session-overview-toolbar-actions">
-            <div className="session-overview-filter" ref={ref}>
               <button
-                className={`session-overview-filter-trigger${isActive ? " active" : ""}`}
-                onClick={() => setOpen(!open)}
-                aria-haspopup="listbox"
-                aria-expanded={open}
-                title="Filter sessions by status"
+                className={`session-overview-filter-option${filter === "all" ? " selected" : ""}`}
+                role="option"
+                aria-selected={filter === "all"}
+                onClick={() => onFilterChange("all")}
               >
-                <span className="session-overview-filter-label">
-                  {isActive ? FILTER_LABELS[filter] : "Filter"}
+                <span className="session-overview-filter-check">
+                  {filter === "all" ? "✓" : ""}
                 </span>
-                <span className={`session-overview-filter-arrow${open ? " open" : ""}`}>
-                  ▾
-                </span>
+                {FILTER_LABELS.all}
               </button>
-
-              {open && (
-                <div
-                  className="session-overview-filter-dropdown"
-                  role="listbox"
-                  aria-label="Session status filter"
+              <div className="session-overview-filter-sep" />
+              {FILTERABLE_STATUSES.map((s) => (
+                <button
+                  key={s}
+                  className={`session-overview-filter-option filter-${s}${filter === s ? " selected" : ""}`}
+                  role="option"
+                  aria-selected={filter === s}
+                  onClick={() => handleSelect(s)}
                 >
-                  <button
-                    className={`session-overview-filter-option${filter === "all" ? " selected" : ""}`}
-                    role="option"
-                    aria-selected={filter === "all"}
-                    onClick={() => onFilterChange("all")}
-                  >
-                    <span className="session-overview-filter-check">
-                      {filter === "all" ? "✓" : ""}
-                    </span>
-                    {FILTER_LABELS.all}
-                  </button>
-                  <div className="session-overview-filter-sep" />
-                  {FILTERABLE_STATUSES.map((s) => (
-                    <button
-                      key={s}
-                      className={`session-overview-filter-option filter-${s}${filter === s ? " selected" : ""}`}
-                      role="option"
-                      aria-selected={filter === s}
-                      onClick={() => handleSelect(s)}
-                    >
-                      <span className={`session-overview-filter-dot dot-${s}`} />
-                      <span className="session-overview-filter-check">
-                        {filter === s ? "✓" : ""}
-                      </span>
-                      {FILTER_LABELS[s]}
-                    </button>
-                  ))}
-                </div>
-              )}
+                  <span className={`session-overview-filter-dot dot-${s}`} />
+                  <span className="session-overview-filter-check">
+                    {filter === s ? "✓" : ""}
+                  </span>
+                  {FILTER_LABELS[s]}
+                </button>
+              ))}
             </div>
+          )}
+        </div>
 
-            {onNewSession && (
-              <button
-                className="session-new-btn"
-                onClick={onNewSession}
-                title="New session"
-              >
-                +
-              </button>
-            )}
-          </div>
-        </>
-      )}
+        {onNewSession && (
+          <button
+            className="session-new-btn"
+            onClick={onNewSession}
+            title="New session"
+          >
+            +
+          </button>
+        )}
+      </div>
     </div>
   );
 }

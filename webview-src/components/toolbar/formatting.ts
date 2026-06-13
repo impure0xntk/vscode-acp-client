@@ -23,9 +23,7 @@ export function fmtCaps(caps: string[]): string {
 }
 
 export function visualBar(ratio: number): string {
-  const clamped = Math.max(0, Math.min(1, ratio));
-  const filled = Math.round(clamped * 10);
-  return "█".repeat(filled) + "░".repeat(10 - filled);
+  return String(Math.round(Math.max(0, Math.min(1, ratio)) * 100));
 }
 
 export function contextColor(ratio: number): string {
@@ -43,14 +41,16 @@ export interface StatuslineInfo {
   tag?: string;
 }
 
-export function statuslinePrefix(s: StatuslineInfo): string | null {
-  const has = s.hostname || s.repoName || s.branch || s.tag;
-  if (!has) return null;
-  return [s.hostname, s.repoName].filter(Boolean).join("  ") || null;
+export function statuslinePrefix(_s: StatuslineInfo): string | null {
+  // All statusline fields are now rendered as chips
+  return null;
 }
 
-export function statuslineChips(s: StatuslineInfo): ToolbarMeta[] {
+export function statuslineChips(s: StatuslineInfo, cwd?: string): ToolbarMeta[] {
   const chips: ToolbarMeta[] = [];
+  if (s.hostname) chips.push({ key: "hostname", label: "Host", value: s.hostname, category: "workspace" });
+  if (s.repoName) chips.push({ key: "repo", label: "Repo", value: s.repoName, category: "workspace" });
+  if (cwd) chips.push({ key: "cwd", label: "CWD", value: cwd, category: "workspace" });
   if (s.branch) chips.push({ key: "branch", label: "Branch", value: s.branch, category: "workspace" });
   if (s.tag) chips.push({ key: "tag", label: "Tag", value: s.tag, category: "workspace" });
   return chips;

@@ -11,8 +11,14 @@ interface ChatAreaProps {
   status?: string;
   isTurnActive: boolean;
   disabled: boolean;
-  onSend: (text: string, attachments: import("../types").ContextAttachment[]) => void;
+  onSend: (
+    text: string,
+    attachments: import("../types").ContextAttachment[],
+    agentId?: string,
+    sessionId?: string
+  ) => void;
   onCancel: () => void;
+  onSwitchSession: (agentId: string, sessionId: string) => void;
   fetchFiles: (query: string) => Promise<import("../types").FileCandidate[]>;
   resolveFile: (path: string) => Promise<import("../types").ContextAttachment>;
   resolveSelection: () => Promise<import("../types").ContextAttachment | null>;
@@ -20,6 +26,10 @@ interface ChatAreaProps {
   fetchSymbols: (query: string) => Promise<import("../types").SuggestionItem[]>;
   resolveSymbol: (name: string) => Promise<import("../types").ContextAttachment>;
   availableCommands: ReturnType<typeof useSessionContext>["availableCommands"];
+  /** Ref setter that receives the internal scrollToMessage function */
+  scrollToMessageRef?: React.MutableRefObject<
+    ((id: string) => void) | undefined
+  >;
 }
 
 export function ChatArea({
@@ -31,6 +41,7 @@ export function ChatArea({
   disabled,
   onSend,
   onCancel,
+  onSwitchSession,
   fetchFiles,
   resolveFile,
   resolveSelection,
@@ -38,11 +49,11 @@ export function ChatArea({
   fetchSymbols,
   resolveSymbol,
   availableCommands,
+  scrollToMessageRef: externalScrollToMessageRef,
 }: ChatAreaProps) {
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [scrollUnreadCount, setScrollUnreadCount] = useState(0);
   const forceScrollToBottomRef = useRef<() => void>();
-  const scrollToMessageRef = useRef<(id: string) => void>();
   const scrollStateRef = useRef<{
     isAtBottom: boolean;
     unreadCount: number;
@@ -58,8 +69,13 @@ export function ChatArea({
   );
 
   const handleSend = useCallback(
-    (text: string, attachments: import("../types").ContextAttachment[]) => {
-      onSend(text, attachments);
+    (
+      text: string,
+      attachments: import("../types").ContextAttachment[],
+      agentId?: string,
+      sessionId?: string
+    ) => {
+      onSend(text, attachments, agentId, sessionId);
       forceScrollToBottomRef.current?.();
     },
     [onSend]
@@ -76,11 +92,12 @@ export function ChatArea({
           sessionKey={activeKey ?? undefined}
           status={status}
           isActive={true}
-          scrollToMessageRef={scrollToMessageRef}
+          scrollToMessageRef={externalScrollToMessageRef}
           scrollStateRef={scrollStateRef}
           onScrollStateChange={handleScrollStateChange}
           forceScrollToBottomRef={forceScrollToBottomRef}
         />
+
         {showScrollButton && (
           <button
             className="scroll-to-bottom-button"
@@ -97,6 +114,7 @@ export function ChatArea({
       <Composer
         onSend={handleSend}
         onCancel={onCancel}
+        onSwitchSession={onSwitchSession}
         isTurnActive={isTurnActive}
         disabled={disabled}
         fetchFiles={fetchFiles}

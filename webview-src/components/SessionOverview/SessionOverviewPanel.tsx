@@ -2,7 +2,13 @@ import React, { useCallback, useMemo } from "react";
 import type {
   SessionOverviewState,
   SessionOverviewFilter,
+  SessionOverviewItem,
 } from "../../types";
+import type { ConnectedAgentInfo } from "../../hooks/useSessionContext";
+import { useSessionUiStateStore } from "../../store/sessionUiStateStore";
+import { useMessageStore } from "../../store/messageStore";
+import { useSessionStore } from "../../store/sessionStore";
+import { useStore } from "zustand";
 import { SessionOverviewToolbar } from "./SessionOverviewToolbar";
 import { SessionOverviewCard } from "./SessionOverviewCard";
 import { useResizeHandle } from "../../hooks/useResizeHandle";
@@ -13,8 +19,8 @@ const MAX_WIDTH = 600;
 interface Props {
   isVisible: boolean;
   state: SessionOverviewState;
-  /** Tab state for unread badge lookup */
-  tabs: Array<{ sessionId: string; agentId: string; unreadCount: number }>;
+  /** Connected agents info for color lookup — passed through to AgentBadge */
+  connectedAgents: ConnectedAgentInfo[];
   onFilterChange: (filter: SessionOverviewFilter) => void;
   onFocus: (sessionId: string, agentId: string) => void;
   onCancel: (sessionId: string, agentId: string) => void;
@@ -38,7 +44,7 @@ interface Props {
 export function SessionOverviewPanel({
   isVisible,
   state,
-  tabs,
+  connectedAgents,
   onFilterChange,
   onFocus,
   onCancel,
@@ -58,27 +64,40 @@ export function SessionOverviewPanel({
   const selectedIds = state.selectedSessionIds ?? [];
   const selectionMode = state.selectionMode ?? false;
 
+  // Derive overview items from store (single source of truth: tabs + sessionInfoMap)
+  // Read via getState() to avoid useSyncExternalStore subscription —
+  // getOverviewItems() returns a new array every call, which would cause
+  // infinite re-renders via Object.is comparison in useSyncExternalStore.
+  const overviewItems = useSessionStore.getState().getOverviewItems();
+
   // Apply filter to sessions
   const filteredSessions = useMemo(() => {
-    if (state.filter === "all") return state.sessions;
-    return state.sessions.filter((s) => s.status === state.filter);
-  }, [state.sessions, state.filter]);
+    if (state.filter === "all") return overviewItems;
+    return overviewItems.filter((s) => s.status === state.filter);
+  }, [overviewItems, state.filter]);
 
   const filteredTotalTokens = filteredSessions.reduce(
     (sum, s) => sum + s.progress.tokenUsage.total,
     0
   );
 
-  // Build a lookup map for unread counts from tabs
-  const unreadMap = new Map<string, number>();
-  for (const tab of tabs) {
-    unreadMap.set(`${tab.agentId}:${tab.sessionId}`, tab.unreadCount);
-  }
+  // Build a lookup map for unread counts.
+  // Read via getState() to avoid subscribing to the message store —
+  // recompute when overviewItems or perSession changes.
+  const unreadMap = useMemo(() => {
+    const msgStore = useMessageStore.getState();
+    const uiStore = useSessionUiStateStore.getState();
+    const map = new Map<string, number>();
+    for (const s of overviewItems) {
+      const key = `${s.agentId}:${s.sessionId}`;
+      const ids = (msgStore.perSession[key] ?? []).map((m) => m.id);
+      map.set(key, uiStore.computeUnreadCount(key, ids));
+    }
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [overviewItems, useMessageStore.getState().perSession]);
 
-  const activeKey =
-    state.activeSessionId && state.activeAgentId
-      ? `${state.activeAgentId}:${state.activeSessionId}`
-      : null;
+  const storeActiveKey = useSessionStore.getState().activeSessionKey;
 
   // Count selected sessions (any status can be closed)
   const selectedCount = selectedIds.length;
@@ -90,8 +109,6 @@ export function SessionOverviewPanel({
         sessionCount={filteredSessions.length}
         onFilterChange={onFilterChange}
         onNewSession={onNewSession}
-        selectionMode={selectionMode}
-        onExitSelectionMode={onExitSelectionMode}
       />
 
       {/* Batch operations bar — visible whenever selection mode is active */}
@@ -112,7 +129,7 @@ export function SessionOverviewPanel({
               Close {selectedCount > 0 ? selectedCount : ""}
             </button>
             <button
-              className="session-overview-batch-close"
+              className="session-overview-batch-cancel"
               onClick={onExitSelectionMode}
               title="Exit selection mode"
             >
@@ -123,31 +140,37 @@ export function SessionOverviewPanel({
       )}
 
       <div className="session-overview-list">
-        {filteredSessions.map((session) => (
-          <SessionOverviewCard
-            key={`${session.agentId}:${session.sessionId}`}
-            session={session}
-            isExpanded={expanded.includes(session.sessionId)}
-            unreadCount={
-              unreadMap.get(`${session.agentId}:${session.sessionId}`) ?? 0
-            }
-            isActive={`${session.agentId}:${session.sessionId}` === activeKey}
-            isSelected={selectedIds.includes(session.sessionId)}
-            selectionMode={selectionMode}
-            onToggle={() => {
-              if (expanded.includes(session.sessionId)) {
-                onToggleCollapse(session.sessionId);
-              } else {
-                onToggleExpand(session.sessionId);
+        {filteredSessions.map((session) => {
+          const agentColor = connectedAgents.find(
+            (a) => a.agentId === session.agentId
+          )?.color;
+          return (
+            <SessionOverviewCard
+              key={`${session.agentId}:${session.sessionId}`}
+              session={session}
+              agentColor={agentColor}
+              isExpanded={expanded.includes(session.sessionId)}
+              unreadCount={
+                unreadMap.get(`${session.agentId}:${session.sessionId}`) ?? 0
               }
-            }}
-            onFocus={() => onFocus(session.sessionId, session.agentId)}
-            onCancel={() => onCancel(session.sessionId, session.agentId)}
-            onClose={() => onClose(session.sessionId, session.agentId)}
-            onSelect={onToggleSelect}
-            onLongPress={onLongPress}
-          />
-        ))}
+              isActive={`${session.agentId}:${session.sessionId}` === storeActiveKey}
+              isSelected={selectedIds.includes(session.sessionId)}
+              selectionMode={selectionMode}
+              onToggle={() => {
+                if (expanded.includes(session.sessionId)) {
+                  onToggleCollapse(session.sessionId);
+                } else {
+                  onToggleExpand(session.sessionId);
+                }
+              }}
+              onFocus={() => onFocus(session.sessionId, session.agentId)}
+              onCancel={() => onCancel(session.sessionId, session.agentId)}
+              onClose={() => onClose(session.sessionId, session.agentId)}
+              onSelect={onToggleSelect}
+              onLongPress={onLongPress}
+            />
+          );
+        })}
       </div>
       <div className="session-overview-footer">
         <span className="session-overview-total-tokens">

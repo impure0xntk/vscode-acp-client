@@ -13,6 +13,7 @@ export interface ToolbarMeta {
   statusIndicator?: SessionTabStatus;
   modeIcon?: string;
   contextColor?: ContextColor;
+  barPct?: number;
 }
 
 const STATUS_DOT: Record<SessionTabStatus, { color: string; icon: string }> = {
@@ -67,7 +68,19 @@ export function Chip({
       {meta.icon && !(typeof meta.icon === "string") && (
         <span className="toolbar-chip-icon">{meta.icon}</span>
       )}
-      <span className="toolbar-chip-value">{meta.value}</span>
+      {meta.barPct !== undefined ? (
+        <span className="toolbar-chip-bar-wrap">
+          <span className="toolbar-chip-bar-track">
+            <span
+              className="toolbar-chip-bar-fill"
+              style={{ width: `${meta.barPct}%` }}
+            />
+          </span>
+          <span className="toolbar-chip-value">{meta.value}</span>
+        </span>
+      ) : (
+        <span className="toolbar-chip-value">{meta.value}</span>
+      )}
     </span>
   );
 }

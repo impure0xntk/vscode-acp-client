@@ -1,11 +1,14 @@
 import { useCallback, useMemo } from "react";
 import { getVsCodeApi } from "../../lib/vscodeApi";
+import { useSessionStore } from "../../store/sessionStore";
+import type { SessionOverviewItem } from "../../types";
+import type { SessionAction } from "../../hooks/useSessionContext";
 
 interface OverviewHandlerDeps {
   switchTab: (sessionId: string, agentId: string) => void;
-  closeSession: (sessionId: string) => void;
+  closeSession: (agentId: string, sessionId: string) => void;
   sessionOverviewState: { selectedSessionIds?: string[] };
-  dispatch: (action: { type: string; [k: string]: unknown }) => void;
+  dispatch: (action: SessionAction) => void;
 }
 
 export function useOverviewHandlers(deps: OverviewHandlerDeps) {
@@ -24,7 +27,7 @@ export function useOverviewHandlers(deps: OverviewHandlerDeps) {
   }, []);
 
   const handleClose = useCallback(
-    (sessionId: string) => closeSession(sessionId),
+    (sessionId: string, agentId: string) => closeSession(agentId, sessionId),
     [closeSession],
   );
 
@@ -56,8 +59,17 @@ export function useOverviewHandlers(deps: OverviewHandlerDeps) {
 
   const handleCloseSelected = useCallback(() => {
     const selectedIds = sessionOverviewState.selectedSessionIds ?? [];
+    const sessionInfoMap = useSessionStore.getState().sessionInfoMap;
     for (const sessionId of selectedIds) {
-      closeSession(sessionId);
+      // Find the full key "agentId:sessionId" from sessionInfoMap
+      const entry = Object.entries(sessionInfoMap).find(
+        ([, info]) => info.sessionId === sessionId,
+      );
+      if (entry) {
+        const [fullKey] = entry;
+        const agentId = fullKey.split(":")[0];
+        closeSession(agentId, sessionId);
+      }
     }
     dispatch({ type: "SET_SESSION_OVERVIEW_SELECTION_MODE", enabled: false });
     dispatch({ type: "SET_SESSION_OVERVIEW_SELECTED", sessionIds: [] });

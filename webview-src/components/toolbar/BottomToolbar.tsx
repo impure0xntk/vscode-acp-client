@@ -195,13 +195,14 @@ export function BottomToolbar(props: BottomToolbarProps): React.ReactElement {
   });
 
   if (contextWindowMax && total > 0) {
-    const pct = Math.round(ratio * 100);
+    const pct = visualBar(ratio);
     const contextChip: ToolbarMeta = {
       key: "context",
       label: "Context",
-      value: `${visualBar(ratio)} ${pct}%`,
+      value: `${pct}%`,
       category: "metrics",
       contextColor: contextColor(ratio),
+      barPct: Number(pct),
     };
     const tokenIdx = chips.findIndex((c) => c.key === "tokens");
     if (tokenIdx >= 0) {
@@ -224,7 +225,7 @@ export function BottomToolbar(props: BottomToolbarProps): React.ReactElement {
 
   // Statusline
   const prefix = statusline ? statuslinePrefix(statusline) : null;
-  const slChips = statusline ? statuslineChips(statusline) : [];
+  const slChips = statusline ? statuslineChips(statusline, cwd) : [];
   const statusChip: ToolbarMeta | null = sessionStatus
     ? { key: "sessionStatus", label: "Session Status", value: sessionStatus, category: "session", statusIndicator: sessionStatus }
     : null;

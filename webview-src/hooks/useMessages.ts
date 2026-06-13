@@ -9,15 +9,14 @@ import type { ChatMessage } from "../types";
  * Returns messages, isStreaming, and action functions scoped to the key.
  */
 export function useMessages(sessionKey: string | null) {
-  const perSession = useMessageStore((s) => s.perSession);
-  const streamingMap = useMessageStore((s) => s.streaming);
-  const setMessages = useMessageStore((s) => s.setMessages);
-  const appendMessage = useMessageStore((s) => s.appendMessage);
-  const setStreaming = useMessageStore((s) => s.setStreaming);
-  const appendStreamChunk = useMessageStore((s) => s.appendStreamChunk);
+  // Read via getState() to avoid useSyncExternalStore subscription.
+  // useMessageStore(selector) would subscribe and trigger infinite re-renders
+  // because every store write creates new object references.
+  const { perSession, streaming, setMessages, appendMessage, setStreaming, appendStreamChunk } =
+    useMessageStore.getState();
 
   const messages = sessionKey ? perSession[sessionKey] ?? [] : [];
-  const isStreaming = sessionKey ? streamingMap[sessionKey] ?? false : false;
+  const isStreaming = sessionKey ? streaming[sessionKey] ?? false : false;
 
   return {
     messages,
