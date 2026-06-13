@@ -144,8 +144,7 @@ export class ChatPresenter {
         outputTokens: session.tokenUsage.output,
         totalTokens: session.tokenUsage.total,
       },
-      contextWindowMax: (session as unknown as { contextWindowMax?: number })
-        .contextWindowMax,
+      contextWindowMax: session.contextWindowMax,
       cwd: session.cwd,
       model: session.model,
       mode: session.mode,

@@ -338,11 +338,98 @@ export function IconScroll({ className, size = 16 }: IconProps): React.ReactElem
   );
 }
 
+// ── Tool kind icons (for batch summary) ─────────────────────────────────────
+
+export function IconFileRead({ className, size = 16 }: IconProps): React.ReactElement {
+  return (
+    <Svg className={className} size={size}>
+      <path d="M3 1.5h6l3.5 3.5v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-12a1 1 0 0 1 1-1z" />
+      <path d="M9.5 1.5V4a1 1 0 0 0 1 1h3.5" />
+      <path d="M5 10h6" />
+    </Svg>
+  );
+}
+
+export function IconFileWrite({ className, size = 16 }: IconProps): React.ReactElement {
+  return (
+    <Svg className={className} size={size}>
+      <path d="M3 1.5h6l3.5 3.5v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-12a1 1 0 0 1 1-1z" />
+      <path d="M9.5 1.5V4a1 1 0 0 0 1 1h3.5" />
+      <path d="M5 10h6M8 7v6" />
+    </Svg>
+  );
+}
+
+export function IconTerminalBash({ className, size = 16 }: IconProps): React.ReactElement {
+  return (
+    <Svg className={className} size={size}>
+      <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" />
+      <path d="M4 7l2.5 2L4 11" />
+      <path d="M8 11h4" />
+    </Svg>
+  );
+}
+
+export function IconMagnifier({ className, size = 16 }: IconProps): React.ReactElement {
+  return (
+    <Svg className={className} size={size}>
+      <circle cx="7" cy="7" r="4.5" />
+      <path d="M10.5 10.5l4 4" />
+    </Svg>
+  );
+}
+
+export function IconBulletList({ className, size = 16 }: IconProps): React.ReactElement {
+  return (
+    <Svg className={className} size={size}>
+      <path d="M3 4h10M3 8h10M3 12h10" />
+    </Svg>
+  );
+}
+
+export function IconWorld({ className, size = 16 }: IconProps): React.ReactElement {
+  return (
+    <Svg className={className} size={size}>
+      <circle cx="8" cy="8" r="5.5" />
+      <path d="M8 5v3l2 1" />
+    </Svg>
+  );
+}
+
+export function IconPatch({ className, size = 16 }: IconProps): React.ReactElement {
+  return (
+    <Svg className={className} size={size}>
+      <path d="M5.5 2.5l6 6-3 3-6-6z" />
+      <path d="M11 11l-2 2" />
+    </Svg>
+  );
+}
+
+export function IconTrash({ className, size = 16 }: IconProps): React.ReactElement {
+  return (
+    <Svg className={className} size={size}>
+      <path d="M3 4h10" />
+      <path d="M5 4V2.5h6V4" />
+      <path d="M4 4v9a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4" />
+    </Svg>
+  );
+}
+
+export function IconPlug({ className, size = 16 }: IconProps): React.ReactElement {
+  return (
+    <Svg className={className} size={size}>
+      <path d="M6 2v4" />
+      <path d="M10 2v4" />
+      <path d="M5 6h6v2a4 4 0 0 1-6 0V6z" />
+    </Svg>
+  );
+}
+
 // ── Lookup table: name → component ──────────────────────────────────────────
 
 const ICON_COMPONENTS: Record<string, React.FC<IconProps>> = {
-  "circle-filled": IconCircleFilled,
-  "circle-outline": IconCircleOutline,
+  "circle-filled":   IconCircleFilled,
+  "circle-outline":  IconCircleOutline,
   "pass-filled":     IconCheck,
   "circle-slash":    IconBan,
   loading:           IconSpinner,
@@ -368,6 +455,23 @@ const ICON_COMPONENTS: Record<string, React.FC<IconProps>> = {
   "chevron-right":   IconChevronRight,
   "list-tree":       IconListTree,
   input:             IconInput,
+  // Tool kind icons
+  "tool-read":        IconFileRead,
+  "tool-write":       IconFileWrite,
+  "tool-edit":        IconFileWrite,
+  "tool-delete":      IconTrash,
+  "tool-bash":        IconTerminalBash,
+  "tool-shell":       IconTerminalBash,
+  "tool-search":      IconMagnifier,
+  "tool-grep":        IconMagnifier,
+  "tool-list":        IconBulletList,
+  "tool-fetch":       IconWorld,
+  "tool-web_search":  IconMagnifier,
+  "tool-web_fetch":   IconWorld,
+  "tool-apply_patch":  IconPatch,
+  "tool-todo":        IconBulletList,
+  "tool-task":        IconBulletList,
+  "tool-mcp":         IconPlug,
 };
 
 export function Icon({
@@ -400,4 +504,31 @@ export function iconForType(
     case "folder":     return "folder-opened";
     case "git":        return "git-branch";
   }
+}
+
+/**
+ * Map a tool kind string to the corresponding icon name.
+ * e.g. "read" → "tool-read", "bash" → "tool-bash"
+ */
+export function iconForToolKind(kind: string): string {
+  const k = kind.toLowerCase().trim();
+  const map: Record<string, string> = {
+    read:        "tool-read",
+    write:       "tool-write",
+    edit:        "tool-edit",
+    delete:      "tool-delete",
+    bash:        "tool-bash",
+    shell:       "tool-shell",
+    search:      "tool-search",
+    grep:        "tool-grep",
+    list:        "tool-list",
+    fetch:       "tool-fetch",
+    web_search:  "tool-web_search",
+    web_fetch:   "tool-web_fetch",
+    apply_patch: "tool-apply_patch",
+    todo:        "tool-todo",
+    task:        "tool-task",
+    mcp:         "tool-mcp",
+  };
+  return map[k] ?? "tools";
 }

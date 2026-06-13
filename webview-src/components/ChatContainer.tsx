@@ -28,6 +28,8 @@ export interface ChatContainerProps {
   >;
   /** Ref setter that receives the internal forceScrollToBottom function */
   forceScrollToBottomRef?: React.MutableRefObject<(() => void) | undefined>;
+  /** Ref setter that receives the internal scrollToUnread function */
+  scrollToUnreadRef?: React.MutableRefObject<(() => void) | undefined>;
   /** Ref that exposes { isAtBottom, unreadCount, scrollToBottom } to parent */
   scrollStateRef?: React.MutableRefObject<{
     isAtBottom: boolean;
@@ -42,12 +44,22 @@ function sessionIdFrom(msg: ChatMessage): string {
   return msg.sessionId ?? "__nosession__";
 }
 
+interface ToolBatchEntry {
+  id: string;
+  role: "tool";
+  content: string;
+  timestamp: number;
+  agentId?: string;
+  sessionId?: string;
+  toolCalls: NonNullable<ChatMessage["toolCalls"]>;
+}
+
 /**
- * Merge consecutive adjacent tool messages that share the same sessionId
- * into a single entry whose `toolCalls` is the concatenation of all
- * original toolCalls and whose content is joined with "\n".
+ * Merge consecutive adjacent tool messages into a single batched entry,
+ * regardless of the tool kind.  The batch carries every original tool call
+ * so the摘要 component can render a compact summary row.
  */
-function mergeSameSessionTools(messages: ChatMessage[]): ChatMessage[] {
+function mergeToolBatches(messages: ChatMessage[]): ChatMessage[] {
   const result: ChatMessage[] = [];
   for (const msg of messages) {
     if (msg.role !== "tool") {
@@ -142,11 +154,13 @@ export const ChatContainer = memo(function ChatContainer({
   scrollStateRef,
   onScrollStateChange,
   forceScrollToBottomRef,
+  scrollToUnreadRef,
 }: ChatContainerProps): React.ReactElement {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [firstUnreadId, setFirstUnreadId] = useState<string | null>(null);
   const isAtBottomRef = useRef(true);
 
   const k = sessionKey ?? "__nosession__";
@@ -181,7 +195,15 @@ export const ChatContainer = memo(function ChatContainer({
     return msgIds.length - idx - 1;
   }, [lastSeenId, msgIds]);
 
+  const computedFirstUnreadId = useMemo(() => {
+    if (!lastSeenId) return null;
+    const idx = msgIds.indexOf(lastSeenId);
+    if (idx < 0 || idx + 1 >= msgIds.length) return null;
+    return msgIds[idx + 1];
+  }, [lastSeenId, msgIds]);
+
   useEffect(() => { setUnreadCount(computedUnread); }, [computedUnread]);
+  useEffect(() => { setFirstUnreadId(computedFirstUnreadId); }, [computedFirstUnreadId]);
 
   // ── Scroll persistence (throttled rAF) ─────────────────────────────
   const { persist: persistScroll, rafRef } = useScrollPersist(containerRef, k);
@@ -279,6 +301,36 @@ export const ChatContainer = memo(function ChatContainer({
       recalcIsAtBottom();
     }, 400);
   }, [recalcIsAtBottom]);
+
+  // ── Scroll to first unread message ───────────────────────────────
+  const scrollToUnread = useCallback(() => {
+    if (!firstUnreadId) {
+      // No unread — fall back to bottom
+      handleScrollToBottom();
+      return;
+    }
+    const msgEl = containerRef.current?.querySelector(
+      `[data-message-id="${firstUnreadId}"]`
+    ) as HTMLElement | null;
+    if (!msgEl) {
+      handleScrollToBottom();
+      return;
+    }
+    isUserScrollingRef.current = true;
+    msgEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    setUnreadCount(0);
+    setIsAtBottom(false);
+    isAtBottomRef.current = false;
+    if (userScrollTimeoutRef.current) clearTimeout(userScrollTimeoutRef.current);
+    userScrollTimeoutRef.current = setTimeout(() => {
+      isUserScrollingRef.current = false;
+      recalcIsAtBottom();
+    }, 400);
+  }, [firstUnreadId, handleScrollToBottom, recalcIsAtBottom]);
+
+  useEffect(() => {
+    if (scrollToUnreadRef) scrollToUnreadRef.current = scrollToUnread;
+  }, [scrollToUnreadRef, scrollToUnread]);
 
   // ── Force scroll to bottom (on send) ──────────────────────────────
   const newestMsgId = messages.length > 0 ? messages[messages.length - 1].id : null;
@@ -483,7 +535,7 @@ export const ChatContainer = memo(function ChatContainer({
 
   // ── Render ────────────────────────────────────────────────────────
   const isEmpty = messages.length === 0;
-  const merged = useMemo(() => mergeSameSessionTools(messages), [messages]);
+  const merged = useMemo(() => mergeToolBatches(messages), [messages]);
   const runKeys = useMemo(() => buildRunKeys(merged), [merged]);
 
   return (
@@ -505,18 +557,23 @@ export const ChatContainer = memo(function ChatContainer({
       ) : (
         <div className="message-list">
           {merged.map((msg, idx) => (
-            <Message
-              key={msg.id}
-              id={msg.id}
-              role={msg.role}
-              content={msg.content}
-              timestamp={msg.timestamp}
-              toolCalls={msg.toolCalls}
-              inlineFilePaths={msg.inlineFilePaths}
-              attachments={msg.attachments}
-              isConsecutive={idx > 0 && runKeys[idx] !== undefined && runKeys[idx] === runKeys[idx - 1]}
-              sessionId={sessionId}
-            />
+            <React.Fragment key={msg.id}>
+              {/* Unread boundary line — rendered between last-seen and first-unread */}
+              {msg.id === firstUnreadId && (
+                <div className="unread-boundary-line" />
+              )}
+              <Message
+                id={msg.id}
+                role={msg.role}
+                content={msg.content}
+                timestamp={msg.timestamp}
+                toolCalls={msg.toolCalls}
+                inlineFilePaths={msg.inlineFilePaths}
+                attachments={msg.attachments}
+                isConsecutive={idx > 0 && runKeys[idx] !== undefined && runKeys[idx] === runKeys[idx - 1]}
+                sessionId={sessionId}
+              />
+            </React.Fragment>
           ))}
           {isStreaming && (
             <div className="streaming-cursor">

@@ -389,6 +389,20 @@ export function SessionContextProvider({
           const sId = data.sessionId as string;
           const msgKey = sessionKey(aId, sId);
           useMessageStore.getState().setStreaming(msgKey, false);
+          // Sync sessionInfoMap status so Overview/Tab indicators
+          // return to idle immediately when the stream ends,
+          // without waiting for the delayed session/turnActive(false).
+          const cur = stateRef.current;
+          const existing = cur.sessionInfoMap[msgKey];
+          if (existing && existing.status === "running") {
+            useSessionStore.getState().setSessionInfo(aId, sId, {
+              ...existing,
+              status: "idle",
+              isTurnActive: false,
+              isStreaming: false,
+              updatedAt: new Date().toISOString(),
+            });
+          }
           return;
         }
 
@@ -396,11 +410,39 @@ export function SessionContextProvider({
           const aId = data.agentId as string;
           const sId = data.sessionId as string;
           const store = useSessionStore.getState();
-          store.setActiveSession(sessionKeyOf(aId, sId));
+          const key = sessionKeyOf(aId, sId);
+          // Set active session and messages atomically so the UI never
+          // renders an empty ChatContainer between the two state updates.
+          store.setActiveSession(key);
           useMessageStore.getState().setMessages(
-            sessionKey(aId, sId),
+            key,
             data.messages as ChatMessage[]
           );
+          // Mark all messages as seen so unread badge clears on switch
+          const newestId =
+            data.messages && (data.messages as ChatMessage[]).length > 0
+              ? (data.messages as ChatMessage[])[(data.messages as ChatMessage[]).length - 1].id
+              : null;
+          if (newestId) {
+            useSessionUiStateStore.getState().save(key, { lastSeenMessageId: newestId });
+          }
+          // Update sessionInfoMap so Overview badges (context %, tokens, etc.)
+          // are immediately available after session switch.
+          store.setSessionInfo(aId, sId, {
+            sessionId: sId,
+            agentId: aId,
+            status: (data.isTurnActive ? "running" : "idle") as import("../store/sessionStore").SessionInfoSnapshot["status"],
+            isTurnActive: data.isTurnActive as boolean,
+            isStreaming: data.isStreaming as boolean,
+            tokenUsage: data.tokenUsage as { inputTokens: number; outputTokens: number; totalTokens: number },
+            contextWindowMax: data.contextWindowMax as number | undefined,
+            model: data.model as string | undefined,
+            mode: data.mode as string | undefined,
+            cwd: data.cwd as string | undefined,
+            messageCount: (data.messages as ChatMessage[])?.length ?? 0,
+            createdAt: data.createdAt as string,
+            updatedAt: data.updatedAt as string,
+          });
           return;
         }
 
@@ -410,8 +452,39 @@ export function SessionContextProvider({
           const msgKey = sessionKey(aId, sId);
           const cur = stateRef.current;
           const curActiveKey = cur.activeSessionKey;
-          if (msgKey === curActiveKey && !(data.active as boolean)) {
-            useMessageStore.getState().setStreaming(msgKey, false);
+          const active = data.active as boolean;
+          // Sync streamingMap so Composer button reflects turn state
+          // immediately, without waiting for session/stream chunks.
+          if (msgKey === curActiveKey) {
+            useMessageStore.getState().setStreaming(msgKey, active);
+          }
+          // Update session status in sessionInfoMap so Overview badges reflect turn state
+          const existing = cur.sessionInfoMap[msgKey];
+          if (existing) {
+            useSessionStore.getState().setSessionInfo(aId, sId, {
+              ...existing,
+              isTurnActive: active,
+              isStreaming: active,
+              status: (active ? "running" : "idle") as import("../store/sessionStore").SessionInfoSnapshot["status"],
+              updatedAt: new Date().toISOString(),
+            });
+          }
+          return;
+        }
+
+        case "session/usage": {
+          const aId = data.agentId as string;
+          const sId = data.sessionId as string;
+          const cur = stateRef.current;
+          const key = sessionKey(aId, sId);
+          const existing = cur.sessionInfoMap[key];
+          if (existing) {
+            useSessionStore.getState().setSessionInfo(aId, sId, {
+              ...existing,
+              tokenUsage: data.tokenUsage as { inputTokens: number; outputTokens: number; totalTokens: number },
+              contextWindowMax: (data.contextWindowMax as number | undefined) ?? existing.contextWindowMax,
+              updatedAt: new Date().toISOString(),
+            });
           }
           return;
         }
@@ -494,14 +567,9 @@ export function SessionContextProvider({
 
   const switchTab = useCallback((sessionId: string, agentId: string) => {
     const key = sessionKeyOf(agentId, sessionId);
-    const store = useSessionStore.getState();
-    store.setActiveSession(key);
-    // Mark all messages as seen by setting lastSeenMessageId to the newest
-    const msgs = useMessageStore.getState().perSession[key] ?? [];
-    const newestId = msgs.length > 0 ? msgs[msgs.length - 1].id : null;
-    if (newestId) {
-      useSessionUiStateStore.getState().save(key, { lastSeenMessageId: newestId });
-    }
+    // Do NOT set active session here — wait for session/switch response from
+    // extension host so messages are available before the UI switches.
+    // The session/switch handler below calls store.setActiveSession(key).
     getVsCodeApi().postMessage({ type: "switchSession", sessionId, agentId });
   }, []);
 

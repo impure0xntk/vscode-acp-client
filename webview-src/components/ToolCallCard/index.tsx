@@ -1,7 +1,10 @@
 import React, { useState } from "react";
-import type { ToolCallDiffContent } from "../../types";
+import type { ToolCallDiffContent, ToolCall } from "../../types";
 import { StatusIcon } from "../StatusIcon";
 import { getVsCodeApi } from "../../lib/vscodeApi";
+
+export { ToolBatchSummary } from "./ToolBatchSummary";
+export { ToolBatchItem } from "./ToolBatchItem";
 
 // ── Shared helpers ─────────────────────────────────────────────────────────
 

@@ -110,6 +110,7 @@ export interface SessionStatusInfo {
   isActive: boolean;
   messageCount: number;
   tokenUsage: TokenUsage;
+  contextWindowMax?: number;
   cwd?: string;
   model?: string;
   mode?: string;
@@ -1205,6 +1206,7 @@ export class SessionOrchestrator extends EventEmitter {
           isActive: sessionId === activeSessionId,
           messageCount: info.messages.length,
           tokenUsage: info.tokenUsage,
+          contextWindowMax: info.contextWindowMax,
           cwd: info.cwd,
           model: info.model,
           mode: info.mode,

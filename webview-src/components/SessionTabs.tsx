@@ -181,8 +181,9 @@ export function SessionTabs({
     setPopupSession(null);
   }, [clearTimers]);
 
-  // Subscribe to perSession so the memo recomputes when messages change.
+  // Subscribe to stores so the component re-renders on changes.
   const perSession = useMessageStore((s) => s.perSession);
+  const sessionInfoMap = useSessionStore((s) => s.sessionInfoMap);
 
   // Derive unread counts — recomputed whenever tabs or perSession changes.
   const unreadMap = React.useMemo(() => {
@@ -195,9 +196,6 @@ export function SessionTabs({
     }
     return map;
   }, [tabs, perSession]);
-
-  // Read sessionInfoMap for status/elapsed display — getState() to avoid subscription
-  const sessionInfoMap = useSessionStore.getState().sessionInfoMap;
 
   return (
     <div className="session-tabs-bar">

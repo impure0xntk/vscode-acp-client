@@ -122,11 +122,19 @@ export function Composer({
     agentId: string;
     sessionId: string;
   } | null>(null);
+  // Suppress re-triggering picker right after a selection is inserted
+  const suppressTriggerRef = useRef(false);
 
   // ── Trigger detection ────────────────────────────────────────────
 
   const detectTrigger = useCallback(
     (value: string, caretPos: number): TriggerState => {
+      // If a completion was just inserted, suppress trigger detection for one cycle
+      if (suppressTriggerRef.current) {
+        suppressTriggerRef.current = false;
+        return NO_TRIGGER;
+      }
+
       const beforeCaret = value.slice(0, caretPos);
 
       // Walk backwards through trigger chars; pick the rightmost one.
@@ -151,6 +159,9 @@ export function Composer({
           // @ — session picker
           // Word boundary check: don't trigger if preceded by alphanumeric (email addresses)
           if (idx > 0 && /\w/.test(beforeCaret[idx - 1])) continue;
+          // No space gap allowed between @ and query (same as /)
+          if (afterTrigger.includes(" ") || afterTrigger.includes("\n"))
+            continue;
 
           return {
             active: true,
@@ -437,6 +448,9 @@ export function Composer({
       const consumed = getConsumedLength(triggerState);
       const after = text.slice(triggerState.caretOffset + consumed);
       const space = after.startsWith(" ") ? "" : " ";
+
+      // Any insertion triggers a handleChange — suppress re-triggering picker
+      suppressTriggerRef.current = true;
 
       if (item.kind === "file") {
         try {

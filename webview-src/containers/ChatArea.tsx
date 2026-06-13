@@ -54,6 +54,7 @@ export function ChatArea({
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [scrollUnreadCount, setScrollUnreadCount] = useState(0);
   const forceScrollToBottomRef = useRef<() => void>();
+  const scrollToUnreadRef = useRef<() => void>();
   const scrollStateRef = useRef<{
     isAtBottom: boolean;
     unreadCount: number;
@@ -87,7 +88,7 @@ export function ChatArea({
         <ChatContainer
           key={activeKey ?? "none"}
           messages={messages}
-          isStreaming={isStreaming}
+          isStreaming={isStreaming || isTurnActive}
           sessionId={activeKey?.split(":")[1]}
           sessionKey={activeKey ?? undefined}
           status={status}
@@ -96,15 +97,22 @@ export function ChatArea({
           scrollStateRef={scrollStateRef}
           onScrollStateChange={handleScrollStateChange}
           forceScrollToBottomRef={forceScrollToBottomRef}
+          scrollToUnreadRef={scrollToUnreadRef}
         />
 
         {showScrollButton && (
           <button
             className="scroll-to-bottom-button"
-            onClick={() => scrollStateRef.current?.scrollToBottom()}
-            aria-label="Scroll to bottom"
+            onClick={() => {
+              if (scrollUnreadCount > 0) {
+                scrollToUnreadRef.current?.();
+              } else {
+                scrollStateRef.current?.scrollToBottom();
+              }
+            }}
+            aria-label={scrollUnreadCount > 0 ? "Scroll to unread" : "Scroll to bottom"}
           >
-            <span className="scroll-to-bottom-icon">↓</span>
+            <span className="scroll-to-bottom-icon">{scrollUnreadCount > 0 ? "↧" : "↓"}</span>
             {scrollUnreadCount > 0 && (
               <span className="scroll-to-bottom-badge">{scrollUnreadCount}</span>
             )}

@@ -76,6 +76,7 @@ export interface SessionStatusInfo {
   isActive: boolean;
   messageCount: number;
   tokenUsage: TokenUsage;
+  contextWindowMax?: number;
   cwd?: string;
   model?: string;
   mode?: string;

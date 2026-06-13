@@ -1,16 +1,17 @@
 import { create } from "zustand";
 import type {
+  SessionOverviewState,
+  SessionOverviewItem,
+  SessionProgress,
+  ResponsePreview,
+} from "../types";
+import type {
   SessionTabState,
   SessionInfoSnapshot,
   ConnectedAgentInfo,
   AgentInfo,
   WorkspaceFolder,
   SlashCommand,
-  SessionOverviewState,
-  SessionOverviewItem,
-  SessionProgress,
-  ResponsePreview,
-  SessionTabStatus,
 } from "../hooks/useSessionContext";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

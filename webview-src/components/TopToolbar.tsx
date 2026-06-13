@@ -1,13 +1,17 @@
 import React from "react";
 import { UserJumpNav } from "./UserJumpNav";
+import { AgentBadge } from "./ui/AgentBadge";
 import type { ChatMessage } from "../types";
+import type { ConnectedAgentInfo } from "../hooks/useSessionContext";
 import { Icon } from "../lib/icons";
 
 // ── props ─────────────────────────────────────────────────────────────────
 
 export interface TopToolbarProps {
   messages: ChatMessage[];
+  agentId?: string;
   agentName?: string;
+  connectedAgents?: ConnectedAgentInfo[];
   model?: string;
   mode?: string;
   cwd?: string;
@@ -24,7 +28,9 @@ export interface TopToolbarProps {
 
 export function TopToolbar({
   messages,
+  agentId,
   agentName,
+  connectedAgents = [],
   model,
   mode,
   cwd,
@@ -55,6 +61,10 @@ export function TopToolbar({
     </button>
   ) : null;
 
+  const agentColor = agentId
+    ? connectedAgents.find((a) => a.agentId === agentId)?.color
+    : undefined;
+
   return (
     <div className="top-toolbar">
       <div className="top-toolbar-left">
@@ -62,10 +72,13 @@ export function TopToolbar({
         <UserJumpNav messages={messages} onJumpTo={onJumpToMessage} />
       </div>
       <div className="top-toolbar-center">
-        {agentName && (
-          <span className="top-toolbar-agent" title={agentName}>
-            {agentName}
-          </span>
+        {agentId && agentName && (
+          <AgentBadge
+            agentId={agentId}
+            agentName={agentName}
+            agentColor={agentColor}
+            className="top-toolbar-agent"
+          />
         )}
         {cwdLabel && (
           <span className="top-toolbar-cwd" title={displayCwd}>

@@ -255,7 +255,6 @@ function sendTabsToChatPanel(): void {
         agentStatus.agentId,
         info?.createdAt ?? new Date()
       );
-      // Push full SessionInfo to webview so UI can derive all model state
       if (info) {
         chatPanel.pushSessionInfo(agentStatus.agentId, s.sessionId, info);
       }
@@ -541,6 +540,12 @@ function registerCommands(context: vscode.ExtensionContext): void {
       if (!chatPanel) return;
       // Toggle handled by webview message; just trigger the command
       chatPanel.postMessage({ type: "sessionOverview:toggle" });
+      // Push current overview state so the panel shows fresh data on open
+      const overview = orchestrator.getSessionOverview();
+      chatPanel.postMessage({
+        type: "sessionOverview:state",
+        payload: overview,
+      });
     }
   );
 

@@ -152,6 +152,16 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
         getChatPanel()?.setActiveSession(agentId, sessionId, info);
       }
       treeProvider.refresh();
+
+      // Push session overview so non-active sessions show updated state
+      const cp = getChatPanel();
+      if (cp) {
+        const overview = orchestrator.getSessionOverview();
+        cp.postMessage({
+          type: "sessionOverview:state",
+          payload: overview,
+        });
+      }
     }
   );
 
@@ -168,6 +178,14 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
       const info = orchestrator.getSessionInfo(agentId, sessionId);
       if (info) {
         cp?.pushSessionInfo(agentId, sessionId, info);
+      }
+      // Push session overview so status/token changes reflect in the overview
+      if (cp) {
+        const overview = orchestrator.getSessionOverview();
+        cp.postMessage({
+          type: "sessionOverview:state",
+          payload: overview,
+        });
       }
     }
   );

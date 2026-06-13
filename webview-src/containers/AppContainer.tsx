@@ -168,6 +168,8 @@ export function AppContainer(): React.ReactElement {
     [ctx.completedNotifications, tabs],
   );
 
+  // Subscribe to perSession so the memo recomputes when messages change.
+  const perSession = useMessageStore((s) => s.perSession);
   // Derive overview items as a lookup map — single source of truth via getOverviewItems()
   const overviewItemsMap = useMemo(() => {
     const items = useSessionStore.getState().getOverviewItems();
@@ -176,8 +178,7 @@ export function AppContainer(): React.ReactElement {
       acc[`${item.agentId}:${item.sessionId}`] = item;
     }
     return acc;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tabs, ctx.sessionInfoMap, useMessageStore.getState().perSession]);
+  }, [tabs, ctx.sessionInfoMap, perSession]);
 
   // ── Render ────────────────────────────────────────────────────────────
 
@@ -237,7 +238,9 @@ export function AppContainer(): React.ReactElement {
         )}
         <TopToolbar
           messages={ctx.messages}
+          agentId={activeAgentId}
           agentName={activeAgentId ? agentInfoMap[activeAgentId]?.name : undefined}
+          connectedAgents={connectedAgents}
           model={displayModel}
           mode={displayMode}
           cwd={displayCwd}

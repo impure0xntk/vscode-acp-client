@@ -65,9 +65,8 @@ export function SessionOverviewPanel({
   const selectionMode = state.selectionMode ?? false;
 
   // Derive overview items from store (single source of truth: tabs + sessionInfoMap)
-  // Read via getState() to avoid useSyncExternalStore subscription —
-  // getOverviewItems() returns a new array every call, which would cause
-  // infinite re-renders via Object.is comparison in useSyncExternalStore.
+  // Subscribe to sessionInfoMap so the component re-renders on changes.
+  const sessionInfoMap = useSessionStore((s) => s.sessionInfoMap);
   const overviewItems = useSessionStore.getState().getOverviewItems();
 
   // Apply filter to sessions
@@ -82,22 +81,20 @@ export function SessionOverviewPanel({
   );
 
   // Build a lookup map for unread counts.
-  // Read via getState() to avoid subscribing to the message store —
-  // recompute when overviewItems or perSession changes.
+  // Subscribe to perSession so the memo recomputes when messages change.
+  const perSession = useMessageStore((s) => s.perSession);
   const unreadMap = useMemo(() => {
-    const msgStore = useMessageStore.getState();
     const uiStore = useSessionUiStateStore.getState();
     const map = new Map<string, number>();
     for (const s of overviewItems) {
       const key = `${s.agentId}:${s.sessionId}`;
-      const ids = (msgStore.perSession[key] ?? []).map((m) => m.id);
+      const ids = (perSession[key] ?? []).map((m) => m.id);
       map.set(key, uiStore.computeUnreadCount(key, ids));
     }
     return map;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [overviewItems, useMessageStore.getState().perSession]);
+  }, [overviewItems, perSession]);
 
-  const storeActiveKey = useSessionStore.getState().activeSessionKey;
+  const storeActiveKey = useSessionStore((s) => s.activeSessionKey);
 
   // Count selected sessions (any status can be closed)
   const selectedCount = selectedIds.length;

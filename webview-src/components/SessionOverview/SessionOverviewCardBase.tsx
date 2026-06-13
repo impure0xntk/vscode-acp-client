@@ -4,7 +4,6 @@ import { Chip } from "../ui/Chip";
 import { AgentBadge } from "../ui/AgentBadge";
 import { StatusIcon } from "../StatusIcon";
 import type { StatusIconType } from "../StatusIcon";
-import { elapsedColor } from "../../shared/elapsedColor";
 import { ELAPSED_WARNING_MS, ELAPSED_CRITICAL_MS } from "../../shared/constants";
 import { Icon } from "../../lib/icons";
 
@@ -154,20 +153,10 @@ export function SessionOverviewHeader({
   const styleInfo =
     STATUS_STYLE_MAP[session.status] ?? STATUS_STYLE_MAP.idle;
   const elapsedMs = session.progress.elapsedMs;
-  const showElapsedColor =
-    styleInfo.colorGroup !== "done" && elapsedMs > 0;
-  const showRenderDelay =
-    showElapsedColor && elapsedColor(elapsedMs) !== "normal";
 
   return (
     <div className={`soc-title-row ${className}`.trim()}>
       <StatusIcon status={styleInfo.iconStatus} elapsedMs={elapsedMs} colorGroup={styleInfo.colorGroup} />
-      {showRenderDelay && (
-        <span
-          className="soc-agent-accent-border"
-          style={{ borderColor: "#cca700" }}
-        />
-      )}
       <AgentBadge agentId={session.agentId} agentColor={agentColor} className="soc-agent" />
       <span className="soc-title">{session.title}</span>
       {session.model && <span className="soc-model">{session.model}</span>}

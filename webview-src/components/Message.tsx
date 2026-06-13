@@ -2,7 +2,7 @@ import React, { useCallback, useMemo } from "react";
 import { renderMarkdown, type RenderContext } from "../lib/markdown";
 import { getVsCodeApi } from "../lib/vscodeApi";
 import { Icon, iconForType } from "../lib/icons";
-import { ToolCallCard, GroupedToolCallCard } from "./ToolCallCard";
+import { ToolCallCard, GroupedToolCallCard, ToolBatchSummary } from "./ToolCallCard";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { MessageActions } from "./MessageActions";
 import type { ChatMessage, ToolCall, ContextAttachment } from "../types";
@@ -221,9 +221,11 @@ export const Message = React.memo(function Message({
   const hasAttachments =
     isUser && attachments !== undefined && attachments.length > 0;
 
-  // Tool messages: left-aligned card without speech bubble
-  // Group all calls by kind — each ChatMessage already contains same-kind calls
-  // (grouped by the extension host), but apply threshold for GroupedToolCallCard
+  // Tool messages: left-aligned card without speech bubble.
+  // When toolCalls contain mixed kinds (e.g. read + write + bash), use
+  // ToolBatchSummary for an aggressive cross-kind compact view.
+  // When all calls share the same kind, keep GroupedToolCallCard.
+  // Otherwise fall back to individual ToolCallCard.
   const GROUP_THRESHOLD = 2;
   const groupedCalls = useMemo(
     () =>
@@ -232,8 +234,21 @@ export const Message = React.memo(function Message({
         : null,
     [toolCalls]
   );
+  const mixedKinds = groupedCalls !== null && groupedCalls.length > 1;
 
   if (isTool) {
+    if (mixedKinds) {
+      return (
+        <div
+          className="message message-tool"
+          data-message-id={id}
+          data-role={role}
+        >
+          <ToolBatchSummary calls={toolCalls} />
+        </div>
+      );
+    }
+
     return (
       <div
         className="message message-tool"
@@ -296,6 +311,7 @@ export const Message = React.memo(function Message({
       </div>
     );
   }
+
 
   // Build render context from confirmed inline file paths
   const renderCtx: RenderContext | undefined = inlineFilePaths?.length

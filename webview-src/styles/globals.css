@@ -77,6 +77,13 @@
   display: block;
 }
 
+/* Tool batch summary icons */
+.tool-batch-icon svg,
+.tool-batch-item-icon svg {
+  display: block;
+  flex-shrink: 0;
+}
+
 /* ============================================================================
    Reset & Base
    ============================================================================ */
@@ -711,6 +718,30 @@ body {
   font-size: 10px;
   font-weight: 600;
   line-height: 1;
+}
+
+/* ============================================================================
+   Unread Boundary Line — blue blinking divider between read and unread messages
+   ============================================================================ */
+
+.unread-boundary-line {
+  width: 100%;
+  height: 2px;
+  margin: 6px 0;
+  background: var(--accent);
+  border-radius: 1px;
+  animation: unread-boundary-blink 1.2s ease-in-out infinite;
+}
+
+@keyframes unread-boundary-blink {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 4px 1px color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+  50% {
+    opacity: 0.3;
+    box-shadow: none;
+  }
 }
 
 /* ============================================================================
@@ -3910,25 +3941,17 @@ body {
   overflow: hidden;
 }
 
-.soc-agent-accent-border {
-  display: inline-block;
-  width: 2px;
-  height: 12px;
-  border-radius: 1px;
-  flex-shrink: 0;
-  margin: 0 2px;
-}
-
 .soc-agent {
   flex-shrink: 0;
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--fg-secondary);
-  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 400;
+  color: var(--fg-muted);
+  font-family: var(--font-ui);
   max-width: 80px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  opacity: 0.7;
 }
 
 .soc-title {
@@ -4433,4 +4456,175 @@ body {
   background: var(--error);
   color: var(--user-fg);
   border-color: var(--error);
+}
+
+/* ============================================================================
+   Tool Batch Summary — aggressive cross-kind compact view
+   ============================================================================ */
+
+.tool-batch {
+  margin-top: 3px;
+  margin-left: 12px;
+  margin-right: 12px;
+  border-radius: 3px;
+  overflow: hidden;
+  font-size: 11px;
+  background: color-mix(in srgb, var(--bg-secondary) 6%, transparent);
+}
+
+.tool-batch--has-errors {
+  border-left: 2px solid var(--error);
+}
+
+.tool-batch-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--fg-primary);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.tool-batch-header:hover {
+  background: var(--accent-hover);
+}
+
+.tool-batch-header:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.tool-batch-icon {
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.tool-batch-count {
+  font-weight: 600;
+  color: var(--fg-primary);
+}
+
+.tool-batch-sep {
+  color: var(--fg-muted);
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.tool-batch-files {
+  color: var(--fg-secondary);
+  white-space: nowrap;
+}
+
+.tool-batch-kinds {
+  color: var(--fg-secondary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.tool-batch-duration {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.tool-batch-error-indicator {
+  color: var(--error);
+  font-size: 11px;
+  flex-shrink: 0;
+  margin-left: 2px;
+}
+
+.tool-batch-chevron {
+  margin-left: auto;
+  font-size: 9px;
+  color: var(--fg-muted);
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+/* ── Expanded body ── */
+.tool-batch-body {
+  padding: 2px 6px 4px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: color-mix(in srgb, var(--bg-secondary) 8%, transparent);
+  animation: tool-batch-expand 0.15s ease-out;
+}
+
+@keyframes tool-batch-expand {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 2000px;
+  }
+}
+
+/* ── Individual tool batch item (expanded row) ── */
+.tool-batch-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 4px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--fg-secondary);
+  border-radius: 2px;
+}
+
+.tool-batch-item:hover {
+  background: color-mix(in srgb, var(--accent-hover) 50%, transparent);
+}
+
+.tool-batch-item-icon {
+  font-size: 11px;
+  flex-shrink: 0;
+  width: 16px;
+  text-align: center;
+}
+
+.tool-batch-item-kind {
+  color: var(--fg-secondary);
+  text-transform: uppercase;
+  font-size: 9px;
+  font-weight: 600;
+  flex-shrink: 0;
+  min-width: 40px;
+}
+
+.tool-batch-item-file {
+  color: var(--fg-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-batch-item-status {
+  flex-shrink: 0;
+  font-size: 10px;
+}
+
+.tool-batch-item-size {
+  color: var(--fg-muted);
+  font-size: 9px;
+  flex-shrink: 0;
+}
+
+.tool-batch-item-duration {
+  color: var(--fg-muted);
+  font-size: 9px;
+  flex-shrink: 0;
+  margin-left: auto;
 }
