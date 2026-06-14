@@ -22,7 +22,7 @@ export interface PersistentSessionEntry {
   status: string;
   workspaceName: string | null;
   createdAt: string;
-  updatedAt: string;
+  lastResponseAt: string | null;
   messageCount: number;
   tokenUsage: { input: number; output: number; total: number };
   contextWindowMax: number | null;
@@ -104,7 +104,7 @@ export function DetailModal({
         <div className="history-modal-meta">
           <span>{session.agentId}</span>
           <span>{session.cwd}</span>
-          <span>{formatDate(session.updatedAt)}</span>
+          <span>{formatDate(session.createdAt)}</span>
           <span>{session.messageCount} messages</span>
           <span>
             ↑{formatTokens(session.tokenUsage.input)} ↓

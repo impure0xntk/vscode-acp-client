@@ -13,7 +13,8 @@ export interface PersistentSessionEntry {
   status: string;
   workspaceName: string | null;
   createdAt: string;
-  updatedAt: string;
+  /** Last time the agent produced output (message/stream/streamEnd). Null if no output yet. */
+  lastResponseAt: string | null;
   messageCount: number;
   tokenUsage: { input: number; output: number; total: number };
   contextWindowMax: number | null;
@@ -150,9 +151,9 @@ function SessionRow({
           <span className="history-item-agent">{entry.agentId}</span>
           <span
             className="history-item-date"
-            title={formatDate(entry.updatedAt)}
+            title={formatDate(entry.createdAt)}
           >
-            {formatRelativeTime(entry.updatedAt)}
+            {formatRelativeTime(entry.lastResponseAt ?? entry.createdAt)}
           </span>
         </div>
         {entry.workspaceName && (

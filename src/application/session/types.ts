@@ -33,5 +33,9 @@ export interface SessionInfo {
   contextWindowMax?: number;
   createdAt: Date;
   updatedAt: Date;
+  /** ISO string of last agent response; null if no response yet. Used for elapsed time anchoring in the webview. */
+  lastResponseAt: string | null;
   pendingCancel: boolean;
+  /** Previous context usage (tokens) — used for compression detection */
+  _prevContextUsed?: number;
 }

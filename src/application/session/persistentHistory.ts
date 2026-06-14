@@ -59,7 +59,6 @@ export interface PersistentSessionEntry {
   status: SessionStatus;
   workspaceName: string | null;
   createdAt: string;
-  updatedAt: string;
   messageCount: number;
   tokenUsage: TokenUsage;
   contextWindowMax: number | null;
@@ -90,7 +89,6 @@ interface SessionRow {
   status: string;
   workspace_name: string | null;
   created_at: string;
-  updated_at: string;
   message_count: number;
   input_tokens: number;
   output_tokens: number;
@@ -211,14 +209,13 @@ export class PersistentHistoryStore {
       // Update
       this.db.run(
         `UPDATE sessions SET
-          title = ?, status = ?, updated_at = ?, message_count = ?,
+          title = ?, status = ?, message_count = ?,
           input_tokens = ?, output_tokens = ?, total_tokens = ?,
           context_window_max = ?
          WHERE session_id = ?`,
         [
           info.title,
           info.status,
-          now,
           info.messages.length,
           info.tokenUsage.input,
           info.tokenUsage.output,
@@ -232,9 +229,9 @@ export class PersistentHistoryStore {
       this.db.run(
         `INSERT INTO sessions (
           session_id, agent_id, title, cwd, model, mode, status,
-          workspace_name, created_at, updated_at, message_count,
+          workspace_name, created_at, message_count,
           input_tokens, output_tokens, total_tokens, context_window_max, is_archived
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
         [
           info.sessionId,
           info.agentId,
@@ -245,7 +242,6 @@ export class PersistentHistoryStore {
           info.status,
           workspaceName,
           info.createdAt.toISOString(),
-          now,
           info.messages.length,
           info.tokenUsage.input,
           info.tokenUsage.output,
@@ -314,7 +310,7 @@ export class PersistentHistoryStore {
   getAllSessions(): PersistentSessionEntry[] {
     if (!this.db) return [];
     const result = this.db.exec(
-      "SELECT * FROM sessions WHERE is_archived = 0 ORDER BY updated_at DESC"
+      "SELECT * FROM sessions WHERE is_archived = 0 ORDER BY created_at DESC"
     );
     return this.parseRows<SessionRow>(result[0]).map((r) => this.rowToEntry(r));
   }
@@ -322,7 +318,7 @@ export class PersistentHistoryStore {
   getSessionsByAgent(agentId: string): PersistentSessionEntry[] {
     if (!this.db) return [];
     const result = this.db.exec(
-      "SELECT * FROM sessions WHERE agent_id = ? AND is_archived = 0 ORDER BY updated_at DESC",
+      "SELECT * FROM sessions WHERE agent_id = ? AND is_archived = 0 ORDER BY created_at DESC",
       [agentId]
     );
     return this.parseRows<SessionRow>(result[0]).map((r) => this.rowToEntry(r));
@@ -331,7 +327,7 @@ export class PersistentHistoryStore {
   getSessionsByWorkspace(workspacePath: string): PersistentSessionEntry[] {
     if (!this.db) return [];
     const result = this.db.exec(
-      "SELECT * FROM sessions WHERE cwd = ? AND is_archived = 0 ORDER BY updated_at DESC",
+      "SELECT * FROM sessions WHERE cwd = ? AND is_archived = 0 ORDER BY created_at DESC",
       [workspacePath]
     );
     return this.parseRows<SessionRow>(result[0]).map((r) => this.rowToEntry(r));
@@ -370,7 +366,7 @@ export class PersistentHistoryStore {
     const result = this.db.exec(
       `SELECT * FROM sessions WHERE is_archived = 0 AND (
         title LIKE ? OR agent_id LIKE ? OR session_id LIKE ? OR cwd LIKE ?
-      ) ORDER BY updated_at DESC`,
+      ) ORDER BY created_at DESC`,
       [pattern, pattern, pattern, pattern]
     );
     return this.parseRows<SessionRow>(result[0]).map((r) => this.rowToEntry(r));
@@ -425,13 +421,13 @@ export class PersistentHistoryStore {
 
     // Get count before deletion
     const before = this.db.exec(
-      "SELECT COUNT(*) as cnt FROM sessions WHERE is_archived = 0 AND updated_at < ?",
+      "SELECT COUNT(*) as cnt FROM sessions WHERE is_archived = 0 AND created_at < ?",
       [cutoff]
     );
     const count = (before[0]?.values[0]?.[0] as number) ?? 0;
 
     this.db.run(
-      "DELETE FROM sessions WHERE is_archived = 0 AND updated_at < ?",
+      "DELETE FROM sessions WHERE is_archived = 0 AND created_at < ?",
       [cutoff]
     );
     this.persist();
@@ -448,7 +444,7 @@ export class PersistentHistoryStore {
 
     const excess = count - this.config.maxSessions;
     const oldSessions = this.db.exec(
-      "SELECT session_id FROM sessions WHERE is_archived = 0 ORDER BY updated_at ASC LIMIT ?",
+      "SELECT session_id FROM sessions WHERE is_archived = 0 ORDER BY created_at ASC LIMIT ?",
       [excess]
     );
 
@@ -526,7 +522,6 @@ export class PersistentHistoryStore {
       status: row.status as SessionStatus,
       workspaceName: row.workspace_name,
       createdAt: row.created_at,
-      updatedAt: row.updated_at,
       messageCount: row.message_count,
       tokenUsage: {
         input: row.input_tokens,

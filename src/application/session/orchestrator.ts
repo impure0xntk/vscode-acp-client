@@ -405,8 +405,10 @@ export class SessionOrchestrator extends EventEmitter {
       isStreaming: false,
       createdAt: now,
       updatedAt: now,
+      lastResponseAt: null,
       tokenUsage: { input: 0, output: 0, total: 0 },
       pendingCancel: false,
+      _prevContextUsed: 0,
     };
 
     const agentSessions = this.sessions.get(agentId)!;
@@ -599,6 +601,7 @@ export class SessionOrchestrator extends EventEmitter {
         isStreaming: false,
         createdAt: now,
         updatedAt: now,
+        lastResponseAt: null,
         tokenUsage: { input: 0, output: 0, total: 0 },
         pendingCancel: false,
       };
@@ -823,6 +826,7 @@ export class SessionOrchestrator extends EventEmitter {
       // Turn is complete when prompt() resolves
       sessionInfo.status = "completed";
       sessionInfo.isStreaming = false;
+      sessionInfo.lastResponseAt = new Date().toISOString();
       // Flush any remaining buffered tool calls
       this.flushPendingToolCalls(agentId, sessionId);
       this.emit("sessionCompleted", {
@@ -915,7 +919,6 @@ export class SessionOrchestrator extends EventEmitter {
       cwd: sessionInfo.cwd,
       status: sessionInfo.status,
       createdAt: sessionInfo.createdAt.toISOString(),
-      updatedAt: sessionInfo.updatedAt.toISOString(),
       messageCount: sessionInfo.messages.length,
       tokenUsage: {
         input: sessionInfo.tokenUsage.input,
@@ -1267,6 +1270,7 @@ export class SessionOrchestrator extends EventEmitter {
     switch (update.sessionUpdate) {
       case "agent_message_chunk": {
         sessionInfo.status = "running";
+        sessionInfo.lastResponseAt = new Date().toISOString();
         // Track streaming state — emit on transition from non-streaming to streaming
         if (!sessionInfo.isStreaming) {
           sessionInfo.isStreaming = true;
@@ -1467,36 +1471,60 @@ export class SessionOrchestrator extends EventEmitter {
         break;
       case "usage_update": {
         // UsageUpdate: { size: contextWindowTotal, used: tokensUsed, cost?: Cost }
-        // 'used' = cumulative tokens in context (input + output combined).
-        // input/output are not separately provided, so we estimate:
-        //   - new input  = delta of 'used' from previous total
-        //   - output is not yet finalized during a turn, so we rely on
-        //     prompt() completion for accurate output counts.
-        // However, during the turn the webview needs a live token display,
-        // so we attribute the growing 'used' to input (the prompt tokens
-        // dominate early in the turn). Output gets corrected on turn end.
+        // 'used' = tokens currently in context window.
         console.log("[ACP] usage_update:", JSON.stringify(notification.update));
         const prevTotal = sessionInfo.tokenUsage.total;
+        const prevContextUsed = sessionInfo._prevContextUsed;
+        const newUsed =
+          update.used !== undefined && update.used !== null && update.used > 0
+            ? update.used
+            : prevTotal;
+
+        // Detect context compression: a significant drop in context usage
+        // between consecutive usage_update notifications.
+        // Threshold: used tokens dropped by ≥25% or ≥2000 tokens (whichever is larger),
+        // and the previous value was non-trivial (>1000 tokens).
+        // Also ignore when contextWindowMax changes (model switch scenario).
+        const contextWindowSize =
+          update.size !== undefined && update.size !== null && update.size > 0
+            ? update.size
+            : sessionInfo.contextWindowMax ?? 0;
+
         if (
-          update.used !== undefined &&
-          update.used !== null &&
-          update.used > 0
+          prevContextUsed !== undefined &&
+          prevContextUsed > 1000 &&
+          contextWindowSize > 0 &&
+          contextWindowSize === sessionInfo.contextWindowMax
         ) {
-          sessionInfo.tokenUsage.total = update.used;
-          const delta = update.used - prevTotal;
-          if (delta > 0) {
-            // Attribute delta to input during the turn.
-            // prompt() completion will overwrite with precise values.
-            sessionInfo.tokenUsage.input += delta;
+          const drop = prevContextUsed - newUsed;
+          const dropRatio = drop / prevContextUsed;
+          const COMPRESSION_RATIO_THRESHOLD = 0.25;
+          const COMPRESSION_ABS_THRESHOLD = 2000;
+          if (
+            drop > 0 &&
+            (dropRatio >= COMPRESSION_RATIO_THRESHOLD ||
+              drop >= COMPRESSION_ABS_THRESHOLD)
+          ) {
+            this.emit("sessionContextCompressed", {
+              agentId,
+              sessionId,
+              contextWindowMax: contextWindowSize,
+              usedBefore: prevContextUsed,
+              usedAfter: newUsed,
+            });
           }
         }
-        if (
-          update.size !== undefined &&
-          update.size !== null &&
-          update.size > 0
-        ) {
-          sessionInfo.contextWindowMax = update.size;
+
+        sessionInfo.tokenUsage.total = newUsed;
+        if (newUsed > prevTotal) {
+          sessionInfo.tokenUsage.input += newUsed - prevTotal;
         }
+
+        if (contextWindowSize > 0) {
+          sessionInfo.contextWindowMax = contextWindowSize;
+        }
+        // Store current used for next comparison
+        sessionInfo._prevContextUsed = newUsed;
         break;
       }
       case "user_message_chunk":
@@ -1594,7 +1622,7 @@ export class SessionOrchestrator extends EventEmitter {
       }>;
       cwd?: string;
       createdAt: string;
-      updatedAt: string;
+      lastResponseAt: string | null;
     }>;
     lastUpdated: string;
   } {
@@ -1629,7 +1657,7 @@ export class SessionOrchestrator extends EventEmitter {
       }>;
       cwd?: string;
       createdAt: string;
-      updatedAt: string;
+      lastResponseAt: string | null;
     }> = [];
 
     for (const [agentId, agentSessions] of this.sessions) {
@@ -1655,8 +1683,8 @@ export class SessionOrchestrator extends EventEmitter {
           mode: info.mode,
           progress: {
             elapsedMs:
-              info.status === "running"
-                ? Date.now() - info.updatedAt.getTime()
+              info.status === "running" && info.lastResponseAt
+                ? Date.now() - new Date(info.lastResponseAt).getTime()
                 : 0,
             tokenUsage: {
               input: info.tokenUsage.input,
@@ -1679,7 +1707,7 @@ export class SessionOrchestrator extends EventEmitter {
           recentResponses: this.extractRecentResponses(info.messages, 3),
           cwd: info.cwd,
           createdAt: info.createdAt.toISOString(),
-          updatedAt: info.updatedAt.toISOString(),
+          lastResponseAt: info.lastResponseAt,
         });
       }
     }

@@ -46,8 +46,8 @@ export interface SessionInfoSnapshot {
   messageCount: number;
   /** ISO date string */
   createdAt: string;
-  /** ISO date string */
-  updatedAt: string;
+  /** ISO date string — last time agent produced output (message/stream/streamEnd/completed). Null if never. */
+  lastResponseAt: string | null;
 }
 
 export interface SetTabsMessage {
@@ -152,7 +152,7 @@ export class ChatPresenter {
       mode: session.mode,
       messageCount: session.messageCount,
       createdAt: createdAt.toISOString(),
-      updatedAt: new Date().toISOString(),
+      lastResponseAt: null,
     };
   }
 

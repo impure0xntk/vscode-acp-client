@@ -30,12 +30,11 @@ export function snapshotToOverviewItem(
   titleHint?: string,
 ): SessionOverviewItem {
   const status = info.status;
-  const updatedAt = info.updatedAt ?? new Date().toISOString();
-  const createdAt = info.createdAt ?? updatedAt;
+  const createdAt = info.createdAt ?? new Date().toISOString();
 
   const elapsedMs =
-    (status === "running" && info.updatedAt)
-      ? Date.now() - new Date(info.updatedAt).getTime()
+    (status === "running" && info.lastResponseAt)
+      ? Date.now() - new Date(info.lastResponseAt).getTime()
       : 0;
 
   const progress: SessionProgress = {
@@ -73,13 +72,13 @@ export function snapshotToOverviewItem(
     recentResponses,
     cwd: info.cwd,
     createdAt,
-    updatedAt,
+    lastResponseAt: info.lastResponseAt,
   };
 }
 
 // ── Store shape ──────────────────────────────────────────────────────────────
 
-interface SessionState {
+export interface SessionState {
   // ── Core session data ──────────────────────────────────────────────────
   /** sessionKey → full snapshot (single source of truth for session data) */
   sessionInfoMap: Record<string, SessionInfoSnapshot>;

@@ -1,9 +1,10 @@
 import { create } from "zustand";
 import type { ChatMessage } from "../types";
+import { extractCandidatePaths } from "../lib/pathPatterns";
 
 // ── Per-session message state ──────────────────────────────────────────────
 
-interface MessageState {
+export interface MessageState {
   /** sessionKey → messages */
   perSession: Record<string, ChatMessage[]>;
   /** sessionKey → streaming flag */
@@ -39,7 +40,16 @@ export const useMessageStore = create<MessageState>((set) => ({
       const existing = s.perSession[key] ?? [];
       const last = existing[existing.length - 1];
       if (last && last.role === "agent" && last.agentId === agentId) {
-        const updated = { ...last, content: last.content + chunk };
+        const newContent = last.content + chunk;
+        const freshPaths = extractCandidatePaths(newContent);
+        const mergedPaths = [
+          ...new Set([...(last.inlineFilePaths ?? []), ...freshPaths]),
+        ];
+        const updated: ChatMessage = {
+          ...last,
+          content: newContent,
+          inlineFilePaths: mergedPaths.length > 0 ? mergedPaths : undefined,
+        };
         return {
           perSession: {
             ...s.perSession,

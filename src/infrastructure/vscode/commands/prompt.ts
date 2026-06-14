@@ -94,12 +94,16 @@ export function wireChatPanelEvents(
 
   chatPanel.onDidReceiveMessage((data: Record<string, unknown>) => {
     switch (data.type as string) {
-      case "switchSession":
-        orchestrator.setActiveSession(
-          data.agentId as string,
-          data.sessionId as string
-        );
+      case "switchSession": {
+        const agentId = data.agentId as string;
+        const sessionId = data.sessionId as string;
+        orchestrator.setActiveSession(agentId, sessionId);
+        const info = orchestrator.getSessionInfo(agentId, sessionId);
+        if (info) {
+          chatPanel?.setActiveSession(agentId, sessionId, info);
+        }
         break;
+      }
       case "newSession": {
         const agentId = data.agentId as string;
         void (async () => {

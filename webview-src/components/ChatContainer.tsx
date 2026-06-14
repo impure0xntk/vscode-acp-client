@@ -45,65 +45,57 @@ function sessionIdFrom(msg: ChatMessage): string {
 }
 
 /**
- * Merge consecutive tool messages into a single batch.
- * - Same session → merged into one group (preserves all kinds)
- * - Different session → separate group
- * - Non-tool messages pass through unchanged
+ * Absorb tool messages into the preceding agent message.
+ * - Consecutive tool messages in the same session are merged,
+ *   then appended to the last non-tool message's toolCalls.
+ * - Non-tool messages pass through unchanged.
  */
 function mergeToolBatches(messages: ChatMessage[]): ChatMessage[] {
   const result: ChatMessage[] = [];
+  let pendingCalls: ChatMessage["toolCalls"] = [];
+
   for (const msg of messages) {
-    if (msg.role !== "tool") {
-      result.push(msg);
+    if (msg.role === "tool") {
+      const calls = msg.toolCalls ?? [];
+      pendingCalls = [...pendingCalls, ...calls];
       continue;
     }
-    const last = result[result.length - 1];
-    const sid = sessionIdFrom(msg);
-
-    if (
-      last !== undefined &&
-      last.role === "tool" &&
-      sid !== "__nosession__" &&
-      sessionIdFrom(last) === sid
-    ) {
-      const lastCalls = last.toolCalls ?? [];
-      const calls = msg.toolCalls ?? [];
+    // Non-tool message: flush pending tool calls onto the last result entry
+    if (pendingCalls.length > 0 && result.length > 0) {
+      const prev = result[result.length - 1];
       result[result.length - 1] = {
-        ...last,
-        toolCalls: [...lastCalls, ...calls],
-        content: [last.content, msg.content].filter(Boolean).join("\n"),
+        ...prev,
+        toolCalls: [...(prev.toolCalls ?? []), ...pendingCalls],
       };
-    } else {
-      result.push(msg);
+      pendingCalls = [];
     }
+    result.push(msg);
+  }
+  // Trailing tool calls (no following agent message) — attach to last entry
+  if (pendingCalls.length > 0 && result.length > 0) {
+    const prev = result[result.length - 1];
+    result[result.length - 1] = {
+      ...prev,
+      toolCalls: [...(prev.toolCalls ?? []), ...pendingCalls],
+    };
   }
   return result;
 }
 
 /**
  * Build an array aligned to `messages` that carries the inherited
- * "run key" for each slot.
+ * "run key" for each slot.  Consecutive messages with the same run key
+ * suppress the header (isConsecutive).
  */
 function buildRunKeys(messages: ChatMessage[]): (string | undefined)[] {
   const result: (string | undefined)[] = [];
-  let lastAgentId: string | undefined = undefined;
-  let lastSessionId: string | undefined = undefined;
   for (const msg of messages) {
-    if (msg.role === "tool") {
-      result.push(
-        lastAgentId !== undefined && lastSessionId !== undefined
-          ? `${lastSessionId}::${lastAgentId}`
-          : undefined
-      );
-    } else {
-      lastAgentId = msg.agentId;
-      lastSessionId = sessionIdFrom(msg);
-      result.push(
-        msg.agentId !== undefined && lastSessionId !== undefined
-          ? `${lastSessionId}::${msg.agentId}`
-          : undefined
-      );
-    }
+    const sid = sessionIdFrom(msg);
+    result.push(
+      msg.agentId !== undefined && sid !== "__nosession__"
+        ? `${sid}::${msg.agentId}`
+        : undefined
+    );
   }
   return result;
 }
@@ -572,6 +564,7 @@ export const ChatContainer = memo(function ChatContainer({
                 attachments={msg.attachments}
                 isConsecutive={idx > 0 && runKeys[idx] !== undefined && runKeys[idx] === runKeys[idx - 1]}
                 sessionId={sessionId}
+                compressionInfo={msg.compressionInfo}
               />
             </React.Fragment>
           ))}

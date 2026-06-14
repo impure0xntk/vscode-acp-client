@@ -229,12 +229,15 @@ export function IconGitBranch({ className, size = 16 }: IconProps): React.ReactE
 
 // ── UI icons ────────────────────────────────────────────────────────────────
 
+/**
+ * TOOL_CALL fallback icon — a simple "T" monogram inside a rounded square,
+ * matching the 16x16 viewBox and stroke-based style of other tool kind icons.
+ */
 export function IconTools({ className, size = 16 }: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
-      <path d="M10.5 1.5l3 3-6 6-3-3z" />
-      <path d="M5 7l-3 6 6-3" />
-      <circle cx="11" cy="5" r="0.5" fill="currentColor" />
+      <rect x="2.5" y="2.5" width="11" height="11" rx="2" />
+      <path d="M5.5 5h5M8 5v6" />
     </Svg>
   );
 }
@@ -415,6 +418,18 @@ export function IconTrash({ className, size = 16 }: IconProps): React.ReactEleme
   );
 }
 
+export function IconCompress({ className, size = 16 }: IconProps): React.ReactElement {
+  return (
+    <Svg className={className} size={size}>
+      <path d="M4 2v4H0" />
+      <path d="M12 2v4h4" />
+      <path d="M4 14v-4H0" />
+      <path d="M12 14v-4h4" />
+      <path d="M6 8h4" />
+    </Svg>
+  );
+}
+
 export function IconPlug({ className, size = 16 }: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
@@ -472,6 +487,7 @@ const ICON_COMPONENTS: Record<string, React.FC<IconProps>> = {
   "tool-todo":        IconBulletList,
   "tool-task":        IconBulletList,
   "tool-mcp":         IconPlug,
+  compress:           IconCompress,
 };
 
 export function Icon({

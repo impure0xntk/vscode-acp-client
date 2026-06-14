@@ -258,7 +258,6 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
           cwd: info.cwd,
           status: info.status,
           createdAt: info.createdAt.toISOString(),
-          updatedAt: info.updatedAt.toISOString(),
           messageCount: info.messages.length,
           tokenUsage: info.tokenUsage,
         };

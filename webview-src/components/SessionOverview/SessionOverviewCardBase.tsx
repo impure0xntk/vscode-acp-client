@@ -180,16 +180,17 @@ export function SessionOverviewChips({
   );
 }
 
-/** Footer: last-updated timestamp */
+/** Footer: last-response timestamp (when agent last produced output) */
 export function SessionOverviewFooter({
   session,
 }: {
   session: SessionOverviewItem;
 }): React.ReactElement {
+  const ts = session.lastResponseAt ?? session.createdAt;
   return (
     <div className="session-overview-card-footer">
       <span className="session-overview-card-timestamp">
-        {new Date(session.updatedAt).toLocaleTimeString()}
+        {new Date(ts).toLocaleTimeString()}
       </span>
     </div>
   );

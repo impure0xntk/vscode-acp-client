@@ -37,6 +37,7 @@ function makeSession(overrides: Partial<SessionInfo> = {}): SessionInfo {
     tokenUsage: { input: 100, output: 50, total: 150 },
     createdAt: new Date(),
     updatedAt: new Date(),
+    lastResponseAt: null,
     pendingCancel: false,
     ...overrides,
   };

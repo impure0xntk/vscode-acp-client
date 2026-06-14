@@ -1,4 +1,4 @@
-export type SortField = "updatedAt" | "messageCount" | "tokenUsage" | "title";
+export type SortField = "createdAt" | "messageCount" | "tokenUsage" | "title";
 export type SortDir = "asc" | "desc";
 
 export function SearchBar({
@@ -46,7 +46,7 @@ export function SearchBar({
           value={sortField}
           onChange={(e) => onSortChange(e.target.value as SortField, sortDir)}
         >
-          <option value="updatedAt">Date</option>
+          <option value="createdAt">Date</option>
           <option value="messageCount">Messages</option>
           <option value="tokenUsage">Tokens</option>
           <option value="title">Title</option>

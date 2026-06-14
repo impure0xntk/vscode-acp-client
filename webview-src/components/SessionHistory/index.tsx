@@ -47,7 +47,7 @@ function groupByDate(
   const groups = new Map<string, PersistentSessionEntry[]>();
 
   for (const entry of entries) {
-    const t = new Date(entry.updatedAt).getTime();
+    const t = new Date(entry.createdAt).getTime();
     let label: string;
     if (t >= today) label = "Today";
     else if (t >= yesterday) label = "Yesterday";
@@ -131,7 +131,7 @@ export function SessionHistoryPanel({
     oldestSession: string | null;
   } | null>(null);
   const [showArchived, setShowArchived] = useState(false);
-  const [sortField, setSortField] = useState<SortField>("updatedAt");
+  const [sortField, setSortField] = useState<SortField>("createdAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [compareSet, setCompareSet] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
@@ -235,9 +235,9 @@ export function SessionHistoryPanel({
     sortedCopy.sort((a, b) => {
       let cmp = 0;
       switch (sortField) {
-        case "updatedAt":
+        case "createdAt":
           cmp =
-            new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
           break;
         case "messageCount":
           cmp = a.messageCount - b.messageCount;

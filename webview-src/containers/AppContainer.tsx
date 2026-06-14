@@ -122,7 +122,7 @@ export function AppContainer(): React.ReactElement {
   };
 
   const handleTabClick = (sessionId: string, agentId: string) => {
-    switchTab(sessionId, agentId);
+    switchTab(agentId, sessionId);
   };
 
   const handleTabClose = (sessionId: string, agentId: string) => {
@@ -140,7 +140,7 @@ export function AppContainer(): React.ReactElement {
   };
 
   const handleRestoreSession = (sessionId: string, agentId: string) => {
-    switchTab(sessionId, agentId);
+    switchTab(agentId, sessionId);
     setShowHistory(false);
   };
 
@@ -238,7 +238,7 @@ export function AppContainer(): React.ReactElement {
         )}
         <TopToolbar
           messages={ctx.messages}
-          agentId={activeAgentId}
+          agentId={activeAgentId ?? undefined}
           agentName={activeAgentId ? agentInfoMap[activeAgentId]?.name : undefined}
           connectedAgents={connectedAgents}
           model={displayModel}

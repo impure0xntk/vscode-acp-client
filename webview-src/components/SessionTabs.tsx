@@ -4,6 +4,8 @@ import type {
   ConnectedAgentInfo,
 } from "../hooks/useSessionContext";
 import type { SessionOverviewItem } from "../types";
+import type { MessageState } from "../store/messageStore";
+import type { SessionState } from "../store/sessionStore";
 import { useSessionUiStateStore } from "../store/sessionUiStateStore";
 import { useMessageStore } from "../store/messageStore";
 import { useSessionStore, sessionKeyOf } from "../store/sessionStore";
@@ -213,8 +215,8 @@ export function SessionTabs({
           const info = sessionInfoMap[key];
           const status = info?.status ?? "idle";
           const elapsedMs =
-            status === "running" && info?.updatedAt
-              ? Date.now() - new Date(info.updatedAt).getTime()
+            status === "running" && info?.lastResponseAt
+              ? Date.now() - new Date(info.lastResponseAt).getTime()
               : undefined;
 
           const unread = unreadMap.get(key) ?? 0;

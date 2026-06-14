@@ -7,6 +7,12 @@ export interface SessionUiState {
   scrollTop: number;
   /** ID of the last message the user has seen (scrolled past) */
   lastSeenMessageId: string | null;
+  /** Whether a turn is currently active (streaming) for this session */
+  streamingActive: boolean;
+  /** Human-readable action label while streaming, e.g. "Reading src/auth.ts" */
+  streamingAction: string | null;
+  /** ISO timestamp when the current streaming turn started */
+  streamingStartedAt: string | null;
 }
 
 interface SessionUiStateStore {
@@ -32,6 +38,9 @@ interface SessionUiStateStore {
 const defaultState: SessionUiState = {
   scrollTop: 0,
   lastSeenMessageId: null,
+  streamingActive: false,
+  streamingAction: null,
+  streamingStartedAt: null,
 };
 
 export const useSessionUiStateStore = create<SessionUiStateStore>((set, get) => ({

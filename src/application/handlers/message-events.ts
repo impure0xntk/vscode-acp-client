@@ -10,6 +10,15 @@ import type { TreeProvider } from "../../infrastructure/vscode/vscode-ui/tree";
 import type { SessionNotification } from "@agentclientprotocol/sdk";
 
 // ============================================================================
+// Session context compression payload
+// ============================================================================
+
+export interface SessionCompressionInfo {
+  contextWindowMax: number;
+  usedTokens: number;
+}
+
+// ============================================================================
 // Dependencies
 // ============================================================================
 
@@ -126,6 +135,31 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
           cp?.pushSessionInfo(agentId, sessionId, sessionInfo);
         }
       }
+    }
+  );
+
+  // -----------------------------------------------------------------------
+  // Context compression detected (from orchestrator)
+  // -----------------------------------------------------------------------
+  orchestrator.on(
+    "sessionContextCompressed",
+    (event: {
+      agentId: string;
+      sessionId: string;
+      contextWindowMax: number;
+      usedBefore: number;
+      usedAfter: number;
+    }) => {
+      const { agentId, sessionId, contextWindowMax, usedBefore, usedAfter } =
+        event;
+      const activeSessionId = orchestrator.getActiveSessionId(agentId);
+      if (sessionId !== activeSessionId) return;
+      const cp = getChatPanel();
+      cp?.pushSessionCompression(agentId, sessionId, {
+        contextWindowMax,
+        usedTokens: usedAfter,
+        usedBefore,
+      });
     }
   );
 }

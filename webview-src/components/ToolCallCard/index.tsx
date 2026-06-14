@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import type { ToolCallDiffContent, ToolCall } from "../../types";
 import { StatusIcon } from "../StatusIcon";
 import { getVsCodeApi } from "../../lib/vscodeApi";
+import { Icon, iconForToolKind } from "../../lib/icons";
 // ── Shared helpers ─────────────────────────────────────────────────────────
 
 export function getFileExtension(path: string): string {
@@ -39,11 +40,6 @@ function tryFormatJson(raw: string): string {
   } catch {
     return raw;
   }
-}
-
-function resolveKind(kind: string | undefined): string {
-  if (kind && kind.trim()) return kind.trim();
-  return "tool_call";
 }
 
 // ── Chevron ─────────────────────────────────────────────────────────────────
@@ -136,8 +132,6 @@ export function ToolCallCard({
   const [inputOpen, setInputOpen] = useState(false);
   const [outputOpen, setOutputOpen] = useState(false);
   const [diffOpen, setDiffOpen] = useState(false);
-  const displayKind = resolveKind(kind);
-
   const hasInput = input !== undefined;
   const hasOutput = output !== undefined;
   const hasDiff = diffContent !== undefined;
@@ -162,7 +156,8 @@ export function ToolCallCard({
         <span className="tool-status-icon">
           <StatusIcon status={status} />
         </span>
-        <span className="tool-kind">{displayKind}</span>
+        <Icon name={iconForToolKind(kind ?? "tool_call")} size="sm" className="tool-kind-icon" />
+        <span className="tool-kind">{(kind ?? "TOOL_CALL").toUpperCase()}</span>
         <span className="tool-title">{title}</span>
         {hasLocations &&
           locations.map((loc, idx) => {
@@ -197,6 +192,7 @@ export function ToolCallCard({
         {durationMs !== undefined && (
           <span className="tool-duration">{formatDuration(durationMs)}</span>
         )}
+
         {hasBody && <Chevron open={expanded} />}
       </button>
 

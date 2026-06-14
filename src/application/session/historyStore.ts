@@ -20,7 +20,6 @@ export interface HistoryEntry {
   cwd: string;
   status: string;
   createdAt: string;
-  updatedAt: string;
   messageCount: number;
   tokenUsage: HistoryTokenUsage;
   lastMessage?: string; // truncated to 200 chars

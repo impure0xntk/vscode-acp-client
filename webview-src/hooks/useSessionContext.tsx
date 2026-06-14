@@ -16,6 +16,7 @@ import { getVsCodeApi } from "../lib/vscodeApi";
 import { useSessionStore, sessionKeyOf } from "../store/sessionStore";
 import { useMessageStore } from "../store/messageStore";
 import { useSessionUiStateStore } from "../store/sessionUiStateStore";
+import { extractCandidatePaths } from "../lib/pathPatterns";
 import type {
   SessionTabState,
   SessionInfoSnapshot,
@@ -112,7 +113,7 @@ export interface SessionContext {
     sessionId?: string
   ) => void;
   cancelTurn: (agentId?: string, sessionId?: string) => void;
-  switchTab: (sessionId: string, agentId: string) => void;
+  switchTab: (agentId: string, sessionId: string) => void;
   newSession: (agentId: string) => void;
   newSessionWithPicker: () => void;
   closeSession: (agentId: string, sessionId: string) => void;
@@ -340,16 +341,27 @@ export function SessionContextProvider({
           return;
         }
 
-        case "session/completed":
+        case "session/completed": {
+          const aId = data.agentId as string;
+          const sId = data.sessionId as string;
           setCompletedNotifications((prev) => [
             ...prev,
-            {
-              agentId: data.agentId as string,
-              sessionId: data.sessionId as string,
-              title: data.title as string,
-            },
+            { agentId: aId, sessionId: sId, title: data.title as string },
           ]);
+          const store = useSessionStore.getState();
+          const key = sessionKey(aId, sId);
+          const existing = store.sessionInfoMap[key];
+          if (existing) {
+            store.setSessionInfo(aId, sId, {
+              ...existing,
+              status: "completed",
+              isTurnActive: false,
+              isStreaming: false,
+              lastResponseAt: new Date().toISOString(),
+            });
+          }
           return;
+        }
 
         case "session/commands":
           useSessionStore.getState().setSessionCommands(
@@ -386,8 +398,6 @@ export function SessionContextProvider({
           const sId = data.sessionId as string;
           const msgKey = sessionKey(aId, sId);
           useMessageStore.getState().appendMessage(msgKey, data.message as ChatMessage);
-          // Keep messageCount in sync for the sending session so overview
-          // card chips update without waiting for the next session/switch.
           const store = useSessionStore.getState();
           const existing = store.sessionInfoMap[msgKey];
           if (existing) {
@@ -396,6 +406,7 @@ export function SessionContextProvider({
               store.setSessionInfo(aId, sId, {
                 ...existing,
                 messageCount: msgs.length,
+                lastResponseAt: new Date().toISOString(),
               });
             }
           }
@@ -409,6 +420,15 @@ export function SessionContextProvider({
           useMessageStore.getState().appendStreamChunk(
             msgKey, aId, sId, data.chunk as string
           );
+          // Update lastResponseAt so the session is considered "alive"
+          const store = useSessionStore.getState();
+          const existing = store.sessionInfoMap[msgKey];
+          if (existing) {
+            store.setSessionInfo(aId, sId, {
+              ...existing,
+              lastResponseAt: new Date().toISOString(),
+            });
+          }
           return;
         }
 
@@ -417,21 +437,45 @@ export function SessionContextProvider({
           const sId = data.sessionId as string;
           const msgKey = sessionKey(aId, sId);
           useMessageStore.getState().setStreaming(msgKey, false);
+          // Re-extract inline file paths from the full content of the
+          // last agent message and update in place via direct state set.
+          // During streaming, appendStreamChunk already does incremental
+          // extraction, but this final pass catches paths that span chunk
+          // boundaries or were missed in early chunks.
+          const msgs = useMessageStore.getState().perSession[msgKey];
+          if (msgs && msgs.length > 0) {
+            const last = msgs[msgs.length - 1];
+            if (last.role === "agent") {
+              const freshPaths = extractCandidatePaths(last.content);
+              const merged = [
+                ...new Set([...(last.inlineFilePaths ?? []), ...freshPaths]),
+              ];
+              const updated = {
+                ...last,
+                inlineFilePaths: merged.length > 0 ? merged : undefined,
+              };
+              useMessageStore.setState((s) => ({
+                perSession: {
+                  ...s.perSession,
+                  [msgKey]: [...msgs.slice(0, -1), updated],
+                },
+              }));
+            }
+          }
           // Sync sessionInfoMap status so Overview/Tab indicators
           // return to idle immediately when the stream ends,
           // without waiting for the delayed session/turnActive(false).
           const cur = stateRef.current;
           const existing = cur.sessionInfoMap[msgKey];
           if (existing && existing.status === "running") {
-            // Sync messageCount from message store before updating status.
-            const msgs = useMessageStore.getState().perSession[msgKey];
+            const msgsAfter = useMessageStore.getState().perSession[msgKey];
             useSessionStore.getState().setSessionInfo(aId, sId, {
               ...existing,
               status: "idle",
               isTurnActive: false,
               isStreaming: false,
-              updatedAt: new Date().toISOString(),
-              messageCount: msgs?.length ?? existing.messageCount,
+              messageCount: msgsAfter?.length ?? existing.messageCount,
+              lastResponseAt: new Date().toISOString(),
             });
           }
           return;
@@ -457,14 +501,22 @@ export function SessionContextProvider({
           if (newestId) {
             useSessionUiStateStore.getState().save(key, { lastSeenMessageId: newestId });
           }
+          // Always clear streaming state on session switch.
+          // isTurnActive is always reset to false — the agent must
+          // send session/turnActive(active=true) to re-activate.
+          useSessionUiStateStore.getState().save(key, {
+            streamingActive: false,
+            streamingAction: null,
+            streamingStartedAt: null,
+          });
           // Update sessionInfoMap so Overview badges (context %, tokens, etc.)
           // are immediately available after session switch.
           store.setSessionInfo(aId, sId, {
             sessionId: sId,
             agentId: aId,
-            status: (data.isTurnActive ? "running" : "idle") as import("../store/sessionStore").SessionInfoSnapshot["status"],
-            isTurnActive: data.isTurnActive as boolean,
-            isStreaming: data.isStreaming as boolean,
+            status: "idle",
+            isTurnActive: false,
+            isStreaming: false,
             tokenUsage: data.tokenUsage as { inputTokens: number; outputTokens: number; totalTokens: number },
             contextWindowMax: data.contextWindowMax as number | undefined,
             model: data.model as string | undefined,
@@ -472,7 +524,7 @@ export function SessionContextProvider({
             cwd: data.cwd as string | undefined,
             messageCount: (data.messages as ChatMessage[])?.length ?? 0,
             createdAt: data.createdAt as string,
-            updatedAt: data.updatedAt as string,
+            lastResponseAt: existing?.lastResponseAt ?? null,
           });
           // Also update messageCount for ALL other sessions so their
           // overview card chips reflect the correct count after switch.
@@ -501,10 +553,26 @@ export function SessionContextProvider({
           const cur = stateRef.current;
           const curActiveKey = cur.activeSessionKey;
           const active = data.active as boolean;
+          const action = data.action as string | undefined;
           // Sync streamingMap so Composer button reflects turn state
           // immediately, without waiting for session/stream chunks.
           if (msgKey === curActiveKey) {
             useMessageStore.getState().setStreaming(msgKey, active);
+          }
+          // Persist streaming state in sessionUiStateStore so
+          // StreamingStatus survives tab switches.
+          if (active) {
+            useSessionUiStateStore.getState().save(msgKey, {
+              streamingActive: true,
+              streamingAction: action ?? `Waiting for ${aId}…`,
+              streamingStartedAt: new Date().toISOString(),
+            });
+          } else {
+            useSessionUiStateStore.getState().save(msgKey, {
+              streamingActive: false,
+              streamingAction: null,
+              streamingStartedAt: null,
+            });
           }
           // Update session status in sessionInfoMap so Overview badges reflect turn state
           const existing = cur.sessionInfoMap[msgKey];
@@ -514,7 +582,6 @@ export function SessionContextProvider({
               isTurnActive: active,
               isStreaming: active,
               status: (active ? "running" : "idle") as import("../store/sessionStore").SessionInfoSnapshot["status"],
-              updatedAt: new Date().toISOString(),
             });
           }
           return;
@@ -531,9 +598,32 @@ export function SessionContextProvider({
               ...existing,
               tokenUsage: data.tokenUsage as { inputTokens: number; outputTokens: number; totalTokens: number },
               contextWindowMax: (data.contextWindowMax as number | undefined) ?? existing.contextWindowMax,
-              updatedAt: new Date().toISOString(),
             });
           }
+          return;
+        }
+
+        case "session/compression": {
+          const aId = data.agentId as string;
+          const sId = data.sessionId as string;
+          const msgKey = sessionKey(aId, sId);
+          const contextWindowMax = data.contextWindowMax as number;
+          const usedTokens = data.usedTokens as number;
+          const usedBefore = data.usedBefore as number | undefined;
+          const compressionMsg: ChatMessage = {
+            id: `compression-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            role: "system",
+            content: "",
+            timestamp: Date.now(),
+            agentId: aId,
+            sessionId: sId,
+            compressionInfo: {
+              contextWindowMax,
+              usedTokens,
+              usedBefore,
+            },
+          };
+          useMessageStore.getState().appendMessage(msgKey, compressionMsg);
           return;
         }
 
@@ -613,7 +703,7 @@ export function SessionContextProvider({
     getVsCodeApi().postMessage({ type: "cancelTurn", agentId, sessionId });
   }, []);
 
-  const switchTab = useCallback((sessionId: string, agentId: string) => {
+  const switchTab = useCallback((agentId: string, sessionId: string) => {
     const key = sessionKeyOf(agentId, sessionId);
     // Do NOT set active session here — wait for session/switch response from
     // extension host so messages are available before the UI switches.

@@ -901,8 +901,10 @@ body {
   color: var(--fg-muted);
 }
 
-.message-tool {
-  align-items: flex-start;
+/* Message tool-batch wrapper: no extra margin — spacing from message-list gap */
+.message-tool-batch {
+  margin: 0;
+  padding: 0;
 }
 
 .message-tool .tool-call {
@@ -1344,12 +1346,12 @@ body {
 .file-chip {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding: 1px 4px 1px 3px;
+  gap: 2px;
+  padding: 1px 3px;
   border-radius: 3px;
   background: var(--bg-secondary);
   color: var(--fg-primary);
-  font-size: 10px;
+  font-size: 9px;
   cursor: pointer;
   user-select: none;
   transition: background 0.15s;
@@ -1370,11 +1372,11 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 13px;
+  width: 14px;
+  height: 11px;
   border-radius: 2px;
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: 7px;
   font-weight: 700;
   line-height: 1;
   letter-spacing: -0.3px;
@@ -1507,21 +1509,22 @@ body {
    ============================================================================ */
 
 .tool-call {
-  margin-top: 3px;
-  margin-left: 12px;
-  margin-right: 12px;
+  margin-top: 0;
+  margin-left: 0;
+  margin-right: 0;
   border-radius: 3px;
   overflow: hidden;
-  font-size: 11px;
+  font-size: 10px;
   background: color-mix(in srgb, var(--bg-secondary) 6%, transparent);
 }
 
 .tool-call-header {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
+  gap: 3px;
+  padding: 1px 6px;
   font-family: var(--font-mono);
+  font-size: 10px;
   color: var(--fg-muted);
 }
 
@@ -1546,7 +1549,6 @@ body {
   outline-offset: -1px;
 }
 
-.tool-call-header-clickable .tool-chevron,
 .tool-group-header .tool-chevron {
   margin-left: auto;
   flex-shrink: 0;
@@ -1558,17 +1560,24 @@ body {
 
 .tool-kind {
   color: var(--fg-secondary);
+  font-size: 9px;
   text-transform: uppercase;
-  font-size: 10px;
-  font-weight: 600;
+}
+
+.tool-kind-icon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  opacity: 0.8;
 }
 
 .tool-title {
   font-weight: 500;
+  font-size: 10px;
 }
 
 .tool-call-body {
-  padding: 1px 8px 4px 10px;
+  padding: 1px 6px 2px 8px;
   background: color-mix(in srgb, var(--bg-secondary) 8%, transparent);
 }
 
@@ -1579,16 +1588,16 @@ body {
 .tool-section-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 4px;
+  gap: 3px;
+  padding: 1px 3px;
   border: none;
   border-radius: 3px;
   background: transparent;
   color: var(--fg-muted);
-  font-size: 11px;
+  font-size: 10px;
   font-family: var(--font-ui);
   cursor: pointer;
-  line-height: 1.4;
+  line-height: 1.3;
   transition:
     color 0.15s,
     background 0.15s;
@@ -1617,19 +1626,51 @@ body {
 }
 
 .tool-section-label {
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .tool-content {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10px;
   white-space: pre-wrap;
   color: var(--fg-secondary);
-  margin: 2px 0 0;
-  padding: 4px 8px;
+  margin: 1px 0 0;
+  padding: 3px 6px;
   background: color-mix(in srgb, var(--bg-primary) 50%, transparent);
   border-radius: 3px;
 }
+
+/* ── Tool duration (single call) ── */
+/* In single tool-call header: duration sits left of chevron.
+   No margin-left: auto — the chevron handles right-alignment. */
+.tool-duration {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Single tool-call header: chevron pushes to right, duration follows */
+.tool-call-header-clickable .tool-chevron {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* Batch header duration: no auto-margin; chevron handles right-push */
+.tool-batch-duration {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tool-batch-header .tool-chevron {
+  margin-left: auto;
+}
+
+
 
 /* ============================================================================
    Tool Batch Summary — kind entries in header
@@ -1640,9 +1681,13 @@ body {
   align-items: center;
   gap: 2px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9px;
   color: var(--fg-secondary);
   white-space: nowrap;
+  margin-right: 3px;
+  padding: 1px 3px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--accent-hover) 50%, transparent);
 }
 
 .tool-batch-kind-icon {
@@ -1652,7 +1697,18 @@ body {
   opacity: 0.8;
 }
 
-.tool-batch-kind-label {
+.tool-batch-ops {
+  font-weight: 600;
+  font-size: 9px;
+  color: var(--fg-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding: 1px 3px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--accent-hover) 50%, transparent);
+}
+
+.tool-batch-kind-abbr {
   text-transform: uppercase;
   font-weight: 600;
   font-size: 9px;
@@ -1662,108 +1718,68 @@ body {
 .tool-batch-kind-count {
   font-weight: 600;
   color: var(--fg-muted);
+  font-size: 9px;
 }
+
+/* ── File chips in batch summary — vertically centered */
+.tool-batch-locations {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+
 
 /* ============================================================================
-   Grouped Tool Call Card — left-accent + near-transparent background
+   Tool Batch Summary — error/ok group labels (mixed-status batches)
    ============================================================================ */
 
-.tool-call-group {
-  margin-top: 3px;
-  margin-left: 12px;
-  margin-right: 12px;
-  border-radius: 3px;
-  overflow: hidden;
-  font-size: 11px;
-  background: color-mix(in srgb, var(--bg-secondary) 6%, transparent);
-}
-
-/* Status colours are conveyed via StatusIcon, not a left border */
-
-/* ── Summary header (always visible, clickable) ── */
-.tool-group-header {
-  display: flex;
+.tool-batch-group-label {
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  width: 100%;
+  gap: 3px;
+  padding: 1px 6px;
   border: none;
+  border-radius: 3px;
   background: transparent;
-  color: var(--fg-primary);
-  font-family: var(--font-ui);
-  font-size: 11px;
+  color: var(--fg-secondary);
+  font-family: var(--font-mono);
+  font-size: 10px;
   cursor: pointer;
   text-align: left;
   transition: background 0.15s ease;
+  width: 100%;
+  margin-top: 2px;
 }
 
-.tool-group-header:hover {
+.tool-batch-group-label:hover {
   background: var(--accent-hover);
 }
 
-.tool-group-header:focus-visible {
+.tool-batch-group-label:focus-visible {
   outline: 1px solid var(--accent);
   outline-offset: -1px;
 }
 
-.tool-group-kind-icon {
-  display: inline-flex;
-  align-items: center;
+.tool-batch-group-chevron {
+  display: inline-block;
+  font-size: 8px;
+  transition: transform 0.15s ease;
   flex-shrink: 0;
-  opacity: 0.8;
-}
-
-.tool-group-header .tool-kind {
-  color: var(--fg-secondary);
-  text-transform: uppercase;
-  font-size: 10px;
-  font-weight: 600;
-}
-
-.tool-group-count {
-  font-weight: 600;
-  color: var(--fg-muted);
-  font-size: 11px;
-}
-
-.tool-group-header .tool-chevron {
-  margin-left: auto;
   opacity: 0.6;
 }
 
-/* ── Expanded body ──
-   Left padding creates a visual gutter that groups child calls under
-   the summary row, making it clear where the group starts and ends. */
-.tool-group-body {
-  padding: 2px 6px 4px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  background: color-mix(in srgb, var(--bg-secondary) 8%, transparent);
-  animation: tool-group-expand 0.15s ease-out;
+.tool-batch-group-chevron.open {
+  transform: rotate(90deg);
 }
 
-@keyframes tool-group-expand {
-  from {
-    opacity: 0;
-    max-height: 0;
-  }
-  to {
-    opacity: 1;
-    max-height: 2000px;
-  }
-}
-
-.tool-group-item {
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.tool-group-item .tool-call {
-  margin-top: 0;
-  margin-left: 0;
-  margin-right: 0;
-  background: transparent;
+.tool-batch-group-count {
+  color: var(--fg-muted);
+  font-weight: 600;
+  font-size: 9px;
 }
 
 /* ============================================================================
@@ -4557,16 +4573,94 @@ body {
 }
 
 /* ============================================================================
+   Context Compression Notice — inline notification in chat
+   ============================================================================ */
+
+.message-compression {
+  margin: 2px 0;
+}
+
+.context-compression-notice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.context-compression-icon-wrap {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+}
+
+.context-compression-icon {
+  font-size: 13px;
+}
+
+.context-compression-body {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.context-compression-label {
+  font-weight: 500;
+  color: var(--fg-secondary);
+  white-space: nowrap;
+}
+
+.context-compression-detail {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--fg-muted);
+}
+
+.context-compression-before {
+  color: var(--warning);
+}
+
+.context-compression-arrow {
+  color: var(--fg-muted);
+  opacity: 0.5;
+}
+
+.context-compression-after {
+  color: var(--success);
+}
+
+.context-compression-tokens {
+  color: var(--fg-muted);
+}
+
+.context-compression-saved {
+  font-size: 10px;
+  color: var(--success);
+  white-space: nowrap;
+}
+
+/* ============================================================================
    Tool Batch Summary — aggressive cross-kind compact view
    ============================================================================ */
 
 .tool-batch {
-  margin-top: 3px;
+  margin-top: 2px;
   margin-left: 12px;
   margin-right: 12px;
   border-radius: 3px;
   overflow: hidden;
-  font-size: 11px;
+  font-size: 10px;
   background: color-mix(in srgb, var(--bg-secondary) 6%, transparent);
 }
 
@@ -4577,14 +4671,14 @@ body {
 .tool-batch-header {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
+  gap: 3px;
+  padding: 1px 6px;
   width: 100%;
   border: none;
   background: transparent;
   color: var(--fg-primary);
   font-family: var(--font-ui);
-  font-size: 11px;
+  font-size: 10px;
   cursor: pointer;
   text-align: left;
   transition: background 0.15s ease;
@@ -4627,13 +4721,6 @@ body {
   white-space: nowrap;
 }
 
-.tool-batch-duration {
-  color: var(--fg-muted);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  white-space: nowrap;
-}
-
 .tool-batch-error-indicator {
   color: var(--error);
   font-size: 11px;
@@ -4651,7 +4738,7 @@ body {
 
 /* ── Expanded body ── */
 .tool-batch-body {
-  padding: 2px 6px 4px 14px;
+  padding: 1px 4px 2px 10px;
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -4674,12 +4761,19 @@ body {
 .tool-batch-item {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 2px 4px;
-  font-size: 10px;
+  gap: 4px;
+  padding: 1px 3px;
+  font-size: 9px;
   font-family: var(--font-mono);
   color: var(--fg-secondary);
   border-radius: 2px;
+}
+
+/* Expanded tool calls in batch: remove outer margin since body provides spacing */
+.tool-batch-item > .tool-call {
+  margin-left: 0;
+  margin-right: 0;
+  margin-top: 1px;
 }
 
 .tool-batch-item:hover {

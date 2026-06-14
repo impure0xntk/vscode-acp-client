@@ -205,8 +205,9 @@ export function SessionOverviewCard({
       {/* Footer: timestamp + unread badge (bottom-right) */}
       <div className="session-overview-card-footer">
         <span className="session-overview-card-timestamp">
-          {new Date(session.updatedAt).toLocaleTimeString()}
+          {new Date(session.lastResponseAt ?? session.createdAt).toLocaleTimeString()}
         </span>
+
         <div className="session-overview-card-actions">
           <UnreadBadge
             count={unreadCount}

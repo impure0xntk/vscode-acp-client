@@ -147,6 +147,7 @@ describe("restoreSession — Strategy 1: native loadSession", () => {
       tokenUsage: { input: 500, output: 200, total: 700 },
       createdAt: new Date(),
       updatedAt: new Date(),
+      lastResponseAt: null,
       pendingCancel: false,
     };
     o.sessions.set("agent-native", new Map([["sess-source-001", sourceSession]]));
@@ -270,6 +271,7 @@ describe("restoreSession — Strategy 2: bridge replay", () => {
       tokenUsage: { input: 300, output: 100, total: 400 },
       createdAt: new Date(),
       updatedAt: new Date(),
+      lastResponseAt: null,
       pendingCancel: false,
     };
     o.sessions.set("agent-bridge", new Map([["sess-source-002", sourceSession]]));
@@ -370,6 +372,7 @@ describe("replayMessages — message filtering", () => {
       tokenUsage: { input: 0, output: 0, total: 0 },
       createdAt: new Date(),
       updatedAt: new Date(),
+      lastResponseAt: null,
       pendingCancel: false,
     };
     o.sessions.set("agent-filter", new Map([["sess-source-filter", sourceSession]]));

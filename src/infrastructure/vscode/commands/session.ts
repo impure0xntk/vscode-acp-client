@@ -23,7 +23,6 @@ export function registerSessionCommands(
       cwd: string;
       status: string;
       createdAt: string;
-      updatedAt: string;
       messageCount: number;
       tokenUsage: { input: number; output: number; total: number };
     }>;
@@ -189,6 +188,10 @@ export function registerSessionCommands(
       if (!pick) return;
       ensureChatPanel();
       orchestrator.setActiveSession(agentId, pick.sessionId);
+      const info = orchestrator.getSessionInfo(agentId, pick.sessionId);
+      if (info) {
+        getChatPanel()?.setActiveSession(agentId, pick.sessionId, info);
+      }
     }
   );
 

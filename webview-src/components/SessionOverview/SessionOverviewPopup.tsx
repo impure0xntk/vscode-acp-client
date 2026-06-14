@@ -55,10 +55,10 @@ export function SessionOverviewPopup({
         className="so-popup-previews"
       />
 
-      {/* Footer: timestamp */}
+      {/* Footer: last-response timestamp */}
       <div className="so-popup-footer">
         <span className="so-popup-timestamp">
-          {new Date(session.updatedAt).toLocaleTimeString()}
+          {new Date(session.lastResponseAt ?? session.createdAt).toLocaleTimeString()}
         </span>
       </div>
     </div>

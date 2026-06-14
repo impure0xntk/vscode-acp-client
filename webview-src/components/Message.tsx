@@ -2,11 +2,11 @@ import React, { useCallback, useMemo } from "react";
 import { renderMarkdown, type RenderContext } from "../lib/markdown";
 import { getVsCodeApi } from "../lib/vscodeApi";
 import { Icon, iconForType } from "../lib/icons";
-import { ToolCallCard } from "./ToolCallCard";
-import { GroupedToolCallCard } from "./ToolCallCard/GroupedToolCallCard";
 import { ToolBatchSummary } from "./ToolCallCard/ToolBatchSummary";
+import { ToolCallCard } from "./ToolCallCard";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { MessageActions } from "./MessageActions";
+import { ContextCompressionNotice } from "./ContextCompressionNotice";
 import type { ChatMessage, ContextAttachment } from "../types";
 
 export interface MessageProps {
@@ -18,111 +18,66 @@ export interface MessageProps {
   thinking?: ChatMessage["thinking"];
   inlineFilePaths?: string[];
   attachments?: ContextAttachment[];
-  /** When true, the header (name + timestamp) is hidden for consecutive same-speaker messages */
   isConsecutive?: boolean;
-  /** Session ID for actions like fork */
   sessionId?: string;
+  compressionInfo?: ChatMessage["compressionInfo"];
 }
 
-/** Open a file in VS Code editor from a click on an inline-code link */
 function openFileFromLink(e: React.MouseEvent<HTMLElement>): void {
-  const target = e.target as HTMLElement;
-  const anchor = target.closest("[data-file-path]") as HTMLElement | null;
+  const anchor = (e.target as HTMLElement).closest("[data-file-path]") as HTMLElement | null;
   if (!anchor) return;
   e.preventDefault();
   e.stopPropagation();
   const filePath = anchor.dataset.filePath;
   if (!filePath) return;
-  const lineAttr = anchor.dataset.fileLine;
-  const line = lineAttr ? Number(lineAttr) : undefined;
-  try {
-    getVsCodeApi().postMessage({ type: "openFile", path: filePath, line });
-  } catch {
-    /* vscodeApi not available */
-  }
+  const line = anchor.dataset.fileLine ? Number(anchor.dataset.fileLine) : undefined;
+  try { getVsCodeApi().postMessage({ type: "openFile", path: filePath, line }); }
+  catch { /* */ }
 }
 
-/** Copy code block content to clipboard via extension host */
 function copyCodeBlock(e: React.MouseEvent<HTMLElement>): void {
   const btn = e.currentTarget as HTMLElement;
   const wrapper = btn.closest(".code-block-wrapper") as HTMLElement | null;
   if (!wrapper) return;
   const codeEl = wrapper.querySelector("code");
   if (!codeEl) return;
-  const text = codeEl.textContent ?? "";
   e.preventDefault();
   e.stopPropagation();
-
-  // Always use extension host for clipboard — webview sandbox blocks
-  // navigator.clipboard and execCommand('copy') in most configurations.
   try {
-    getVsCodeApi().postMessage({ type: "copyToClipboard", text });
+    getVsCodeApi().postMessage({ type: "copyToClipboard", text: codeEl.textContent ?? "" });
     btn.setAttribute("data-copied", "true");
     setTimeout(() => btn.removeAttribute("data-copied"), 1500);
-  } catch {
-    /* vscodeApi not available */
-  }
+  } catch { /* */ }
 }
 
-function AttachmentChip({
-  attachment,
-}: {
-  attachment: ContextAttachment;
-}): React.ReactElement {
+function AttachmentChip({ attachment }: { attachment: ContextAttachment }): React.ReactElement {
   const handleClick = useCallback(() => {
-    if (
-      attachment.type === "selection" ||
-      attachment.type === "symbol" ||
-      !attachment.path
-    )
-      return;
-    try {
-      getVsCodeApi().postMessage({
-        type: "openFile",
-        path: attachment.path,
-        line: attachment.lineRange?.[0],
-      });
-    } catch {
-      /* vscodeApi not available */
-    }
+    if (attachment.type === "selection" || attachment.type === "symbol" || !attachment.path) return;
+    try { getVsCodeApi().postMessage({ type: "openFile", path: attachment.path, line: attachment.lineRange?.[0] }); }
+    catch { /* */ }
   }, [attachment]);
 
   const typeLabel =
-    attachment.type === "selection"
-      ? "selection"
-      : attachment.type === "diff"
-        ? "diff"
-        : attachment.type === "symbol"
-          ? "symbol"
-          : (attachment.path.split("/").pop() ?? attachment.path);
+    attachment.type === "selection" ? "selection"
+    : attachment.type === "diff" ? "diff"
+    : attachment.type === "symbol" ? "symbol"
+    : (attachment.path.split("/").pop() ?? attachment.path);
 
-  const isNavigable =
-    attachment.type !== "selection" &&
-    attachment.type !== "symbol" &&
-    !!attachment.path;
+  const isNavigable = attachment.type !== "selection" && attachment.type !== "symbol" && !!attachment.path;
 
   return (
     <span
       className={`user-attach-chip${isNavigable ? " user-attach-chip--link" : ""}`}
       onClick={isNavigable ? handleClick : undefined}
       title={
-        attachment.type === "selection"
-          ? `Selection in ${attachment.path}${attachment.lineRange ? `:${attachment.lineRange[0]}-${attachment.lineRange[1]}` : ""}`
-          : attachment.type === "symbol"
-            ? attachment.label
-            : attachment.type === "diff"
-              ? attachment.label
-              : attachment.path
+        attachment.type === "selection" ? `Selection in ${attachment.path}${attachment.lineRange ? `:${attachment.lineRange[0]}-${attachment.lineRange[1]}` : ""}`
+        : attachment.type === "symbol" ? attachment.label
+        : attachment.type === "diff" ? attachment.label
+        : attachment.path
       }
       role={isNavigable ? "button" : undefined}
       tabIndex={isNavigable ? 0 : undefined}
-      onKeyDown={
-        isNavigable
-          ? (e) => {
-              if (e.key === "Enter") handleClick();
-            }
-          : undefined
-      }
+      onKeyDown={isNavigable ? (e) => { if (e.key === "Enter") handleClick(); } : undefined}
     >
       <Icon name={iconForType(attachment.type)} size="sm" className="user-attach-chip-icon" />
       <span className="user-attach-chip-label">{typeLabel}</span>
@@ -131,88 +86,29 @@ function AttachmentChip({
   );
 }
 
-function FileChip({
-  path,
-  line,
-}: {
-  path: string;
-  line?: number;
-}): React.ReactElement {
-  const handleClick = useCallback(() => {
-    try {
-      getVsCodeApi().postMessage({ type: "openFile", path, line });
-    } catch {
-      /* vscodeApi not available */
-    }
-  }, [path, line]);
-
-  const label = line ? `${path}:${line}` : path;
-  const basename = path.split("/").pop() ?? path;
-
-  return (
-    <span
-      className="file-chip"
-      onClick={handleClick}
-      title={label}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") handleClick();
-      }}
-    >
-      <Icon name="file" size="sm" className="file-chip-icon" />
-      <span className="file-chip-label">
-        {basename}
-        {line ? `:${line}` : ""}
-      </span>
-    </span>
-  );
-}
-
 export const Message = React.memo(function Message({
-  id,
-  role,
-  content,
-  timestamp,
-  toolCalls,
-  thinking,
-  inlineFilePaths,
-  attachments,
-  isConsecutive,
-  sessionId,
+  id, role, content, timestamp, toolCalls, thinking, inlineFilePaths, attachments, isConsecutive, sessionId, compressionInfo,
 }: MessageProps): React.ReactElement {
   const time = new Date(timestamp).toLocaleTimeString();
-
-  // Collect unique locations from all tool calls
-  const locations = toolCalls
-    ?.flatMap((tc) => tc.locations ?? [])
-    .filter(
-      (loc, idx, arr) =>
-        arr.findIndex((l) => l.path === loc.path && l.line === loc.line) === idx
-    );
-
-  const isTool = role === "tool";
   const isSystem = role === "system";
   const isUser = role === "user";
-  const hasExtra =
-    (locations && locations.length > 0) || (toolCalls && toolCalls.length > 0);
-  const hasAttachments =
-    isUser && attachments !== undefined && attachments.length > 0;
+  const isCompression = isSystem && compressionInfo !== undefined;
+  const hasToolCalls = toolCalls !== undefined && toolCalls.length > 0;
+  const hasAttachments = isUser && attachments !== undefined && attachments.length > 0;
 
-  // Tool messages: left-aligned card without speech bubble.
-  // After mergeToolBatches, consecutive tool messages are merged (any kind).
-  // - Multiple kinds → ToolBatchSummary (expandable, shows per-kind groups)
-  // - Single kind, count >= GROUP_THRESHOLD → GroupedToolCallCard
-  // - Single kind, count < GROUP_THRESHOLD → individual ToolCallCard(s)
-  const GROUP_THRESHOLD = 2;
+  const renderCtx: RenderContext | undefined = inlineFilePaths?.length
+    ? { filePaths: new Set(inlineFilePaths) }
+    : undefined;
 
-  if (isTool) {
-    const calls = toolCalls ?? [];
-    const totalCount = calls.length;
-    const kinds = new Set(calls.map((tc) => tc.kind ?? "tool_call"));
-    const isMultiKind = kinds.size > 1;
+  const handleMarkdownClick = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    const copyBtn = (e.target as HTMLElement).closest('[data-action="copy"]');
+    if (copyBtn) { copyCodeBlock(e as React.MouseEvent<HTMLElement>); return; }
+    openFileFromLink(e);
+  }, []);
 
-    const mapped = calls.map((tc) => ({
+  const batchCalls = useMemo(() => {
+    if (!hasToolCalls) return undefined;
+    return toolCalls!.map((tc) => ({
       id: tc.id,
       title: tc.title,
       kind: tc.kind,
@@ -223,114 +119,17 @@ export const Message = React.memo(function Message({
       locations: tc.locations,
       diffContent: tc.diffContent,
     }));
+  }, [hasToolCalls, toolCalls]);
 
-    // Multi-kind batch → summary
-    if (isMultiKind) {
-      return (
-        <div
-          className="message message-tool"
-          data-message-id={id}
-          data-role={role}
-        >
-          <ToolBatchSummary calls={mapped} />
-        </div>
-      );
-    }
-
-    // Single kind, multiple calls → grouped card
-    if (totalCount >= GROUP_THRESHOLD) {
-      const kind = calls[0]?.kind ?? "tool_call";
-      return (
-        <div
-          className="message message-tool"
-          data-message-id={id}
-          data-role={role}
-        >
-          <GroupedToolCallCard
-            kind={kind}
-            count={totalCount}
-            calls={mapped}
-          />
-        </div>
-      );
-    }
-
-    // Single card(s)
-    return (
-      <div
-        className="message message-tool"
-        data-message-id={id}
-        data-role={role}
-      >
-        {mapped.map((tc) => (
-          <ToolCallCard key={tc.id} {...tc} />
-        ))}
-      </div>
-    );
-  }
-
-
-  // Build render context from confirmed inline file paths
-  const renderCtx: RenderContext | undefined = inlineFilePaths?.length
-    ? { filePaths: new Set(inlineFilePaths) }
-    : undefined;
-
-  /** Delegate clicks: copy button or file link */
-  const handleMarkdownClick = useCallback(
-    (e: React.MouseEvent<HTMLElement>) => {
-      // Copy button takes priority
-      const copyBtn = (e.target as HTMLElement).closest('[data-action="copy"]');
-      if (copyBtn) {
-        copyCodeBlock(e as React.MouseEvent<HTMLElement>);
-        return;
-      }
-      openFileFromLink(e);
-    },
-    []
-  );
-
-  // System / user / agent messages
   return (
     <div
       className={`message ${isSystem ? "message-system" : isUser ? "message-user" : "message-agent"}`}
       data-message-id={id}
       data-role={role}
     >
-      {hasExtra && (
-        <>
-          {/* File chips above messages */}
-          {locations && locations.length > 0 && (
-            <div className="message-file-chips">
-              {locations.map((loc, idx) => (
-                <FileChip
-                  key={`${loc.path}:${loc.line ?? 0}-${idx}`}
-                  path={loc.path}
-                  line={loc.line}
-                />
-              ))}
-            </div>
-          )}
-          {toolCalls?.map((tc) => (
-            <ToolCallCard
-              key={tc.id}
-              id={tc.id}
-              title={tc.title}
-              kind={tc.kind}
-              status={tc.status}
-              input={tc.input}
-              output={tc.output ?? tc.content?.map((c) => c.text).join("\n")}
-              durationMs={tc.durationMs}
-              locations={tc.locations}
-              diffContent={tc.diffContent}
-            />
-          ))}
-        </>
-      )}
       {hasAttachments && (
         <div className="user-attach-row">
-          {attachments!.map((a) => (
-            <AttachmentChip key={a.id} attachment={a} />
-          ))}
+          {attachments!.map((a) => <AttachmentChip key={a.id} attachment={a} />)}
         </div>
       )}
       {!isConsecutive && (
@@ -342,14 +141,9 @@ export const Message = React.memo(function Message({
         </div>
       )}
       <div className={isUser ? "message-body-row" : ""}>
-        {isUser && !isTool && (
+        {isUser && (
           <div className="message-user-actions">
-            <MessageActions
-              messageId={id}
-              content={content}
-              isUserMessage={isUser}
-              sessionId={sessionId ?? ""}
-            />
+            <MessageActions messageId={id} content={content} isUserMessage={isUser} sessionId={sessionId ?? ""} />
           </div>
         )}
         <div className="message-body">
@@ -359,28 +153,30 @@ export const Message = React.memo(function Message({
             <div className="message-markdown-wrap">
               <div
                 className={`message-markdown${isSystem ? " message-system-markdown" : ""}`}
-                dangerouslySetInnerHTML={{
-                  __html: renderMarkdown(content, renderCtx),
-                }}
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(content, renderCtx) }}
                 onClick={handleMarkdownClick}
               />
-              {!isTool && (
-                <MessageActions
-                  messageId={id}
-                  content={content}
-                  isUserMessage={isUser}
-                  sessionId={sessionId ?? ""}
-                />
-              )}
+              <MessageActions messageId={id} content={content} isUserMessage={isUser} sessionId={sessionId ?? ""} />
             </div>
           )}
         </div>
       </div>
+      {isCompression && compressionInfo && (
+        <div className="message-compression">
+          <ContextCompressionNotice compressionInfo={compressionInfo} />
+        </div>
+      )}
+      {batchCalls && (
+        <div className="message-tool-batch">
+          {batchCalls.length === 1 ? (
+            <ToolCallCard {...batchCalls[0]} />
+          ) : (
+            <ToolBatchSummary calls={batchCalls} />
+          )}
+        </div>
+      )}
       {thinking && (
-        <ThinkingBlock
-          content={thinking.content}
-          isStreaming={thinking.isStreaming}
-        />
+        <ThinkingBlock content={thinking.content} isStreaming={thinking.isStreaming} />
       )}
     </div>
   );

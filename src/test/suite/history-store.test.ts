@@ -85,7 +85,6 @@ function makeEntry(overrides: Partial<HistoryEntry> = {}): HistoryEntry {
     cwd: "/home/user/project",
     status: "idle",
     createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z",
     messageCount: 5,
     tokenUsage: { input: 100, output: 50, total: 150 },
     ...overrides,

@@ -5,7 +5,7 @@ import type { SessionOverviewItem } from "../../types";
 import type { SessionAction } from "../../hooks/useSessionContext";
 
 interface OverviewHandlerDeps {
-  switchTab: (sessionId: string, agentId: string) => void;
+  switchTab: (agentId: string, sessionId: string) => void;
   closeSession: (agentId: string, sessionId: string) => void;
   sessionOverviewState: { selectedSessionIds?: string[] };
   dispatch: (action: SessionAction) => void;
@@ -15,7 +15,7 @@ export function useOverviewHandlers(deps: OverviewHandlerDeps) {
   const { switchTab, closeSession, sessionOverviewState, dispatch } = deps;
 
   const handleFocus = useCallback(
-    (sessionId: string, agentId: string) => switchTab(sessionId, agentId),
+    (sessionId: string, agentId: string) => switchTab(agentId, sessionId),
     [switchTab],
   );
 

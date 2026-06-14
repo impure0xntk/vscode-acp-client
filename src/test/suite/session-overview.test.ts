@@ -63,6 +63,7 @@ function makeSessionInfo(
     isStreaming: false,
     createdAt: now,
     updatedAt: now,
+    lastResponseAt: null,
     tokenUsage: { input: 0, output: 0, total: 0 },
     pendingCancel: false,
     ...overrides,
@@ -275,7 +276,6 @@ describe("SessionOrchestrator — getSessionOverview()", () => {
       "sess-1",
       makeSessionInfo("sess-1", "claude", {
         status: "completed",
-        updatedAt: new Date(Date.now() - 5000),
       })
     );
     sessions.set("claude", agentSessions);
@@ -308,7 +308,7 @@ describe("SessionOrchestrator — getSessionOverview()", () => {
     assert.ok(recent.length > 0);
   });
 
-  it("extracts ISO date strings for createdAt and updatedAt", () => {
+  it("extracts ISO date strings for createdAt", () => {
     const sessions = (orch as any).sessions as Map<
       string,
       Map<string, SessionInfo>
@@ -319,7 +319,6 @@ describe("SessionOrchestrator — getSessionOverview()", () => {
       "sess-1",
       makeSessionInfo("sess-1", "claude", {
         createdAt: new Date("2026-01-15T10:30:00Z"),
-        updatedAt: new Date("2026-01-15T11:00:00Z"),
       })
     );
     sessions.set("claude", agentSessions);
@@ -328,10 +327,6 @@ describe("SessionOrchestrator — getSessionOverview()", () => {
     assert.strictEqual(
       overview.sessions[0].createdAt,
       "2026-01-15T10:30:00.000Z"
-    );
-    assert.strictEqual(
-      overview.sessions[0].updatedAt,
-      "2026-01-15T11:00:00.000Z"
     );
   });
 
@@ -505,7 +500,6 @@ describe("Session Overview — type contracts", () => {
       recentResponses: any[];
       cwd?: string;
       createdAt: string;
-      updatedAt: string;
     } = {
       sessionId: "sess-1",
       agentId: "claude",
@@ -524,7 +518,6 @@ describe("Session Overview — type contracts", () => {
       recentResponses: [],
       cwd: "/workspace/project",
       createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:05:00.000Z",
     };
 
     assert.strictEqual(item.sessionId, "sess-1");

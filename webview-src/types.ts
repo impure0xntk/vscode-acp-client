@@ -39,7 +39,8 @@ export interface SessionOverviewItem {
   recentResponses: ResponsePreview[];
   cwd?: string;
   createdAt: string;
-  updatedAt: string;
+  /** ISO date string — last time agent produced output. Null if never. */
+  lastResponseAt: string | null;
 }
 
 /** Filter modes — "none" means no filter active (show all) */
@@ -112,6 +113,8 @@ export interface ChatMessage {
   inlineFilePaths?: string[];
   /** Context attachments (files, selections, symbols, diffs) */
   attachments?: ContextAttachment[];
+  /** Context compression info — present when role="system" and compression was detected */
+  compressionInfo?: SessionCompressionInfo;
 }
 
 export interface TokenUsage {
@@ -168,6 +171,12 @@ export interface SuggestionItem {
   agentId?: string;
   /** Session identifier — populated for session suggestions */
   sessionId?: string;
+}
+
+export interface SessionCompressionInfo {
+  contextWindowMax: number;
+  usedTokens: number;
+  usedBefore?: number;
 }
 
 export interface StreamChunk {

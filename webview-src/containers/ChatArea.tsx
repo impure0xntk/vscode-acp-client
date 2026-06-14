@@ -3,6 +3,7 @@ import { ChatContainer } from "../components/ChatContainer";
 import { Composer } from "../components/Composer";
 import { StreamingStatus } from "../components/StreamingStatus";
 import { useSessionContext } from "../hooks/useSessionContext";
+import { useSessionStore } from "../store/sessionStore";
 
 
 interface ChatAreaProps {
@@ -19,7 +20,7 @@ interface ChatAreaProps {
     sessionId?: string
   ) => void;
   onCancel: () => void;
-  onSwitchSession: (agentId: string, sessionId: string) => void;
+  onSwitchSession: (agentId: string, sessionId: string) => void; // (agentId, sessionId)
   fetchFiles: (query: string) => Promise<import("../types").FileCandidate[]>;
   resolveFile: (path: string) => Promise<import("../types").ContextAttachment>;
   resolveSelection: () => Promise<import("../types").ContextAttachment | null>;
@@ -120,6 +121,14 @@ export function ChatArea({
           </button>
         )}
       </div>
+      <StreamingStatus
+        action={isTurnActive ? `Waiting for ${activeKey?.split(":")[0] ?? "agent"}…` : undefined}
+        active={isTurnActive}
+        lastResponseAt={activeKey
+          ? useSessionStore.getState().sessionInfoMap[activeKey]?.lastResponseAt ?? undefined
+          : undefined}
+        sessionKey={activeKey ?? undefined}
+      />
       <Composer
         onSend={handleSend}
         onCancel={onCancel}
@@ -133,11 +142,6 @@ export function ChatArea({
         fetchSymbols={fetchSymbols}
         resolveSymbol={resolveSymbol}
         availableCommands={availableCommands}
-      />
-      <StreamingStatus
-        action={isTurnActive ? `Waiting for ${activeKey?.split(":")[0] ?? "agent"}…` : undefined}
-        startMs={isTurnActive ? Date.now() : undefined}
-        active={isTurnActive}
       />
     </>
   );

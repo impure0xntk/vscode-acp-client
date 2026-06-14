@@ -255,7 +255,6 @@ export class ChatPanel {
       cwd: info.cwd,
       messageCount: info.messages.length,
       createdAt: info.createdAt.toISOString(),
-      updatedAt: info.updatedAt.toISOString(),
     });
     // Also push metadata-only update for sessionInfoMap
     this.pushSessionInfo(agentId, sessionId, info);
@@ -331,6 +330,25 @@ export class ChatPanel {
     });
   }
 
+  pushSessionCompression(
+    agentId: string,
+    sessionId: string,
+    info: {
+      contextWindowMax: number;
+      usedTokens: number;
+      usedBefore?: number;
+    }
+  ): void {
+    this.postMessage({
+      type: "session/compression",
+      agentId,
+      sessionId,
+      contextWindowMax: info.contextWindowMax,
+      usedTokens: info.usedTokens,
+      usedBefore: info.usedBefore,
+    });
+  }
+
   pushSessionUsage(
     agentId: string,
     sessionId: string,
@@ -374,7 +392,6 @@ export class ChatPanel {
       isStreaming: info.isStreaming,
       messageCount: info.messages.length,
       createdAt: info.createdAt.toISOString(),
-      updatedAt: info.updatedAt.toISOString(),
     });
   }
 
