@@ -2,7 +2,7 @@ import React from "react";
 import { UserJumpNav } from "./UserJumpNav";
 import { AgentBadge } from "./ui/AgentBadge";
 import type { ChatMessage } from "../types";
-import type { ConnectedAgentInfo } from "../hooks/useSessionContext";
+import type { ConnectedAgentInfo } from "../store/sessionStore";
 import { Icon } from "../lib/icons";
 
 // ── props ─────────────────────────────────────────────────────────────────

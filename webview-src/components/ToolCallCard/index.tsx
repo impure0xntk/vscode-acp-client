@@ -3,6 +3,9 @@ import type { ToolCallDiffContent, ToolCall } from "../../types";
 import { StatusIcon } from "../StatusIcon";
 import { getVsCodeApi } from "../../lib/vscodeApi";
 import { Icon, iconForToolKind } from "../../lib/icons";
+import { getLogger } from "../../lib/logger";
+
+const log = getLogger("webview.ToolCallCard");
 // ── Shared helpers ─────────────────────────────────────────────────────────
 
 export function getFileExtension(path: string): string {

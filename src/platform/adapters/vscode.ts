@@ -41,6 +41,10 @@ import type {
 import type { TerminalAPI, Terminal } from "../terminal";
 import type { OrchestrationStateAPI } from "../orchestration";
 import type { PlatformAPI } from "../platform";
+import { VsCodeOutputBackend } from "../backends/vscode-output-backend";
+import { LoggerFactoryImpl } from "../backends/logger-impl";
+import { initLoggerFactory } from "../backends";
+import type { LogLevelValue } from "../backends/types";
 
 // ---------------------------------------------------------------------------
 // VSCode Platform
@@ -62,6 +66,14 @@ export class VscodePlatform implements PlatformAPI {
   constructor(options: { context: vscode.ExtensionContext }) {
     this.ctx = options.context;
     this.version = vscode.version;
+
+    // ── Initialize logging ────────────────────────────────────────────
+    const logChannel = vscode.window.createOutputChannel("ACP Client");
+    const logLevel: LogLevelValue = 1; // default: debug for VS Code
+    const backend = new VsCodeOutputBackend(logChannel, logLevel);
+    const factory = new LoggerFactoryImpl(backend);
+    initLoggerFactory(factory);
+
     this.ui = new VscodeUIAPI();
     this.fs = new VscodeFileSystemAPI();
     this.editor = new VscodeEditorAPI();

@@ -1,4 +1,5 @@
-import React, { useMemo, useRef, useState, useEffect } from "react";
+import React, { useMemo, useRef, useState, useEffect, useCallback } from "react";
+import { useLogger } from "../hooks/useLogger";
 import { BottomToolbar } from "../components/toolbar";
 import { TopToolbar } from "../components/TopToolbar";
 import { SessionTabs } from "../components/SessionTabs";
@@ -10,66 +11,93 @@ import {
 import {
   ResizableSessionOverviewPanel,
 } from "../components/SessionOverview/SessionOverviewPanel";
-import { useSessionContext } from "../hooks/useSessionContext";
+import { MeshPanel } from "../components/MeshPanel";
 import { useSessionStore, sessionKeyOf } from "../store/sessionStore";
+import type { SessionState } from "../store/sessionStore";
 import { useMessageStore } from "../store/messageStore";
+import { useUiStateStore } from "../store/uiStateStore";
+import { useMeshStore } from "../store/meshStore";
+import { getVsCodeApi } from "../lib/vscodeApi";
+import { useShallow } from "zustand/shallow";
 import { useChatHandlers } from "./hooks/useChatHandlers";
 import { useOverviewHandlers } from "./hooks/useOverviewHandlers";
 import { ChatArea } from "./ChatArea";
-
-// ── Legacy compat: sessionKey for components that still use agentId+sessionId ──
-function sessionKey(agentId: string, sessionId: string): string {
-  return sessionKeyOf(agentId, sessionId);
-}
+import type { ContextAttachment, SendTarget } from "../types";
 
 export function AppContainer(): React.ReactElement {
-  const ctx = useSessionContext();
-
+  const log = useLogger("AppContainer");
+  // ── Direct store subscriptions ──────────────────────────────────────
   const {
-    tabs,
-    activeSessionId,
-    activeAgentId,
+    activeSessionKey,
+    sessionInfoMap,
+    tabOrder,
+    tabTitles,
+    tabIcons,
     workspaceRoot,
     connectedAgents,
     agentInfoMap,
-    dismissCompletedNotification,
-    switchTab,
-    newSessionWithPicker,
-    closeSession,
-    fetchFiles,
-    resolveFile,
-    resolveSelection,
-    resolveDiff,
-    fetchSymbols,
-    resolveSymbol,
-    availableCommands,
-    sessionOverviewVisible,
-    sessionOverviewState,
-    sessionOverviewPosition,
-    sessionOverviewWidth,
-    toggleSessionOverview,
-    setSessionOverviewFilter,
-    dispatch,
-    forkSession,
-  } = ctx;
+    sessionCommands,
+    statusline,
+  } = useSessionStore(useShallow((s: SessionState) => ({
+    activeSessionKey: s.activeSessionKey,
+    sessionInfoMap: s.sessionInfoMap,
+    tabOrder: s.tabOrder,
+    tabTitles: s.tabTitles,
+    tabIcons: s.tabIcons,
+    workspaceRoot: s.workspaceRoot,
+    connectedAgents: s.connectedAgents,
+    agentInfoMap: s.agentInfoMap,
+    sessionCommands: s.sessionCommands,
+    statusline: s.statusline,
+  })));
 
-  // History panel state
-  const [showHistory, setShowHistory] = React.useState(false);
-  const [selectedHistorySession, setSelectedHistorySession] =
-    React.useState<PersistentSessionEntry | null>(null);
+  // Derived from upstream references — only recomputed when they change
+  const tabs = useMemo(() => {
+    const orderedKeys = tabOrder.length > 0 ? tabOrder : Object.keys(sessionInfoMap);
+    return orderedKeys
+      .filter((key: string) => sessionInfoMap[key])
+      .map((key: string): import("../store/sessionStore").SessionTabState => {
+        const [agentId, sessionId] = key.split(":");
+        return {
+          sessionId,
+          agentId,
+          title: tabTitles[key] ?? sessionId,
+          agentIcon: tabIcons[key],
+        };
+      });
+  }, [sessionInfoMap, tabOrder, tabTitles, tabIcons]);
 
-  const scrollToMessageRef = useRef<(id: string) => void>();
+  const {
+    overviewVisible,
+    overviewWidth,
+    overviewPosition,
+    overviewFilter,
+    overviewExpandedSessions,
+    overviewSelectedSessionIds,
+    overviewSelectionMode,
+  } = useUiStateStore(useShallow((s) => ({
+    overviewVisible: s.overviewVisible,
+    overviewWidth: s.overviewWidth,
+    overviewPosition: s.overviewPosition,
+    overviewFilter: s.overviewFilter,
+    overviewExpandedSessions: s.overviewExpandedSessions,
+    overviewSelectedSessionIds: s.overviewSelectedSessionIds,
+    overviewSelectionMode: s.overviewSelectionMode,
+  })));
 
-  const activeKey =
-    activeAgentId && activeSessionId
-      ? sessionKey(activeAgentId, activeSessionId)
-      : null;
+  const { perSession, streamingMap } = useMessageStore(useShallow((s) => ({
+    perSession: s.perSession,
+    streamingMap: s.streaming,
+  })));
 
-  const activeSessionInfo = activeKey
-    ? ctx.sessionInfoMap[activeKey]
+  // ── Derived values ──────────────────────────────────────────────────
+  const activeSessionId = activeSessionKey ? activeSessionKey.split(":")[1] : null;
+  const activeAgentId = activeSessionKey ? activeSessionKey.split(":")[0] : null;
+
+  const activeSessionInfo = activeSessionKey
+    ? sessionInfoMap[activeSessionKey]
     : undefined;
 
-  // Derived display values — all from sessionInfoMap
   const displayModel = activeSessionInfo?.model;
   const displayMode = activeSessionInfo?.mode;
   const displayCwd = activeSessionInfo?.cwd;
@@ -86,18 +114,126 @@ export function AppContainer(): React.ReactElement {
     ? new Date(activeSessionInfo.createdAt).getTime()
     : undefined;
 
-  const overviewOnLeft = sessionOverviewPosition === "left";
+  const activeMessages = activeSessionKey
+    ? perSession[activeSessionKey] ?? []
+    : [];
+  const activeIsStreaming = activeSessionKey
+    ? streamingMap[activeSessionKey] ?? false
+    : false;
+
+  const availableCommands = activeSessionKey
+    ? sessionCommands[activeSessionKey] ?? []
+    : [];
+
+  const overviewOnLeft = overviewPosition === "left";
+
+  // ── Local state ─────────────────────────────────────────────────────
+  const [showHistory, setShowHistory] = useState(false);
+  const [selectedHistorySession, setSelectedHistorySession] =
+    useState<PersistentSessionEntry | null>(null);
+  const [completedNotifications, setCompletedNotifications] = useState<
+    Array<{ agentId: string; sessionId: string; title: string }>
+  >([]);
+
+  const scrollToMessageRef = useRef<(id: string) => void>();
+
+  // ── Mesh panel visibility ──────────────────────────────────────────
+  const meshPanelVisible = useMeshStore((s) => s.meshPanelVisible);
+  const setMeshPanelVisible = useMeshStore((s) => s.setMeshPanelVisible);
+
+  // ── Actions ─────────────────────────────────────────────────────────
+  const sendMessage = useCallback(
+    (text: string, attachments: ContextAttachment[] = [], agentId?: string, sessionId?: string, targets?: SendTarget[]) => {
+      if (targets && targets.length > 0) {
+        getVsCodeApi().postMessage({ type: "mesh:directMulti", text, attachments, targets });
+      } else {
+        getVsCodeApi().postMessage({ type: "sendMessage", text, attachments, agentId, sessionId });
+      }
+    },
+    []
+  );
+
+  const cancelTurn = useCallback((agentId?: string, sessionId?: string) => {
+    getVsCodeApi().postMessage({ type: "cancelTurn", agentId, sessionId });
+  }, []);
+
+  const switchTab = useCallback((agentId: string, sessionId: string) => {
+    getVsCodeApi().postMessage({ type: "switchSession", sessionId, agentId });
+  }, []);
+
+  const newSessionWithPicker = useCallback(() => {
+    getVsCodeApi().postMessage({ type: "openNewSessionPicker" });
+  }, []);
+
+  const closeSession = useCallback((agentId: string, sessionId: string) => {
+    const store = useSessionStore.getState();
+    const key = sessionKeyOf(agentId, sessionId);
+    store.removeTab(key);
+    useUiStateStore.getState().clearScrollState(key);
+    getVsCodeApi().postMessage({ type: "closeSession", sessionId, agentId });
+  }, []);
+
+  const forkSession = useCallback((sessionId: string) => {
+    getVsCodeApi().postMessage({ type: "forkSession", sessionId });
+  }, []);
+
+  const toggleSessionOverview = useCallback(() => {
+    const cur = useUiStateStore.getState().overviewVisible;
+    useUiStateStore.getState().setOverviewVisible(!cur);
+  }, []);
+
+  const toggleMeshPanel = useCallback(() => {
+    setMeshPanelVisible(!meshPanelVisible);
+  }, [meshPanelVisible, setMeshPanelVisible]);
+
+  const setSessionOverviewFilter = useCallback((filter: typeof overviewFilter) => {
+    useUiStateStore.getState().setOverviewFilter(filter);
+  }, []);
+
+  const toggleSessionOverviewSelection = useCallback((sessionId: string) => {
+    useUiStateStore.getState().toggleOverviewSelected(sessionId);
+  }, []);
+
+  const setSessionOverviewSelection = useCallback((sessionIds: string[]) => {
+    useUiStateStore.getState().setOverviewSelectedSessionIds(sessionIds);
+  }, []);
+
+  const dismissCompletedNotification = useCallback(() => {
+    setCompletedNotifications((prev) => prev.slice(1));
+  }, []);
 
   // ── Handlers via hooks ──────────────────────────────────────────────
-
   const forceScrollToBottomRef = useRef<() => void>();
   const { handleSend, handleCancel } = useChatHandlers({
     activeAgentId,
     activeSessionId,
-    sendMessage: ctx.sendMessage,
-    cancelTurn: ctx.cancelTurn,
+    sendMessage,
+    cancelTurn,
     forceScrollToBottomRef,
   });
+
+  // Mesh-aware send handler that accepts targets from Composer
+  const handleMeshSend = useCallback(
+    (text: string, attachments: ContextAttachment[], targets?: SendTarget[]) => {
+      if (targets && targets.length > 0) {
+        sendMessage(text, attachments, undefined, undefined, targets);
+      } else {
+        sendMessage(text, attachments, activeAgentId ?? undefined, activeSessionId ?? undefined);
+      }
+      forceScrollToBottomRef.current?.();
+    },
+    [sendMessage, forceScrollToBottomRef, activeAgentId, activeSessionId]
+  );
+
+  const overviewState = useMemo(
+    () => ({
+      filter: overviewFilter,
+      expandedSessions: overviewExpandedSessions,
+      selectedSessionIds: overviewSelectedSessionIds,
+      selectionMode: overviewSelectionMode,
+    }),
+    [overviewFilter, overviewExpandedSessions, overviewSelectedSessionIds, overviewSelectionMode]
+  );
 
   const {
     handleFocus: handleOverviewFocus,
@@ -113,8 +249,7 @@ export function AppContainer(): React.ReactElement {
   } = useOverviewHandlers({
     switchTab,
     closeSession,
-    sessionOverviewState,
-    dispatch,
+    sessionOverviewState: overviewState,
   });
 
   const handleJumpToMessage = (messageId: string) => {
@@ -148,29 +283,26 @@ export function AppContainer(): React.ReactElement {
   useEffect(() => {
     const handler = (e: MessageEvent) => {
       if (e.data?.type === "history:restored") {
-        console.log("Restoring session:", e.data.sessionId, e.data.agentId);
+        log.info("restoring session", { sessionId: e.data.sessionId, agentId: e.data.agentId });
       }
     };
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, []);
+  }, [log]);
 
   // ── Derived data ────────────────────────────────────────────────────
-
   const validNotifications = useMemo(
     () =>
-      ctx.completedNotifications.filter((notif) =>
+      completedNotifications.filter((notif: import("../components/CompletionNotification").SessionNotification) =>
         tabs.some(
-          (t) =>
+          (t: import("../store/sessionStore").SessionTabState) =>
             t.sessionId === notif.sessionId && t.agentId === notif.agentId,
         ),
       ),
-    [ctx.completedNotifications, tabs],
+    [completedNotifications, tabs],
   );
 
-  // Subscribe to perSession so the memo recomputes when messages change.
-  const perSession = useMessageStore((s) => s.perSession);
-  // Derive overview items as a lookup map — single source of truth via getOverviewItems()
+  // Derive overview items as a lookup map
   const overviewItemsMap = useMemo(() => {
     const items = useSessionStore.getState().getOverviewItems();
     const acc: Record<string, import("../types").SessionOverviewItem> = {};
@@ -178,20 +310,109 @@ export function AppContainer(): React.ReactElement {
       acc[`${item.agentId}:${item.sessionId}`] = item;
     }
     return acc;
-  }, [tabs, ctx.sessionInfoMap, perSession]);
+  }, [tabs, sessionInfoMap, perSession]);
+
+  // ── File/symbol resolution (kept as-is for now) ─────────────────────
+  const fetchFiles = useCallback((query: string) => {
+    return new Promise<import("../types").FileCandidate[]>((resolve) => {
+      const reqId = crypto.randomUUID();
+      const handler = (event: MessageEvent) => {
+        if (event.data.type === "fileCandidates" && event.data.reqId === reqId) {
+          window.removeEventListener("message", handler);
+          resolve(event.data.candidates ?? []);
+        }
+      };
+      window.addEventListener("message", handler);
+      getVsCodeApi().postMessage({ type: "fetchFiles", query, reqId });
+    });
+  }, []);
+
+  const resolveFile = useCallback((path: string) => {
+    return new Promise<ContextAttachment>((resolve, reject) => {
+      const reqId = crypto.randomUUID();
+      const handler = (event: MessageEvent) => {
+        if (event.data.type === "resolvedFile" && event.data.reqId === reqId) {
+          window.removeEventListener("message", handler);
+          if (event.data.attachment) {
+            resolve(event.data.attachment as ContextAttachment);
+          } else {
+            reject(new Error((event.data.error as string) ?? "Failed to resolve file"));
+          }
+        }
+      };
+      window.addEventListener("message", handler);
+      getVsCodeApi().postMessage({ type: "resolveFile", path, reqId });
+    });
+  }, []);
+
+  const resolveSelection = useCallback(() => {
+    return new Promise<ContextAttachment | null>((resolve) => {
+      const handler = (event: MessageEvent) => {
+        if (event.data.type === "resolvedSelection") {
+          window.removeEventListener("message", handler);
+          resolve(event.data.attachment as ContextAttachment | null);
+        }
+      };
+      window.addEventListener("message", handler);
+      getVsCodeApi().postMessage({ type: "resolveSelection" });
+    });
+  }, []);
+
+  const resolveDiff = useCallback(() => {
+    return new Promise<ContextAttachment | null>((resolve) => {
+      const handler = (event: MessageEvent) => {
+        if (event.data.type === "resolvedDiff") {
+          window.removeEventListener("message", handler);
+          resolve(event.data.attachment as ContextAttachment | null);
+        }
+      };
+      window.addEventListener("message", handler);
+      getVsCodeApi().postMessage({ type: "resolveDiff" });
+    });
+  }, []);
+
+  const fetchSymbols = useCallback((query: string) => {
+    return new Promise<import("../types").SuggestionItem[]>((resolve) => {
+      const handler = (event: MessageEvent) => {
+        if (event.data.type === "symbolCandidates" && event.data.query === query) {
+          window.removeEventListener("message", handler);
+          resolve((event.data.candidates as import("../types").SuggestionItem[]) ?? []);
+        }
+      };
+      window.addEventListener("message", handler);
+      getVsCodeApi().postMessage({ type: "fetchSymbols", query });
+    });
+  }, []);
+
+  const resolveSymbol = useCallback((name: string) => {
+    return new Promise<ContextAttachment>((resolve, reject) => {
+      const handler = (event: MessageEvent) => {
+        if (event.data.type === "resolvedSymbol" && event.data.name === name) {
+          window.removeEventListener("message", handler);
+          if (event.data.attachment) {
+            resolve(event.data.attachment as ContextAttachment);
+          } else {
+            reject(new Error((event.data.error as string) ?? "Failed to resolve symbol"));
+          }
+        }
+      };
+      window.addEventListener("message", handler);
+      getVsCodeApi().postMessage({ type: "resolveSymbol", name });
+    });
+  }, []);
 
   // ── Render ────────────────────────────────────────────────────────────
 
   return (
     <div
-      className={`app-container${sessionOverviewVisible ? " with-overview" : ""}${overviewOnLeft ? " overview-left" : ""}`}
+      className={`app-container${overviewVisible ? " with-overview" : ""}${overviewOnLeft ? " overview-left" : ""}`}
     >
-      {overviewOnLeft && sessionOverviewVisible && (
+      {overviewOnLeft && overviewVisible && (
         <ResizableSessionOverviewPanel
-          isVisible={sessionOverviewVisible}
-          state={sessionOverviewState}
+          isVisible={overviewVisible}
+          state={overviewState}
           connectedAgents={connectedAgents}
-          width={sessionOverviewWidth}
+          width={overviewWidth}
           onFilterChange={setSessionOverviewFilter}
           onFocus={handleOverviewFocus}
           onCancel={handleOverviewCancel}
@@ -207,7 +428,7 @@ export function AppContainer(): React.ReactElement {
         />
       )}
       <div className="main-content">
-        {!sessionOverviewVisible && (
+        {!overviewVisible && (
           <SessionTabs
             tabs={tabs}
             activeSessionId={activeSessionId}
@@ -217,7 +438,8 @@ export function AppContainer(): React.ReactElement {
             onTabClick={handleTabClick}
             onTabClose={handleTabClose}
             onTabReorder={(tabs) => {
-              dispatch({ type: "REORDER_TABS", tabs });
+              const order = tabs.map((t) => sessionKeyOf(t.agentId, t.sessionId));
+              useSessionStore.getState().setTabOrder(order);
             }}
             onNewSession={handleNewSession}
           />
@@ -237,7 +459,7 @@ export function AppContainer(): React.ReactElement {
           </div>
         )}
         <TopToolbar
-          messages={ctx.messages}
+          messages={activeMessages}
           agentId={activeAgentId ?? undefined}
           agentName={activeAgentId ? agentInfoMap[activeAgentId]?.name : undefined}
           connectedAgents={connectedAgents}
@@ -247,18 +469,18 @@ export function AppContainer(): React.ReactElement {
           workspaceRoot={workspaceRoot}
           isTurnActive={displayIsTurnActive}
           onJumpToMessage={handleJumpToMessage}
-          sessionOverviewVisible={sessionOverviewVisible}
+          sessionOverviewVisible={overviewVisible}
           onToggleSessionOverview={toggleSessionOverview}
-          sessionOverviewPosition={sessionOverviewPosition}
+          sessionOverviewPosition={overviewPosition}
         />
         <ChatArea
-          activeKey={activeKey}
-          messages={ctx.messages}
-          isStreaming={ctx.isStreaming}
+          activeKey={activeSessionKey}
+          messages={activeMessages}
+          isStreaming={activeIsStreaming}
           status={displayStatus}
           isTurnActive={displayIsTurnActive}
           disabled={!activeSessionId}
-          onSend={handleSend}
+          onSend={handleMeshSend}
           onCancel={handleCancel}
           onSwitchSession={switchTab}
           fetchFiles={fetchFiles}
@@ -282,21 +504,25 @@ export function AppContainer(): React.ReactElement {
           sessionId={activeSessionId ?? undefined}
           sessionStartMs={displaySessionStartMs}
           onForkSession={activeSessionId ? () => forkSession(activeSessionId) : undefined}
-          statusline={ctx.statusline}
+          statusline={statusline}
           cwd={displayCwd}
         />
       </div>
+
+      {meshPanelVisible && (
+        <MeshPanel onClose={() => setMeshPanelVisible(false)} />
+      )}
 
       {showHistory && (
         <SessionHistoryPanel onClose={handleCloseHistory} onRestore={handleRestoreSession} />
       )}
 
-      {!overviewOnLeft && sessionOverviewVisible && (
+      {!overviewOnLeft && overviewVisible && (
         <ResizableSessionOverviewPanel
-          isVisible={sessionOverviewVisible}
-          state={sessionOverviewState}
+          isVisible={overviewVisible}
+          state={overviewState}
           connectedAgents={connectedAgents}
-          width={sessionOverviewWidth}
+          width={overviewWidth}
           onFilterChange={setSessionOverviewFilter}
           onFocus={handleOverviewFocus}
           onCancel={handleOverviewCancel}

@@ -1,34 +1,37 @@
 import React, { useState, useRef, useCallback } from "react";
+import { useShallow } from "zustand/shallow";
 import { ChatContainer } from "../components/ChatContainer";
 import { Composer } from "../components/Composer";
 import { StreamingStatus } from "../components/StreamingStatus";
 import { QueuedPromptList } from "../components/QueuedPromptList";
-import { useSessionContext } from "../hooks/useSessionContext";
 import { useSessionStore, sessionKeyOf } from "../store/sessionStore";
+import type { SessionState } from "../store/sessionStore";
+import { useUiStateStore } from "../store/uiStateStore";
+import type { SendTarget } from "../types";
+import type { SessionStatus } from "../components/StatusIcon";
 
 
 interface ChatAreaProps {
   activeKey: string | null;
-  messages: ReturnType<typeof useSessionContext>["messages"];
+  messages: import("../types").ChatMessage[];
   isStreaming: boolean;
-  status?: string;
+  status?: SessionStatus;
   isTurnActive: boolean;
   disabled: boolean;
   onSend: (
     text: string,
     attachments: import("../types").ContextAttachment[],
-    agentId?: string,
-    sessionId?: string
+    targets?: SendTarget[]
   ) => void;
   onCancel: () => void;
-  onSwitchSession: (agentId: string, sessionId: string) => void; // (agentId, sessionId)
+  onSwitchSession: (agentId: string, sessionId: string) => void;
   fetchFiles: (query: string) => Promise<import("../types").FileCandidate[]>;
   resolveFile: (path: string) => Promise<import("../types").ContextAttachment>;
   resolveSelection: () => Promise<import("../types").ContextAttachment | null>;
   resolveDiff: () => Promise<import("../types").ContextAttachment | null>;
   fetchSymbols: (query: string) => Promise<import("../types").SuggestionItem[]>;
   resolveSymbol: (name: string) => Promise<import("../types").ContextAttachment>;
-  availableCommands: ReturnType<typeof useSessionContext>["availableCommands"];
+  availableCommands: import("../store/sessionStore").SlashCommand[];
   /** Ref setter that receives the internal scrollToMessage function */
   scrollToMessageRef?: React.MutableRefObject<
     ((id: string) => void) | undefined
@@ -76,14 +79,22 @@ export function ChatArea({
     (
       text: string,
       attachments: import("../types").ContextAttachment[],
-      agentId?: string,
-      sessionId?: string
+      targets?: SendTarget[]
     ) => {
-      onSend(text, attachments, agentId, sessionId);
+      onSend(text, attachments, targets);
       forceScrollToBottomRef.current?.();
     },
     [onSend]
   );
+
+  // Subscribe to sessionInfoMap + promptQueue for this session
+  const { sessionInfoMap, promptQueue } = useSessionStore(useShallow((s: SessionState) => ({
+    sessionInfoMap: s.sessionInfoMap,
+    promptQueue: s.promptQueue,
+  })));
+  const activeSessionInfo = activeKey ? sessionInfoMap[activeKey] : undefined;
+  const lastResponseAt = activeSessionInfo?.lastResponseAt;
+  const sessionQueue = activeKey ? (promptQueue[activeKey] ?? []) : [];
 
   return (
     <>
@@ -125,18 +136,15 @@ export function ChatArea({
       <StreamingStatus
         action={isTurnActive ? `Waiting for ${activeKey?.split(":")[0] ?? "agent"}…` : undefined}
         active={isTurnActive}
-        lastResponseAt={activeKey
-          ? useSessionStore.getState().sessionInfoMap[activeKey]?.lastResponseAt ?? undefined
-          : undefined}
+        lastResponseAt={lastResponseAt ?? undefined}
         sessionKey={activeKey ?? undefined}
       />
       <QueuedPromptList
-        queue={activeKey ? (useSessionStore.getState().promptQueue[activeKey] ?? []) : []}
+        queue={sessionQueue}
         sessionKey={activeKey ?? ""}
         onCancel={(promptId) => {
           if (!activeKey) return;
           const [agentId, sessionId] = activeKey.split(":");
-          // Send message to extension host to cancel the queued prompt
           const vscode = (window as any).acquireVsCodeApi?.();
           vscode?.postMessage({ type: "queue:cancel", agentId, sessionId, promptId });
         }}

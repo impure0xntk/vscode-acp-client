@@ -909,10 +909,11 @@ body {
   font-style: italic;
 }
 
-/* Message tool-batch wrapper: no extra margin — spacing from message-list gap */
+/* Message tool-batch wrapper: provides consistent left/right gutter for all tool UIs */
 .message-tool-batch {
   margin: 0;
-  padding: 0;
+  padding-left: 12px;
+  padding-right: 12px;
 }
 
 .message-tool .tool-call {
@@ -1467,8 +1468,6 @@ body {
 
 .tool-call {
   margin-top: 0;
-  margin-left: 0;
-  margin-right: 0;
   border-radius: 3px;
   overflow: hidden;
   font-size: 10px;
@@ -4620,8 +4619,6 @@ body {
 
 .tool-batch {
   margin-top: 2px;
-  margin-left: 12px;
-  margin-right: 12px;
   border-radius: 3px;
   overflow: hidden;
   font-size: 10px;
@@ -4702,7 +4699,7 @@ body {
 
 /* ── Expanded body ── */
 .tool-batch-body {
-  padding: 1px 4px 2px 10px;
+  padding: 1px 12px 2px 12px;
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -4733,11 +4730,15 @@ body {
   border-radius: 2px;
 }
 
-/* Expanded tool calls in batch: remove outer margin since body provides spacing */
+/* Expanded tool calls in batch: no margin — parent .tool-batch-body padding handles gutter */
 .tool-batch-item > .tool-call {
-  margin-left: 0;
-  margin-right: 0;
   margin-top: 1px;
+}
+/* Nested tool-batch (OK sub-group inside mixed-status batch):
+   offset the parent .tool-batch-body padding so OK items align with error items */
+.tool-batch-item > .tool-batch {
+  margin-left: -12px;
+  margin-right: -12px;
 }
 
 .tool-batch-item:hover {
@@ -4783,4 +4784,96 @@ body {
   font-size: 9px;
   flex-shrink: 0;
   margin-left: auto;
+}
+
+/* ============================================================================
+   Context Compression Notice
+   ============================================================================ */
+
+.message-compression {
+  margin: 2px 0;
+}
+
+.context-compression-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 15%, transparent);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.context-compression-icon-wrap {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: var(--fg-secondary);
+}
+
+.context-compression-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.context-compression-body {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.context-compression-label {
+  font-weight: 500;
+  color: var(--fg-secondary);
+  flex-shrink: 0;
+}
+
+.context-compression-detail {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  color: var(--fg-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.context-compression-before {
+  color: var(--fg-muted);
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+.context-compression-arrow {
+  color: var(--fg-muted);
+  opacity: 0.5;
+  font-size: 10px;
+}
+
+.context-compression-after {
+  color: var(--fg-primary);
+  font-weight: 500;
+}
+
+.context-compression-tokens {
+  color: var(--fg-muted);
+  opacity: 0.7;
+}
+
+.context-compression-saved {
+  color: var(--fg-muted);
+  font-size: 11px;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+/* System message variant: override italic from .message-system .message-body */
+.message-system .message-body:has(.context-compression-notice) {
+  font-style: normal;
 }

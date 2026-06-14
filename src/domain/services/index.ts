@@ -11,3 +11,6 @@ export { MessageBus } from "./message-bus";
 export { FileLockManager } from "./file-lock-manager";
 export { TaskBoardStore } from "./task-board-store";
 export { MeshOrchestrator } from "./mesh-orchestrator";
+export { FanoutExecutor } from "./fanout-executor";
+export { PipelineExecutor } from "./pipeline-executor";
+export { SupervisorManager } from "./supervisor-manager";

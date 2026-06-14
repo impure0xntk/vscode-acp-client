@@ -1,5 +1,8 @@
 import { EventEmitter } from "events";
 import { abbreviatePath } from "../../shared/util/path";
+import { getLogger } from "../../platform/backends";
+
+const log = getLogger("orchestrator");
 import {
   ClientSideConnection,
   ndJsonStream,
@@ -243,8 +246,11 @@ export class SessionOrchestrator extends EventEmitter {
 
   async connectAgent(agentId: string, config: AgentConfig): Promise<void> {
     if (this.connections.has(agentId)) {
-      return; // already connected, no-op
+      log.debug("agent already connected, skipping", { agentId });
+      return;
     }
+
+    log.info("connecting agent", { agentId, command: config.command, args: config.args });
 
     this.agentConfigs.set(agentId, config);
     this.sessions.set(agentId, new Map());
@@ -256,6 +262,7 @@ export class SessionOrchestrator extends EventEmitter {
       stdio: ["pipe", "pipe", "pipe"],
     });
 
+    log.debug("agent process spawned", { agentId, pid: proc.pid });
     this.processes.set(agentId, proc);
 
     // Convert Node.js streams to Web Streams for ndJsonStream
@@ -279,15 +286,17 @@ export class SessionOrchestrator extends EventEmitter {
     this.connections.set(agentId, connection);
 
     // Handle process exit
-    proc.on("close", () => {
+    proc.on("close", (code) => {
+      log.info("agent process exited", { agentId, exitCode: code });
       this.handleAgentDisconnected(agentId);
     });
     proc.on("error", (err) => {
-      console.error(`Agent ${agentId} process error: ${err.message}`);
+      log.error("agent process error", { agentId }, err);
     });
 
     // Initialize the connection — request embeddedContext so the agent
     // advertises support for ContentBlock::Resource in prompt requests.
+    log.debug("sending initialize", { agentId, protocolVersion: PROTOCOL_VERSION });
     const initResponse = await connection.initialize({
       protocolVersion: PROTOCOL_VERSION,
       clientCapabilities: {
@@ -296,6 +305,7 @@ export class SessionOrchestrator extends EventEmitter {
     } satisfies InitializeRequest);
 
     if (!initResponse) {
+      log.error("initialize returned no response", { agentId });
       throw new Error("Failed to initialize agent connection");
     }
 
@@ -337,12 +347,25 @@ export class SessionOrchestrator extends EventEmitter {
         : undefined,
     });
 
+    log.info("agent connected", {
+      agentId,
+      name: initResponse.agentInfo?.name,
+      version: initResponse.agentInfo?.version,
+      protocolVersion: initResponse.protocolVersion,
+      loadSession: initResponse.agentCapabilities?.loadSession ?? false,
+    });
+
     this.emit("agentConnected", agentId);
   }
 
   async disconnectAgent(agentId: string): Promise<void> {
     const connection = this.connections.get(agentId);
-    if (!connection) return;
+    if (!connection) {
+      log.debug("disconnectAgent: not connected", { agentId });
+      return;
+    }
+
+    log.info("disconnecting agent", { agentId });
 
     this.connections.delete(agentId);
 
@@ -350,13 +373,16 @@ export class SessionOrchestrator extends EventEmitter {
     if (proc) {
       proc.kill();
       this.processes.delete(agentId);
+      log.debug("agent process killed", { agentId, pid: proc.pid });
     }
 
+    const sessionCount = this.sessions.get(agentId)?.size ?? 0;
     this.sessions.delete(agentId);
     this.activeSessions.delete(agentId);
     this.agentConfigs.delete(agentId);
     this.agentInfoMap.delete(agentId);
 
+    log.info("agent disconnected", { agentId, sessionsCleared: sessionCount });
     this.emit("agentDisconnected", agentId);
   }
 
@@ -383,10 +409,12 @@ export class SessionOrchestrator extends EventEmitter {
   async createSession(agentId: string, cwd?: string): Promise<string> {
     const connection = this.connections.get(agentId);
     if (!connection) {
+      log.error("createSession: agent not connected", { agentId });
       throw new Error(`Agent ${agentId} is not connected`);
     }
 
     const effectiveCwd = cwd ?? process.cwd();
+    log.info("creating session", { agentId, cwd: effectiveCwd });
 
     const response = await connection.newSession({
       cwd: effectiveCwd,
@@ -425,6 +453,7 @@ export class SessionOrchestrator extends EventEmitter {
     // Persist session metadata
     this.persistSession(sessionId, agentId);
 
+    log.info("session created", { agentId, sessionId, cwd: effectiveCwd });
     this.emit("sessionCreated", { agentId, sessionId, cwd: effectiveCwd });
     this.emitOverviewUpdate();
     return sessionId;
@@ -432,7 +461,12 @@ export class SessionOrchestrator extends EventEmitter {
 
   async closeSession(agentId: string, sessionId: string): Promise<void> {
     const connection = this.connections.get(agentId);
-    if (!connection) return;
+    if (!connection) {
+      log.debug("closeSession: agent not connected", { agentId, sessionId });
+      return;
+    }
+
+    log.info("closing session", { agentId, sessionId });
 
     try {
       await connection.closeSession({ sessionId });
@@ -464,6 +498,7 @@ export class SessionOrchestrator extends EventEmitter {
       this.emit("promptQueueUpdated", { agentId, sessionId, queue: [] });
     }
 
+    log.info("session closed", { agentId, sessionId });
     this.emit("sessionClosed", { agentId, sessionId });
     this.emitOverviewUpdate();
   }
@@ -716,9 +751,12 @@ export class SessionOrchestrator extends EventEmitter {
         );
         replayed++;
       } catch (e) {
-        console.warn(
-          `[ACP] Replay failed for message ${msg.id}: ${e instanceof Error ? e.message : String(e)}`
-        );
+        log.warn("replay message failed", {
+          agentId,
+          sessionId,
+          messageId: msg.id,
+          error: e instanceof Error ? e.message : String(e),
+        });
       }
 
       this.emit("sessionReplayProgress", {
@@ -850,14 +888,23 @@ export class SessionOrchestrator extends EventEmitter {
   ): Promise<void> {
     const connection = this.connections.get(agentId);
     if (!connection) {
+      log.error("_executePrompt: agent not connected", { agentId, sessionId });
       throw new Error(`Agent ${agentId} is not connected`);
     }
 
     const agentSessions = this.sessions.get(agentId);
     const sessionInfo = agentSessions?.get(sessionId);
     if (!sessionInfo) {
+      log.error("_executePrompt: session not found", { agentId, sessionId });
       throw new Error(`Session ${sessionId} not found for agent ${agentId}`);
     }
+
+    log.info("sending prompt", {
+      agentId,
+      sessionId,
+      textLen: text.length,
+      contextBlocks: context?.length ?? 0,
+    });
 
     sessionInfo.status = "running";
     sessionInfo.updatedAt = new Date();
@@ -882,6 +929,12 @@ export class SessionOrchestrator extends EventEmitter {
           total: response.usage.totalTokens ?? sessionInfo.tokenUsage.total,
         };
       }
+
+      log.info("prompt response received", {
+        agentId,
+        sessionId,
+        tokens: sessionInfo.tokenUsage,
+      });
 
       sessionInfo.status = "completed";
       sessionInfo.isStreaming = false;
@@ -1658,7 +1711,13 @@ export class SessionOrchestrator extends EventEmitter {
       case "usage_update": {
         // UsageUpdate: { size: contextWindowTotal, used: tokensUsed, cost?: Cost }
         // 'used' = tokens currently in context window.
-        console.log("[ACP] usage_update:", JSON.stringify(notification.update));
+        log.debug("usage_update", {
+          agentId,
+          sessionId,
+          contextWindowTotal: update.size,
+          tokensUsed: update.used,
+          cost: (update as Record<string, unknown>).cost,
+        });
         const prevTotal = sessionInfo.tokenUsage.total;
         const prevContextUsed = sessionInfo._prevContextUsed;
         const newUsed =

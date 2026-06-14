@@ -13,6 +13,8 @@ export interface TriggerState {
   query: string;
   caretOffset: number;
   subTrigger?: "symbol" | "file" | "switch";
+  /** Multi-@ mode: picker stays open after selecting a session */
+  multiMode?: boolean;
 }
 
 const NO_TRIGGER: TriggerState = {
@@ -135,6 +137,7 @@ export function useTriggerPicker(
             trigger: "@",
             query: afterTrigger,
             caretOffset: idx,
+            multiMode: triggerState.multiMode,
           };
         }
 
@@ -276,6 +279,20 @@ export function useTriggerPicker(
       }
 
       const result = await resolveItem(input);
+
+      // Multi-@ mode: keep picker open after selecting a session
+      if (input.triggerState.multiMode && input.item.kind === "session") {
+        dismissedRef.current = false;
+        setPickerIndex(0);
+        // Keep trigger active but reset query for next @ input
+        const keepOpenState: TriggerState = {
+          ...input.triggerState,
+          active: false, // temporarily suppress to allow next @ detection
+          query: "",
+        };
+        setTriggerState(keepOpenState);
+        return result;
+      }
 
       dismissedRef.current = false;
       setTriggerState(NO_TRIGGER);

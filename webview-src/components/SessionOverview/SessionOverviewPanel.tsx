@@ -1,14 +1,14 @@
 import React, { useCallback, useMemo } from "react";
+import { useShallow } from "zustand/shallow";
 import type {
   SessionOverviewState,
   SessionOverviewFilter,
   SessionOverviewItem,
 } from "../../types";
-import type { ConnectedAgentInfo } from "../../hooks/useSessionContext";
-import { useSessionUiStateStore } from "../../store/sessionUiStateStore";
+import type { ConnectedAgentInfo } from "../../store/sessionStore";
+import { useUiStateStore } from "../../store/uiStateStore";
 import { useMessageStore } from "../../store/messageStore";
 import { useSessionStore } from "../../store/sessionStore";
-import { useStore } from "zustand";
 import { SessionOverviewToolbar } from "./SessionOverviewToolbar";
 import { SessionOverviewCard } from "./SessionOverviewCard";
 import { useResizeHandle } from "../../hooks/useResizeHandle";
@@ -64,9 +64,14 @@ export function SessionOverviewPanel({
   const selectedIds = state.selectedSessionIds ?? [];
   const selectionMode = state.selectionMode ?? false;
 
+  // Subscribe to stores so the component re-renders on changes.
+  const { sessionInfoMap, storeActiveKey } = useSessionStore(useShallow((s) => ({
+    sessionInfoMap: s.sessionInfoMap,
+    storeActiveKey: s.activeSessionKey,
+  })));
+  const perSession = useMessageStore(useShallow((s) => s.perSession));
+
   // Derive overview items from store (single source of truth: tabs + sessionInfoMap)
-  // Subscribe to sessionInfoMap so the component re-renders on changes.
-  const sessionInfoMap = useSessionStore((s) => s.sessionInfoMap);
   const overviewItems = useSessionStore.getState().getOverviewItems();
 
   // Apply filter to sessions
@@ -81,10 +86,8 @@ export function SessionOverviewPanel({
   );
 
   // Build a lookup map for unread counts.
-  // Subscribe to perSession so the memo recomputes when messages change.
-  const perSession = useMessageStore((s) => s.perSession);
   const unreadMap = useMemo(() => {
-    const uiStore = useSessionUiStateStore.getState();
+    const uiStore = useUiStateStore.getState();
     const map = new Map<string, number>();
     for (const s of overviewItems) {
       const key = `${s.agentId}:${s.sessionId}`;
@@ -93,8 +96,6 @@ export function SessionOverviewPanel({
     }
     return map;
   }, [overviewItems, perSession]);
-
-  const storeActiveKey = useSessionStore((s) => s.activeSessionKey);
 
   // Count selected sessions (any status can be closed)
   const selectedCount = selectedIds.length;

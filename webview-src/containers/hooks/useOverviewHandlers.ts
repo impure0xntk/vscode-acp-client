@@ -1,18 +1,17 @@
 import { useCallback, useMemo } from "react";
 import { getVsCodeApi } from "../../lib/vscodeApi";
 import { useSessionStore } from "../../store/sessionStore";
+import { useUiStateStore } from "../../store/uiStateStore";
 import type { SessionOverviewItem } from "../../types";
-import type { SessionAction } from "../../hooks/useSessionContext";
 
 interface OverviewHandlerDeps {
   switchTab: (agentId: string, sessionId: string) => void;
   closeSession: (agentId: string, sessionId: string) => void;
   sessionOverviewState: { selectedSessionIds?: string[] };
-  dispatch: (action: SessionAction) => void;
 }
 
 export function useOverviewHandlers(deps: OverviewHandlerDeps) {
-  const { switchTab, closeSession, sessionOverviewState, dispatch } = deps;
+  const { switchTab, closeSession, sessionOverviewState } = deps;
 
   const handleFocus = useCallback(
     (sessionId: string, agentId: string) => switchTab(agentId, sessionId),
@@ -45,16 +44,17 @@ export function useOverviewHandlers(deps: OverviewHandlerDeps) {
 
   const handleToggleSelect = useCallback(
     (sessionId: string) => {
-      dispatch({ type: "TOGGLE_SESSION_OVERVIEW_SELECTED", sessionId });
+      useUiStateStore.getState().toggleOverviewSelected(sessionId);
     },
-    [dispatch],
+    [],
   );
 
   const handleLongPress = useCallback(
     (sessionId: string) => {
-      dispatch({ type: "TOGGLE_SESSION_OVERVIEW_SELECTION", sessionId });
+      useUiStateStore.getState().setOverviewSelectionMode(true);
+      useUiStateStore.getState().toggleOverviewSelected(sessionId);
     },
-    [dispatch],
+    [],
   );
 
   const handleCloseSelected = useCallback(() => {
@@ -71,14 +71,14 @@ export function useOverviewHandlers(deps: OverviewHandlerDeps) {
         closeSession(agentId, sessionId);
       }
     }
-    dispatch({ type: "SET_SESSION_OVERVIEW_SELECTION_MODE", enabled: false });
-    dispatch({ type: "SET_SESSION_OVERVIEW_SELECTED", sessionIds: [] });
-  }, [sessionOverviewState.selectedSessionIds, closeSession, dispatch]);
+    useUiStateStore.getState().setOverviewSelectionMode(false);
+    useUiStateStore.getState().setOverviewSelectedSessionIds([]);
+  }, [sessionOverviewState.selectedSessionIds, closeSession]);
 
   const handleExitSelectionMode = useCallback(() => {
-    dispatch({ type: "SET_SESSION_OVERVIEW_SELECTION_MODE", enabled: false });
-    dispatch({ type: "SET_SESSION_OVERVIEW_SELECTED", sessionIds: [] });
-  }, [dispatch]);
+    useUiStateStore.getState().setOverviewSelectionMode(false);
+    useUiStateStore.getState().setOverviewSelectedSessionIds([]);
+  }, []);
 
   return useMemo(
     () => ({

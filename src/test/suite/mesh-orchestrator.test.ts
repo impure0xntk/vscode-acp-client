@@ -13,7 +13,7 @@ import { FileLockManager } from "../../domain/services/file-lock-manager";
 import { TaskBoardStore } from "../../domain/services/task-board-store";
 import type { SessionOrchestrator } from "../../application/session/orchestrator";
 import type { P2PMessage, MeshTeam, TaskEntry } from "../../domain/models/mesh";
-import { MESH_MARKER_OPEN, MESH_MARKER_CLOSE } from "../../domain/models/mesh";
+import { MESH_MARKER_OPEN, MESH_MARKER_CLOSE, MESH_MARKER_V2_OPEN } from "../../domain/models/mesh";
 
 // ----------------------------------------------------------------------------
 // Mock SessionOrchestrator
@@ -188,7 +188,7 @@ describe("MeshOrchestrator", () => {
         payload: { question: "hello from lead" },
       });
 
-      // prompt should have been called with marker-wrapped message
+      // prompt should have been called with v2 marker-wrapped message
       const calls = (mockSO as any)._promptCalls as Array<{
         agentId: string;
         sessionId: string;
@@ -197,8 +197,9 @@ describe("MeshOrchestrator", () => {
       assert.strictEqual(calls.length, 1);
       assert.strictEqual(calls[0].agentId, "agent-a");
       assert.strictEqual(calls[0].sessionId, "session-1");
-      assert.ok(calls[0].text.includes(MESH_MARKER_OPEN));
+      assert.ok(calls[0].text.includes(MESH_MARKER_V2_OPEN));
       assert.ok(calls[0].text.includes(MESH_MARKER_CLOSE));
+      assert.ok(calls[0].text.includes('"from":"agent-lead"'));
     });
 
     it("should not forward when agent has no active session", async () => {

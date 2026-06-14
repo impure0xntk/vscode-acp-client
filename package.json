@@ -343,8 +343,10 @@
   "dependencies": {
     "@agentclientprotocol/sdk": "^0.25.0",
     "clsx": "^2.1.1",
+    "immer": "^11.1.8",
     "path-shorten": "^0.1.2",
     "sql.js": "^1.13.0",
+    "use-shallow": "^1.0.2",
     "zustand": "^5.0.14"
   },
   "devDependencies": {

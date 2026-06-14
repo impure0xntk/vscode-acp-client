@@ -1,6 +1,9 @@
 import React, { useCallback, useState } from "react";
 import { getVsCodeApi } from "../lib/vscodeApi";
+import { getLogger } from "../lib/logger";
 import { IconCheck, IconCopy } from "../lib/icons";
+
+const log = getLogger("webview.component.MessageActions");
 
 export interface MessageActionsProps {
   messageId: string;
@@ -20,7 +23,7 @@ export function MessageActions({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      console.error("Failed to copy:", err);
+      log.error("copy failed", { error: (err as Error).message });
     }
   }, [content]);
 

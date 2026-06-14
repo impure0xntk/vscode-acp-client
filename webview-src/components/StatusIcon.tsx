@@ -23,7 +23,7 @@ export type SessionStatus =
   | "warning";
 export type ToolStatus = "in_progress" | "completed" | "failed";
 
-export type StatusIconType = SessionStatus | ToolStatus | "working" | "pending" | "waiting" | "waiting_for_input";
+export type StatusIconType = SessionStatus | ToolStatus | "working" | "pending" | "waiting" | "waiting_for_input" | "disconnected";
 
 const classMap: Record<StatusIconType, string> = {
   idle: "idle",
@@ -38,6 +38,7 @@ const classMap: Record<StatusIconType, string> = {
   error: "error",
   cancelled: "cancelled",
   warning: "warning",
+  disconnected: "cancelled",
 };
 
 const IconComponentMap: Record<string, React.FC<{ className?: string; size?: number }>> = {

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Icon } from "../lib/icons";
 import { elapsedColor } from "../shared/elapsedColor";
-import { useSessionUiStateStore } from "../store/sessionUiStateStore";
+import { useUiStateStore } from "../store/uiStateStore";
 
 export interface StreamingStatusProps {
   /** Human-readable action label, e.g. "Reading src/auth.ts" */
@@ -26,7 +26,7 @@ export interface StreamingStatusProps {
 /**
  * StreamingStatus — shows the current agent action + elapsed time while streaming.
  *
- * Streaming state (active/action/startedAt) is persisted to sessionUiStateStore
+ * Streaming state (active/action/startedAt) is persisted to uiStateStore
  * so that the timer and colour tier survive tab switches. Each session key
  * carries its own independent streaming state.
  */
@@ -36,9 +36,12 @@ export function StreamingStatus({
   lastResponseAt,
   sessionKey,
 }: StreamingStatusProps): React.ReactElement | null {
-  const storeState = useSessionUiStateStore((s) =>
-    sessionKey ? (s.states[sessionKey] ?? null) : null,
-  );
+  // Read store imperatively to avoid useSyncExternalStore subscription.
+  // Subscribing here would cause an infinite loop: parent components call
+  // saveScrollState which triggers re-render → subscription fires → repeat.
+  const storeState = sessionKey
+    ? useUiStateStore.getState().getScrollState(sessionKey) ?? null
+    : null;
 
   // Determine effective streaming state.
   // Priority: store (for background sessions) > direct props (for active).

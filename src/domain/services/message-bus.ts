@@ -5,6 +5,9 @@
 // ============================================================================
 
 import type { P2PMessage } from "../models/mesh";
+import { getLogger } from "../../platform/backends";
+
+const log = getLogger("message-bus");
 
 // ----------------------------------------------------------------------------
 // Types
@@ -49,6 +52,7 @@ export class MessageBus {
   // -----------------------------------------------------------------------
 
   async send(message: P2PMessage): Promise<void> {
+    log.debug("send", { from: message.from, to: message.to, type: message.type });
     this.pushLog(message);
 
     // Broadcast
@@ -65,8 +69,40 @@ export class MessageBus {
     if (handlers && handlers.size > 0) {
       await this.dispatchToSet(handlers, message);
     } else {
+      log.debug("no subscriber, queuing", { to: message.to });
       await this.queue(message);
     }
+  }
+
+  /**
+   * Send a message to multiple specific targets.
+   * Each target receives the same message independently.
+   */
+  async sendToMultiple(targets: string[], message: P2PMessage): Promise<void> {
+    this.pushLog(message);
+    for (const target of targets) {
+      const handlers = this.subscribers.get(target);
+      if (handlers && handlers.size > 0) {
+        await this.dispatchToSet(handlers, message);
+      } else {
+        await this.queue(message);
+      }
+    }
+  }
+
+  /**
+   * Broadcast shorthand — sets `to: "broadcast"` and sends.
+   */
+  async broadcast(message: P2PMessage): Promise<void> {
+    await this.send({ ...message, to: "broadcast" });
+  }
+
+  /**
+   * Return the most recent N log entries (newest first).
+   */
+  getRecentLogs(limit: number): ReadonlyArray<MessageLogEntry> {
+    if (limit >= this.log.length) return [...this.log];
+    return this.log.slice(this.log.length - limit);
   }
 
   // -----------------------------------------------------------------------
@@ -132,9 +168,7 @@ export class MessageBus {
       try {
         await h(message);
       } catch (e) {
-        console.error(
-          `[MessageBus] handler error for agent ${message.to}: ${e}`
-        );
+        log.error("handler error", { to: message.to, type: message.type }, e as Error);
       }
     }
   }

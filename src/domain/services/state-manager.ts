@@ -10,6 +10,9 @@ import {
   EventListener,
   Unsubscribe,
 } from "../models/orchestration";
+import { getLogger } from "../../platform/backends";
+
+const log = getLogger("state");
 
 const ALL_EVENT_TYPES: OrchestrationEventType[] = [
   "session.created",
@@ -61,6 +64,11 @@ export class StateManager {
 
   applyEvent(event: OrchestrationEvent): void {
     this.state.eventLog.push(event);
+    log.debug("event applied", {
+      eventType: event.type,
+      eventId: event.id,
+      logSize: this.state.eventLog.length,
+    });
     this.emit(event.type, event);
   }
 
@@ -111,7 +119,7 @@ export class StateManager {
       try {
         listener(event);
       } catch (err) {
-        console.error(`StateMgr: listener error for ${eventType}:`, err);
+        log.error("listener error", { eventType }, err as Error);
       }
     }
   }

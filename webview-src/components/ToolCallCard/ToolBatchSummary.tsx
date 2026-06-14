@@ -170,6 +170,27 @@ export function ToolBatchSummary({ calls }: ToolBatchSummaryProps): React.ReactE
             </span>
           ))}
         </span>
+        {locations.length > 0 && (
+          <span className="tool-batch-locations">
+            {locations.map((loc, idx) => {
+              const ext = getFileExtension(loc.path);
+              const basename = loc.path.split("/").pop() ?? loc.path;
+              return (
+                <span
+                  key={`${loc.path}:${loc.line ?? 0}-${idx}`}
+                  className="file-chip file-chip-inline"
+                  onClick={(e) => { e.stopPropagation(); handleFileClick(loc.path, loc.line); }}
+                  title={loc.line ? `${loc.path}:${loc.line}` : loc.path}
+                  role="button" tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); handleFileClick(loc.path, loc.line); } }}
+                >
+                  <span className="file-chip-ext">{fileIcon(ext)}</span>
+                  <span className="file-chip-label">{basename}{loc.line ? `:${loc.line}` : ""}</span>
+                </span>
+              );
+            })}
+          </span>
+        )}
         <span className="tool-batch-duration">{formatDuration(totalMs)}</span>
         <span className={`tool-chevron ${allExpanded ? "open" : ""}`} aria-hidden="true">▶</span>
       </button>

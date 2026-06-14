@@ -156,20 +156,20 @@ describe("mesh-marker-parser", () => {
   // -----------------------------------------------------------------------
 
   describe("serializeToMarker", () => {
-    it("should serialize message to marker format", () => {
+    it("should serialize message to v2 marker format by default", () => {
       const msg = makeMessage({ id: "msg-1", type: "question" });
       const serialized = serializeToMarker(msg);
 
-      assert.ok(serialized.startsWith(MESH_MARKER_OPEN));
+      assert.ok(serialized.startsWith("[ACP_MESH_MESSAGE v2]"));
       assert.ok(serialized.endsWith(MESH_MARKER_CLOSE));
     });
 
-    it("should produce valid JSON inside markers", () => {
+    it("should produce valid JSON inside v2 markers", () => {
       const msg = makeMessage({ id: "msg-2", type: "question", to: "agent-b" });
       const serialized = serializeToMarker(msg);
 
       const inner = serialized.slice(
-        MESH_MARKER_OPEN.length,
+        "[ACP_MESH_MESSAGE v2]".length,
         -MESH_MARKER_CLOSE.length
       );
       const parsed = JSON.parse(inner);
@@ -177,11 +177,13 @@ describe("mesh-marker-parser", () => {
       assert.strictEqual(parsed.type, "question");
       assert.strictEqual(parsed.id, "msg-2");
       assert.strictEqual(parsed.to, "agent-b");
-      assert.strictEqual(parsed.version, "1.0");
+      assert.strictEqual(parsed.from, "agent-a");
+      assert.strictEqual(parsed.version, "2.0");
+      assert.strictEqual(parsed.mode, "p2P");
       assert.deepStrictEqual(parsed.payload, { question: "hello" });
     });
 
-    it("should include metadata when present", () => {
+    it("should include metadata when present in v2", () => {
       const msg = makeMessage({
         id: "msg-3",
         type: "question",
@@ -190,7 +192,7 @@ describe("mesh-marker-parser", () => {
       const serialized = serializeToMarker(msg);
 
       const inner = serialized.slice(
-        MESH_MARKER_OPEN.length,
+        "[ACP_MESH_MESSAGE v2]".length,
         -MESH_MARKER_CLOSE.length
       );
       const parsed = JSON.parse(inner);
@@ -198,7 +200,7 @@ describe("mesh-marker-parser", () => {
       assert.deepStrictEqual(parsed.metadata, { priority: "high" });
     });
 
-    it("should round-trip through parse", () => {
+    it("should round-trip v2 through parse", () => {
       const original = makeMessage({
         id: "round-trip-1",
         type: "question",
@@ -213,9 +215,28 @@ describe("mesh-marker-parser", () => {
       assert.strictEqual(result.messages[0].id, "round-trip-1");
       assert.strictEqual(result.messages[0].type, "question");
       assert.strictEqual(result.messages[0].to, "agent-b");
+      assert.strictEqual(result.messages[0].from, "agent-a");
       assert.deepStrictEqual(result.messages[0].payload, {
         question: "test round-trip",
       });
+    });
+
+    it("should serialize to v1 format when version=1", () => {
+      const msg = makeMessage({ id: "msg-v1", type: "question", to: "agent-b" });
+      const serialized = serializeToMarker(msg, "1");
+
+      assert.ok(serialized.startsWith(MESH_MARKER_OPEN));
+      assert.ok(!serialized.includes("v2"));
+
+      const inner = serialized.slice(
+        MESH_MARKER_OPEN.length,
+        -MESH_MARKER_CLOSE.length
+      );
+      const parsed = JSON.parse(inner);
+
+      assert.strictEqual(parsed.version, "1.0");
+      assert.strictEqual(parsed.type, "question");
+      assert.strictEqual(parsed.id, "msg-v1");
     });
   });
 });

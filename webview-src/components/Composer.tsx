@@ -5,12 +5,18 @@ import React, {
   type KeyboardEvent,
 } from "react";
 import type { ContextAttachment, SuggestionItem, TriggerType } from "../types";
-import type { SlashCommand, SessionTabState } from "../hooks/useSessionContext";
+import type { SlashCommand, SessionTabState } from "../store/sessionStore";
+import type { SendTarget } from "../types";
+import { useSessionStore } from "../store/sessionStore";
+import { useMeshStore } from "../store/meshStore";
+import { getLogger } from "../lib/logger";
+
+const log = getLogger("webview.Composer");
 import { ContextBar } from "./ContextBar";
 import { ContextPicker } from "./ContextPicker";
 import type { FileCandidate } from "./ContextPicker";
-import { useSessionContext } from "../hooks/useSessionContext";
 import { StatusIcon } from "./StatusIcon";
+import { SendTargetChip } from "./ui/SendTargetChip";
 import {
   useTriggerPicker,
   type TriggerState,
@@ -25,8 +31,7 @@ export interface ComposerProps {
   onSend: (
     text: string,
     attachments: ContextAttachment[],
-    agentId?: string,
-    sessionId?: string
+    targets?: SendTarget[]
   ) => void;
   onCancel: () => void;
   onNewSession?: () => void;
@@ -93,7 +98,9 @@ export function Composer({
   resolveSymbol,
   availableCommands = [],
 }: ComposerProps): React.ReactElement {
-  const { tabs } = useSessionContext();
+  // Read tabs imperatively — getTabs() returns a new array each call,
+  // which would cause an infinite loop via useSyncExternalStore.
+  const tabs = useSessionStore.getState().getTabs();
 
   const [text, setText] = useState("");
   const [attachments, setAttachments] = useState<ContextAttachment[]>([]);
@@ -101,10 +108,15 @@ export function Composer({
   const historyRef = useRef<string[]>([]);
   const historyIdxRef = useRef(-1);
   const inputBeforeNavRef = useRef("");
-  const sendTargetRef = useRef<{
-    agentId: string;
-    sessionId: string;
-  } | null>(null);
+
+  // ── Multi-@ send targets ──────────────────────────────────────────
+  const sendTargets = useMeshStore((s) => s.sendTargets);
+  const addSendTarget = useMeshStore((s) => s.addSendTarget);
+  const removeSendTarget = useMeshStore((s) => s.removeSendTarget);
+  const clearSendTargets = useMeshStore((s) => s.clearSendTargets);
+
+  // Track multi-@ mode: true when at least one @ target is selected
+  const isMultiMode = sendTargets.length > 0;
 
   // ── Suggestion fetch ─────────────────────────────────────────────
 
@@ -319,13 +331,20 @@ export function Composer({
           newText = "";
           setText(newText);
         } else {
-          const completion = `@${item.value} `;
-          newText = before + completion + after;
-          setText(newText);
-          sendTargetRef.current = {
+          // Multi-@: add to send targets instead of replacing
+          const target: SendTarget = {
             agentId: item.agentId!,
             sessionId: item.sessionId!,
+            label: item.label,
+            status: "idle",
           };
+          addSendTarget(target);
+
+          // Replace @query with transparent marker (chip shown below)
+          const completion = `@${item.label} `;
+          newText = before + completion + after;
+          setText(newText);
+
           requestAnimationFrame(() => {
             if (textareaRef.current) {
               const pos = before.length + completion.length;
@@ -344,6 +363,7 @@ export function Composer({
           trigger: "#" as const,
           query: "",
           caretOffset: 0,
+          multiMode: isMultiMode || (item.kind === "session" && triggerState.subTrigger !== "switch"),
         },
       };
     },
@@ -354,6 +374,8 @@ export function Composer({
       resolveSymbol,
       onNewSession,
       onSwitchSession,
+      addSendTarget,
+      isMultiMode,
     ]
   );
 
@@ -381,7 +403,12 @@ export function Composer({
       const value = e.target.value;
       const caret = e.target.selectionStart ?? value.length;
 
-      onTriggerChange(value, caret);
+      // In multi-mode, trigger @ picker each time @ is typed
+      const multiTriggerState = isMultiMode
+        ? { ...onTriggerChange(value, caret), multiMode: true }
+        : onTriggerChange(value, caret);
+
+      setPickerIndex(0);
 
       if (historyIdxRef.current !== -1) {
         historyIdxRef.current = -1;
@@ -393,7 +420,7 @@ export function Composer({
       textarea.style.height = "auto";
       textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`;
     },
-    [onTriggerChange]
+    [onTriggerChange, setPickerIndex, isMultiMode]
   );
 
   // ── Attachment management ────────────────────────────────────────
@@ -423,16 +450,18 @@ export function Composer({
       historyIdxRef.current = -1;
       inputBeforeNavRef.current = "";
 
-      const target = sendTargetRef.current;
-      onSend(trimmed, attachments, target?.agentId, target?.sessionId);
+      // Pass targets if multi-@ mode, otherwise undefined (defaults to active session)
+      const targets = sendTargets.length > 0 ? sendTargets : undefined;
+      log.info("send", { textLen: trimmed.length, attachments: attachments.length, targets: targets?.length ?? 0 });
+      onSend(trimmed, attachments, targets);
 
-      sendTargetRef.current = null;
+      clearSendTargets();
       resetPicker();
       setText("");
       setAttachments([]);
       resetHeight();
     }
-  }, [text, attachments, disabled, onSend, resetHeight, resetPicker]);
+  }, [text, attachments, disabled, onSend, sendTargets, clearSendTargets, resetHeight, resetPicker]);
 
   // ── Keyboard navigation (history + picker) ───────────────────────
 
@@ -505,6 +534,21 @@ export function Composer({
   return (
     <div className="composer">
       <ContextBar attachments={attachments} onRemove={handleRemoveAttachment} />
+
+      {/* Multi-@ send target chips */}
+      {sendTargets.length > 0 && (
+        <div className="send-targets-bar">
+          <span className="send-targets-label">送信先:</span>
+          {sendTargets.map((target) => (
+            <SendTargetChip
+              key={`${target.agentId}:${target.sessionId}`}
+              target={target}
+              onRemove={() => removeSendTarget(target.agentId, target.sessionId)}
+            />
+          ))}
+        </div>
+      )}
+
       {triggerState.active && (
         <ContextPicker
           trigger={triggerState.trigger}

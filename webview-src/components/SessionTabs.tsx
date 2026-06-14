@@ -1,12 +1,16 @@
 import React, { useCallback, useState, useEffect, useRef } from "react";
+import { useShallow } from "zustand/shallow";
+import { getLogger } from "../lib/logger";
+
+const log = getLogger("webview.SessionTabs");
 import type {
   SessionTabState,
   ConnectedAgentInfo,
-} from "../hooks/useSessionContext";
+} from "../store/sessionStore";
 import type { SessionOverviewItem } from "../types";
 import type { MessageState } from "../store/messageStore";
 import type { SessionState } from "../store/sessionStore";
-import { useSessionUiStateStore } from "../store/sessionUiStateStore";
+import { useUiStateStore } from "../store/uiStateStore";
 import { useMessageStore } from "../store/messageStore";
 import { useSessionStore, sessionKeyOf } from "../store/sessionStore";
 import { SessionTab } from "./SessionTab";
@@ -184,12 +188,12 @@ export function SessionTabs({
   }, [clearTimers]);
 
   // Subscribe to stores so the component re-renders on changes.
-  const perSession = useMessageStore((s) => s.perSession);
-  const sessionInfoMap = useSessionStore((s) => s.sessionInfoMap);
+  const perSession = useMessageStore(useShallow((s) => s.perSession));
+  const sessionInfoMap = useSessionStore(useShallow((s) => s.sessionInfoMap));
 
   // Derive unread counts — recomputed whenever tabs or perSession changes.
   const unreadMap = React.useMemo(() => {
-    const uiStore = useSessionUiStateStore.getState();
+    const uiStore = useUiStateStore.getState();
     const map = new Map<string, number>();
     for (const tab of tabs) {
       const key = sessionKeyOf(tab.agentId, tab.sessionId);

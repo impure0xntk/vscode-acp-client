@@ -45,3 +45,27 @@ export type { TerminalAPI, Terminal } from "./terminal";
 export type { OrchestrationStateAPI } from "./orchestration";
 export type { PlatformAPI } from "./platform";
 export { createPlatform } from "./factory";
+
+// ── Logging ──────────────────────────────────────────────────────────────
+export {
+  getLogger,
+  initLoggerFactory,
+  setLogLevel,
+  setLoggerBackend,
+  getLoggerFactory,
+  LogLevel,
+  LoggerImpl,
+  LoggerFactoryImpl,
+  VsCodeOutputBackend,
+  PinoBridgeBackend,
+  ConsoleLoggerBackend,
+  FilterLoggerBackend,
+} from "./backends";
+export type {
+  LogLevelName,
+  LogLevelValue,
+  LogRecord,
+  Logger,
+  LoggerBackend,
+  LoggerFactory,
+} from "./backends";

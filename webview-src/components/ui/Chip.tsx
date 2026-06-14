@@ -1,5 +1,5 @@
 import React, { type ReactNode } from "react";
-import type { SessionTabStatus } from "../hooks/useSessionContext";
+import type { SessionTabStatus } from "../store/sessionStore";
 import { Icon } from "../../lib/icons";
 
 export type ContextColor = "normal" | "warning" | "critical";

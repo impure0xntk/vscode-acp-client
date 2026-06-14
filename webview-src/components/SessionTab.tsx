@@ -1,5 +1,5 @@
 import React from "react";
-import type { SessionTabState } from "../hooks/useSessionContext";
+import type { SessionTabState } from "../store/sessionStore";
 import { StatusIcon } from "./StatusIcon";
 import type { StatusIconType } from "./StatusIcon";
 import { UnreadBadge } from "./ui/UnreadBadge";

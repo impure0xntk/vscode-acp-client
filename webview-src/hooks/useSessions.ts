@@ -1,5 +1,5 @@
 import { useSessionStore } from "../store/sessionStore";
-import type { SessionTabState, SessionInfoSnapshot } from "./useSessionContext";
+import type { SessionTabState, SessionInfoSnapshot } from "../store/sessionStore";
 
 // ── Session / Tab hooks ─────────────────────────────────────────────────────
 

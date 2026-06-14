@@ -239,3 +239,129 @@ export interface MarkerEnvelope {
   payload: MessagePayload;
   metadata?: P2PMessageMetadata;
 }
+
+// ============================================================================
+// Mesh Orchestrator Communication Model (v2)
+//
+// refs: docs/mesh-orchestrator-integration-design.md Section 4
+// ============================================================================
+
+// ----------------------------------------------------------------------------
+// Communication modes
+// ----------------------------------------------------------------------------
+
+export type CommunicationMode =
+  | "direct"     // 1:1 direct message (extension of existing @send)
+  | "fanout"     // 1:N broadcast (same task to multiple agents)
+  | "supervisor" // 1->N->1 lead-worker pattern
+  | "pipeline"   // sequential chain (A->B->C)
+  | "p2P";       // agent-initiated P2P (marker-based, no human)
+
+// ----------------------------------------------------------------------------
+// Message source identification
+// ----------------------------------------------------------------------------
+
+export type MessageSource =
+  | { type: "user"; agentId: string; sessionId: string }  // Webview-originated
+  | { type: "agent"; agentId: string }                    // agent output marker
+  | { type: "orchestrator" };                             // system-generated
+
+// ----------------------------------------------------------------------------
+// User message payload (Webview-originated messages)
+// ----------------------------------------------------------------------------
+
+export interface UserMessagePayload {
+  text: string;
+  contextFiles?: string[];
+  attachments?: unknown[];  // ContextAttachmentDTO[] from chat.ts (avoid circular dep)
+  priority?: "low" | "normal" | "high" | "urgent";
+  requireResponse?: boolean;
+  timeout?: number;  // seconds
+}
+
+// ----------------------------------------------------------------------------
+// Extended payload union
+// ----------------------------------------------------------------------------
+
+export type MeshPayload =
+  | MessagePayload
+  | UserMessagePayload;
+
+// ----------------------------------------------------------------------------
+// Unified mesh message (superset of P2PMessage)
+// ----------------------------------------------------------------------------
+
+export interface MeshMessage {
+  id: string;
+  type: P2PMessageType;
+  from: string;        // agentId or "user"
+  to: string;          // agentId or "broadcast" or agentId[]
+  timestamp: Date;
+  mode: CommunicationMode;
+  payload: MeshPayload;
+  metadata?: MeshMessageMetadata;
+}
+
+export interface MeshMessageMetadata {
+  replyTo?: string;
+  priority?: "low" | "normal" | "high" | "urgent";
+  ttl?: number;
+  source?: MessageSource;
+}
+
+// ----------------------------------------------------------------------------
+// Send target (Composer multi-@)
+// ----------------------------------------------------------------------------
+
+export interface SendTarget {
+  agentId: string;
+  sessionId: string;
+  label: string;
+  status?: "idle" | "running" | "completed" | "error";
+}
+
+// ----------------------------------------------------------------------------
+// Multi-send result
+// ----------------------------------------------------------------------------
+
+export interface MultiSendResult {
+  results: Array<{
+    target: SendTarget;
+    status: "sent" | "failed";
+    error?: string;
+  }>;
+}
+
+// ----------------------------------------------------------------------------
+// Agent status for MeshPanel
+// ----------------------------------------------------------------------------
+
+export interface MeshAgentStatus {
+  agentId: string;
+  state: "idle" | "working" | "waiting" | "error" | "disconnected";
+  sessions: Array<{
+    sessionId: string;
+    title: string;
+    status: string;
+  }>;
+  currentTask?: string;
+  progress?: number;
+}
+
+// ----------------------------------------------------------------------------
+// Marker protocol v2 (agent output embedding)
+// ----------------------------------------------------------------------------
+
+export const MESH_MARKER_V2_OPEN = "[ACP_MESH_MESSAGE v2]";
+export const MESH_MARKER_V2_CLOSE = "[/ACP_MESH_MESSAGE]";
+
+export interface MeshMarkerEnvelope {
+  version: "2.0";
+  type: P2PMessageType;
+  id: string;
+  from: string;
+  to: string;
+  mode: CommunicationMode;
+  payload: MeshPayload;
+  metadata?: MeshMessageMetadata & { source?: MessageSource };
+}

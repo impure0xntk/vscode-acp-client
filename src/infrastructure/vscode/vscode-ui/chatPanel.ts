@@ -110,6 +110,9 @@ export class ChatPanel {
   private _onDidReceiveMessage: EventEmitter<Record<string, unknown>>;
   private _onOpenFile: EventEmitter<{ path: string; line?: number }>;
 
+  /** Extension-side logger — set by extension.ts after construction. */
+  logger: { debug(msg: string): void; info(msg: string): void; warn(msg: string): void; error(msg: string): void } | null = null;
+
   get onSendMessage() {
     return this._onSendMessage.event;
   }
@@ -457,6 +460,38 @@ export class ChatPanel {
         }
         break;
       }
+      case "log": {
+        this.handleWebviewLog(data.payload as Record<string, unknown>);
+        break;
+      }
+    }
+  }
+
+  /**
+   * Forward webview log messages to the extension logger.
+   */
+  private handleWebviewLog(payload: Record<string, unknown>): void {
+    const level = String(payload.level ?? "info");
+    const category = String(payload.category ?? "webview");
+    const message = String(payload.message ?? "");
+    const context = (payload.context as Record<string, unknown>) ?? {};
+    const line = `[webview:${category}] ${message} ${JSON.stringify(context)}`;
+    switch (level) {
+      case "trace":
+      case "debug":
+        this.logger?.debug(line);
+        break;
+      case "info":
+        this.logger?.info(line);
+        break;
+      case "warn":
+        this.logger?.warn(line);
+        break;
+      case "error":
+        this.logger?.error(line);
+        break;
+      default:
+        this.logger?.info(line);
     }
   }
 

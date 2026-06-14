@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import type { SessionTabState } from "../hooks/useSessionContext";
-import { useSessionUiStateStore } from "../store/sessionUiStateStore";
+import type { SessionTabState } from "../store/sessionStore";
+import { useUiStateStore } from "../store/uiStateStore";
 import { useMessageStore } from "../store/messageStore";
-import { useStore } from "zustand";
 import { StatusIcon } from "./StatusIcon";
 
 // ============================================================================
@@ -61,7 +60,7 @@ export function SessionSwitcher({
   // Derive unread counts — read via getState() to avoid subscribing to
   // the entire uiStates/perSession objects (prevents infinite update loops).
   const unreadMap = useMemo(() => {
-    const uiStore = useSessionUiStateStore.getState();
+    const uiStore = useUiStateStore.getState();
     const msgStore = useMessageStore.getState();
     const map = new Map<string, number>();
     for (const tab of tabs) {

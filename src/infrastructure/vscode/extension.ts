@@ -1,5 +1,8 @@
 import * as vscode from "vscode";
 import * as path from "path";
+import { getLogger } from "../../platform/backends";
+
+const log = getLogger("extension");
 import {
   SessionOrchestrator,
   AgentConfig,
@@ -190,6 +193,13 @@ async function sendStatuslineInfo(): Promise<void> {
 
 function setChatPanel(panel: ChatPanel): void {
   chatPanel = panel;
+  // Wire extension logger so webview log messages appear in OutputChannel
+  chatPanel.logger = {
+    debug: (msg) => log.debug(msg),
+    info: (msg) => log.info(msg),
+    warn: (msg) => log.warn(msg),
+    error: (msg) => log.error(msg),
+  };
   // Send statusline info when chat panel is first created
   void sendStatuslineInfo();
 }
@@ -367,7 +377,7 @@ async function pickConnectedAgent(
 export async function activate(
   context: vscode.ExtensionContext
 ): Promise<void> {
-  console.log("ACP Client extension is now active");
+  log.info("extension activating");
   extensionContext = context;
 
   // Create platform adapter
@@ -428,20 +438,25 @@ export async function activate(
     })
   );
 
-  for (const agent of registry.getAutoConnectAgents()) {
+  const autoConnectAgents = registry.getAutoConnectAgents();
+  log.info("auto-connect agents", { count: autoConnectAgents.length });
+  for (const agent of autoConnectAgents) {
     for (const entry of agent.autoConnect ?? []) {
       await cmdConnect(agent, entry, agent.openChat !== false);
     }
   }
+
+  log.info("extension activated");
 }
 
 export function deactivate(): void {
+  log.info("extension deactivating");
   orchestrator.dispose();
   persistentHistory?.dispose();
   statusTracker.dispose();
   statusBar.dispose();
   void platform?.dispose();
-  console.log("ACP Client extension is now deactivated");
+  log.info("extension deactivated");
 }
 
 // ============================================================================

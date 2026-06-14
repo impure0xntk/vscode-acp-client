@@ -16,6 +16,9 @@ import type {
   SessionHistoryStore,
   HistoryEntry,
 } from "../session/historyStore";
+import { getLogger } from "../../platform/backends";
+
+const log = getLogger("handlers.session");
 
 // ============================================================================
 // Dependencies bag (passed from extension.ts)
@@ -207,28 +210,27 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
     }) => {
       const cp = getChatPanel();
       if (!cp) {
-        console.debug(
-          "[session-events] sessionMessage dropped (no ChatPanel yet)",
-          {
-            agentId,
-            sessionId,
-            role: message.role,
-            contentLen: message.content?.length,
-          }
-        );
+        log.debug("sessionMessage dropped (no ChatPanel yet)", {
+          agentId,
+          sessionId,
+          role: message.role,
+          contentLen: message.content?.length,
+        });
         return;
       }
       // Guard: only push messages for the currently active session
       const activeSessionId = orchestrator.getActiveSessionId(agentId);
       if (sessionId !== activeSessionId) {
-        console.debug(
-          "[session-events] sessionMessage skipped (not active session)",
-          { agentId, sessionId, activeSessionId, role: message.role }
-        );
+        log.debug("sessionMessage skipped (not active session)", {
+          agentId,
+          sessionId,
+          activeSessionId,
+          role: message.role,
+        });
         return;
       }
       const info = orchestrator.getSessionInfo(agentId, sessionId);
-      console.debug("[session-events] sessionMessage → pushMessage", {
+      log.debug("sessionMessage → pushMessage", {
         agentId,
         sessionId,
         role: message.role,

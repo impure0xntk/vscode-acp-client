@@ -8,7 +8,10 @@ import React, {
 } from "react";
 import { Message } from "./Message";
 import type { ChatMessage } from "../types";
-import { useSessionUiStateStore } from "../store/sessionUiStateStore";
+import { useUiStateStore } from "../store/uiStateStore";
+import { getLogger } from "../lib/logger";
+
+const log = getLogger("webview.ChatContainer");
 
 // Threshold in px from bottom to consider "at bottom"
 const SCROLL_BOTTOM_THRESHOLD = 100;
@@ -19,7 +22,7 @@ export interface ChatContainerProps {
   sessionId?: string;
   /** Full session key "agentId:sessionId" — used for UI state persistence */
   sessionKey?: string;
-  status?: "idle" | "running" | "completed" | "error" | "cancelled";
+  status?: "idle" | "running" | "completed" | "error" | "cancelled" | "warning";
   /** Whether this container's session is currently active (visible tab) */
   isActive?: boolean;
   /** Ref setter that receives the internal scrollToMessage function */
@@ -117,9 +120,9 @@ function useScrollPersist(containerRef: React.RefObject<HTMLDivElement | null>, 
       // Skip if scrollTop hasn't actually changed — avoid unnecessary store writes
       if (st === lastScrollTopRef.current) return;
       lastScrollTopRef.current = st;
-      const current = useSessionUiStateStore.getState().states[k]?.scrollTop;
+      const current = useUiStateStore.getState().getScrollState(k).scrollTop;
       if (current === st) return; // no-op if already persisted
-      useSessionUiStateStore.getState().save(k, { scrollTop: st });
+      useUiStateStore.getState().saveScrollState(k, { scrollTop: st });
     });
   }, [containerRef, k]);
   return { persist, rafRef };
@@ -151,7 +154,7 @@ export const ChatContainer = memo(function ChatContainer({
   const isAtBottomRef = useRef(true);
 
   const k = sessionKey ?? "__nosession__";
-  const { save, restore } = useSessionUiStateStore.getState();
+  const uiStateStore = useUiStateStore.getState();
 
   // ── Restore scrollTop on first mount / session key change ──────────
   const prevKeyRef = useRef(k);
@@ -162,18 +165,21 @@ export const ChatContainer = memo(function ChatContainer({
   }
   if (!didInit.current) {
     didInit.current = true;
-    const st = restore(k).scrollTop;
+    const st = uiStateStore.getScrollState(k).scrollTop;
     if (st > 0 && containerRef.current) {
       containerRef.current.scrollTop = st;
     }
   }
 
   // ── Compute unread count from lastSeenMessageId (store) ───────────
-  // "Last seen" = the last message the user explicitly scrolled to and
-  // paused on (persisted on scroll idle). Does NOT change during active
-  // scrolling — only when the user stops and the idle timer fires.
+  // Read lastSeenId from store imperatively via ref to avoid useSyncExternalStore
+  // subscription. Subscribing here would cause an infinite loop: effects below
+  // call saveScrollState which triggers re-render → subscription fires → repeat.
+  const lastSeenIdRef = useRef<string | null>(uiStateStore.getScrollState(k).lastSeenMessageId);
+  lastSeenIdRef.current = uiStateStore.getScrollState(k).lastSeenMessageId;
+  const lastSeenId = lastSeenIdRef.current;
+
   const msgIds = useMemo(() => messages.map((m) => m.id), [messages]);
-  const lastSeenId = useSessionUiStateStore((s) => s.states[k]?.lastSeenMessageId ?? null);
 
   const computedUnread = useMemo(() => {
     if (!lastSeenId) return 0;
@@ -330,16 +336,16 @@ export const ChatContainer = memo(function ChatContainer({
     if (userScrollTimeoutRef.current) clearTimeout(userScrollTimeoutRef.current);
     isUserScrollingRef.current = false;
     if (newestMsgId) {
-      const current = useSessionUiStateStore.getState().states[k]?.lastSeenMessageId;
+      const current = useUiStateStore.getState().getScrollState(k).lastSeenMessageId;
       if (current !== newestMsgId) {
-        save(k, { lastSeenMessageId: newestMsgId, scrollTop: 0 });
+        uiStateStore.saveScrollState(k, { lastSeenMessageId: newestMsgId, scrollTop: 0 });
       }
     }
     setUnreadCount(0);
     setIsAtBottom(true);
     isAtBottomRef.current = true;
     bottomRef.current?.scrollIntoView({ behavior: "instant" });
-  }, [k, newestMsgId, save]);
+  }, [k, newestMsgId, uiStateStore]);
 
   useEffect(() => {
     if (forceScrollToBottomRef) forceScrollToBottomRef.current = forceScroll;
@@ -411,21 +417,15 @@ export const ChatContainer = memo(function ChatContainer({
   }, [isActive, messages.length]);
 
   // ── Persist scroll position on scroll idle ────────────────────────
-  // Only persists scrollTop — NOT lastSeenMessageId.
-  // lastSeenMessageId is only updated when:
-  //   (a) user scrolls to bottom (isAtBottom → true transition)
-  //   (b) new messages arrive while at bottom
-  //   (c) tab becomes active (isActive → true)
-  //   (d) user sends a message (forceScroll)
   const persistScrollOnly = useCallback(() => {
     if (!isActive) return;
     const el = containerRef.current;
     if (!el) return;
     const st = el.scrollTop;
-    const current = useSessionUiStateStore.getState().states[k]?.scrollTop;
+    const current = uiStateStore.getScrollState(k).scrollTop;
     if (current === st) return;
-    save(k, { scrollTop: st });
-  }, [isActive, k, save]);
+    uiStateStore.saveScrollState(k, { scrollTop: st });
+  }, [isActive, k, uiStateStore]);
 
   // Hook into scroll handler to detect scroll idle
   const handleScrollWithPersist = useCallback(() => {
@@ -449,11 +449,11 @@ export const ChatContainer = memo(function ChatContainer({
     if (isAtBottom && !prevIsAtBottom.current) {
       const newest = messagesRef.current[messagesRef.current.length - 1]?.id;
       if (newest) {
-        save(k, { lastSeenMessageId: newest });
+        uiStateStore.saveScrollState(k, { lastSeenMessageId: newest });
       }
     }
     prevIsAtBottom.current = isAtBottom;
-  }, [isActive, isAtBottom, k, save]);
+  }, [isActive, isAtBottom, k, uiStateStore]);
 
   // (b) new messages arrive while at bottom
   const prevMsgLen = useRef(messages.length);
@@ -462,21 +462,21 @@ export const ChatContainer = memo(function ChatContainer({
     if (messages.length > prevMsgLen.current && isAtBottomRef.current) {
       const newest = messages[messages.length - 1];
       if (newest) {
-        save(k, { lastSeenMessageId: newest.id });
+        uiStateStore.saveScrollState(k, { lastSeenMessageId: newest.id });
       }
     }
     prevMsgLen.current = messages.length;
-  }, [isActive, messages.length, k, save]);
+  }, [isActive, messages.length, k, uiStateStore]);
 
   // (c) tab becomes active — mark all as read
   useEffect(() => {
     if (!isActive) return;
     const newest = messages[messages.length - 1]?.id;
     if (newest) {
-      save(k, { lastSeenMessageId: newest });
+      uiStateStore.saveScrollState(k, { lastSeenMessageId: newest });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, k]);
+  }, [isActive, k, uiStateStore]);
 
   // ── Auto-scroll ────────────────────────────────────────────────────
   useEffect(() => {

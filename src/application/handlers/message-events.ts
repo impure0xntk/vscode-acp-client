@@ -8,6 +8,9 @@ import type { ChatPresenter } from "../../infrastructure/vscode/vscode-ui/presen
 import type { AgentStatusTracker } from "../../adapter/agent/status";
 import type { TreeProvider } from "../../infrastructure/vscode/vscode-ui/tree";
 import type { SessionNotification } from "@agentclientprotocol/sdk";
+import { getLogger } from "../../platform/backends";
+
+const log = getLogger("handlers.message");
 
 // ============================================================================
 // Session context compression payload
@@ -65,10 +68,10 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
     }) => {
       const activeSessId = orchestrator.getActiveSessionId(agentId);
       if (sessionId !== activeSessId) return;
-      console.log("[handlers/message-events] sessionCommandsUpdated", {
+      log.debug("sessionCommandsUpdated", {
         agentId,
         sessionId,
-        commands,
+        commandCount: (commands as unknown[]).length,
       });
       getChatPanel()?.postMessage({
         type: "session/commands",

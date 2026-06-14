@@ -1,5 +1,5 @@
 import React from "react";
-import type { AgentInfo, SessionTabStatus } from "../../hooks/useSessionContext";
+import type { AgentInfo, SessionTabStatus } from "../../store/sessionStore";
 import type { ToolbarMeta, ContextColor } from "../ui/Chip";
 import { Chip } from "../ui/Chip";
 import { fmt, fmtDuration, visualBar, contextColor, StatuslineInfo, statuslinePrefix, statuslineChips } from "./formatting";

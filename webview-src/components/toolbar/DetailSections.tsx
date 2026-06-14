@@ -1,5 +1,5 @@
 import React from "react";
-import type { AgentInfo } from "../../hooks/useSessionContext";
+import type { AgentInfo } from "../../store/sessionStore";
 import { Icon } from "../../lib/icons";
 import { fmtCaps, fmtDuration } from "./formatting";
 

@@ -192,3 +192,65 @@ export interface FullState {
   tokenUsage: TokenUsage;
   isTurnActive: boolean;
 }
+
+// ── Mesh Orchestrator types ──────────────────────────────────────────
+
+export type MeshMessageType =
+  | "task_request"
+  | "task_response"
+  | "task_delegate"
+  | "status_update"
+  | "file_lock_request"
+  | "file_lock_release"
+  | "review_request"
+  | "review_response"
+  | "question"
+  | "answer"
+  | "broadcast"
+  | "ping"
+  | "pong";
+
+export type CommunicationMode =
+  | "direct"
+  | "fanout"
+  | "supervisor"
+  | "pipeline"
+  | "p2P";
+
+export interface SendTarget {
+  agentId: string;
+  sessionId: string;
+  label: string;
+  status?: "idle" | "running" | "completed" | "error";
+}
+
+export interface MeshAgentStatus {
+  agentId: string;
+  state: "idle" | "working" | "waiting" | "error" | "disconnected";
+  sessions: Array<{
+    sessionId: string;
+    title: string;
+    status: string;
+  }>;
+  currentTask?: string;
+  progress?: number;
+  role?: "lead" | "worker" | "reviewer";
+}
+
+export interface MeshTaskEntry {
+  id: string;
+  title: string;
+  description: string;
+  status: "pending" | "assigned" | "in_progress" | "review" | "completed" | "failed";
+  assignedTo?: string;
+  progress?: number;
+}
+
+export interface MeshRecentMessage {
+  messageId: string;
+  type: string;
+  from: string;
+  to: string;
+  timestamp: string;
+  summary: string;
+}

@@ -12,14 +12,24 @@ import type {
   TaskEntry,
   MeshError,
   MeshErrorType,
+  SendTarget,
+  MultiSendResult,
+  UserMessagePayload,
+  MeshAgentStatus,
 } from "../models/mesh";
 import { MessageBus } from "./message-bus";
 import { FileLockManager } from "./file-lock-manager";
 import { TaskBoardStore } from "./task-board-store";
+import { FanoutExecutor } from "./fanout-executor";
+import { PipelineExecutor } from "./pipeline-executor";
+import { SupervisorManager } from "./supervisor-manager";
 import {
   parseMeshMarkers,
   serializeToMarker,
 } from "../../shared/util/mesh-marker-parser";
+import { getLogger } from "../../platform/backends";
+
+const log = getLogger("mesh");
 
 // ----------------------------------------------------------------------------
 // Dependencies
@@ -41,6 +51,9 @@ export class MeshOrchestrator {
   private messageBus: MessageBus;
   private fileLockManager: FileLockManager;
   private taskBoardStore: TaskBoardStore;
+  private fanoutExecutor: FanoutExecutor;
+  private pipelineExecutor: PipelineExecutor;
+  private supervisorManager: SupervisorManager;
   // teamId → MeshTeam
   private teams: Map<string, MeshTeam> = new Map();
   // agentId → unsubscribe function
@@ -51,6 +64,17 @@ export class MeshOrchestrator {
     this.messageBus = deps.messageBus;
     this.fileLockManager = deps.fileLockManager;
     this.taskBoardStore = deps.taskBoardStore;
+    this.fanoutExecutor = new FanoutExecutor({
+      sessionOrchestrator: deps.sessionOrchestrator,
+    });
+    this.pipelineExecutor = new PipelineExecutor({
+      sessionOrchestrator: deps.sessionOrchestrator,
+    });
+    this.supervisorManager = new SupervisorManager({
+      sessionOrchestrator: deps.sessionOrchestrator,
+      taskBoardStore: deps.taskBoardStore,
+      fileLockManager: deps.fileLockManager,
+    });
   }
 
   // -----------------------------------------------------------------------
@@ -140,8 +164,8 @@ export class MeshOrchestrator {
       return;
     }
 
-    const markerMessage = serializeToMarker(message);
-    // Inject marker into the agent's session via prompt
+    const markerMessage = serializeToMarker(message, "2");
+    // Inject v2 marker into the agent's session via prompt
     // The agent will parse the marker and act on the P2P message
     try {
       await this.sessionOrchestrator.prompt(
@@ -150,9 +174,10 @@ export class MeshOrchestrator {
         markerMessage
       );
     } catch (e) {
-      console.error(
-        `[MeshOrchestrator] Failed to forward message to agent ${targetAgentId}: ${e}`
-      );
+      log.error("failed to forward P2P message to agent", {
+        targetAgentId,
+        sessionId,
+      }, e as Error);
     }
   }
 
@@ -174,9 +199,11 @@ export class MeshOrchestrator {
       try {
         await this.messageBus.send(msg);
       } catch (e) {
-        console.error(
-          `[MeshOrchestrator] Failed to route P2P message ${msg.id}: ${e}`
-        );
+        log.error("failed to route P2P message", {
+          messageId: msg.id,
+          from: msg.from,
+          to: msg.to,
+        }, e as Error);
       }
     }
 
@@ -335,6 +362,192 @@ export class MeshOrchestrator {
       metadata: { priority },
     };
     await this.messageBus.send(message);
+  }
+
+  // -----------------------------------------------------------------------
+  // Multi-Agent Communication (Phase 1 — Foundation)
+  // -----------------------------------------------------------------------
+
+  /**
+   * Send a message to multiple targets in parallel (multi-@ direct mode).
+   * Each target is a (agentId, sessionId) pair.
+   * Returns results for each target without waiting for agent responses.
+   */
+  async directMultiSend(
+    targets: SendTarget[],
+    text: string,
+    attachments?: unknown[]
+  ): Promise<MultiSendResult> {
+    const payload: UserMessagePayload = {
+      text,
+      attachments: attachments ?? [],
+      priority: "normal",
+    };
+    return this.fanoutExecutor.execute(targets, payload);
+  }
+
+  /**
+   * Fanout: send a message to all active sessions of the given agent IDs.
+   * Resolves agentId → active session, then sends in parallel.
+   */
+  async fanout(
+    agentIds: string[],
+    text: string,
+    attachments?: unknown[]
+  ): Promise<MultiSendResult> {
+    const targets: SendTarget[] = [];
+    for (const agentId of agentIds) {
+      const sessionId = this.sessionOrchestrator.getActiveSessionId(agentId);
+      if (!sessionId) continue;
+      const config = this.sessionOrchestrator.getAgentConfig(agentId);
+      targets.push({
+        agentId,
+        sessionId,
+        label: config?.name ?? agentId,
+        status: "idle",
+      });
+    }
+
+    if (targets.length === 0) {
+      return { results: [] };
+    }
+
+    const payload: UserMessagePayload = {
+      text,
+      attachments: attachments ?? [],
+      priority: "normal",
+    };
+    return this.fanoutExecutor.execute(targets, payload);
+  }
+
+  /**
+   * Pipeline: send a message sequentially through a chain of targets.
+   * Each agent receives the same text. Future: transform output between stages.
+   */
+  async pipelineSend(
+    targets: SendTarget[],
+    text: string
+  ): Promise<{ success: boolean; steps: Array<{ target: SendTarget; status: string; error?: string }> }> {
+    return this.pipelineExecutor.execute(targets, text);
+  }
+
+  /**
+   * Supervisor pattern: send task to lead agent, then distribute to workers.
+   *
+   * @param teamId       Team ID for TaskBoard path resolution
+   * @param leadTarget   Lead agent target
+   * @param workerTargets Worker agent targets
+   * @param task         Task description
+   * @param waitForAll   If true, wait for all workers before returning
+   * @param leadOutput   Optional raw lead agent output containing v2 markers
+   *                     for automatic sub-task decomposition
+   * @param maxRetries   Max retry count per worker (default: 0)
+   * @param lockFiles    Files to lock during worker execution
+   */
+  async supervise(
+    teamId: string,
+    leadTarget: SendTarget,
+    workerTargets: SendTarget[],
+    task: string,
+    waitForAll = false,
+    leadOutput?: string,
+    maxRetries?: number,
+    lockFiles?: string[]
+  ): Promise<{
+    assignments: Array<{ workerTarget: SendTarget; status: string }>;
+    completedCount: number;
+    failedCount: number;
+    parentTaskId?: string;
+  }> {
+    const team = this.teams.get(teamId);
+    if (!team) throw new Error(`Team ${teamId} not found`);
+
+    return this.supervisorManager.supervise(
+      {
+        leadTarget,
+        workerTargets,
+        task,
+        waitForAll,
+        taskBoardPath: team.taskBoardPath,
+        maxRetries,
+        lockFiles,
+      },
+      leadOutput
+    );
+  }
+
+  /**
+   * Get agent statuses for MeshPanel display.
+   * Returns runtime status of all registered agents including active sessions.
+   */
+  getAgentStatuses(): MeshAgentStatus[] {
+    const statuses: MeshAgentStatus[] = [];
+    const agentIds = new Set<string>();
+
+    // Collect agent IDs from teams
+    for (const team of this.teams.values()) {
+      agentIds.add(team.leadAgentId);
+      for (const id of team.memberAgentIds) {
+        agentIds.add(id);
+      }
+    }
+
+    for (const agentId of agentIds) {
+      let state: MeshAgentStatus["state"] = "disconnected";
+      const sessions: MeshAgentStatus["sessions"] = [];
+
+      // Check if agent has an active connection via SessionOrchestrator
+      const allSessions = this.sessionOrchestrator.getSessionsForAgent(agentId);
+      if (allSessions.length > 0) {
+        const hasRunning = allSessions.some((s) => s.status === "running");
+        state = hasRunning ? "working" : "idle";
+
+        for (const s of allSessions) {
+          sessions.push({
+            sessionId: s.sessionId,
+            title: s.title,
+            status: s.status,
+          });
+        }
+
+        // Find active session for current task info
+        const activeSessionId = this.sessionOrchestrator.getActiveSessionId(agentId);
+        const activeInfo = allSessions.find((s) => s.sessionId === activeSessionId);
+        if (activeInfo && activeInfo.status === "running") {
+          // Estimate progress from token usage
+          const progress = activeInfo.contextWindowMax
+            ? Math.min(95, Math.round((activeInfo.tokenUsage.total / activeInfo.contextWindowMax) * 100))
+            : undefined;
+
+          statuses.push({
+            agentId,
+            state: "working",
+            sessions,
+            currentTask: activeInfo.title,
+            progress,
+          });
+          continue;
+        }
+      }
+
+      statuses.push({ agentId, state, sessions });
+    }
+
+    return statuses;
+  }
+
+  /**
+   * Get recent message bus log entries.
+   */
+  getRecentMessages(limit: number): Array<{
+    messageId: string;
+    type: string;
+    from: string;
+    to: string;
+    timestamp: Date;
+    summary: string;
+  }> {
+    return this.messageBus.getLog().slice(-limit);
   }
 
   // -----------------------------------------------------------------------
