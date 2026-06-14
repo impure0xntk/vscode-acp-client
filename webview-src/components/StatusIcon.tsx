@@ -59,6 +59,8 @@ interface StatusIconProps {
   elapsedMs?: number;
   /** Force a specific color group accent (e.g. "active" or "waiting") */
   colorGroup?: string;
+  /** Context variant: "tool" mutes completed check to gray; default keeps green */
+  variant?: "default" | "tool";
 }
 
 export function StatusIcon({
@@ -67,6 +69,7 @@ export function StatusIcon({
   className = "",
   elapsedMs,
   colorGroup,
+  variant = "default",
 }: StatusIconProps): React.ReactElement {
   const mapped = classMap[status] ?? "idle";
   const IconEl = IconComponentMap[mapped] ?? IconCircleOutline;
@@ -81,8 +84,9 @@ export function StatusIcon({
   }
 
   const px = size === "sm" ? 14 : 18;
+  const variantSuffix = variant === "tool" ? " status-icon-tool" : "";
   const cls =
-    `status-icon status-icon-${mapped} status-icon-${size}${colorSuffix} ${className}`.trim();
+    `status-icon status-icon-${mapped} status-icon-${size}${variantSuffix}${colorSuffix} ${className}`.trim();
   const iconCls = mapped === "running" || mapped === "waiting"
     ? "status-icon-svg status-icon-spinner"
     : "status-icon-svg";

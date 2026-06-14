@@ -10,7 +10,6 @@ import type { SessionOverviewItem } from "../types";
 import { useUiStateStore } from "../store/uiStateStore";
 import { useMessageStore } from "../store/messageStore";
 import { useSessionStore, sessionKeyOf } from "../store/sessionStore";
-import type { StatusIconType } from "./StatusIcon";
 import { SessionTab } from "./SessionTab";
 import { SessionOverviewPopup } from "./SessionOverview/SessionOverviewPopup";
 
@@ -25,36 +24,14 @@ const HOVER_HIDE_DELAY = 200;
 //
 // Architecture:
 //   SessionTabs (bar container, drag/drop, hover timers, popup)
-//     └── SessionTab × N (individual tabs — compact 2-row horizontal)
-//           ├── StatusIcon    ← shared with SessionOverviewCard
-//           ├── AgentBadge    ← shared with SessionOverviewCard
-//           ├── title
-//           ├── UnreadBadge  ← shared with SessionOverviewCard
-//           └── close button
+//     └── SessionTab × N (individual tabs — self-subscribing to sessionInfo)
 //
-// Contrast with SessionOverviewPanel:
-//   SessionOverviewPanel (sidebar)
-//     └── SessionOverviewCard (full vertical stack)
-//           ├── SessionOverviewHeader (StatusIcon + AgentBadge + title + model)
-//           ├── SessionOverviewChips (duration, tokens, context, messages)
-//           ├── ResponsePreviewList (recent agent responses)
-//           ├── footer (timestamp + UnreadBadge)
-//           └── close button (always visible)
-//
-// Both SessionTab and SessionOverviewCard share:
-//   - StatusIcon, AgentBadge, UnreadBadge (from ui/)
-//   - sessionInfoMap as single source of truth (via getState())
-//   - close signature: (sessionId: string, agentId: string)
-//
-// Divergence:
-//   - Tab:  compact 2-row, no chips/preview/footer, close on hover only
-//   - Card: full vertical, always-visible close, rich content
+// SessionTab now owns its own status/elapsedMs via useSessionInfo(sessionKey),
+// so SessionTabs only needs to pass structural props (tab, isActive, agentColor).
 //
 // Responsibility split:
-//   SessionTabs owns: drag/drop, hover timers, popup, unread derivation,
-//                     status derivation from sessionInfoMap
-//   SessionTab owns:   visual layout, close button visibility, click handling
-//   → SessionTab does NOT subscribe to any store; fully prop-driven.
+//   SessionTabs owns: drag/drop, hover timers, popup, unread derivation
+//   SessionTab owns:  status subscription, elapsedMs tick, click, close, layout
 // ============================================================================
 
 interface SessionTabsProps {
@@ -185,36 +162,11 @@ export function SessionTabs({
     setPopupSession(null);
   }, [clearTimers]);
 
-  // Derive status + elapsedMs from sessionInfoMap via imperative read.
-  // Avoids subscribing to the entire sessionInfoMap (which would re-render
-  // SessionTabs on every session field change). Only recompute when the
-  // set of tab keys changes.
+  // Derive unread counts — only recompute when tab keys change.
   const tabKeys = useMemo(
     () => tabs.map((t) => sessionKeyOf(t.agentId, t.sessionId)).join(","),
     [tabs],
   );
-  const statusMap = useMemo(() => {
-    const infoMap = useSessionStore.getState().sessionInfoMap;
-    const map = new Map<string, { status: StatusIconType; elapsedMs?: number }>();
-    for (const tab of tabs) {
-      const key = sessionKeyOf(tab.agentId, tab.sessionId);
-      const info = infoMap[key];
-      const raw = info?.status ?? "idle";
-      const status: StatusIconType =
-        raw === "running" || raw === "completed" || raw === "error" || raw === "cancelled" || raw === "idle"
-          ? raw
-          : "idle";
-      const elapsedMs =
-        status === "running" && info?.lastResponseAt
-          ? Date.now() - new Date(info.lastResponseAt).getTime()
-          : undefined;
-      map.set(key, { status, elapsedMs });
-    }
-    return map;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tabKeys]);
-
-  // Derive unread counts — only recompute when tab keys change.
   const unreadMap = useMemo(() => {
     const msgStore = useMessageStore.getState();
     const uiStore = useUiStateStore.getState();
@@ -240,11 +192,6 @@ export function SessionTabs({
           const isDropTarget = dropIndex === index && dragIndex !== index;
           const isHovered = hoveredTabKey === key;
 
-          // Derive display state from imperative read (avoids re-render on every sessionInfoMap change)
-          const statusInfo = statusMap.get(key);
-          const status = statusInfo?.status ?? "idle";
-          const elapsedMs = statusInfo?.elapsedMs;
-
           const unread = unreadMap.get(key) ?? 0;
           const agentColor = connectedAgents.find(
             (a) => a.agentId === tab.agentId,
@@ -264,10 +211,7 @@ export function SessionTabs({
                 tab={tab}
                 isActive={isActive}
                 isHovered={isHovered}
-                status={status}
-                elapsedMs={elapsedMs}
                 agentColor={agentColor}
-                agentIcon={tab.agentIcon}
                 unreadCount={unread}
                 onClick={() => onTabClick(tab.sessionId, tab.agentId)}
                 onClose={() => onTabClose(tab.sessionId, tab.agentId)}

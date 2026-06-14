@@ -98,7 +98,7 @@ export function ToolBatchSummary({ calls }: ToolBatchSummaryProps): React.ReactE
           onClick={() => setExpanded(!expanded)}
           aria-expanded={expanded}
         >
-          <span className="tool-status-icon"><StatusIcon status={status} /></span>
+          <span className="tool-status-icon"><StatusIcon status={status} variant="tool" /></span>
           <span className="tool-batch-ops">{totalOps} ops</span>
           <span className="tool-batch-kinds">
             {kindSummary.map((item) => (
@@ -159,7 +159,7 @@ export function ToolBatchSummary({ calls }: ToolBatchSummaryProps): React.ReactE
         onClick={() => setAllExpanded(!allExpanded)}
         aria-expanded={allExpanded}
       >
-        <span className="tool-status-icon"><StatusIcon status={status} /></span>
+        <span className="tool-status-icon"><StatusIcon status={status} variant="tool" /></span>
         <span className="tool-batch-ops">{totalOps} ops</span>
         <span className="tool-batch-kinds">
           {kindSummary.map((item) => (

@@ -6,6 +6,9 @@ import { StatusIcon } from "../StatusIcon";
 import type { StatusIconType } from "../StatusIcon";
 import { ELAPSED_WARNING_MS, ELAPSED_CRITICAL_MS } from "../../shared/constants";
 import { Icon } from "../../lib/icons";
+import { snapshotToOverviewItem } from "../../store/sessionStore";
+export { snapshotToOverviewItem };
+
 
 // ============================================================================
 // Shared helpers

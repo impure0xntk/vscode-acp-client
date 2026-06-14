@@ -410,22 +410,11 @@ export function wireChatPanelEvents(
         const context = buildPromptContext(attachments);
 
         if (meshOrchestrator) {
-          // Set turn-active for all targets before FanoutExecutor fires
-          for (const target of targets) {
-            const sessionInfo = orchestrator.getSessionInfo(
-              target.agentId,
-              target.sessionId
-            );
-            if (sessionInfo && !sessionInfo.isTurnActive) {
-              orchestrator.setIsTurnActive(
-                target.agentId,
-                target.sessionId,
-                true
-              );
-            }
-          }
           // Route through MeshOrchestrator → FanoutExecutor for parallel delivery.
           // FanoutExecutor handles pushUserMessage + prompt for each target.
+          // Note: do NOT set isTurnActive here — _executePrompt() manages the
+          // turn lifecycle internally. Setting it beforehand would cause prompt()
+          // to always enqueue (queue) instead of sending immediately.
           void meshOrchestrator.directMultiSend(targets, text, attachments).then(
             (result) => {
               for (const r of result.results) {

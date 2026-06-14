@@ -157,7 +157,7 @@ export function ToolCallCard({
         aria-expanded={expanded}
       >
         <span className="tool-status-icon">
-          <StatusIcon status={status} />
+          <StatusIcon status={status} variant="tool" />
         </span>
         <Icon name={iconForToolKind(kind ?? "tool_call")} size="sm" className="tool-kind-icon" />
         <span className="tool-kind">{(kind ?? "TOOL_CALL").toUpperCase()}</span>

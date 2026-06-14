@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import type { SessionTabState } from "../store/sessionStore";
+import { useSessionInfo } from "../hooks/useSessionInfo";
 import { StatusIcon } from "./StatusIcon";
 import type { StatusIconType } from "./StatusIcon";
 import { UnreadBadge } from "./ui/UnreadBadge";
@@ -8,56 +9,22 @@ import { UnreadBadge } from "./ui/UnreadBadge";
 // SessionTab — compact horizontal tab for the tab bar
 // ============================================================================
 //
-// ┌─ SessionTab ──────────────────────────────────────────────────┐
-// │ [●] agent-name          ← StatusIcon + AgentBadge (shared)   │
-// │ session-title           ← title only, no chips/preview       │
-// │                                          [×] ← hover/active  │
-// └───────────────────────────────────────────────────────────────┘
-//
-// ═══ Design contrast: SessionTab vs SessionOverviewCard ═══
-//
-//   Aspect          SessionOverviewCard              SessionTab
-//   ──────────────  ──────────────────────────────    ────────────────────────
-//   Layout          vertical stack                    2-row compact horizontal
-//   Structure       Header → Chips → Preview → Footer Row1: status+agent
-//                                                       Row2: title only
-//   StatusIcon      in SessionOverviewHeader           left of agent name
-//   AgentBadge      in SessionOverviewHeader           left of title row
-//   UnreadBadge     footer-right                       absolute top-right
-//   Chips           duration/tokens/context/msgs       (none)
-//   Preview         recent agent responses             (none)
-//   Footer          timestamp                          (none)
-//   Close button    always visible                     hover/active only
-//   Width           full card width                    compact, flex-shrink
-//
-// ═══ Shared building blocks (from ui/) ═══
-//   - StatusIcon  → both use for session status indicator
-//   - AgentBadge  → both use colored dot + truncated name
-//   - UnreadBadge → both use for unread message count
-//
-// ═══ Data flow ═══
-//   SessionOverviewCard ← SessionOverviewItem (derived from sessionInfoMap)
-//   SessionTab          ← SessionTabState (lightweight) + status resolved by parent
+// Subscribes to its own session info via useSessionInfo(sessionKey).
+// Only re-renders when this specific session's fields change — not when
+// other sessions update.  elapsedMs is computed locally from lastResponseAt
+// with a 1-second tick so the spinner color updates in real time.
 //
 // ═══ Responsibility split ═══
 //   SessionTabs (parent) owns: drag/drop, hover timers, popup, unread computation
-//   SessionTab (this)   owns:  click, close, hover visual, layout
-//
-// Drag/drop is handled by the parent wrapper <div>, not by SessionTab itself.
+//   SessionTab (this)   owns:  status subscription, elapsedMs tick, click, close, layout
 // ============================================================================
 
 interface SessionTabProps {
   tab: SessionTabState;
   isActive: boolean;
   isHovered: boolean;
-  /** Pre-resolved status from sessionInfoMap (parent reads via getState()) */
-  status: StatusIconType;
-  /** Elapsed time for running indicator (ms) */
-  elapsedMs?: number;
   /** Agent color from connected agents list */
   agentColor?: string;
-  /** Optional agent icon (emoji) */
-  agentIcon?: string;
   /** Unread message count */
   unreadCount: number;
   onClick: () => void;
@@ -70,16 +37,35 @@ export function SessionTab({
   tab,
   isActive,
   isHovered,
-  status,
-  elapsedMs,
   agentColor,
-  agentIcon,
   unreadCount,
   onClick,
   onClose,
   onMouseEnter,
   onMouseLeave,
 }: SessionTabProps): React.ReactElement {
+  const sessionKey = `${tab.agentId}:${tab.sessionId}`;
+  const info = useSessionInfo(sessionKey);
+
+  // Local tick for elapsedMs — recompute every second while running.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (info?.status !== "running" || !info?.lastResponseAt) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [info?.status, info?.lastResponseAt]);
+
+  const raw = info?.status ?? "idle";
+  const status: StatusIconType =
+    raw === "running" || raw === "completed" || raw === "error" || raw === "cancelled" || raw === "idle"
+      ? raw
+      : "idle";
+
+  const elapsedMs =
+    status === "running" && info?.lastResponseAt
+      ? Date.now() - new Date(info.lastResponseAt).getTime()
+      : undefined;
+
   const showCloseButton = isActive || isHovered;
 
   return (
@@ -92,17 +78,13 @@ export function SessionTab({
       {/* Row 1: Status + Agent name — mirrors SessionOverviewCard header */}
       <div className="session-tab-row session-tab-row-agent">
         <StatusIcon status={status} elapsedMs={elapsedMs} />
-        {agentIcon ? (
-          <span className="session-tab-agent-icon">{agentIcon}</span>
-        ) : (
-          <span
-            className="session-tab-agent-name"
-            style={{ color: agentColor ?? "var(--vscode-descriptionForeground)" }}
-            title={tab.agentId}
-          >
-            {tab.agentId}
-          </span>
-        )}
+        <span
+          className="session-tab-agent-name"
+          style={{ color: agentColor ?? "var(--vscode-descriptionForeground)" }}
+          title={tab.agentId}
+        >
+          {tab.agentId}
+        </span>
       </div>
 
       {/* Row 2: Session title — compact, no chips/preview/footer */}

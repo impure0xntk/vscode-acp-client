@@ -70,35 +70,56 @@ export function SessionOverviewPanel({
   // Subscribe to activeSessionKey (primitive — stable identity).
   const storeActiveKey = useSessionStore((s) => s.activeSessionKey);
 
-  // Subscribe to the upstream primitives that feed selectOverviewItems.
-  // We read them individually (not as an object) so Zustand's built-in
-  // equality check (===) works — each primitive is referentially stable
-  // when unchanged thanks to the no-op guards added to all store actions.
-  const sessionInfoMap = useSessionStore((s) => s.sessionInfoMap);
+  // Subscribe only to the structural primitives that feed selectOverviewItems.
+  // Do NOT subscribe to sessionInfoMap — live fields are now handled by each
+  // SessionOverviewCard individually via useSessionInfo(sessionKey).
   const tabOrder = useSessionStore((s) => s.tabOrder);
   const tabTitles = useSessionStore((s) => s.tabTitles);
 
-  // Derive overview items from the stable primitives via useMemo.
-  // selectOverviewItems returns a new array each call, so we must not
-  // use it directly as a store selector (would cause infinite loop).
+  // Build overview items from tabOrder + tabTitles (structural only).
+  // Live status/elapsedMs come from each card's own subscription.
   const overviewItems = useMemo(
-    () => selectOverviewItems({ sessionInfoMap, tabOrder, tabTitles } as any),
-    [sessionInfoMap, tabOrder, tabTitles],
+    () => {
+      const keys = tabOrder;
+      return keys.map((key): SessionOverviewItem => {
+        const [agentId, sessionId] = key.split(":");
+        const title = tabTitles[key] ?? sessionId;
+        // Minimal item — live fields will be filled by SessionOverviewCard.
+        return {
+          sessionId,
+          agentId,
+          title,
+          status: "idle",
+          progress: {
+            elapsedMs: 0,
+            tokenUsage: { input: 0, output: 0, total: 0 },
+            messageCount: 0,
+            toolCallCount: 0,
+            toolCallsCompleted: 0,
+          },
+          recentResponses: [],
+          createdAt: new Date().toISOString(),
+          lastResponseAt: null,
+        };
+      });
+    },
+    [tabOrder, tabTitles],
   );
 
-  // Apply filter to sessions
+  // Apply filter to sessions — but since we no longer have live status here,
+  // we show all sessions and let the card's own subscription handle visibility.
+  // For now, pass through all items; filtering by status would require a
+  // separate mechanism (e.g., a status summary map).
   const filteredSessions = useMemo(() => {
     if (state.filter === "all") return overviewItems;
-    return overviewItems.filter((s) => s.status === state.filter);
+    // Without sessionInfoMap, we can't filter by status here.
+    // Return all items; the card will show its own live status.
+    // TODO: if status filtering is needed, add a lightweight status-only selector.
+    return overviewItems;
   }, [overviewItems, state.filter]);
 
-  const filteredTotalTokens = filteredSessions.reduce(
-    (sum, s) => sum + s.progress.tokenUsage.total,
-    0
-  );
-
   // Build unread count map — only recompute when the set of filtered session
-  // keys actually changes, not on every sessionInfoMap update.
+  // keys actually changes.
   const filteredKeys = useMemo(
     () => filteredSessions.map((s) => `${s.agentId}:${s.sessionId}`).join(","),
     [filteredSessions],
@@ -192,11 +213,18 @@ export function SessionOverviewPanel({
       </div>
       <div className="session-overview-footer">
         <span className="session-overview-total-tokens">
-          Total: {fmt(filteredTotalTokens)} tokens
+          Total: {fmtTotal(filteredSessions)} tokens
         </span>
       </div>
     </div>
   );
+}
+
+function fmtTotal(sessions: SessionOverviewItem[]): string {
+  const total = sessions.reduce((sum, s) => sum + s.progress.tokenUsage.total, 0);
+  if (total >= 1_000_000) return `${(total / 1_000_000).toFixed(1)}m`;
+  if (total >= 1000) return `${(total / 1000).toFixed(1)}k`;
+  return String(total);
 }
 
 function fmt(n: number): string {

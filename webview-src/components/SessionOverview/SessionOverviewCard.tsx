@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import type { SessionOverviewItem } from "../../types";
+import { useSessionInfo } from "../../hooks/useSessionInfo";
 import { UnreadBadge } from "../ui/UnreadBadge";
 import {
   SessionOverviewHeader,
@@ -8,47 +9,23 @@ import {
   ResponsePreviewList,
   sessionColorGroup,
   elapsedTier,
+  snapshotToOverviewItem,
 } from "./SessionOverviewCardBase";
+import { useSessionStore } from "../../store/sessionStore";
 
 // ============================================================================
 // SessionOverviewCard — full vertical card for the overview panel
 // ============================================================================
 //
-// ┌─ SessionOverviewCard ────────────────────────────────────────┐
-// │ [●] agent-name  title  model  [×]  ← SessionOverviewHeader │
-// │ [chips: duration, tokens, context, messages]                │
-// │ ▸ response preview list                                     │
-// │ timestamp                              [unread badge]       │
-// └─────────────────────────────────────────────────────────────┘
-//
-// ═══ Design contrast: SessionOverviewCard vs SessionTab ═══
-//
-//   Aspect          SessionOverviewCard              SessionTab
-//   ──────────────  ──────────────────────────────    ────────────────────────
-//   Layout          vertical stack                    2-row compact horizontal
-//   Structure       Header → Chips → Preview → Footer Row1: status+agent
-//                                                       Row2: title only
-//   StatusIcon      in SessionOverviewHeader           left of agent name
-//   AgentBadge      in SessionOverviewHeader           left of title row
-//   UnreadBadge     footer-right                       absolute top-right
-//   Chips           duration/tokens/context/msgs       (none)
-//   Preview         recent agent responses             (none)
-//   Footer          timestamp                          (none)
-//   Close button    always visible                     hover/active only
-//   Width           full card width                    compact, flex-shrink
-//
-// ═══ Shared building blocks (from ui/) ═══
-//   - StatusIcon  → both use for session status indicator
-//   - AgentBadge  → both use colored dot + truncated name
-//   - UnreadBadge → both use for unread message count
-//
-// ═══ Data flow ═══
-//   SessionOverviewCard ← SessionOverviewItem (derived from sessionInfoMap)
-//   SessionTab          ← SessionTabState (lightweight) + status resolved by parent
+// Subscribes to its own session info via useSessionInfo(sessionKey).
+// The parent (SessionOverviewPanel) still passes a SessionOverviewItem for
+// structural data (title, etc.), but live fields (status, elapsedMs, tokenUsage)
+// come from the hook so the card re-renders only when its own session changes.
 //
 // ═══ Responsibility split ═══
 //   SessionOverviewPanel (parent) owns: filter, selection mode, batch ops
-//   SessionOverviewCard (this)  owns: expand/collapse, long-press, flash anim
+//   SessionOverviewCard (this)  owns: live status subscription, expand/collapse,
+//                                    long-press, flash anim
 // ============================================================================
 
 interface Props {
@@ -86,12 +63,21 @@ export function SessionOverviewCard({
   onSelect,
   onLongPress,
 }: Props): React.ReactElement {
+  // Subscribe to live session info — re-renders only when this session changes.
+  const sessionKey = `${session.agentId}:${session.sessionId}`;
+  const liveInfo = useSessionInfo(sessionKey);
+
+  // Merge: use live info when available, fall back to the snapshot from parent.
+  const liveItem: SessionOverviewItem = liveInfo
+    ? snapshotToOverviewItem(liveInfo, session.title)
+    : session;
+
   const isCancelable =
-    session.status === "running" || session.status === "waiting" || session.status === "waiting_for_input";
+    liveItem.status === "running" || liveItem.status === "waiting" || liveItem.status === "waiting_for_input";
 
-  const tier = elapsedTier(session.progress.elapsedMs);
+  const tier = elapsedTier(liveItem.progress.elapsedMs);
 
-  const prevStatusRef = useRef(session.status);
+  const prevStatusRef = useRef(liveItem.status);
   const [isFlashing, setIsFlashing] = useState(false);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didLongPressRef = useRef(false);
@@ -101,20 +87,20 @@ export function SessionOverviewCard({
     const wasActive =
       prev === "running" || prev === "waiting" || prev === "waiting_for_input";
     const isTerminal =
-      session.status === "completed" || session.status === "error";
+      liveItem.status === "completed" || liveItem.status === "error";
 
     if (wasActive && isTerminal) {
       setIsFlashing(true);
     }
 
-    prevStatusRef.current = session.status;
-  }, [session.status]);
+    prevStatusRef.current = liveItem.status;
+  }, [liveItem.status]);
 
   const handleAnimationEnd = useCallback(() => {
     setIsFlashing(false);
   }, []);
 
-  const flashingStatus = isFlashing ? session.status : undefined;
+  const flashingStatus = isFlashing ? liveItem.status : undefined;
 
   // ── Long-press handling ────────────────────────────────────────────
   const handlePointerDown = useCallback(() => {
@@ -155,8 +141,8 @@ export function SessionOverviewCard({
   return (
     <div
       className={`session-overview-card${isExpanded ? " session-overview-card-expanded" : ""}${isActive ? " session-overview-card-active" : ""}${isSelected ? " session-overview-card-selected" : ""}`}
-      data-status={session.status}
-      data-color-group={sessionColorGroup(session.status)}
+      data-status={liveItem.status}
+      data-color-group={sessionColorGroup(liveItem.status)}
       data-elapsed-tier={tier}
       data-flashing={flashingStatus}
       onAnimationEnd={handleAnimationEnd}
@@ -179,7 +165,7 @@ export function SessionOverviewCard({
       {/* Header row: close button top-right */}
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <SessionOverviewHeader session={session} agentColor={agentColor} />
+          <SessionOverviewHeader session={liveItem} agentColor={agentColor} />
         </div>
         <button
           className="session-tab-close"
@@ -195,18 +181,18 @@ export function SessionOverviewCard({
       </div>
 
       {/* Chips row */}
-      <SessionOverviewChips session={session} />
+      <SessionOverviewChips session={liveItem} />
 
       {/* Response preview */}
       <ResponsePreviewList
-        responses={session.recentResponses}
+        responses={liveItem.recentResponses}
         maxItems={isExpanded ? 5 : 3}
       />
 
       {/* Footer: timestamp + unread badge (bottom-right) */}
       <div className="session-overview-card-footer">
         <span className="session-overview-card-timestamp">
-          {new Date(session.lastResponseAt ?? session.createdAt).toLocaleTimeString()}
+          {new Date(liveItem.lastResponseAt ?? liveItem.createdAt).toLocaleTimeString()}
         </span>
 
         <div className="session-overview-card-actions">

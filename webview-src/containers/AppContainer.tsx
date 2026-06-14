@@ -32,13 +32,13 @@ import type { ContextAttachment, SendTarget } from "../types";
 export function AppContainer(): React.ReactElement {
   const log = useLogger("AppContainer");
   // ── Direct store subscriptions ──────────────────────────────────────
-  // Subscribe to activeSessionKey (triggers re-render on session switch)
-  // AND sessionInfoMap (triggers re-render when sessions are added/removed).
-  // We use useShallow to avoid re-renders on every streaming field change —
-  // the no-op guards in store actions ensure referential stability.
+  // Subscribe only to structural state — NOT sessionInfoMap.
+  // Every streaming field update creates a new immer object, so subscribing to
+  // sessionInfoMap would re-render the entire tree on every token/status change.
+  // Instead, activeSessionInfo is read imperatively when activeSessionKey changes,
+  // and live fields (status, elapsed) are read directly by child components.
   const {
     activeSessionKey,
-    sessionInfoMap,
     tabOrder,
     tabTitles,
     tabIcons,
@@ -49,7 +49,6 @@ export function AppContainer(): React.ReactElement {
     statusline,
   } = useSessionStore(useShallow((s: SessionState) => ({
     activeSessionKey: s.activeSessionKey,
-    sessionInfoMap: s.sessionInfoMap,
     tabOrder: s.tabOrder,
     tabTitles: s.tabTitles,
     tabIcons: s.tabIcons,
@@ -60,14 +59,18 @@ export function AppContainer(): React.ReactElement {
     statusline: s.statusline,
   })));
 
-  // Derive tabs from already-subscribed store primitives.
-  const tabs = useMemo<SessionTabState[]>(() => {
-    const orderedKeys = tabOrder.length > 0
-      ? tabOrder
-      : Object.keys(sessionInfoMap);
-    return orderedKeys
-      .filter((key) => sessionInfoMap[key])
-      .map((key): SessionTabState => {
+  // Derive activeSessionInfo imperatively — only re-read when activeSessionKey changes.
+  const activeSessionInfo = useMemo(
+    () => (activeSessionKey ? useSessionStore.getState().sessionInfoMap[activeSessionKey] : undefined),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeSessionKey],
+  );
+
+  // Derive tabs from tabOrder only — no sessionInfoMap dependency.
+  // tabOrder is the sole source of truth for which tabs exist and their order.
+  const tabs = useMemo<SessionTabState[]>(
+    () =>
+      tabOrder.map((key): SessionTabState => {
         const [agentId, sessionId] = key.split(":");
         return {
           sessionId,
@@ -75,8 +78,9 @@ export function AppContainer(): React.ReactElement {
           title: tabTitles[key] ?? sessionId,
           agentIcon: tabIcons[key],
         };
-      });
-  }, [sessionInfoMap, tabOrder, tabTitles, tabIcons]);
+      }),
+    [tabOrder, tabTitles, tabIcons],
+  );
 
   const {
     overviewVisible,
@@ -99,10 +103,6 @@ export function AppContainer(): React.ReactElement {
   // ── Derived values ──────────────────────────────────────────────────
   const activeSessionId = activeSessionKey ? activeSessionKey.split(":")[1] : null;
   const activeAgentId = activeSessionKey ? activeSessionKey.split(":")[0] : null;
-
-  const activeSessionInfo = activeSessionKey
-    ? sessionInfoMap[activeSessionKey]
-    : undefined;
 
   const displayModel = activeSessionInfo?.model;
   const displayMode = activeSessionInfo?.mode;
@@ -313,13 +313,14 @@ export function AppContainer(): React.ReactElement {
   );
 
   // Derive overview items as a lookup map.
-  // selectOverviewItemsMap returns a new object each call, so we memoize
-  // based on the upstream primitives (sessionInfoMap, tabOrder, tabTitles)
-  // that are already subscribed above. This avoids triggering re-renders
-  // from a separate store subscription.
+  // Read sessionInfoMap imperatively — this memo only runs when
+  // tabOrder/tabTitles/tabIcons change (structural changes), NOT on
+  // every streaming field update. Live status/fields in overview items
+  // will be stale until next structural change; that's acceptable since
+  // the overview panel has its own SessionOverviewCardBase subscription.
   const overviewItemsMap = useMemo(
     () => selectOverviewItemsMap(useSessionStore.getState()),
-    [sessionInfoMap, tabOrder, tabTitles],
+    [tabOrder, tabTitles, tabIcons],
   );
 
   // ── File/symbol resolution (kept as-is for now) ─────────────────────

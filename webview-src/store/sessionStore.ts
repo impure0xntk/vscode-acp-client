@@ -118,13 +118,9 @@ export function selectOverviewItemsMap(state: SessionState): Record<string, Sess
 }
 
 export function selectTabs(state: SessionState): SessionTabState[] {
-  const { sessionInfoMap, tabOrder, tabTitles, tabIcons } = state;
-  const orderedKeys = tabOrder.length > 0
-    ? tabOrder
-    : Object.keys(sessionInfoMap);
+  const { tabOrder, tabTitles, tabIcons } = state;
 
-  return orderedKeys
-    .filter((key) => sessionInfoMap[key])
+  return tabOrder
     .map((key): SessionTabState => {
       const [agentId, sessionId] = key.split(":");
       return {
