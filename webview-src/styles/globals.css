@@ -901,6 +901,14 @@ body {
   color: var(--fg-muted);
 }
 
+.message-system .message-header {
+  opacity: 0.5;
+}
+
+.message-system .message-body {
+  font-style: italic;
+}
+
 /* Message tool-batch wrapper: no extra margin — spacing from message-list gap */
 .message-tool-batch {
   margin: 0;
@@ -1023,69 +1031,6 @@ body {
   padding-left: 12px;
   color: var(--fg-secondary);
   margin: 8px 0;
-}
-
-/* ============================================================================
-   User Attachment Chips — right-aligned row above user messages
-   ============================================================================ */
-
-.user-attach-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  justify-content: flex-end;
-  margin-bottom: 4px;
-  padding-right: 2px;
-  width: 100%;
-}
-
-.user-attach-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  font-size: 11px;
-  white-space: nowrap;
-  flex-shrink: 0;
-  color: var(--fg-secondary);
-}
-
-.user-attach-chip--link {
-  cursor: pointer;
-  color: var(--accent);
-  transition:
-    background 0.15s,
-    border-color 0.15s;
-}
-
-.user-attach-chip--link:hover {
-  background: var(--accent-hover);
-  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
-}
-
-.user-attach-chip--link:focus-visible {
-  outline: 1px solid var(--accent);
-  outline-offset: 1px;
-}
-
-.user-attach-chip-icon {
-  font-size: 11px;
-  flex-shrink: 0;
-}
-
-.user-attach-chip-label {
-  max-width: 140px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.user-attach-chip-tokens {
-  color: var(--fg-muted);
-  font-size: 9px;
 }
 
 /* ============================================================================
@@ -1392,6 +1337,18 @@ body {
   margin-left: 2px;
 }
 
+.file-chip-detail {
+  color: var(--fg-muted);
+  font-size: 9px;
+  margin-left: 2px;
+}
+
+.file-chip-tokens {
+  color: var(--fg-muted);
+  font-size: 9px;
+  margin-left: 2px;
+}
+
 /* ── Grouped tool call: file summary row ── */
 .tool-group-files {
   display: flex;
@@ -1562,6 +1519,8 @@ body {
   color: var(--fg-secondary);
   font-size: 9px;
   text-transform: uppercase;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .tool-kind-icon {
@@ -1574,6 +1533,11 @@ body {
 .tool-title {
   font-weight: 500;
   font-size: 10px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tool-call-body {

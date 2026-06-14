@@ -31,7 +31,7 @@ import {
 } from "@agentclientprotocol/sdk";
 import * as child_process from "child_process";
 import { Readable, Writable } from "stream";
-import type { SessionInfo, SessionStatus } from "./types";
+import type { SessionInfo, SessionStatus, QueuedPrompt } from "./types";
 import type {
   ChatMessage,
   TokenUsage,
@@ -217,6 +217,8 @@ export class SessionOrchestrator extends EventEmitter {
   // Debounce timer for session overview updates
   private sessionOverviewDebounceTimer: ReturnType<typeof setTimeout> | null =
     null;
+  // Prompt queue: sessionKey(agentId, sessionId) → QueuedPrompt[]
+  private promptQueue: Map<string, QueuedPrompt[]> = new Map();
 
   constructor(deps: OrchestratorDeps) {
     super();
@@ -453,6 +455,13 @@ export class SessionOrchestrator extends EventEmitter {
         this.activeSessions.set(agentId, newActive);
         this.emit("sessionActiveChanged", { agentId, sessionId: newActive });
       }
+    }
+
+    // Clear any queued prompts for the closed session
+    const qKey = sessionKey(agentId, sessionId);
+    if (this.promptQueue.has(qKey)) {
+      this.promptQueue.delete(qKey);
+      this.emit("promptQueueUpdated", { agentId, sessionId, queue: [] });
     }
 
     this.emit("sessionClosed", { agentId, sessionId });
@@ -780,7 +789,60 @@ export class SessionOrchestrator extends EventEmitter {
     return blocks;
   }
 
+  /**
+   * Send a prompt to an agent session.
+   *
+   * If the session's turn is already active, the prompt is queued and will
+   * be sent automatically when the current turn completes. The webview is
+   * notified via the "promptQueued" event so it can reflect the queued state.
+   *
+   * @returns The QueuedPrompt entry (for queued sends) or undefined (for immediate sends).
+   */
   async prompt(
+    agentId: string,
+    sessionId: string,
+    text: string,
+    context?: PromptContext
+  ): Promise<QueuedPrompt | undefined> {
+    const agentSessions = this.sessions.get(agentId);
+    const sessionInfo = agentSessions?.get(sessionId);
+    if (!sessionInfo) {
+      throw new Error(`Session ${sessionId} not found for agent ${agentId}`);
+    }
+
+    // If a turn is active, enqueue instead of sending immediately.
+    // This ensures messages sent during an active turn are stacked and
+    // delivered in order after the turn completes, even if the user
+    // switches to a different session tab meanwhile.
+    if (sessionInfo.isTurnActive) {
+      const entry: QueuedPrompt = {
+        id: crypto.randomUUID(),
+        agentId,
+        sessionId,
+        text,
+        context,
+        enqueuedAt: new Date().toISOString(),
+        status: "pending",
+      };
+
+      const key = sessionKey(agentId, sessionId);
+      const queue = this.promptQueue.get(key) ?? [];
+      queue.push(entry);
+      this.promptQueue.set(key, queue);
+
+      this.emit("promptQueued", { agentId, sessionId, entry });
+      return entry;
+    }
+
+    // Turn is idle — send immediately
+    await this._executePrompt(agentId, sessionId, text, context);
+    return undefined;
+  }
+
+  /**
+   * Internal prompt execution — sends to the agent and manages turn lifecycle.
+   */
+  private async _executePrompt(
     agentId: string,
     sessionId: string,
     text: string,
@@ -802,7 +864,6 @@ export class SessionOrchestrator extends EventEmitter {
     sessionInfo.isTurnActive = true;
     sessionInfo.isStreaming = true;
 
-    // Build prompt with embedded context blocks
     const promptBlocks: ContentBlock[] = [
       ...(context ?? []),
       { type: "text", text },
@@ -814,7 +875,6 @@ export class SessionOrchestrator extends EventEmitter {
         prompt: promptBlocks,
       } satisfies PromptRequest);
 
-      // Update token usage from PromptResponse.usage (per-turn)
       if (response.usage) {
         sessionInfo.tokenUsage = {
           input: response.usage.inputTokens ?? sessionInfo.tokenUsage.input,
@@ -823,11 +883,9 @@ export class SessionOrchestrator extends EventEmitter {
         };
       }
 
-      // Turn is complete when prompt() resolves
       sessionInfo.status = "completed";
       sessionInfo.isStreaming = false;
       sessionInfo.lastResponseAt = new Date().toISOString();
-      // Flush any remaining buffered tool calls
       this.flushPendingToolCalls(agentId, sessionId);
       this.emit("sessionCompleted", {
         agentId,
@@ -845,6 +903,52 @@ export class SessionOrchestrator extends EventEmitter {
         agentId,
         sessionId,
         active: false,
+      });
+
+      // Process next queued prompt for this session, if any.
+      // Fire-and-forget: don't block the current turn's completion.
+      this._processNextInQueue(agentId, sessionId);
+    }
+  }
+
+  /**
+   * Dequeue and send the next prompt for a session after its turn completes.
+   *
+   * The queue is keyed by sessionKey(agentId, sessionId), so switching
+   * sessions in the UI does not affect which session receives the queued
+   * prompt. Each entry carries the original agentId and sessionId.
+   */
+  private async _processNextInQueue(
+    agentId: string,
+    sessionId: string
+  ): Promise<void> {
+    const key = sessionKey(agentId, sessionId);
+    const queue = this.promptQueue.get(key);
+    if (!queue || queue.length === 0) return;
+
+    // Another turn may have started (e.g., from a different caller) — skip
+    const sessionInfo = this.getSessionInfo(agentId, sessionId);
+    if (!sessionInfo || sessionInfo.isTurnActive) return;
+
+    const next = queue.shift()!;
+    next.status = "sending";
+    this.emit("promptDequeued", { agentId, sessionId, entry: next });
+
+    try {
+      await this._executePrompt(next.agentId, next.sessionId, next.text, next.context);
+      next.status = "sent";
+    } catch (e) {
+      next.status = "cancelled";
+      throw e;
+    } finally {
+      // Clean up empty queues to prevent memory leaks
+      if (queue.length === 0) {
+        this.promptQueue.delete(key);
+      }
+      this.emit("promptQueueUpdated", {
+        agentId,
+        sessionId,
+        queue: [...(this.promptQueue.get(key) ?? [])],
       });
     }
   }
@@ -869,6 +973,87 @@ export class SessionOrchestrator extends EventEmitter {
     }
 
     await connection.cancel({ sessionId } satisfies CancelNotification);
+  }
+
+  // ========================================================================
+  // Prompt Queue
+  // ========================================================================
+
+  /**
+   * Get the current prompt queue for a session.
+   * Returns a copy to prevent external mutation.
+   */
+  getQueuedPrompts(agentId: string, sessionId: string): QueuedPrompt[] {
+    const key = sessionKey(agentId, sessionId);
+    return [...(this.promptQueue.get(key) ?? [])];
+  }
+
+  /**
+   * Cancel a specific queued prompt by ID.
+   * Only "pending" entries can be cancelled; "sending" entries cannot.
+   */
+  cancelQueuedPrompt(
+    agentId: string,
+    sessionId: string,
+    promptId: string
+  ): boolean {
+    const key = sessionKey(agentId, sessionId);
+    const queue = this.promptQueue.get(key);
+    if (!queue) return false;
+
+    const idx = queue.findIndex(
+      (e) => e.id === promptId && e.status === "pending"
+    );
+    if (idx === -1) return false;
+
+    queue.splice(idx, 1);
+    if (queue.length === 0) {
+      this.promptQueue.delete(key);
+    }
+
+    this.emit("promptQueueUpdated", {
+      agentId,
+      sessionId,
+      queue: [...(this.promptQueue.get(key) ?? [])],
+    });
+    return true;
+  }
+
+  /**
+   * Reorder queued prompts by specifying the desired order of IDs.
+   * Only "pending" entries are affected; "sending" entries stay in place.
+   */
+  reorderQueuedPrompts(
+    agentId: string,
+    sessionId: string,
+    orderedIds: string[]
+  ): void {
+    const key = sessionKey(agentId, sessionId);
+    const queue = this.promptQueue.get(key);
+    if (!queue) return;
+
+    const pending = queue.filter((e) => e.status === "pending");
+    const sending = queue.filter((e) => e.status !== "pending");
+
+    const reordered = orderedIds
+      .map((id) => pending.find((e) => e.id === id))
+      .filter((e): e is QueuedPrompt => e !== undefined);
+
+    // Append any pending entries not in orderedIds (safety net)
+    for (const e of pending) {
+      if (!orderedIds.includes(e.id)) {
+        reordered.push(e);
+      }
+    }
+
+    const newQueue = [...reordered, ...sending];
+    this.promptQueue.set(key, newQueue);
+
+    this.emit("promptQueueUpdated", {
+      agentId,
+      sessionId,
+      queue: [...newQueue],
+    });
   }
 
   // ========================================================================
@@ -1113,13 +1298,14 @@ export class SessionOrchestrator extends EventEmitter {
     agentId?: string
   ): Promise<void> {
     if (agentId) {
-      return this.prompt(agentId, sessionId, text, context);
+      void this.prompt(agentId, sessionId, text, context);
+      return;
     }
     const found = this.findSessionGlobally(sessionId);
     if (!found) {
       throw new Error(`Session ${sessionId} not found in any connected agent`);
     }
-    return this.prompt(found.agentId, sessionId, text, context);
+    void this.prompt(found.agentId, sessionId, text, context);
   }
 
   /**

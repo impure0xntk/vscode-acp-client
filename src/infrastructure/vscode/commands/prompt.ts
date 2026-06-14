@@ -50,13 +50,25 @@ export function wireChatPanelEvents(
     };
     orchestrator.appendMessageSilent(agentId, sessionId, userMessage);
 
-    // Start prompt first so status transitions to "running" before UI updates
     const context = buildPromptContext(attachments);
     orchestrator.prompt(agentId, sessionId, text, context).then(
-      () => orchestrator.setIsTurnActive(agentId, sessionId, false),
+      (queuedEntry) => {
+        if (queuedEntry) {
+          // Prompt was queued (turn was active) — no need to set isTurnActive
+          // The orchestrator will auto-dequeue when the turn completes
+        } else {
+          // Prompt was sent immediately — turn is now complete
+          orchestrator.setIsTurnActive(agentId, sessionId, false);
+        }
+      },
       () => orchestrator.setIsTurnActive(agentId, sessionId, false)
     );
-    orchestrator.setIsTurnActive(agentId, sessionId, true);
+    // Only set isTurnActive immediately if the prompt was NOT queued
+    // (queued prompts don't start a new turn yet)
+    const sessionInfo = orchestrator.getSessionInfo(agentId, sessionId);
+    if (sessionInfo && !sessionInfo.isTurnActive) {
+      orchestrator.setIsTurnActive(agentId, sessionId, true);
+    }
   });
 
   chatPanel.onCancelTurn(({ agentId, sessionId }) => {
@@ -371,6 +383,19 @@ export function wireChatPanelEvents(
       case "sessionOverview:collapse":
         // Webview manages expanded state internally; no extension host action needed.
         break;
+
+      // ==================================================================
+      // Prompt Queue messages
+      // ==================================================================
+      case "queue:cancel": {
+        const { agentId, sessionId, promptId } = data as {
+          agentId: string;
+          sessionId: string;
+          promptId: string;
+        };
+        orchestrator.cancelQueuedPrompt(agentId, sessionId, promptId);
+        break;
+      }
     }
   });
 }

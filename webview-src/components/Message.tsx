@@ -3,7 +3,7 @@ import { renderMarkdown, type RenderContext } from "../lib/markdown";
 import { getVsCodeApi } from "../lib/vscodeApi";
 import { Icon, iconForType } from "../lib/icons";
 import { ToolBatchSummary } from "./ToolCallCard/ToolBatchSummary";
-import { ToolCallCard } from "./ToolCallCard";
+import { ToolCallCard, getFileExtension, fileIcon } from "./ToolCallCard";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { MessageActions } from "./MessageActions";
 import { ContextCompressionNotice } from "./ContextCompressionNotice";
@@ -52,36 +52,81 @@ function copyCodeBlock(e: React.MouseEvent<HTMLElement>): void {
 
 function AttachmentChip({ attachment }: { attachment: ContextAttachment }): React.ReactElement {
   const handleClick = useCallback(() => {
-    if (attachment.type === "selection" || attachment.type === "symbol" || !attachment.path) return;
-    try { getVsCodeApi().postMessage({ type: "openFile", path: attachment.path, line: attachment.lineRange?.[0] }); }
-    catch { /* */ }
+    if (!attachment.path) return;
+    const line =
+      attachment.type === "selection" || attachment.type === "symbol"
+        ? attachment.lineRange?.[0]
+        : attachment.lineRange?.[0];
+    try {
+      getVsCodeApi().postMessage({ type: "openFile", path: attachment.path, line });
+    } catch {
+      /* */
+    }
   }, [attachment]);
 
-  const typeLabel =
-    attachment.type === "selection" ? "selection"
-    : attachment.type === "diff" ? "diff"
-    : attachment.type === "symbol" ? "symbol"
-    : (attachment.path.split("/").pop() ?? attachment.path);
+  const isNavigable = !!attachment.path;
 
-  const isNavigable = attachment.type !== "selection" && attachment.type !== "symbol" && !!attachment.path;
+  // Label: file basename, or "selection", or "symbol", or "diff"
+  const basename = attachment.path
+    ? attachment.path.split("/").pop() ?? attachment.path
+    : undefined;
+  const ext = attachment.path ? getFileExtension(attachment.path) : "";
+
+  // Detail: full path for file, line range for selection/symbol, label for diff
+  const detail =
+    attachment.type === "diff"
+      ? attachment.label
+      : attachment.lineRange
+        ? `${basename}:${attachment.lineRange[0]}-${attachment.lineRange[1]}`
+        : attachment.path ?? attachment.label;
 
   return (
     <span
-      className={`user-attach-chip${isNavigable ? " user-attach-chip--link" : ""}`}
+      className={`file-chip file-chip-inline${isNavigable ? "" : ""}`}
       onClick={isNavigable ? handleClick : undefined}
       title={
-        attachment.type === "selection" ? `Selection in ${attachment.path}${attachment.lineRange ? `:${attachment.lineRange[0]}-${attachment.lineRange[1]}` : ""}`
-        : attachment.type === "symbol" ? attachment.label
-        : attachment.type === "diff" ? attachment.label
-        : attachment.path
+        attachment.type === "diff"
+          ? attachment.label
+          : attachment.path
+            ? attachment.lineRange
+              ? `${attachment.path}:${attachment.lineRange[0]}-${attachment.lineRange[1]}`
+              : attachment.path
+            : attachment.label
       }
       role={isNavigable ? "button" : undefined}
       tabIndex={isNavigable ? 0 : undefined}
-      onKeyDown={isNavigable ? (e) => { if (e.key === "Enter") handleClick(); } : undefined}
+      onKeyDown={
+        isNavigable
+          ? (e) => {
+              if (e.key === "Enter") handleClick();
+            }
+          : undefined
+      }
     >
-      <Icon name={iconForType(attachment.type)} size="sm" className="user-attach-chip-icon" />
-      <span className="user-attach-chip-label">{typeLabel}</span>
-      <span className="user-attach-chip-tokens">{attachment.tokenCount}t</span>
+      {attachment.type === "diff" ? (
+        <Icon name="diff-single" size="sm" className="file-chip-icon" />
+      ) : attachment.type === "selection" ? (
+        <Icon name="selection" size="sm" className="file-chip-icon" />
+      ) : attachment.type === "symbol" ? (
+        <Icon name="symbol-class" size="sm" className="file-chip-icon" />
+      ) : (
+        <span className="file-chip-ext">{fileIcon(ext)}</span>
+      )}
+      <span className="file-chip-label">
+        {attachment.type === "selection"
+          ? `selection`
+          : attachment.type === "symbol"
+            ? attachment.label
+            : attachment.type === "diff"
+              ? "diff"
+              : basename}
+      </span>
+      {attachment.type === "selection" && attachment.lineRange && (
+        <span className="file-chip-detail">
+          :{attachment.lineRange[0]}-{attachment.lineRange[1]}
+        </span>
+      )}
+      <span className="file-chip-tokens">{attachment.tokenCount}t</span>
     </span>
   );
 }
@@ -107,8 +152,8 @@ export const Message = React.memo(function Message({
   }, []);
 
   const batchCalls = useMemo(() => {
-    if (!hasToolCalls) return undefined;
-    return toolCalls!.map((tc) => ({
+    if (!toolCalls || toolCalls.length === 0) return undefined;
+    return toolCalls.map((tc) => ({
       id: tc.id,
       title: tc.title,
       kind: tc.kind,
@@ -119,7 +164,7 @@ export const Message = React.memo(function Message({
       locations: tc.locations,
       diffContent: tc.diffContent,
     }));
-  }, [hasToolCalls, toolCalls]);
+  }, [toolCalls]);
 
   return (
     <div
@@ -156,7 +201,9 @@ export const Message = React.memo(function Message({
                 dangerouslySetInnerHTML={{ __html: renderMarkdown(content, renderCtx) }}
                 onClick={handleMarkdownClick}
               />
-              <MessageActions messageId={id} content={content} isUserMessage={isUser} sessionId={sessionId ?? ""} />
+              {!isSystem && (
+                <MessageActions messageId={id} content={content} isUserMessage={isUser} sessionId={sessionId ?? ""} />
+              )}
             </div>
           )}
         </div>

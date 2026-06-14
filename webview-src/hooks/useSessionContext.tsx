@@ -630,6 +630,33 @@ export function SessionContextProvider({
         case "session/update":
           return;
 
+        // ==================================================================
+        // Prompt Queue messages
+        // ==================================================================
+        case "queue:added": {
+          const aId = data.agentId as string;
+          const sId = data.sessionId as string;
+          const entry = data.entry as import("../types").QueuedPrompt;
+          const key = sessionKeyOf(aId, sId);
+          useSessionStore.getState().addQueuedPrompt(key, entry);
+          return;
+        }
+
+        case "queue:dequeued": {
+          // The dequeued entry is being sent — no store update needed here
+          // because queue:updated will follow immediately after.
+          return;
+        }
+
+        case "queue:updated": {
+          const aId = data.agentId as string;
+          const sId = data.sessionId as string;
+          const queue = data.queue as import("../types").QueuedPrompt[];
+          const key = sessionKeyOf(aId, sId);
+          useSessionStore.getState().setPromptQueue(key, queue);
+          return;
+        }
+
         // Legacy — sessions are now derived from sessionInfoMap
         case "sessionOverview:state":
         case "sessionOverview:update":

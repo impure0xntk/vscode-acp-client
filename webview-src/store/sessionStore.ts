@@ -4,6 +4,7 @@ import type {
   SessionOverviewItem,
   SessionProgress,
   ResponsePreview,
+  QueuedPrompt,
 } from "../types";
 import type {
   SessionTabState,
@@ -113,6 +114,10 @@ export interface SessionState {
   sessionOverviewPosition: "right" | "left";
   sessionOverviewState: SessionOverviewState;
 
+  // ── Prompt Queue ──────────────────────────────────────────────────────
+  /** sessionKey → QueuedPrompt[] */
+  promptQueue: Record<string, QueuedPrompt[]>;
+
   // ── Actions ───────────────────────────────────────────────────────────
 
   // Session info
@@ -134,6 +139,12 @@ export interface SessionState {
   setWorkspaceFolders: (folders: WorkspaceFolder[]) => void;
   setSessionCommands: (agentId: string, sessionId: string, commands: SlashCommand[]) => void;
   setStatusline: (statusline: SessionState["statusline"]) => void;
+
+  // Prompt Queue
+  setPromptQueue: (sessionKey: string, queue: QueuedPrompt[]) => void;
+  addQueuedPrompt: (sessionKey: string, entry: QueuedPrompt) => void;
+  removeQueuedPrompt: (sessionKey: string, promptId: string) => void;
+  reorderQueuedPrompts: (sessionKey: string, orderedIds: string[]) => void;
 
   // Overview chrome
   setSessionOverviewVisible: (visible: boolean) => void;
@@ -163,6 +174,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   workspaceFolders: [],
   sessionCommands: {},
   statusline: { hostname: "", repoName: "", branch: "" },
+  promptQueue: {},
   sessionOverviewVisible: false,
   sessionOverviewWidth: 280,
   sessionOverviewPosition: "right",
@@ -235,7 +247,10 @@ export const useSessionStore = create<SessionState>((set) => ({
       // Also remove from sessionInfoMap so the session disappears from overview immediately
       const newMap = { ...s.sessionInfoMap };
       delete newMap[targetKey];
-      return { tabOrder: newOrder, activeSessionKey: newActive, sessionInfoMap: newMap };
+      // Clear prompt queue for the removed session
+      const newQueue = { ...s.promptQueue };
+      delete newQueue[targetKey];
+      return { tabOrder: newOrder, activeSessionKey: newActive, sessionInfoMap: newMap, promptQueue: newQueue };
     }),
 
   setActiveSession: (sessionKey) => set({ activeSessionKey: sessionKey }),
@@ -255,6 +270,42 @@ export const useSessionStore = create<SessionState>((set) => ({
       },
     })),
   setStatusline: (statusline) => set({ statusline }),
+
+  // ── Prompt Queue ──────────────────────────────────────────────────────────
+
+  setPromptQueue: (sessionKey, queue) =>
+    set((s) => ({ promptQueue: { ...s.promptQueue, [sessionKey]: queue } })),
+
+  addQueuedPrompt: (sessionKey, entry) =>
+    set((s) => ({
+      promptQueue: {
+        ...s.promptQueue,
+        [sessionKey]: [...(s.promptQueue[sessionKey] ?? []), entry],
+      },
+    })),
+
+  removeQueuedPrompt: (sessionKey, promptId) =>
+    set((s) => {
+      const q = s.promptQueue[sessionKey] ?? [];
+      const next = q.filter((e) => e.id !== promptId);
+      return { promptQueue: { ...s.promptQueue, [sessionKey]: next } };
+    }),
+
+  reorderQueuedPrompts: (sessionKey, orderedIds) =>
+    set((s) => {
+      const q = s.promptQueue[sessionKey] ?? [];
+      const pending = q.filter((e) => e.status === "pending");
+      const sending = q.filter((e) => e.status !== "pending");
+      const reordered = orderedIds
+        .map((id) => pending.find((e) => e.id === id))
+        .filter((e): e is QueuedPrompt => e !== undefined);
+      for (const e of pending) {
+        if (!orderedIds.includes(e.id)) reordered.push(e);
+      }
+      return {
+        promptQueue: { ...s.promptQueue, [sessionKey]: [...reordered, ...sending] },
+      };
+    }),
 
   // ── Overview chrome ─────────────────────────────────────────────────────
 

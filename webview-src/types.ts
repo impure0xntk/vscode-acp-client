@@ -171,6 +171,8 @@ export interface SuggestionItem {
   agentId?: string;
   /** Session identifier — populated for session suggestions */
   sessionId?: string;
+  /** Session status — populated for session suggestions (mirrors SessionInfoSnapshot.status) */
+  status?: "idle" | "running" | "completed" | "error" | "cancelled";
 }
 
 export interface SessionCompressionInfo {

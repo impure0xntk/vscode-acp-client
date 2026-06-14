@@ -58,25 +58,14 @@ export interface ToolBatchSummaryProps {
   calls: ToolCallCardProps[];
 }
 
-/** Errors group — auto-expand on render, user can collapse via chevron */
-function ErrorsGroup({ errors, expanded, onToggle }: {
+/** Errors group — always expanded, no collapsible chrome */
+function ErrorsGroup({ errors }: {
   errors: ToolCallCardProps[];
-  expanded: boolean;
-  onToggle: () => void;
 }): React.ReactElement {
   return (
     <>
-      <button
-        className="tool-batch-errors-header"
-        onClick={(e) => { e.stopPropagation(); onToggle(); }}
-        aria-expanded={expanded}
-      >
-        <span className={`tool-chevron ${expanded ? "open" : ""}`} aria-hidden="true">▶</span>
-        {" "}{errors.length} error{errors.length !== 1 ? "s" : ""}{" "}
-        <span className="tool-batch-group-count">{errors.length}</span>
-      </button>
-      {expanded && errors.map((call) => (
-        <div key={call.id} className="tool-batch-item"><ToolCallCard {...call} /></div>
+      {errors.map((call) => (
+        <div key={call.id} className="tool-batch-item tool-batch-error-item"><ToolCallCard {...call} /></div>
       ))}
     </>
   );
@@ -162,9 +151,6 @@ export function ToolBatchSummary({ calls }: ToolBatchSummaryProps): React.ReactE
   // Top-level: auto-expand on render when errors present
   const [allExpanded, setAllExpanded] = useState(true);
 
-  // Errors sub-group: auto-expand on render, user can toggle
-  const [errorsExpanded, setErrorsExpanded] = useState(true);
-
   return (
     <div className={`tool-batch${allExpanded ? " tool-batch-expanded" : ""} tool-call-${status}`}>
       {/* Top-level chevron toggles entire batch */}
@@ -190,17 +176,15 @@ export function ToolBatchSummary({ calls }: ToolBatchSummaryProps): React.ReactE
 
       {allExpanded && (
         <div className="tool-batch-body">
-          {/* Errors sub-group — auto-expanded, user can collapse */}
-          <ErrorsGroup
-            errors={errors}
-            expanded={errorsExpanded}
-            onToggle={() => setErrorsExpanded(!errorsExpanded)}
-          />
+          {/* Errors — always expanded, no nested chevron */}
+          <ErrorsGroup errors={errors} />
 
           {/* Ok sub-group — recursive ToolBatchSummary for uniform rendering */}
-          <div className="tool-batch-item tool-batch-nested">
-            <ToolBatchSummary calls={ok} />
-          </div>
+          {ok.length > 0 && (
+            <div className="tool-batch-item tool-batch-nested">
+              <ToolBatchSummary calls={ok} />
+            </div>
+          )}
         </div>
       )}
     </div>

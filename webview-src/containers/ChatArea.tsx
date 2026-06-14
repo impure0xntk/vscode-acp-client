@@ -2,8 +2,9 @@ import React, { useState, useRef, useCallback } from "react";
 import { ChatContainer } from "../components/ChatContainer";
 import { Composer } from "../components/Composer";
 import { StreamingStatus } from "../components/StreamingStatus";
+import { QueuedPromptList } from "../components/QueuedPromptList";
 import { useSessionContext } from "../hooks/useSessionContext";
-import { useSessionStore } from "../store/sessionStore";
+import { useSessionStore, sessionKeyOf } from "../store/sessionStore";
 
 
 interface ChatAreaProps {
@@ -128,6 +129,17 @@ export function ChatArea({
           ? useSessionStore.getState().sessionInfoMap[activeKey]?.lastResponseAt ?? undefined
           : undefined}
         sessionKey={activeKey ?? undefined}
+      />
+      <QueuedPromptList
+        queue={activeKey ? (useSessionStore.getState().promptQueue[activeKey] ?? []) : []}
+        sessionKey={activeKey ?? ""}
+        onCancel={(promptId) => {
+          if (!activeKey) return;
+          const [agentId, sessionId] = activeKey.split(":");
+          // Send message to extension host to cancel the queued prompt
+          const vscode = (window as any).acquireVsCodeApi?.();
+          vscode?.postMessage({ type: "queue:cancel", agentId, sessionId, promptId });
+        }}
       />
       <Composer
         onSend={handleSend}

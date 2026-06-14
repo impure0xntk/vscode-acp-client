@@ -189,9 +189,7 @@ export function ToolCallCard({
               </span>
             );
           })}
-        {durationMs !== undefined && (
-          <span className="tool-duration">{formatDuration(durationMs)}</span>
-        )}
+        <span className="tool-duration">{formatDuration(durationMs ?? 0)}</span>
 
         {hasBody && <Chevron open={expanded} />}
       </button>

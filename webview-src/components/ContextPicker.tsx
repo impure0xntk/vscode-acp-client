@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import type { SuggestionItem, TriggerType, FileCandidate } from "../types";
 import { Icon } from "../lib/icons";
+import { StatusIcon } from "./StatusIcon";
 
 // Re-export for backward compatibility
 export type { FileCandidate };
@@ -147,8 +148,12 @@ export function ContextPicker({
               onClick={() => onSelect(item)}
               onMouseEnter={() => onSelectedIndexChange(i)}
             >
-              {item.icon && (
-                <Icon name={item.icon} className="context-picker-icon" size="sm" />
+              {item.kind === "session" && item.status ? (
+                <StatusIcon status={item.status} />
+              ) : (
+                item.icon && (
+                  <Icon name={item.icon} className="context-picker-icon" size="sm" />
+                )
               )}
               <span className="context-picker-label">{item.label}</span>
               {item.detail && (

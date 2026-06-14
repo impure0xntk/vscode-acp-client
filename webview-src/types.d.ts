@@ -1,3 +1,23 @@
+// ============================================================================
+// Queued Prompt — message buffered while a turn is active
+// ============================================================================
+
+export type QueuedPromptStatus =
+  | "pending"
+  | "sending"
+  | "sent"
+  | "cancelled";
+
+export interface QueuedPrompt {
+  id: string;
+  agentId: string;
+  sessionId: string;
+  text: string;
+  /** ISO timestamp when the prompt was enqueued */
+  enqueuedAt: string;
+  status: QueuedPromptStatus;
+}
+
 export interface MessageContent {
   type: "text";
   text: string;

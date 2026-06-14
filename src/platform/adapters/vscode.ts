@@ -381,7 +381,7 @@ class VscodeFileSystemAPI implements FileSystemAPI {
   relativePath(from: string, to: string): string {
     const fromUri = vscode.Uri.file(from);
     const toUri = vscode.Uri.file(to);
-    return vscode.workspace.asRelativePath(toUri, false);
+    return vscode.workspace.asRelativePath(toUri, false) ?? to;
   }
 
   isAbsolutePath(path: string): boolean {

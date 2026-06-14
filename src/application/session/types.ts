@@ -1,6 +1,28 @@
 import type { ChatMessage, TokenUsage } from "../../domain/models/chat";
+import type { ContentBlock } from "@agentclientprotocol/sdk";
 
 export type { ChatMessage, TokenUsage };
+
+// ============================================================================
+// Queued Prompt — message buffered while a turn is active
+// ============================================================================
+
+export type QueuedPromptStatus =
+  | "pending"
+  | "sending"
+  | "sent"
+  | "cancelled";
+
+export interface QueuedPrompt {
+  id: string;
+  agentId: string;
+  sessionId: string;
+  text: string;
+  context?: ContentBlock[];
+  /** ISO timestamp when the prompt was enqueued */
+  enqueuedAt: string;
+  status: QueuedPromptStatus;
+}
 
 // ============================================================================
 // Session Status

@@ -10,13 +10,27 @@ export async function searchFiles(
   query: string,
   cwd?: string
 ): Promise<FileCandidate[]> {
-  const base = cwd ?? fs.workspaceRoot ?? "";
+  const wsRoot = fs.workspaceRoot ?? "";
+  const base = cwd ?? wsRoot;
 
   // Build a glob that matches the query as a substring of the basename.
   // "Composer" → "**/*Composer*" so it matches src/components/Composer.tsx
   // User-supplied globs with * or { are passed through as-is.
-  const pattern =
+  const raw =
     query.includes("*") || query.includes("{") ? query : `**/*${query}*`;
+
+  // When cwd differs from workspace root, prepend cwd-relative prefix
+  // so findFiles (which accepts workspace-relative globs) scopes correctly.
+  // e.g. cwd="/ws/sub", query="foo" → "sub/**/foo*", relativePath stripped to "sub/" prefix.
+  let pattern: string;
+  let cwdPrefix: string | undefined;
+  if (cwd && cwd !== wsRoot) {
+    const relCwd = fs.relativePath(wsRoot, cwd);
+    cwdPrefix = relCwd;
+    pattern = relCwd === "." ? raw : `${relCwd}/${raw}`;
+  } else {
+    pattern = raw;
+  }
 
   const exclude =
     "{**/node_modules/**,**/.git/**,**/dist/**,**/build/**,**/.next/**}";

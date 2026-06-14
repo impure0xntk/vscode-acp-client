@@ -480,6 +480,36 @@ function wireOrchestratorEvents(): void {
     });
   });
 
+  // Prompt queue: forward queue events to webview
+  orchestrator.on("promptQueued", ({ agentId, sessionId, entry }) => {
+    if (!chatPanel) return;
+    chatPanel.postMessage({
+      type: "queue:added",
+      agentId,
+      sessionId,
+      entry,
+    });
+  });
+
+  orchestrator.on("promptDequeued", ({ agentId, sessionId }) => {
+    if (!chatPanel) return;
+    chatPanel.postMessage({
+      type: "queue:dequeued",
+      agentId,
+      sessionId,
+    });
+  });
+
+  orchestrator.on("promptQueueUpdated", ({ agentId, sessionId, queue }) => {
+    if (!chatPanel) return;
+    chatPanel.postMessage({
+      type: "queue:updated",
+      agentId,
+      sessionId,
+      queue,
+    });
+  });
+
   // Send overview position setting to webview
   void sendOverviewPosition();
 }
