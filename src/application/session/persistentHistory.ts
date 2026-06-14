@@ -462,6 +462,79 @@ export class PersistentHistoryStore {
   }
 
   // ========================================================================
+  // Log Entry Deletion
+  // ========================================================================
+
+  clearLogs(options: {
+    olderThan?: number | null;
+    agentId?: string | null;
+    sessionId?: string | null;
+  }): { deletedCount: number } {
+    if (!this.db) return { deletedCount: 0 };
+
+    const conditions: string[] = [];
+    const params: (string | number)[] = [];
+
+    if (options.olderThan !== undefined && options.olderThan !== null) {
+      conditions.push("timestamp < ?");
+      params.push(options.olderThan);
+    }
+    if (options.agentId !== undefined && options.agentId !== null) {
+      conditions.push("agent_id = ?");
+      params.push(options.agentId);
+    }
+    if (options.sessionId !== undefined && options.sessionId !== null) {
+      conditions.push("session_id = ?");
+      params.push(options.sessionId);
+    }
+
+    const where =
+      conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+    const before = this.db.exec(
+      `SELECT COUNT(*) as cnt FROM log_entries ${where}`,
+      params
+    );
+    const count = (before[0]?.values[0]?.[0] as number) ?? 0;
+
+    this.db.run(`DELETE FROM log_entries ${where}`, params);
+    this.persist();
+
+    return { deletedCount: count };
+  }
+
+  countLogs(options: {
+    olderThan?: number | null;
+    agentId?: string | null;
+    sessionId?: string | null;
+  }): number {
+    if (!this.db) return 0;
+
+    const conditions: string[] = [];
+    const params: (string | number)[] = [];
+
+    if (options.olderThan !== undefined && options.olderThan !== null) {
+      conditions.push("timestamp < ?");
+      params.push(options.olderThan);
+    }
+    if (options.agentId !== undefined && options.agentId !== null) {
+      conditions.push("agent_id = ?");
+      params.push(options.agentId);
+    }
+    if (options.sessionId !== undefined && options.sessionId !== null) {
+      conditions.push("session_id = ?");
+      params.push(options.sessionId);
+    }
+
+    const where =
+      conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+    const result = this.db.exec(
+      `SELECT COUNT(*) as cnt FROM log_entries ${where}`,
+      params
+    );
+    return (result[0]?.values[0]?.[0] as number) ?? 0;
+  }
+
+  // ========================================================================
   // Statistics
   // ========================================================================
 

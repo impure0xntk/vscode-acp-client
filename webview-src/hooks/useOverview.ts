@@ -1,31 +1,28 @@
 import { useCallback } from "react";
-import { useSessionStore } from "../store/sessionStore";
+import { useUiStateStore } from "../store/uiStateStore";
 import type { SessionOverviewFilter } from "../types";
 
 // ── Overview hooks ──────────────────────────────────────────────────────────
 
 export function useOverview() {
-  // Read via getState() to avoid useSyncExternalStore subscription.
-  // sessionOverviewState is an object that gets a new reference on every mutation,
-  // which would cause infinite re-renders via useSyncExternalStore's Object.is check.
-  const s = useSessionStore.getState();
-  const visible = s.sessionOverviewVisible;
-  const width = s.sessionOverviewWidth;
-  const position = s.sessionOverviewPosition;
-  // state object is destructured to primitives to avoid reference equality issues
-  const filter = s.sessionOverviewState.filter;
-  const expandedSessions = s.sessionOverviewState.expandedSessions;
-  const selectedSessionIds = s.sessionOverviewState.selectedSessionIds;
-  const selectionMode = s.sessionOverviewState.selectionMode;
-  const setVisible = s.setSessionOverviewVisible;
-  const setWidth = s.setSessionOverviewWidth;
-  const setPosition = s.setSessionOverviewPosition;
-  const setFilter = s.setSessionOverviewFilter;
-  const setExpanded = s.setSessionOverviewExpanded;
-  const setSelected = s.setSessionOverviewSelected;
-  const toggleSelected = s.toggleSessionOverviewSelected;
-  const setSelectionMode = s.setSessionOverviewSelectionMode;
-  const toggleSelection = s.toggleSessionOverviewSelection;
+  // Read from uiStateStore — overview chrome state lives here, not in sessionStore.
+  const s = useUiStateStore.getState();
+  const visible = s.overviewVisible;
+  const width = s.overviewWidth;
+  const position = s.overviewPosition;
+  const filter = s.overviewFilter;
+  const expandedSessions = s.overviewExpandedSessions;
+  const selectedSessionIds = s.overviewSelectedSessionIds;
+  const selectionMode = s.overviewSelectionMode;
+  const setVisible = s.setOverviewVisible;
+  const setWidth = s.setOverviewWidth;
+  const setPosition = s.setOverviewPosition;
+  const setFilter = s.setOverviewFilter;
+  const setExpanded = s.setOverviewExpandedSessions;
+  const setSelected = s.setOverviewSelectedSessionIds;
+  const toggleSelected = s.toggleOverviewSelected;
+  const setSelectionMode = s.setOverviewSelectionMode;
+  const toggleSelection = s.toggleOverviewSelection;
 
   const toggle = useCallback(() => {
     setVisible(!visible);

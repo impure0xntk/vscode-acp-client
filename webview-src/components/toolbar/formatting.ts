@@ -26,7 +26,9 @@ export function visualBar(ratio: number): string {
   return String(Math.round(Math.max(0, Math.min(1, ratio)) * 100));
 }
 
-export function contextColor(ratio: number): string {
+import type { ContextColor } from "../ui/Chip";
+
+export function contextColor(ratio: number): ContextColor {
   if (ratio >= 0.85) return "critical";
   if (ratio >= 0.7) return "warning";
   return "normal";

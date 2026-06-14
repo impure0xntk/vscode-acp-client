@@ -5,6 +5,9 @@
 // ============================================================================
 
 import type { FileLockEntry } from "../models/mesh";
+import { getLogger } from "../../platform/backends";
+
+const log = getLogger("mesh.filelock");
 
 // ----------------------------------------------------------------------------
 // FileLockManager
@@ -35,15 +38,17 @@ export class FileLockManager {
     if (existing) {
       // Same agent can re-acquire (idempotent)
       if (existing.lockedBy === agentId) {
-        // Refresh TTL
         existing.expiresAt = new Date(Date.now() + (ttlMs ?? this.defaultTTL));
+        log.debug("lock refreshed", { filePath, agentId });
         return true;
       }
 
       // Expired → steal
       if (existing.expiresAt && existing.expiresAt < new Date()) {
+        log.debug("lock expired, stealing", { filePath, previousAgentId: existing.lockedBy, newAgentId: agentId });
         this.locks.delete(filePath);
       } else {
+        log.debug("lock denied", { filePath, requestedBy: agentId, lockedBy: existing.lockedBy });
         return false;
       }
     }
@@ -56,6 +61,7 @@ export class FileLockManager {
       expiresAt: new Date(Date.now() + (ttlMs ?? this.defaultTTL)),
     });
 
+    log.info("lock acquired", { filePath, agentId, lockType });
     return true;
   }
 
@@ -67,6 +73,7 @@ export class FileLockManager {
     const existing = this.locks.get(filePath);
     if (existing && existing.lockedBy === agentId) {
       this.locks.delete(filePath);
+      log.info("lock released", { filePath, agentId });
       return true;
     }
     return false;
@@ -79,6 +86,9 @@ export class FileLockManager {
         this.locks.delete(path);
         released.push(path);
       }
+    }
+    if (released.length > 0) {
+      log.info("all locks released", { agentId, count: released.length });
     }
     return released;
   }

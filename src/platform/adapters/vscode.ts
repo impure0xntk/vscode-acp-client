@@ -41,10 +41,42 @@ import type {
 import type { TerminalAPI, Terminal } from "../terminal";
 import type { OrchestrationStateAPI } from "../orchestration";
 import type { PlatformAPI } from "../platform";
+import type { LogStorageAPI, ClearLogsOptions, ClearLogsResult } from "../logStorage";
 import { VsCodeOutputBackend } from "../backends/vscode-output-backend";
 import { LoggerFactoryImpl } from "../backends/logger-impl";
 import { initLoggerFactory } from "../backends";
 import type { LogLevelValue } from "../backends/types";
+import type { PersistentHistoryStore } from "../../application/session/persistentHistory";
+
+// ---------------------------------------------------------------------------
+// VSCode LogStorage API
+// ---------------------------------------------------------------------------
+
+class VscodeLogStorageAPI implements LogStorageAPI {
+  private store: PersistentHistoryStore | null = null;
+
+  setStore(store: PersistentHistoryStore): void {
+    this.store = store;
+  }
+
+  async clearLogs(options?: ClearLogsOptions): Promise<ClearLogsResult> {
+    if (!this.store) return { deletedCount: 0 };
+    return this.store.clearLogs({
+      olderThan: options?.olderThan ?? null,
+      agentId: options?.agentId ?? null,
+      sessionId: options?.sessionId ?? null,
+    });
+  }
+
+  async countLogs(options?: ClearLogsOptions): Promise<number> {
+    if (!this.store) return 0;
+    return this.store.countLogs({
+      olderThan: options?.olderThan ?? null,
+      agentId: options?.agentId ?? null,
+      sessionId: options?.sessionId ?? null,
+    });
+  }
+}
 
 // ---------------------------------------------------------------------------
 // VSCode Platform
@@ -60,6 +92,7 @@ export class VscodePlatform implements PlatformAPI {
   readonly context: ExtensionContextAPI;
   readonly terminal: TerminalAPI;
   readonly orchestration: OrchestrationStateAPI;
+  logStorage: LogStorageAPI;
 
   private ctx: vscode.ExtensionContext;
 
@@ -80,6 +113,11 @@ export class VscodePlatform implements PlatformAPI {
     this.context = new VscodeContextAPI(this.ctx);
     this.terminal = new VscodeTerminalAPI();
     this.orchestration = new VscodeOrchestrationStateAPI(this.ctx);
+    this.logStorage = new VscodeLogStorageAPI();
+  }
+
+  setLogStore(store: PersistentHistoryStore): void {
+    (this.logStorage as VscodeLogStorageAPI).setStore(store);
   }
 
   async initialize(): Promise<void> {

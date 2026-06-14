@@ -6,6 +6,9 @@
 
 import type { SessionOrchestrator } from "../../application/session/orchestrator";
 import type { SendTarget } from "../models/mesh";
+import { getLogger } from "../../platform/backends";
+
+const log = getLogger("mesh.pipeline");
 
 // ----------------------------------------------------------------------------
 // Dependencies
@@ -58,32 +61,36 @@ export class PipelineExecutor {
     const steps: PipelineStepResult[] = [];
     let lastResponse = initialText;
 
+    log.info("pipeline execute start", { targetCount: targets.length });
+
     for (const target of targets) {
       const text = transformFn
         ? transformFn(lastResponse, target)
         : lastResponse;
 
+      log.debug("pipeline step", { agentId: target.agentId, sessionId: target.sessionId });
+
       try {
-        // Await each prompt to ensure it was accepted and maintain ordering.
-        // Responses arrive via streaming pipeline; await only catches errors.
         await this.sessionOrchestrator.prompt(
           target.agentId,
           target.sessionId,
           text
         );
         steps.push({ target, status: "sent" });
-        // Update lastResponse for next iteration's transformFn
         lastResponse = text;
       } catch (e) {
+        log.error("pipeline step failed", { agentId: target.agentId, sessionId: target.sessionId }, e as Error);
         steps.push({
           target,
           status: "failed",
           error: e instanceof Error ? e.message : String(e),
         });
+        log.warn("pipeline execute aborted", { completedSteps: steps.length - 1, totalTargets: targets.length });
         return { steps, success: false };
       }
     }
 
+    log.info("pipeline execute complete", { steps: steps.length });
     return { steps, success: true };
   }
 }

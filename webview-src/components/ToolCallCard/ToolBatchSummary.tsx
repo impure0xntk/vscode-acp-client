@@ -202,7 +202,7 @@ export function ToolBatchSummary({ calls }: ToolBatchSummaryProps): React.ReactE
 
           {/* Ok sub-group — recursive ToolBatchSummary for uniform rendering */}
           {ok.length > 0 && (
-            <div className="tool-batch-item tool-batch-nested">
+            <div className="tool-batch-nested-ok">
               <ToolBatchSummary calls={ok} />
             </div>
           )}

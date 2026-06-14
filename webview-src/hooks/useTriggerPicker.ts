@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, type KeyboardEvent } from "react";
+import { useState, useRef, useCallback, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { SuggestionItem, TriggerType } from "../types";
 
 // ── Trigger characters ─────────────────────────────────────────────
@@ -58,8 +58,8 @@ export interface UseTriggerPickerReturn {
   handleSelect: (input: SelectInput) => Promise<SelectOutput>;
   handleClose: () => void;
   reset: () => void;
-  pickerKeyDownRef: React.MutableRefObject<((e: KeyboardEvent) => void) | null>;
-  registerKeyHandler: (handler: ((e: KeyboardEvent) => void) | null) => void;
+  pickerKeyDownRef: React.MutableRefObject<((e: ReactKeyboardEvent<HTMLTextAreaElement>) => void) | null>;
+  registerKeyHandler: (handler: ((e: ReactKeyboardEvent<HTMLTextAreaElement>) => void) | null) => void;
 }
 
 // ── Hook ───────────────────────────────────────────────────────────
@@ -74,7 +74,7 @@ export function useTriggerPicker(
 
   const suppressTriggerRef = useRef(false);
   const dismissedRef = useRef(false);
-  const pickerKeyDownRef = useRef<((e: KeyboardEvent) => void) | null>(null);
+  const pickerKeyDownRef = useRef<((e: ReactKeyboardEvent<HTMLTextAreaElement>) => void) | null>(null);
 
   // ── Consumed length ──────────────────────────────────────────────
 
@@ -324,7 +324,7 @@ export function useTriggerPicker(
   // ── Keyboard handler registration (for ContextPicker) ────────────
 
   const registerKeyHandler = useCallback(
-    (handler: ((e: KeyboardEvent) => void) | null) => {
+    (handler: ((e: ReactKeyboardEvent<HTMLTextAreaElement>) => void) | null) => {
       pickerKeyDownRef.current = handler;
     },
     []

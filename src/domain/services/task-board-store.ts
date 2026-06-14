@@ -11,6 +11,9 @@ import type {
   FileLockEntry,
   MessageLogEntry,
 } from "../models/mesh";
+import { getLogger } from "../../platform/backends";
+
+const log = getLogger("mesh.taskboard");
 
 // ----------------------------------------------------------------------------
 // TaskBoardStore
@@ -36,6 +39,7 @@ export class TaskBoardStore {
       messageLog: [],
     };
     this.cache.set(path, board);
+    log.info("task board created", { path });
     return board;
   }
 
@@ -44,7 +48,6 @@ export class TaskBoardStore {
   }
 
   async save(path: string): Promise<void> {
-    // In-memory only for now; persistence layer can be added later
     const board = this.cache.get(path);
     if (board) {
       board.updatedAt = new Date();
@@ -64,6 +67,7 @@ export class TaskBoardStore {
     const entry: TaskEntry = { ...task, createdAt: now, updatedAt: now };
     board.tasks.push(entry);
     board.updatedAt = now;
+    log.debug("task added", { path, taskId: task.id, status: task.status });
     return entry;
   }
 
@@ -87,6 +91,7 @@ export class TaskBoardStore {
 
     Object.assign(task, updates, { updatedAt: new Date() });
     board.updatedAt = task.updatedAt;
+    log.debug("task updated", { path, taskId, status: task.status });
     return task;
   }
 

@@ -3,6 +3,7 @@ import { renderMarkdown, type RenderContext } from "../lib/markdown";
 import { getVsCodeApi } from "../lib/vscodeApi";
 import { Icon, iconForType } from "../lib/icons";
 import { ToolBatchSummary } from "./ToolCallCard/ToolBatchSummary";
+import { ToolInlineSummary } from "./ToolCallCard/ToolInlineSummary";
 import { ToolCallCard, getFileExtension, fileIcon } from "./ToolCallCard";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { MessageActions } from "./MessageActions";
@@ -137,6 +138,7 @@ export const Message = React.memo(function Message({
   const time = new Date(timestamp).toLocaleTimeString();
   const isSystem = role === "system";
   const isUser = role === "user";
+  const isTool = role === "tool";
   const isCompression = isSystem && compressionInfo !== undefined;
   const hasToolCalls = toolCalls !== undefined && toolCalls.length > 0;
   const hasAttachments = isUser && attachments !== undefined && attachments.length > 0;
@@ -168,7 +170,7 @@ export const Message = React.memo(function Message({
 
   return (
     <div
-      className={`message ${isSystem ? "message-system" : isUser ? "message-user" : "message-agent"}`}
+      className={`message ${isSystem ? "message-system" : isUser ? "message-user" : isTool ? "message-tool" : "message-agent"}`}
       data-message-id={id}
       data-role={role}
     >
@@ -182,6 +184,12 @@ export const Message = React.memo(function Message({
           <span className="message-role">
             {isSystem ? "System" : isUser ? "You" : "Agent"}
           </span>
+          <span className="message-time">{time}</span>
+        </div>
+      )}
+      {isTool && isConsecutive && (
+        <div className="message-header">
+          <span className="message-role">Agent</span>
           <span className="message-time">{time}</span>
         </div>
       )}
@@ -207,13 +215,18 @@ export const Message = React.memo(function Message({
             </div>
           )}
         </div>
+        {batchCalls && !isUser && (
+          <span className="message-tool-inline">
+            <ToolInlineSummary calls={batchCalls} />
+          </span>
+        )}
       </div>
       {isCompression && compressionInfo && (
         <div className="message-compression">
           <ContextCompressionNotice compressionInfo={compressionInfo} />
         </div>
       )}
-      {batchCalls && (
+      {batchCalls && isUser && (
         <div className="message-tool-batch">
           {batchCalls.length === 1 ? (
             <ToolCallCard {...batchCalls[0]} />

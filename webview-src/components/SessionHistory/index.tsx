@@ -92,7 +92,7 @@ function exportAsMarkdown(
     md += `- **Status:** ${s.status}\n`;
     md += `- **Model:** ${s.model ?? "unknown"}\n`;
     md += `- **Created:** ${s.createdAt}\n`;
-    md += `- **Updated:** ${s.updatedAt}\n`;
+    md += `- **Updated:** ${s.lastResponseAt ?? s.createdAt}\n`;
     md += `- **Messages:** ${s.messageCount}\n`;
     md += `- **Tokens:** ↑${s.tokenUsage.input} ↓${s.tokenUsage.output} (${s.tokenUsage.total} total)\n`;
     md += `- **CWD:** \`${s.cwd}\`\n\n`;

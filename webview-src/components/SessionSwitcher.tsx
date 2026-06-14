@@ -3,6 +3,7 @@ import type { SessionTabState } from "../store/sessionStore";
 import { useUiStateStore } from "../store/uiStateStore";
 import { useMessageStore } from "../store/messageStore";
 import { StatusIcon } from "./StatusIcon";
+import type { StatusIconType } from "./StatusIcon";
 
 // ============================================================================
 // Props
@@ -83,7 +84,7 @@ export function SessionSwitcher({
         <span className="switcher-current">
           {activeTab ? (
             <>
-              <StatusIcon status={activeTab.status} />
+              <StatusIcon status={activeTab.status ?? "idle"} />
               <span className="switcher-title">{activeTab.title}</span>
               <span className="switcher-agent">{activeTab.agentId}</span>
             </>
@@ -112,7 +113,7 @@ export function SessionSwitcher({
                       aria-selected={isActive}
                       onClick={() => handleSelect(s.sessionId, s.agentId)}
                     >
-                      <StatusIcon status={s.status} />
+                      <StatusIcon status={s.status ?? "idle"} />
                       <span className="switcher-item-title" title={s.title}>
                         {s.title}
                       </span>

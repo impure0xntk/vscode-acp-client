@@ -12,21 +12,13 @@ import type {
   AgentInfo,
   WorkspaceFolder,
   SlashCommand,
+  SessionTabStatus,
+} from "./store/sessionStore";
+import type {
   QueuedPrompt,
   ChatMessage,
   TokenUsage,
-} from "./types";
-import type { SessionOverviewState } from "../types";
-
-// ── Re-exports for backward compatibility ────────────────────────────────────
-
-export type {
-  SessionTabState,
-  SessionInfoSnapshot,
-  ConnectedAgentInfo,
-  AgentInfo,
-  WorkspaceFolder,
-  SlashCommand,
+  SessionOverviewState,
 } from "./types";
 
 // ── Message handler types ───────────────────────────────────────────────────

@@ -13,6 +13,7 @@ export interface PersistentSessionEntry {
   status: string;
   workspaceName: string | null;
   createdAt: string;
+  updatedAt: string;
   /** Last time the agent produced output (message/stream/streamEnd). Null if no output yet. */
   lastResponseAt: string | null;
   messageCount: number;

@@ -48,40 +48,57 @@ function sessionIdFrom(msg: ChatMessage): string {
 }
 
 /**
- * Absorb tool messages into the preceding agent message.
- * - Consecutive tool messages in the same session are merged,
- *   then appended to the last non-tool message's toolCalls.
- * - Non-tool messages pass through unchanged.
+ * Pass messages through, but also attach pending tool calls to the
+ * preceding *agent* message so both inline-summary and standalone
+ * tool-card rendering have the data they need.
+ *
+ * - tool-role messages are kept as independent messages in the list
+ *   (they carry their own timestamp and agentId).
+ * - When a tool message is encountered, its toolCalls are also appended
+ *   to the most recent agent message's toolCalls so the inline summary
+ *   at the bottom of that agent message can render them.
+ * - Consecutive tool messages before any agent message are collected and
+ *   will be attached once an agent message appears.
  */
 function mergeToolBatches(messages: ChatMessage[]): ChatMessage[] {
   const result: ChatMessage[] = [];
   let pendingCalls: ChatMessage["toolCalls"] = [];
+  let lastAgentIdx = -1; // index into result[] of the most recent agent message
 
   for (const msg of messages) {
     if (msg.role === "tool") {
       const calls = msg.toolCalls ?? [];
       pendingCalls = [...pendingCalls, ...calls];
+      // Emit the tool message as its own entry
+      result.push(msg);
       continue;
     }
-    // Non-tool message: flush pending tool calls onto the last result entry
-    if (pendingCalls.length > 0 && result.length > 0) {
-      const prev = result[result.length - 1];
-      result[result.length - 1] = {
-        ...prev,
-        toolCalls: [...(prev.toolCalls ?? []), ...pendingCalls],
-      };
-      pendingCalls = [];
+
+    // Non-tool message
+    if (msg.role === "agent" || msg.role === "user" || msg.role === "system") {
+      // Flush pending tool calls onto the last agent message (if any)
+      if (pendingCalls.length > 0 && lastAgentIdx >= 0) {
+        const prev = result[lastAgentIdx];
+        result[lastAgentIdx] = {
+          ...prev,
+          toolCalls: [...(prev.toolCalls ?? []), ...pendingCalls],
+        };
+        pendingCalls = [];
+      }
+      if (msg.role === "agent") lastAgentIdx = result.length;
+      result.push(msg);
     }
-    result.push(msg);
   }
-  // Trailing tool calls (no following agent message) — attach to last entry
-  if (pendingCalls.length > 0 && result.length > 0) {
-    const prev = result[result.length - 1];
-    result[result.length - 1] = {
+
+  // Trailing tool calls with no following agent message — attach to last agent
+  if (pendingCalls.length > 0 && lastAgentIdx >= 0) {
+    const prev = result[lastAgentIdx];
+    result[lastAgentIdx] = {
       ...prev,
       toolCalls: [...(prev.toolCalls ?? []), ...pendingCalls],
     };
   }
+
   return result;
 }
 
@@ -392,7 +409,7 @@ export const ChatContainer = memo(function ChatContainer({
     );
 
     // Observe all current message elements
-    const msgEls = container.querySelectorAll("[data-message-id]");
+    const msgEls = Array.from(container.querySelectorAll<HTMLElement>("[data-message-id]"));
     for (const el of msgEls) observer.observe(el);
 
     // MutationObserver: observe newly added message elements (streaming)
@@ -401,7 +418,7 @@ export const ChatContainer = memo(function ChatContainer({
         for (const node of rec.addedNodes) {
           if (!(node instanceof HTMLElement)) continue;
           if (node.dataset.messageId) observer.observe(node);
-          const descendants = node.querySelectorAll("[data-message-id]");
+          const descendants = Array.from(node.querySelectorAll<HTMLElement>("[data-message-id]"));
           for (const desc of descendants) observer.observe(desc);
         }
       }

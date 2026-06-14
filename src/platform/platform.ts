@@ -4,6 +4,7 @@ import type { Disposable, EventEmitter, Event } from "./types";
 import type { EditorAPI } from "./editor";
 import type { ExtensionContextAPI } from "./context";
 import type { FileSystemAPI } from "./filesystem";
+import type { LogStorageAPI } from "./logStorage";
 import type { OrchestrationStateAPI } from "./orchestration";
 import type { TerminalAPI } from "./terminal";
 import type { UIAPI } from "./ui";
@@ -16,6 +17,7 @@ export interface PlatformAPI {
   readonly context: ExtensionContextAPI;
   readonly terminal: TerminalAPI;
   readonly orchestration: OrchestrationStateAPI;
+  logStorage: LogStorageAPI;
 
   // ── Lifecycle ──
   initialize(): Promise<void>;

@@ -10,6 +10,9 @@ import type {
   MultiSendResult,
   UserMessagePayload,
 } from "../models/mesh";
+import { getLogger } from "../../platform/backends";
+
+const log = getLogger("mesh.fanout");
 
 // ----------------------------------------------------------------------------
 // Dependencies
@@ -44,15 +47,21 @@ export class FanoutExecutor {
    * Send a single message to multiple targets in parallel.
    * Each target is a (agentId, sessionId) pair.
    * Returns results for each target without waiting for agent responses.
-   * Responses arrive via the normal streaming pipeline in SessionOrchestrator.
    */
   async execute(
     targets: SendTarget[],
     payload: UserMessagePayload
   ): Promise<MultiSendResult> {
+    log.info("fanout execute start", { targetCount: targets.length });
+
     const results = await Promise.all(
       targets.map((target) => this.sendToTarget(target, payload))
     );
+
+    const sent = results.filter((r) => r.status === "sent").length;
+    const failed = results.filter((r) => r.status === "failed").length;
+    log.info("fanout execute complete", { sent, failed });
+
     return { results };
   }
 
@@ -64,10 +73,9 @@ export class FanoutExecutor {
     target: SendTarget,
     payload: UserMessagePayload
   ): Promise<FanoutResult> {
+    log.debug("sending to target", { agentId: target.agentId, sessionId: target.sessionId });
+
     try {
-      // Await the prompt to catch synchronous errors (e.g. agent not connected).
-      // The actual agent response arrives via streaming callbacks, but we need
-      // to ensure the prompt was accepted before reporting success.
       await this.sessionOrchestrator.prompt(
         target.agentId,
         target.sessionId,
@@ -75,6 +83,7 @@ export class FanoutExecutor {
       );
       return { target, status: "sent" };
     } catch (e) {
+      log.error("fanout target failed", { agentId: target.agentId, sessionId: target.sessionId }, e as Error);
       return {
         target,
         status: "failed",

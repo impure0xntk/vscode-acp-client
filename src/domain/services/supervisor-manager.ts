@@ -9,6 +9,9 @@ import type { SendTarget } from "../models/mesh";
 import type { TaskBoardStore } from "./task-board-store";
 import type { FileLockManager } from "./file-lock-manager";
 import { parseMeshMarkers } from "../../shared/util/mesh-marker-parser";
+import { getLogger } from "../../platform/backends";
+
+const log = getLogger("mesh.supervisor");
 
 // ----------------------------------------------------------------------------
 // Dependencies
@@ -101,15 +104,22 @@ export class SupervisorManager {
       })
     );
 
+    log.info("supervise start", {
+      leadAgentId: config.leadTarget.agentId,
+      workerCount: config.workerTargets.length,
+      hasLeadOutput: leadOutput !== undefined,
+      maxRetries,
+    });
+
     // Phase 2: Parse lead output for v2 markers to extract sub-tasks
     if (leadOutput) {
       this.decomposeFromLeadOutput(assignments, leadOutput, config.leadTarget.agentId);
+      log.debug("lead output decomposed", { messageCount: assignments.length });
     }
 
     // Create parent task if taskBoardPath is provided
     let parentTaskId: string | undefined;
     if (config.taskBoardPath) {
-      // Ensure the board exists (create if not already)
       if (!this.taskBoardStore.load(config.taskBoardPath)) {
         this.taskBoardStore.create(config.taskBoardPath);
       }
@@ -118,6 +128,7 @@ export class SupervisorManager {
 
     // Acquire file locks if specified
     if (config.lockFiles && this.fileLockManager) {
+      log.debug("acquiring file locks", { fileCount: config.lockFiles.length });
       for (const filePath of config.lockFiles) {
         const acquired = await this.fileLockManager.acquire(
           filePath,
@@ -131,13 +142,16 @@ export class SupervisorManager {
     }
 
     // Send task to lead agent first
+    log.debug("sending task to lead agent", { agentId: config.leadTarget.agentId, sessionId: config.leadTarget.sessionId });
     try {
       await this.sessionOrchestrator.prompt(
         config.leadTarget.agentId,
         config.leadTarget.sessionId,
         config.task
       );
+      log.debug("lead agent task sent");
     } catch (e) {
+      log.error("lead agent prompt failed", { agentId: config.leadTarget.agentId }, e as Error);
       if (config.taskBoardPath && parentTaskId) {
         this.failAllSubTasks(config.taskBoardPath, parentTaskId, assignments);
       }
@@ -171,6 +185,7 @@ export class SupervisorManager {
       (a) => a.status === "failed"
     ).length;
 
+    log.info("supervise complete", { completedCount, failedCount, hasParentTask: parentTaskId !== undefined });
     return { assignments, completedCount, failedCount, parentTaskId };
   }
 
@@ -302,7 +317,12 @@ export class SupervisorManager {
             );
           }
           return;
-        } catch {
+        } catch (e) {
+          log.warn("worker attempt failed", {
+            agentId: assignment.workerTarget.agentId,
+            attempt: attempts,
+            maxAttempts,
+          });
           if (attempts >= maxAttempts) {
             assignment.status = "failed";
             if (config.taskBoardPath && assignment.taskId) {
@@ -312,8 +332,8 @@ export class SupervisorManager {
                 { status: "failed" }
               );
             }
+            log.error("worker permanently failed", { agentId: assignment.workerTarget.agentId });
           }
-          // Otherwise retry on next iteration
         }
       }
     };

@@ -193,6 +193,47 @@ export interface FullState {
   isTurnActive: boolean;
 }
 
+// ── Queued Prompt ───────────────────────────────────────────────────
+
+export type QueuedPromptStatus =
+  | "pending"
+  | "sending"
+  | "sent"
+  | "cancelled";
+
+export interface QueuedPrompt {
+  id: string;
+  agentId: string;
+  sessionId: string;
+  text: string;
+  enqueuedAt: string;
+  status: QueuedPromptStatus;
+}
+
+export interface ToolCallInfo {
+  id: string;
+  title: string;
+  status: "in_progress" | "completed" | "failed" | "cancelled";
+  kind: string;
+  durationMs?: number;
+}
+
+// ── Toolbar / Chip ──────────────────────────────────────────────────
+
+export type ContextColor = "normal" | "warning" | "critical";
+
+export interface ToolbarMeta {
+  key: string;
+  label: string;
+  value: string;
+  icon?: React.ReactNode;
+  category?: "session" | "runtime" | "metrics" | "workspace";
+  statusIndicator?: "idle" | "running" | "completed" | "error" | "cancelled";
+  modeIcon?: string;
+  contextColor?: ContextColor;
+  barPct?: number;
+}
+
 // ── Mesh Orchestrator types ──────────────────────────────────────────
 
 export type MeshMessageType =

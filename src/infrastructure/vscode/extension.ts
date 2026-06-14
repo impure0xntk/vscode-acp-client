@@ -46,6 +46,7 @@ import { TreeItem, TreeItemCollapsibleState } from "vscode";
 import { exec } from "child_process";
 import { promisify } from "util";
 import * as os from "os";
+import type { ClearLogsOptions } from "../../platform/logStorage";
 
 // ============================================================================
 // Global State
@@ -396,6 +397,7 @@ export async function activate(
     maxMessagesPerSession: 10000,
   });
   await persistentHistory.initialize(context.globalStorageUri.fsPath);
+  (platform as VscodePlatform).setLogStore(persistentHistory);
   orchestrator.setHistoryStore(persistentHistory);
   orchestrator.setSessionHistoryStore(historyStore);
 
@@ -579,6 +581,46 @@ function registerCommands(context: vscode.ExtensionContext): void {
       );
     }
   );
+  const clearLogsCmd = vscode.commands.registerCommand(
+    "acp.clearLogs",
+    async () => {
+      const scope = await vscode.window.showQuickPick(
+        [
+          { label: "All logs", description: "Delete all persisted log entries", value: "all" as const },
+          { label: "Older than 7 days", value: "7d" as const },
+          { label: "Older than 30 days", value: "30d" as const },
+        ],
+        { placeHolder: "Select log entries to clear" }
+      );
+      if (!scope) return;
+
+      const options: ClearLogsOptions = {};
+      if (scope.value === "7d") {
+        options.olderThan = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      } else if (scope.value === "30d") {
+        options.olderThan = Date.now() - 30 * 24 * 60 * 60 * 1000;
+      }
+
+      const count = await platform.logStorage.countLogs(options);
+      if (count === 0) {
+        await vscode.window.showInformationMessage("ACP: No log entries to clear.");
+        return;
+      }
+
+      const confirmed = await vscode.window.showWarningMessage(
+        `Delete ${count} log entries? This cannot be undone.`,
+        { modal: true },
+        "Delete"
+      );
+      if (confirmed !== "Delete") return;
+
+      const result = await platform.logStorage.clearLogs(options);
+      await vscode.window.showInformationMessage(
+        `ACP: Cleared ${result.deletedCount} log entries.`
+      );
+    }
+  );
+
   const toggleOverviewCmd = vscode.commands.registerCommand(
     "acp.toggleSessionOverview",
     () => {
@@ -600,6 +642,7 @@ function registerCommands(context: vscode.ExtensionContext): void {
     setModeCmd,
     showTrafficCmd,
     toggleOverviewCmd,
+    clearLogsCmd,
   ]) {
     context.subscriptions.push(d);
   }

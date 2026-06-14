@@ -102,22 +102,30 @@ export class MeshOrchestrator {
     this.teams.set(team.id, team);
     this.taskBoardStore.create(team.taskBoardPath);
 
-    // Register message handlers for each member agent
     for (const agentId of config.memberAgentIds) {
       this.registerAgent(agentId, team.id);
     }
 
+    log.info("team started", {
+      teamId: team.id,
+      name: team.name,
+      leadAgentId: team.leadAgentId,
+      memberCount: team.memberAgentIds.length,
+    });
     return team;
   }
 
   async stopTeam(teamId: string): Promise<void> {
     const team = this.teams.get(teamId);
-    if (!team) return;
+    if (!team) {
+      log.warn("stopTeam: team not found", { teamId });
+      return;
+    }
 
-    // Release all file locks for team members
+    log.info("stopping team", { teamId, name: team.name });
+
     for (const agentId of team.memberAgentIds) {
       await this.fileLockManager.releaseAll(agentId);
-      // Unsubscribe agent from message bus
       const unsub = this.agentSubscriptions.get(agentId);
       if (unsub) {
         unsub();
@@ -126,6 +134,7 @@ export class MeshOrchestrator {
     }
 
     team.status = "completed";
+    log.info("team stopped", { teamId });
   }
 
   getTeam(teamId: string): MeshTeam | undefined {
@@ -140,12 +149,12 @@ export class MeshOrchestrator {
   // Agent Registration
   // -----------------------------------------------------------------------
 
-  private registerAgent(agentId: string, _teamId: string): void {
-    // Subscribe agent to message bus for receiving P2P messages
+  private registerAgent(agentId: string, teamId: string): void {
     const unsub = this.messageBus.subscribe(agentId, async (message) => {
       await this.forwardToAgent(agentId, message);
     });
     this.agentSubscriptions.set(agentId, unsub);
+    log.debug("agent registered", { agentId, teamId });
   }
 
   // -----------------------------------------------------------------------
@@ -156,17 +165,14 @@ export class MeshOrchestrator {
     targetAgentId: string,
     message: P2PMessage
   ): Promise<void> {
-    // Find an active session for the target agent
     const sessionId =
       this.sessionOrchestrator.getActiveSessionId(targetAgentId);
     if (!sessionId) {
-      // Agent has no active session — nothing to forward to
+      log.debug("forwardToAgent: no active session", { targetAgentId });
       return;
     }
 
     const markerMessage = serializeToMarker(message, "2");
-    // Inject v2 marker into the agent's session via prompt
-    // The agent will parse the marker and act on the P2P message
     try {
       await this.sessionOrchestrator.prompt(
         targetAgentId,
@@ -194,6 +200,13 @@ export class MeshOrchestrator {
     rawOutput: string
   ): Promise<string> {
     const { messages, sanitized } = parseMeshMarkers(rawOutput, agentId);
+
+    if (messages.length > 0) {
+      log.debug("P2P messages extracted from agent output", {
+        agentId,
+        count: messages.length,
+      });
+    }
 
     for (const msg of messages) {
       try {
@@ -258,11 +271,11 @@ export class MeshOrchestrator {
   // -----------------------------------------------------------------------
 
   async handleAgentDisconnect(agentId: string): Promise<void> {
-    // Find teams this agent belongs to
+    log.warn("agent disconnected", { agentId });
+
     for (const [, team] of this.teams) {
       if (!team.memberAgentIds.includes(agentId)) continue;
 
-      // Reassign orphaned tasks
       const tasks = this.taskBoardStore.getTasksByAgent(
         team.taskBoardPath,
         agentId
@@ -276,7 +289,6 @@ export class MeshOrchestrator {
         }
       }
 
-      // Notify lead agent
       await this.messageBus.send({
         id: crypto.randomUUID(),
         type: "status_update",
@@ -292,15 +304,15 @@ export class MeshOrchestrator {
       });
     }
 
-    // Release file locks
     await this.fileLockManager.releaseAll(agentId);
 
-    // Unsubscribe from message bus
     const unsub = this.agentSubscriptions.get(agentId);
     if (unsub) {
       unsub();
       this.agentSubscriptions.delete(agentId);
     }
+
+    log.info("agent disconnect handled", { agentId });
   }
 
   createError(
@@ -329,6 +341,7 @@ export class MeshOrchestrator {
     context?: string,
     _timeoutSec?: number
   ): Promise<void> {
+    log.info("handoff", { from: fromAgentId, to: toAgentId });
     const message: P2PMessage = {
       id: crypto.randomUUID(),
       type: "task_request",
@@ -342,7 +355,6 @@ export class MeshOrchestrator {
         priority: "normal",
       },
     };
-    // Note: TTL-based timeout handled by MessageBus queue expiration
     await this.messageBus.send(message);
   }
 
@@ -352,6 +364,7 @@ export class MeshOrchestrator {
     content: string,
     priority: "low" | "normal" | "high" | "urgent" = "normal"
   ): Promise<void> {
+    log.info("sendMessage", { from: fromAgentId, to: toAgentId, priority });
     const message: P2PMessage = {
       id: crypto.randomUUID(),
       type: "question",
@@ -378,6 +391,7 @@ export class MeshOrchestrator {
     text: string,
     attachments?: unknown[]
   ): Promise<MultiSendResult> {
+    log.info("directMultiSend", { targetCount: targets.length });
     const payload: UserMessagePayload = {
       text,
       attachments: attachments ?? [],
@@ -409,9 +423,11 @@ export class MeshOrchestrator {
     }
 
     if (targets.length === 0) {
+      log.warn("fanout: no active sessions found", { requestedAgentIds: agentIds });
       return { results: [] };
     }
 
+    log.info("fanout", { agentCount: agentIds.length, resolvedTargetCount: targets.length });
     const payload: UserMessagePayload = {
       text,
       attachments: attachments ?? [],
@@ -428,21 +444,12 @@ export class MeshOrchestrator {
     targets: SendTarget[],
     text: string
   ): Promise<{ success: boolean; steps: Array<{ target: SendTarget; status: string; error?: string }> }> {
+    log.info("pipelineSend", { targetCount: targets.length });
     return this.pipelineExecutor.execute(targets, text);
   }
 
   /**
    * Supervisor pattern: send task to lead agent, then distribute to workers.
-   *
-   * @param teamId       Team ID for TaskBoard path resolution
-   * @param leadTarget   Lead agent target
-   * @param workerTargets Worker agent targets
-   * @param task         Task description
-   * @param waitForAll   If true, wait for all workers before returning
-   * @param leadOutput   Optional raw lead agent output containing v2 markers
-   *                     for automatic sub-task decomposition
-   * @param maxRetries   Max retry count per worker (default: 0)
-   * @param lockFiles    Files to lock during worker execution
    */
   async supervise(
     teamId: string,
@@ -462,6 +469,11 @@ export class MeshOrchestrator {
     const team = this.teams.get(teamId);
     if (!team) throw new Error(`Team ${teamId} not found`);
 
+    log.info("supervise", {
+      teamId,
+      leadAgentId: leadTarget.agentId,
+      workerCount: workerTargets.length,
+    });
     return this.supervisorManager.supervise(
       {
         leadTarget,
@@ -478,13 +490,11 @@ export class MeshOrchestrator {
 
   /**
    * Get agent statuses for MeshPanel display.
-   * Returns runtime status of all registered agents including active sessions.
    */
   getAgentStatuses(): MeshAgentStatus[] {
     const statuses: MeshAgentStatus[] = [];
     const agentIds = new Set<string>();
 
-    // Collect agent IDs from teams
     for (const team of this.teams.values()) {
       agentIds.add(team.leadAgentId);
       for (const id of team.memberAgentIds) {
@@ -496,7 +506,6 @@ export class MeshOrchestrator {
       let state: MeshAgentStatus["state"] = "disconnected";
       const sessions: MeshAgentStatus["sessions"] = [];
 
-      // Check if agent has an active connection via SessionOrchestrator
       const allSessions = this.sessionOrchestrator.getSessionsForAgent(agentId);
       if (allSessions.length > 0) {
         const hasRunning = allSessions.some((s) => s.status === "running");
@@ -510,11 +519,9 @@ export class MeshOrchestrator {
           });
         }
 
-        // Find active session for current task info
         const activeSessionId = this.sessionOrchestrator.getActiveSessionId(agentId);
         const activeInfo = allSessions.find((s) => s.sessionId === activeSessionId);
         if (activeInfo && activeInfo.status === "running") {
-          // Estimate progress from token usage
           const progress = activeInfo.contextWindowMax
             ? Math.min(95, Math.round((activeInfo.tokenUsage.total / activeInfo.contextWindowMax) * 100))
             : undefined;

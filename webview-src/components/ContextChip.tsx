@@ -18,7 +18,7 @@ export function ContextChip({
     >
       <Icon name={iconForType(attachment.type)} className="context-chip-icon" size="sm" />
       <span className="context-chip-label">{attachment.label}</span>
-      <span className="context-chip-tokens">{attachment.tokenCount}t</span>
+      <span className="context-chip-sep">({attachment.tokenCount} tokens)</span>
       <button
         className="context-chip-remove"
         onClick={() => onRemove(attachment.id)}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { SuggestionItem, TriggerType, FileCandidate } from "../types";
 import { Icon } from "../lib/icons";
 import { StatusIcon } from "./StatusIcon";
@@ -39,7 +39,7 @@ export interface ContextPickerProps {
    * Register a keydown handler that the textarea will forward to.
    * Composer calls this so ArrowUp/Down/Enter/Escape land here.
    */
-  registerKeyHandler: (handler: ((e: KeyboardEvent) => void) | null) => void;
+  registerKeyHandler: (handler: ((e: React.KeyboardEvent<HTMLTextAreaElement>) => void) | null) => void;
 }
 
 // ── Component ───────────────────────────────────────────────────────
@@ -61,7 +61,7 @@ export function ContextPicker({
   // ── Register / unregister the keydown handler with Composer ───────
 
   const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
+    (e: ReactKeyboardEvent<HTMLTextAreaElement>) => {
       switch (e.key) {
         case "ArrowDown":
           e.preventDefault();

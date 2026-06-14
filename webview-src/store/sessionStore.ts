@@ -7,8 +7,8 @@ import type {
   SessionOverviewItem,
   SessionProgress,
   ResponsePreview,
+  QueuedPrompt,
 } from "../types";
-import type { QueuedPrompt } from "../types.d";
 
 // ── Re-exported types (previously from useSessionContext) ──────────────────
 
@@ -17,6 +17,7 @@ export interface SessionTabState {
   agentId: string;
   title: string;
   agentIcon?: string;
+  status?: "idle" | "running" | "completed" | "error" | "cancelled";
 }
 
 export interface SessionInfoSnapshot {
@@ -39,8 +40,25 @@ export interface SessionInfoSnapshot {
 
 export interface AgentInfo {
   name: string;
+  title?: string;
   version?: string;
-  capabilities?: string[];
+  protocolVersion?: string | number;
+  capabilities?: {
+    loadSession?: boolean;
+    sessionCapabilities?: {
+      fork?: boolean;
+      list?: boolean;
+      resume?: boolean;
+      delete?: boolean;
+      close?: boolean;
+      additionalDirectories?: boolean;
+    };
+    promptCapabilities?: {
+      image?: boolean;
+      audio?: boolean;
+      embeddedContext?: boolean;
+    };
+  };
 }
 
 export interface ConnectedAgentInfo extends AgentInfo {

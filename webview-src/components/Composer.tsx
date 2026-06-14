@@ -538,7 +538,7 @@ export function Composer({
       {/* Multi-@ send target chips */}
       {sendTargets.length > 0 && (
         <div className="send-targets-bar">
-          <span className="send-targets-label">送信先:</span>
+          <span className="send-targets-label">To:</span>
           {sendTargets.map((target) => (
             <SendTargetChip
               key={`${target.agentId}:${target.sessionId}`}

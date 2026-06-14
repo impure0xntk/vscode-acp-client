@@ -293,9 +293,9 @@ export function AppContainer(): React.ReactElement {
   // ── Derived data ────────────────────────────────────────────────────
   const validNotifications = useMemo(
     () =>
-      completedNotifications.filter((notif: import("../components/CompletionNotification").SessionNotification) =>
+      completedNotifications.filter((notif) =>
         tabs.some(
-          (t: import("../store/sessionStore").SessionTabState) =>
+          (t) =>
             t.sessionId === notif.sessionId && t.agentId === notif.agentId,
         ),
       ),
