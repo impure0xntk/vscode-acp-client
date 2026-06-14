@@ -32,6 +32,10 @@ import type { ContextAttachment, SendTarget } from "../types";
 export function AppContainer(): React.ReactElement {
   const log = useLogger("AppContainer");
   // ── Direct store subscriptions ──────────────────────────────────────
+  // Subscribe to activeSessionKey (triggers re-render on session switch)
+  // AND sessionInfoMap (triggers re-render when sessions are added/removed).
+  // We use useShallow to avoid re-renders on every streaming field change —
+  // the no-op guards in store actions ensure referential stability.
   const {
     activeSessionKey,
     sessionInfoMap,
@@ -56,8 +60,7 @@ export function AppContainer(): React.ReactElement {
     statusline: s.statusline,
   })));
 
-  // Derived in-render from already-subscribed store primitives.
-  // Avoids a separate store subscription that creates new objects each call.
+  // Derive tabs from already-subscribed store primitives.
   const tabs = useMemo<SessionTabState[]>(() => {
     const orderedKeys = tabOrder.length > 0
       ? tabOrder

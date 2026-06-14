@@ -72,9 +72,8 @@ function mergeToolBatches(messages: ChatMessage[]): ChatMessage[] {
       const existingIds = new Set<string>(pendingCalls.map((c) => c.id));
       const newCalls = calls.filter((c) => !existingIds.has(c.id));
       pendingCalls = [...pendingCalls, ...newCalls];
-      // Emit the tool message without toolCalls to avoid duplicate rendering
-      // (toolCalls are merged into the preceding agent message instead)
-      result.push({ ...msg, toolCalls: undefined });
+      // Skip tool messages entirely — toolCalls are merged into the preceding
+      // agent message instead, avoiding duplicate React keys.
       continue;
     }
 

@@ -9,6 +9,7 @@ import type { AgentStatusTracker } from "../../adapter/agent/status";
 import type { TreeProvider } from "../../infrastructure/vscode/vscode-ui/tree";
 import type { SessionNotification } from "@agentclientprotocol/sdk";
 import { getLogger } from "../../platform/backends";
+import type { MeshOrchestrator } from "../../domain/services/mesh-orchestrator";
 
 const log = getLogger("handlers.message");
 
@@ -34,6 +35,8 @@ export interface MessageEventDeps {
   treeProvider: TreeProvider;
   updateContext: () => void;
   sendTabs: () => void;
+  /** MeshOrchestrator for P2P message extraction from agent output */
+  meshOrchestrator: MeshOrchestrator;
 }
 
 // ============================================================================
@@ -49,6 +52,7 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
     treeProvider,
     updateContext,
     sendTabs,
+    meshOrchestrator,
   } = deps;
 
   // -----------------------------------------------------------------------
@@ -79,6 +83,29 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
         sessionId,
         commands,
       });
+    }
+  );
+
+  // -----------------------------------------------------------------------
+  // Session stream chunk — process agent output through MeshOrchestrator
+  // to extract P2P markers before they reach the chat UI.
+  // -----------------------------------------------------------------------
+  orchestrator.on(
+    "sessionStreamChunk",
+    async (event: {
+      agentId: string;
+      sessionId: string;
+      chunk: string;
+    }) => {
+      const { agentId, sessionId, chunk } = event;
+      // Run chunk through MeshOrchestrator to extract P2P markers.
+      // processAgentOutput returns sanitized text (markers stripped) and
+      // routes extracted messages through the MessageBus.
+      try {
+        await meshOrchestrator.processAgentOutput(agentId, chunk);
+      } catch (e) {
+        log.warn("processAgentOutput failed", { agentId, sessionId, error: (e as Error).message });
+      }
     }
   );
 

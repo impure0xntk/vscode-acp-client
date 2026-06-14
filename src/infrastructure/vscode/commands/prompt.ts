@@ -17,6 +17,7 @@ import {
   resolveSymbolByName,
 } from "../../../adapter/context/symbol";
 import type { SendTarget } from "../../../domain/models/mesh";
+import type { MeshOrchestrator } from "../../../domain/services/mesh-orchestrator";
 
 /**
  * Wire chat panel events to the orchestrator.
@@ -35,7 +36,8 @@ export function wireChatPanelEvents(
   ) => Promise<{ relativePath: string; name: string; absolutePath?: string }[]>,
   searchSymbols: (query: string) => Promise<SuggestionItem[]>,
   resolveSymbolByName: (name: string) => Promise<ContextAttachmentDTO>,
-  persistentHistory?: PersistentHistoryStore
+  persistentHistory?: PersistentHistoryStore,
+  meshOrchestrator?: MeshOrchestrator
 ): void {
   if (!chatPanel) return;
 
@@ -394,35 +396,126 @@ export function wireChatPanelEvents(
           attachments: ContextAttachmentDTO[];
           targets: SendTarget[];
         };
-        // For each target: push the user message to that session's chat,
-        // then send the prompt to the agent. This mirrors the single-agent
-        // path in onSendMessage() but for multiple targets.
-        for (const target of targets) {
-          const userMessage: ChatMessage = {
-            id: crypto.randomUUID(),
-            role: "user",
-            content: text,
-            timestamp: Date.now(),
-            attachmentsJson:
-              attachments.length > 0 ? JSON.stringify(attachments) : undefined,
-          };
-          orchestrator.appendMessageSilent(target.agentId, target.sessionId, userMessage);
-          chatPanel?.pushMessage(target.agentId, target.sessionId, userMessage);
+        // Build user message once, reused for all targets
+        const userMessage: ChatMessage = {
+          id: crypto.randomUUID(),
+          role: "user",
+          content: text,
+          timestamp: Date.now(),
+          attachmentsJson:
+            attachments.length > 0
+              ? JSON.stringify(attachments)
+              : undefined,
+        };
+        const context = buildPromptContext(attachments);
 
-          const context = buildPromptContext(attachments);
-          orchestrator.prompt(target.agentId, target.sessionId, text, context).then(
-            (queuedEntry) => {
-              if (!queuedEntry) {
-                orchestrator.setIsTurnActive(target.agentId, target.sessionId, false);
+        if (meshOrchestrator) {
+          // Set turn-active for all targets before FanoutExecutor fires
+          for (const target of targets) {
+            const sessionInfo = orchestrator.getSessionInfo(
+              target.agentId,
+              target.sessionId
+            );
+            if (sessionInfo && !sessionInfo.isTurnActive) {
+              orchestrator.setIsTurnActive(
+                target.agentId,
+                target.sessionId,
+                true
+              );
+            }
+          }
+          // Route through MeshOrchestrator → FanoutExecutor for parallel delivery.
+          // FanoutExecutor handles pushUserMessage + prompt for each target.
+          void meshOrchestrator.directMultiSend(targets, text, attachments).then(
+            (result) => {
+              for (const r of result.results) {
+                orchestrator.setIsTurnActive(
+                  r.target.agentId,
+                  r.target.sessionId,
+                  false
+                );
               }
             },
-            () => orchestrator.setIsTurnActive(target.agentId, target.sessionId, false),
+            () => {
+              for (const target of targets) {
+                orchestrator.setIsTurnActive(
+                  target.agentId,
+                  target.sessionId,
+                  false
+                );
+              }
+            }
           );
-          const sessionInfo = orchestrator.getSessionInfo(target.agentId, target.sessionId);
-          if (sessionInfo && !sessionInfo.isTurnActive) {
-            orchestrator.setIsTurnActive(target.agentId, target.sessionId, true);
+        } else {
+          // Fallback: direct per-target send (degraded, no marker routing)
+          for (const target of targets) {
+            orchestrator.appendMessageSilent(
+              target.agentId,
+              target.sessionId,
+              userMessage
+            );
+            chatPanel?.pushMessage(
+              target.agentId,
+              target.sessionId,
+              userMessage
+            );
+            orchestrator
+              .prompt(target.agentId, target.sessionId, text, context)
+              .then(
+                (queuedEntry) => {
+                  if (!queuedEntry) {
+                    orchestrator.setIsTurnActive(
+                      target.agentId,
+                      target.sessionId,
+                      false
+                    );
+                  }
+                },
+                () =>
+                  orchestrator.setIsTurnActive(
+                    target.agentId,
+                    target.sessionId,
+                    false
+                  )
+              );
+            const sessionInfo = orchestrator.getSessionInfo(
+              target.agentId,
+              target.sessionId
+            );
+            if (sessionInfo && !sessionInfo.isTurnActive) {
+              orchestrator.setIsTurnActive(
+                target.agentId,
+                target.sessionId,
+                true
+              );
+            }
           }
         }
+        break;
+      }
+
+      // ==================================================================
+      // Mesh Orchestrator messages
+      // ==================================================================
+      case "mesh:getStatus": {
+        if (meshOrchestrator) {
+          const statuses = meshOrchestrator.getAgentStatuses();
+          chatPanel?.postMessage({ type: "mesh:status", agents: statuses });
+        }
+        break;
+      }
+      case "mesh:getTaskBoard": {
+        if (meshOrchestrator) {
+          const teamId = data.teamId as string | undefined;
+          if (teamId) {
+            const board = meshOrchestrator.getTaskBoard(teamId);
+            chatPanel?.postMessage({ type: "mesh:taskBoard", tasks: board?.tasks ?? [] });
+          }
+        }
+        break;
+      }
+      case "mesh:togglePanel": {
+        // Webview manages its own panel visibility; no-op on extension host side.
         break;
       }
 

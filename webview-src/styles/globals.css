@@ -656,7 +656,7 @@ body {
 .message-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 /* ============================================================================
@@ -913,6 +913,14 @@ body {
   margin: 0;
   padding-left: 12px;
   padding-right: 12px;
+  padding-bottom: 0;
+}
+
+/* Tighten gap between a message that has tool-calls and the next message:
+   the tool-batch sits at the bottom of the message, so the next message's
+   padding-top + list-gap creates ~12px total. Reduce to ~4px. */
+.message:has(.message-tool-batch) + .message {
+  padding-top: 0;
 }
 
 .message-tool .tool-call {
@@ -1337,6 +1345,24 @@ body {
 /* Inline file chips inside the tool-call header row */
 .file-chip-inline {
   margin-left: 2px;
+}
+
+/* Completed tool calls: mute file-chip label colour so it does not demand attention.
+   Failed / in_progress / cancelled keep the default --fg-primary file-chip colour. */
+.tool-call-completed .file-chip-inline {
+  color: var(--fg-muted);
+}
+.tool-call-completed .file-chip-inline:hover {
+  color: var(--fg-secondary);
+  background: var(--accent-hover);
+}
+.tool-call-completed .file-chip-inline .file-chip-ext {
+  color: var(--fg-muted);
+  background: color-mix(in srgb, var(--fg-muted) 12%, transparent);
+}
+.tool-call-completed .file-chip-inline:hover .file-chip-ext {
+  color: var(--fg-secondary);
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 .file-chip-detail {
@@ -1952,8 +1978,8 @@ body {
   color: #4fc3f7; /* blue — normal (matches ProgressBar) */
 }
 .status-icon-completed {
-  color: var(--fg-muted);
-  opacity: 0.6;
+  color: var(--success);
+  opacity: 1;
 }
 .status-icon-error {
   color: var(--error);

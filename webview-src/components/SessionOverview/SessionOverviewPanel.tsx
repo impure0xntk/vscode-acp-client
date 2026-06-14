@@ -97,10 +97,12 @@ export function SessionOverviewPanel({
     0
   );
 
-  // Build unread count map from message store via imperative reads.
-  // Subscribing to useMessageStore with a dynamic key set causes reference
-  // instability (visibleKeys array is new each render), which triggers the
-  // useSyncExternalStore loop. Reading getState() avoids subscription.
+  // Build unread count map — only recompute when the set of filtered session
+  // keys actually changes, not on every sessionInfoMap update.
+  const filteredKeys = useMemo(
+    () => filteredSessions.map((s) => `${s.agentId}:${s.sessionId}`).join(","),
+    [filteredSessions],
+  );
   const unreadMap = useMemo(() => {
     const msgStore = useMessageStore.getState();
     const uiStore = useUiStateStore.getState();
@@ -112,11 +114,8 @@ export function SessionOverviewPanel({
       map.set(key, uiStore.computeUnreadCount(key, ids));
     }
     return map;
-  // Only recompute when the filtered session list (identity) changes or
-  // when the overview is toggled open/closed (isVisible).
-  // Message count changes are handled by the sessionInfo subscription above.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredSessions, isVisible]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredKeys]);
 
   // Count selected sessions (any status can be closed)
   const selectedCount = selectedIds.length;

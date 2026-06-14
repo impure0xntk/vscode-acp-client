@@ -1,5 +1,4 @@
-import React, { useCallback, useState, useEffect, useRef } from "react";
-import { useShallow } from "zustand/shallow";
+import React, { useCallback, useState, useEffect, useRef, useMemo } from "react";
 import { getLogger } from "../lib/logger";
 
 const log = getLogger("webview.SessionTabs");
@@ -8,11 +7,10 @@ import type {
   ConnectedAgentInfo,
 } from "../store/sessionStore";
 import type { SessionOverviewItem } from "../types";
-import type { MessageState } from "../store/messageStore";
-import type { SessionState } from "../store/sessionStore";
 import { useUiStateStore } from "../store/uiStateStore";
 import { useMessageStore } from "../store/messageStore";
 import { useSessionStore, sessionKeyOf } from "../store/sessionStore";
+import type { StatusIconType } from "./StatusIcon";
 import { SessionTab } from "./SessionTab";
 import { SessionOverviewPopup } from "./SessionOverview/SessionOverviewPopup";
 
@@ -187,13 +185,37 @@ export function SessionTabs({
     setPopupSession(null);
   }, [clearTimers]);
 
-  // Subscribe to sessionInfoMap (stable reference when unchanged).
-  const sessionInfoMap = useSessionStore(useShallow((s) => s.sessionInfoMap));
+  // Derive status + elapsedMs from sessionInfoMap via imperative read.
+  // Avoids subscribing to the entire sessionInfoMap (which would re-render
+  // SessionTabs on every session field change). Only recompute when the
+  // set of tab keys changes.
+  const tabKeys = useMemo(
+    () => tabs.map((t) => sessionKeyOf(t.agentId, t.sessionId)).join(","),
+    [tabs],
+  );
+  const statusMap = useMemo(() => {
+    const infoMap = useSessionStore.getState().sessionInfoMap;
+    const map = new Map<string, { status: StatusIconType; elapsedMs?: number }>();
+    for (const tab of tabs) {
+      const key = sessionKeyOf(tab.agentId, tab.sessionId);
+      const info = infoMap[key];
+      const raw = info?.status ?? "idle";
+      const status: StatusIconType =
+        raw === "running" || raw === "completed" || raw === "error" || raw === "cancelled" || raw === "idle"
+          ? raw
+          : "idle";
+      const elapsedMs =
+        status === "running" && info?.lastResponseAt
+          ? Date.now() - new Date(info.lastResponseAt).getTime()
+          : undefined;
+      map.set(key, { status, elapsedMs });
+    }
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabKeys]);
 
-  // Derive unread counts from imperative reads.
-  // Subscribing to useMessageStore(s => s.perSession) causes an infinite loop
-  // because every store write creates a new perSession object reference.
-  const unreadMap = React.useMemo(() => {
+  // Derive unread counts — only recompute when tab keys change.
+  const unreadMap = useMemo(() => {
     const msgStore = useMessageStore.getState();
     const uiStore = useUiStateStore.getState();
     const map = new Map<string, number>();
@@ -203,8 +225,8 @@ export function SessionTabs({
       map.set(key, uiStore.computeUnreadCount(key, ids));
     }
     return map;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tabs, sessionInfoMap]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabKeys]);
 
   return (
     <div className="session-tabs-bar">
@@ -218,13 +240,10 @@ export function SessionTabs({
           const isDropTarget = dropIndex === index && dragIndex !== index;
           const isHovered = hoveredTabKey === key;
 
-          // Derive display state from sessionInfoMap (single source of truth)
-          const info = sessionInfoMap[key];
-          const status = info?.status ?? "idle";
-          const elapsedMs =
-            status === "running" && info?.lastResponseAt
-              ? Date.now() - new Date(info.lastResponseAt).getTime()
-              : undefined;
+          // Derive display state from imperative read (avoids re-render on every sessionInfoMap change)
+          const statusInfo = statusMap.get(key);
+          const status = statusInfo?.status ?? "idle";
+          const elapsedMs = statusInfo?.elapsedMs;
 
           const unread = unreadMap.get(key) ?? 0;
           const agentColor = connectedAgents.find(

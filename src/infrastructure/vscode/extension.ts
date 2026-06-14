@@ -39,6 +39,10 @@ import {
   wireSessionEvents,
   wireMessageEvents,
 } from "../../application/handlers";
+import { MeshOrchestrator } from "../../domain/services/mesh-orchestrator";
+import { MessageBus } from "../../domain/services/message-bus";
+import { FileLockManager } from "../../domain/services/file-lock-manager";
+import { TaskBoardStore } from "../../domain/services/task-board-store";
 import { VscodePlatform } from "../../platform/adapters/vscode";
 import type { PlatformAPI } from "../../platform/platform";
 import type { ContextAttachmentDTO } from "../../domain/models/chat";
@@ -64,6 +68,7 @@ let persistentHistory: PersistentHistoryStore | null = null;
 let statusBar: AgentStatusBar;
 let treeProvider: ReturnType<typeof createAgentTreeProvider>;
 let chatPanel: ChatPanel | null = null;
+let meshOrchestrator: MeshOrchestrator | null = null;
 const presenter = new ChatPresenter();
 
 // ============================================================================
@@ -322,7 +327,8 @@ function wireChatPanelEventsLocal(): void {
     searchFiles,
     searchSymbols,
     resolveSymbolByName,
-    persistentHistory ?? undefined
+    persistentHistory ?? undefined,
+    meshOrchestrator ?? undefined
   );
 }
 
@@ -390,6 +396,21 @@ export async function activate(
   statusBar = new AgentStatusBar(platform.ui);
   registry = new AgentRegistry(platform);
   orchestrator = new SessionOrchestrator({ ui: platform.ui, fs: platform.fs });
+
+  // MeshOrchestrator: wraps SessionOrchestrator for P2P/multi-agent routing
+  const messageBus = new MessageBus();
+  const fileLockManager = new FileLockManager();
+  const taskBoardStore = new TaskBoardStore();
+  meshOrchestrator = new MeshOrchestrator({
+    sessionOrchestrator: orchestrator,
+    messageBus,
+    fileLockManager,
+    taskBoardStore,
+    pushUserMessage: (agentId, sessionId, message) => {
+      chatPanel?.pushMessage(agentId, sessionId, message);
+    },
+  });
+
   statusTracker = new AgentStatusTracker();
   historyStore = new SessionHistoryStore(platform.context.globalState);
 
@@ -429,7 +450,7 @@ export async function activate(
     })
   );
 
-  wireOrchestratorEvents();
+  wireOrchestratorEvents(meshOrchestrator);
 
   // Send statusline info when workspace folders change
   context.subscriptions.push(
@@ -472,7 +493,7 @@ export function deactivate(): void {
 // Orchestrator Events → UI updates (delegated to handlers/)
 // ============================================================================
 
-function wireOrchestratorEvents(): void {
+function wireOrchestratorEvents(meshOrch: MeshOrchestrator): void {
   wireSessionEvents({
     orchestrator,
     getChatPanel,
@@ -493,6 +514,7 @@ function wireOrchestratorEvents(): void {
     treeProvider,
     updateContext,
     sendTabs: sendTabsToChatPanel,
+    meshOrchestrator: meshOrch,
   });
 
   // Session Overview: push updates to webview on debounced orchestrator event
