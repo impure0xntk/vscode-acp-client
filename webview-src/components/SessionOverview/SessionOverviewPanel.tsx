@@ -1,15 +1,17 @@
 import React, { useCallback, useMemo } from "react";
+import { getLogger } from "../../lib/logger";
+
+const log = getLogger("webview.SessionOverviewPanel");
 import type {
   SessionOverviewState,
   SessionOverviewFilter,
   SessionOverviewItem,
 } from "../../types";
 import type { ConnectedAgentInfo } from "../../store/sessionStore";
-import { useUiStateStore } from "../../store/uiStateStore";
+import { useScrollStateStore } from "../../store/scrollStateStore";
 import { useMessageStore } from "../../store/messageStore";
 import {
   useSessionStore,
-  selectOverviewItems,
   sessionKeyOf,
 } from "../../store/sessionStore";
 import { SessionOverviewToolbar } from "./SessionOverviewToolbar";
@@ -118,21 +120,40 @@ export function SessionOverviewPanel({
     return overviewItems;
   }, [overviewItems, state.filter]);
 
-  // Build unread count map — only recompute when the set of filtered session
-  // keys actually changes.
+  // Build unread count map from scrollStateStore + messageStore.
+  // Recomputes only when the set of filtered session keys changes.
   const filteredKeys = useMemo(
     () => filteredSessions.map((s) => `${s.agentId}:${s.sessionId}`).join(","),
     [filteredSessions],
   );
   const unreadMap = useMemo(() => {
+    const scrollStore = useScrollStateStore.getState();
     const msgStore = useMessageStore.getState();
-    const uiStore = useUiStateStore.getState();
     const map = new Map<string, number>();
     for (const s of filteredSessions) {
       const key = sessionKeyOf(s.agentId, s.sessionId);
-      const msgs = msgStore.perSession[key];
-      const ids = (msgs ?? []).map((m) => m.id);
-      map.set(key, uiStore.computeUnreadCount(key, ids));
+      const scrollState = scrollStore.perSession[key];
+      const msgs = msgStore.perSession[key] ?? [];
+      const totalCount = msgs.length;
+
+      if (!scrollState || totalCount === 0) {
+        map.set(key, 0);
+        continue;
+      }
+
+      const { readUpToMessageId, isAtBottom } = scrollState;
+      if (isAtBottom || !readUpToMessageId) {
+        map.set(key, 0);
+        continue;
+      }
+
+      const idx = msgs.findIndex((m) => m.id === readUpToMessageId);
+      if (idx < 0 || idx + 1 >= totalCount) {
+        map.set(key, 0);
+        continue;
+      }
+
+      map.set(key, totalCount - idx - 1);
     }
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -141,13 +162,77 @@ export function SessionOverviewPanel({
   // Count selected sessions (any status can be closed)
   const selectedCount = selectedIds.length;
 
+  // ── Logging wrappers ────────────────────────────────────────────────
+  const handleFocus = useCallback(
+    (sessionId: string, agentId: string) => {
+      log.info("overview focus", { sessionId, agentId });
+      onFocus(sessionId, agentId);
+    },
+    [onFocus],
+  );
+
+  const handleCancel = useCallback(
+    (sessionId: string, agentId: string) => {
+      log.info("overview cancel", { sessionId, agentId });
+      onCancel(sessionId, agentId);
+    },
+    [onCancel],
+  );
+
+  const handleClose = useCallback(
+    (sessionId: string, agentId: string) => {
+      log.info("overview close", { sessionId, agentId });
+      onClose(sessionId, agentId);
+    },
+    [onClose],
+  );
+
+  const handleToggleSelect = useCallback(
+    (sessionId: string) => {
+      log.debug("overview toggle select", { sessionId, selectionMode });
+      onToggleSelect(sessionId);
+    },
+    [onToggleSelect, selectionMode],
+  );
+
+  const handleLongPress = useCallback(
+    (sessionId: string) => {
+      log.info("overview long press → enter selection mode", { sessionId });
+      onLongPress(sessionId);
+    },
+    [onLongPress],
+  );
+
+  const handleCloseSelected = useCallback(() => {
+    log.info("overview close selected", { count: selectedCount, sessionIds: selectedIds });
+    onCloseSelected();
+  }, [onCloseSelected, selectedCount, selectedIds]);
+
+  const handleExitSelectionMode = useCallback(() => {
+    log.info("overview exit selection mode");
+    onExitSelectionMode();
+  }, [onExitSelectionMode]);
+
+  const handleFilterChange = useCallback(
+    (f: SessionOverviewFilter) => {
+      log.debug("overview filter change", { from: state.filter, to: f });
+      onFilterChange(f);
+    },
+    [onFilterChange, state.filter],
+  );
+
+  const handleNewSession = useCallback(() => {
+    log.info("overview new session");
+    onNewSession?.();
+  }, [onNewSession]);
+
   return (
     <div className="session-overview-panel" style={{ width, minWidth: width }}>
       <SessionOverviewToolbar
         filter={state.filter}
         sessionCount={filteredSessions.length}
-        onFilterChange={onFilterChange}
-        onNewSession={onNewSession}
+        onFilterChange={handleFilterChange}
+        onNewSession={handleNewSession}
       />
 
       {/* Batch operations bar — visible whenever selection mode is active */}
@@ -161,7 +246,7 @@ export function SessionOverviewPanel({
           <div className="session-overview-batch-actions">
             <button
               className="session-overview-batch-close"
-              onClick={onCloseSelected}
+              onClick={handleCloseSelected}
               disabled={selectedCount === 0}
               title={`Close ${selectedCount} selected session(s)`}
             >
@@ -169,7 +254,7 @@ export function SessionOverviewPanel({
             </button>
             <button
               className="session-overview-batch-cancel"
-              onClick={onExitSelectionMode}
+              onClick={handleExitSelectionMode}
               title="Exit selection mode"
             >
               Cancel
@@ -202,11 +287,11 @@ export function SessionOverviewPanel({
                   onToggleExpand(session.sessionId);
                 }
               }}
-              onFocus={() => onFocus(session.sessionId, session.agentId)}
-              onCancel={() => onCancel(session.sessionId, session.agentId)}
-              onClose={() => onClose(session.sessionId, session.agentId)}
-              onSelect={onToggleSelect}
-              onLongPress={onLongPress}
+              onFocus={() => handleFocus(session.sessionId, session.agentId)}
+              onCancel={() => handleCancel(session.sessionId, session.agentId)}
+              onClose={() => handleClose(session.sessionId, session.agentId)}
+              onSelect={handleToggleSelect}
+              onLongPress={handleLongPress}
             />
           );
         })}

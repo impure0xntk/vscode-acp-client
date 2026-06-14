@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { produce } from "immer";
 import { getLogger } from "../lib/logger";
 
 const log = getLogger("sessionStore");
@@ -87,11 +86,6 @@ export function sessionKeyOf(agentId: string, sessionId: string): string {
 }
 
 // ── Selectors (reactive, for use inside components) ────────────────────────
-//
-// These are plain selector functions compatible with Zustand's `use(selector)`.
-// They memoize based on Zustand's built-in shallow comparison of the selected
-// slice, which means overview items won't recompute unless sessionInfoMap,
-// tabOrder, or tabTitles actually change.
 
 export function selectOverviewItems(state: SessionState): SessionOverviewItem[] {
   const { sessionInfoMap, tabOrder, tabTitles } = state;
@@ -132,15 +126,25 @@ export function selectTabs(state: SessionState): SessionTabState[] {
     });
 }
 
-/** Compare two SessionInfoSnapshot for equality (shallow field comparison). */
+/**
+ * Compare two SessionInfoSnapshot for referential equality.
+ *
+ * The store must only create a new object when data actually changes.
+ * If every write produces a new object (even with the same data),
+ * this function would short-circuit — so the callers are responsible
+ * for avoiding unnecessary writes.
+ *
+ * We use strict reference-equality on tokenUsage as a fast-path: if the
+ * store reuses the same object when token counts haven't changed, this
+ * avoids deep comparison on every field.
+ */
 function sessionInfoEquals(a: SessionInfoSnapshot, b: SessionInfoSnapshot): boolean {
+  if (a === b) return true;
   return (
     a.status === b.status &&
     a.isTurnActive === b.isTurnActive &&
     a.isStreaming === b.isStreaming &&
-    a.tokenUsage?.inputTokens === b.tokenUsage?.inputTokens &&
-    a.tokenUsage?.outputTokens === b.tokenUsage?.outputTokens &&
-    a.tokenUsage?.totalTokens === b.tokenUsage?.totalTokens &&
+    a.tokenUsage === b.tokenUsage &&
     a.contextWindowMax === b.contextWindowMax &&
     a.model === b.model &&
     a.mode === b.mode &&
@@ -155,7 +159,6 @@ function sessionInfoEquals(a: SessionInfoSnapshot, b: SessionInfoSnapshot): bool
 
 /**
  * SessionInfoSnapshot から SessionOverviewItem を導出する。
- * `titleHint` が渡されればそれを使い、なければ sessionId を fallback にする。
  */
 export function snapshotToOverviewItem(
   info: SessionInfoSnapshot,
@@ -211,26 +214,15 @@ export function snapshotToOverviewItem(
 // ── Store shape ──────────────────────────────────────────────────────────────
 
 export interface SessionState {
-  // ── Core session data ──────────────────────────────────────────────────
-  /** sessionKey → full snapshot (single source of truth for session data) */
   sessionInfoMap: Record<string, SessionInfoSnapshot>;
-  /** Ordered list of session keys for tab bar ordering */
   tabOrder: string[];
-  /** Currently active session key */
   activeSessionKey: string | null;
-
-  // ── Tab UI state ──────────────────────────────────────────────────────
-  /** User-renamed or auto-generated tab titles, keyed by sessionKey */
   tabTitles: Record<string, string>;
-  /** sessionKey → agentIcon (per-tab UI decoration) */
   tabIcons: Record<string, string>;
-
-  // ── Agent / workspace ─────────────────────────────────────────────────
   workspaceRoot?: string;
   connectedAgents: ConnectedAgentInfo[];
   agentInfoMap: Record<string, AgentInfo>;
   workspaceFolders: WorkspaceFolder[];
-  /** sessionKey → SlashCommand[] */
   sessionCommands: Record<string, SlashCommand[]>;
   statusline: {
     hostname?: string;
@@ -238,19 +230,13 @@ export interface SessionState {
     branch?: string;
     tag?: string;
   };
-
-  // ── Prompt Queue ──────────────────────────────────────────────────────
-  /** sessionKey → QueuedPrompt[] */
   promptQueue: Record<string, QueuedPrompt[]>;
 
   // ── Actions ───────────────────────────────────────────────────────────
-
-  // Session info
   setSessionInfoMap: (map: Record<string, SessionInfoSnapshot>) => void;
   setSessionInfo: (agentId: string, sessionId: string, info: SessionInfoSnapshot) => void;
   updateMessageCount: (agentId: string, sessionId: string, count: number) => void;
 
-  // Tabs (order + titles + icons only — no duplicated session data)
   setTabOrder: (order: string[]) => void;
   setTabTitle: (sessionKey: string, title: string) => void;
   setTabIcon: (sessionKey: string, icon: string) => void;
@@ -258,7 +244,6 @@ export interface SessionState {
   removeTab: (sessionKey: string) => void;
   setActiveSession: (sessionKey: string | null) => void;
 
-  // Agent / workspace
   setWorkspaceRoot: (root?: string) => void;
   setAgentInfo: (agentId: string, info: AgentInfo) => void;
   setConnectedAgents: (agents: ConnectedAgentInfo[]) => void;
@@ -266,13 +251,11 @@ export interface SessionState {
   setSessionCommands: (agentId: string, sessionId: string, commands: SlashCommand[]) => void;
   setStatusline: (statusline: SessionState["statusline"]) => void;
 
-  // Prompt Queue
   setPromptQueue: (sessionKey: string, queue: QueuedPrompt[]) => void;
   addQueuedPrompt: (sessionKey: string, entry: QueuedPrompt) => void;
   removeQueuedPrompt: (sessionKey: string, promptId: string) => void;
   reorderQueuedPrompts: (sessionKey: string, orderedIds: string[]) => void;
 
-  // Bulk operations
   bulkSetTabs: (params: {
     tabs: SessionTabState[];
     workspaceRoot?: string;
@@ -282,15 +265,11 @@ export interface SessionState {
     sessionInfoMap?: Record<string, SessionInfoSnapshot>;
   }) => void;
 
-  // Derived
-  // Note: these create new objects each call — only call inside useMemo/useCallback
-  // with stable upstream dependencies (sessionInfoMap, tabOrder, tabTitles).
-  // DO NOT use directly in useShallow — use selectSessionInfoMap + selectTabOrder + selectTabTitles instead.
   getOverviewItems: () => SessionOverviewItem[];
   getTabs: () => SessionTabState[];
 }
 
-export const useSessionStore = create<SessionState>((set) => ({
+export const useSessionStore = create<SessionState>((set, get) => ({
   sessionInfoMap: {},
   tabOrder: [],
   activeSessionKey: null,
@@ -308,153 +287,155 @@ export const useSessionStore = create<SessionState>((set) => ({
 
   setSessionInfoMap: (map) => {
     log.debug("setSessionInfoMap", { count: Object.keys(map).length });
-    set(produce((draft: SessionState) => {
+    set((state) => {
       let changed = false;
+      const nextInfoMap = { ...state.sessionInfoMap };
       for (const [k, v] of Object.entries(map)) {
-        const prev = draft.sessionInfoMap[k];
+        const prev = state.sessionInfoMap[k];
         if (!prev || !sessionInfoEquals(prev, v)) {
-          draft.sessionInfoMap[k] = v;
+          nextInfoMap[k] = v;
           changed = true;
         }
       }
-      if (!changed) return;
-      const validKeys = new Set(Object.keys(draft.sessionInfoMap));
-      const newOrder = draft.tabOrder.filter((k) => validKeys.has(k));
-      for (const k of Object.keys(draft.sessionInfoMap)) {
-        if (!newOrder.includes(k)) {
-          newOrder.push(k);
-        }
+      if (!changed) return state;
+      const validKeys = new Set(Object.keys(nextInfoMap));
+      const newOrder = state.tabOrder.filter((k) => validKeys.has(k));
+      for (const k of Object.keys(nextInfoMap)) {
+        if (!newOrder.includes(k)) newOrder.push(k);
       }
-      draft.tabOrder = newOrder;
-    }));
+      return { ...state, sessionInfoMap: nextInfoMap, tabOrder: newOrder };
+    });
   },
 
   setSessionInfo: (agentId, sessionId, info) =>
-    set(produce((draft: SessionState) => {
+    set((state) => {
       const key = sessionKeyOf(agentId, sessionId);
-      const prev = draft.sessionInfoMap[key];
-      if (prev && sessionInfoEquals(prev, info)) return;
+      const prev = state.sessionInfoMap[key];
+      if (prev && sessionInfoEquals(prev, info)) return state;
       log.debug("setSessionInfo", { agentId, sessionId, status: info.status, isTurnActive: info.isTurnActive });
-      // Mutate in-place via immer; only the changed entry is replaced
-      draft.sessionInfoMap[key] = info;
-    })),
-
-  /**
-   * Update a single field on a session info entry without replacing the
-   * entire sessionInfoMap reference. Uses immer produce so the change is
-   * structural-shared with the previous state.
-   */
-  updateSessionField: <K extends keyof SessionInfoSnapshot>(
-    agentId: string,
-    sessionId: string,
-    field: K,
-    value: SessionInfoSnapshot[K],
-  ) =>
-    set(produce((draft: SessionState) => {
-      const key = sessionKeyOf(agentId, sessionId);
-      const prev = draft.sessionInfoMap[key];
-      if (prev && prev[field] === value) return;
-      if (prev) {
-        prev[field] = value;
-      }
-    })),
+      return {
+        ...state,
+        sessionInfoMap: { ...state.sessionInfoMap, [key]: info },
+      };
+    }),
 
   updateMessageCount: (agentId, sessionId, count) =>
-    set(produce((draft: SessionState) => {
+    set((state) => {
       const key = sessionKeyOf(agentId, sessionId);
-      const existing = draft.sessionInfoMap[key];
-      if (existing && existing.messageCount !== count) {
-        existing.messageCount = count;
-      }
-    })),
+      const existing = state.sessionInfoMap[key];
+      if (!existing || existing.messageCount === count) return state;
+      return {
+        ...state,
+        sessionInfoMap: {
+          ...state.sessionInfoMap,
+          [key]: { ...existing, messageCount: count },
+        },
+      };
+    }),
 
-  // ── Tabs (order + titles + icons only) ──────────────────────────────────
+  // ── Tabs ────────────────────────────────────────────────────────────────
 
   setTabOrder: (order) => set((s) => s.tabOrder === order ? s : { tabOrder: order }),
 
   setTabTitle: (key, title) =>
-    set(produce((draft: SessionState) => {
-      if (draft.tabTitles[key] === title) return;
-      draft.tabTitles[key] = title;
-    })),
+    set((state) => {
+      if (state.tabTitles[key] === title) return state;
+      return { ...state, tabTitles: { ...state.tabTitles, [key]: title } };
+    }),
 
   setTabIcon: (key, icon) =>
-    set(produce((draft: SessionState) => {
-      if (draft.tabIcons[key] === icon) return;
-      draft.tabIcons[key] = icon;
-    })),
+    set((state) => {
+      if (state.tabIcons[key] === icon) return state;
+      return { ...state, tabIcons: { ...state.tabIcons, [key]: icon } };
+    }),
 
   addTab: (agentId, sessionId, title) => {
     const key = sessionKeyOf(agentId, sessionId);
-    set(produce((draft: SessionState) => {
-      if (!draft.tabOrder.includes(key)) draft.tabOrder.push(key);
-      if (title) draft.tabTitles[key] = title;
-      draft.activeSessionKey = key;
-    }));
+    set((state) => {
+      const nextOrder = state.tabOrder.includes(key)
+        ? state.tabOrder
+        : [...state.tabOrder, key];
+      const nextTitles = title
+        ? { ...state.tabTitles, [key]: title }
+        : state.tabTitles;
+      return { ...state, tabOrder: nextOrder, tabTitles: nextTitles, activeSessionKey: key };
+    });
   },
 
   removeTab: (targetKey) =>
-    set(produce((draft: SessionState) => {
-      const idx = draft.tabOrder.indexOf(targetKey);
-      if (idx < 0) return;
-      draft.tabOrder = draft.tabOrder.filter((k) => k !== targetKey);
-      if (draft.activeSessionKey === targetKey) {
-        draft.activeSessionKey = draft.tabOrder.length > 0
-          ? draft.tabOrder[Math.min(idx, draft.tabOrder.length - 1)]
-          : null;
-      }
-      delete draft.sessionInfoMap[targetKey];
-      delete draft.promptQueue[targetKey];
-    })),
+    set((state) => {
+      if (!state.tabOrder.includes(targetKey)) return state;
+      const idx = state.tabOrder.indexOf(targetKey);
+      const nextOrder = state.tabOrder.filter((k) => k !== targetKey);
+      const nextInfoMap = { ...state.sessionInfoMap };
+      delete nextInfoMap[targetKey];
+      const nextQueue = { ...state.promptQueue };
+      delete nextQueue[targetKey];
+      const nextActive = state.activeSessionKey === targetKey
+        ? (nextOrder.length > 0 ? nextOrder[Math.min(idx, nextOrder.length - 1)] : null)
+        : state.activeSessionKey;
+      return {
+        ...state,
+        tabOrder: nextOrder,
+        sessionInfoMap: nextInfoMap,
+        promptQueue: nextQueue,
+        activeSessionKey: nextActive,
+      };
+    }),
 
   setActiveSession: (sessionKey) => set((s) => s.activeSessionKey === sessionKey ? s : { activeSessionKey: sessionKey }),
 
   // ── Agent / workspace ───────────────────────────────────────────────────
 
   setWorkspaceRoot: (root) => set((s) => s.workspaceRoot === root ? s : { workspaceRoot: root }),
+
   setAgentInfo: (agentId, info) =>
-    set(produce((draft: SessionState) => {
-      const prev = draft.agentInfoMap[agentId];
-      if (prev === info) return;
-      draft.agentInfoMap[agentId] = info;
-    })),
+    set((state) => {
+      if (state.agentInfoMap[agentId] === info) return state;
+      return { ...state, agentInfoMap: { ...state.agentInfoMap, [agentId]: info } };
+    }),
+
   setConnectedAgents: (agents) => set((s) => s.connectedAgents === agents ? s : { connectedAgents: agents }),
   setWorkspaceFolders: (folders) => set((s) => s.workspaceFolders === folders ? s : { workspaceFolders: folders }),
+
   setSessionCommands: (agentId, sessionId, commands) =>
-    set(produce((draft: SessionState) => {
+    set((state) => {
       const key = sessionKeyOf(agentId, sessionId);
-      if (draft.sessionCommands[key] === commands) return;
-      draft.sessionCommands[key] = commands;
-    })),
-  setStatusline: (statusline) =>
-    set((s) => s.statusline === statusline ? s : { statusline }),
+      if (state.sessionCommands[key] === commands) return state;
+      return { ...state, sessionCommands: { ...state.sessionCommands, [key]: commands } };
+    }),
+
+  setStatusline: (statusline) => set((s) => s.statusline === statusline ? s : { statusline }),
 
   // ── Prompt Queue ──────────────────────────────────────────────────────────
 
   setPromptQueue: (sessionKey, queue) =>
-    set(produce((draft: SessionState) => {
-      if (draft.promptQueue[sessionKey] === queue) return;
-      draft.promptQueue[sessionKey] = queue;
-    })),
+    set((state) => {
+      if (state.promptQueue[sessionKey] === queue) return state;
+      return { ...state, promptQueue: { ...state.promptQueue, [sessionKey]: queue } };
+    }),
 
   addQueuedPrompt: (sessionKey, entry) =>
-    set(produce((draft: SessionState) => {
-      if (!draft.promptQueue[sessionKey]) draft.promptQueue[sessionKey] = [];
-      draft.promptQueue[sessionKey].push(entry);
-    })),
+    set((state) => {
+      const existing = state.promptQueue[sessionKey] ?? [];
+      return {
+        ...state,
+        promptQueue: { ...state.promptQueue, [sessionKey]: [...existing, entry] },
+      };
+    }),
 
   removeQueuedPrompt: (sessionKey, promptId) =>
-    set(produce((draft: SessionState) => {
-      const q = draft.promptQueue[sessionKey];
-      if (!q) return;
+    set((state) => {
+      const q = state.promptQueue[sessionKey];
+      if (!q) return state;
       const filtered = q.filter((e) => e.id !== promptId);
-      if (filtered.length === q.length) return;
-      draft.promptQueue[sessionKey] = filtered;
-    })),
+      if (filtered.length === q.length) return state;
+      return { ...state, promptQueue: { ...state.promptQueue, [sessionKey]: filtered } };
+    }),
 
   reorderQueuedPrompts: (sessionKey, orderedIds) =>
-    set(produce((draft: SessionState) => {
-      const q = draft.promptQueue[sessionKey] ?? [];
+    set((state) => {
+      const q = state.promptQueue[sessionKey] ?? [];
       const pending = q.filter((e) => e.status === "pending");
       const sending = q.filter((e) => e.status !== "pending");
       const reordered = orderedIds
@@ -463,13 +444,16 @@ export const useSessionStore = create<SessionState>((set) => ({
       for (const e of pending) {
         if (!orderedIds.includes(e.id)) reordered.push(e);
       }
-      draft.promptQueue[sessionKey] = [...reordered, ...sending];
-    })),
+      return {
+        ...state,
+        promptQueue: { ...state.promptQueue, [sessionKey]: [...reordered, ...sending] },
+      };
+    }),
 
   // ── Bulk operations ─────────────────────────────────────────────────────
 
   bulkSetTabs: (params) => {
-    set(produce((draft: SessionState) => {
+    set((state) => {
       const order: string[] = [];
       const titles: Record<string, string> = {};
       for (const t of params.tabs) {
@@ -478,45 +462,51 @@ export const useSessionStore = create<SessionState>((set) => ({
         if (t.title) titles[key] = t.title;
       }
       let changed = false;
-      if (draft.tabOrder.length !== order.length || draft.tabOrder.some((k, i) => k !== order[i])) {
-        draft.tabOrder = order;
+      const nextState = { ...state };
+
+      if (state.tabOrder.length !== order.length || state.tabOrder.some((k, i) => k !== order[i])) {
+        nextState.tabOrder = order;
         changed = true;
       }
-      for (const [k, v] of Object.entries(titles)) {
-        if (draft.tabTitles[k] !== v) { draft.tabTitles[k] = v; changed = true; }
+      if (Object.keys(titles).length > 0) {
+        const nextTitles = { ...state.tabTitles };
+        for (const [k, v] of Object.entries(titles)) {
+          if (nextTitles[k] !== v) { nextTitles[k] = v; changed = true; }
+        }
+        nextState.tabTitles = nextTitles;
       }
-      if (params.workspaceRoot !== undefined && draft.workspaceRoot !== params.workspaceRoot) {
-        draft.workspaceRoot = params.workspaceRoot; changed = true;
+      if (params.workspaceRoot !== undefined && state.workspaceRoot !== params.workspaceRoot) {
+        nextState.workspaceRoot = params.workspaceRoot; changed = true;
       }
-      if (params.connectedAgents && draft.connectedAgents !== params.connectedAgents) {
-        draft.connectedAgents = params.connectedAgents; changed = true;
+      if (params.connectedAgents && state.connectedAgents !== params.connectedAgents) {
+        nextState.connectedAgents = params.connectedAgents; changed = true;
       }
-      if (params.workspaceFolders && draft.workspaceFolders !== params.workspaceFolders) {
-        draft.workspaceFolders = params.workspaceFolders; changed = true;
+      if (params.workspaceFolders && state.workspaceFolders !== params.workspaceFolders) {
+        nextState.workspaceFolders = params.workspaceFolders; changed = true;
       }
       if (params.agentInfoMap) {
+        const nextAgentInfo = { ...state.agentInfoMap };
         for (const [k, v] of Object.entries(params.agentInfoMap)) {
-          if (draft.agentInfoMap[k] !== v) { draft.agentInfoMap[k] = v; changed = true; }
+          if (nextAgentInfo[k] !== v) { nextAgentInfo[k] = v; changed = true; }
         }
+        nextState.agentInfoMap = nextAgentInfo;
       }
       if (params.sessionInfoMap) {
+        const nextInfoMap = { ...state.sessionInfoMap };
         for (const [k, v] of Object.entries(params.sessionInfoMap)) {
-          const prev = draft.sessionInfoMap[k];
+          const prev = state.sessionInfoMap[k];
           if (!prev || !sessionInfoEquals(prev, v)) {
-            draft.sessionInfoMap[k] = v; changed = true;
+            nextInfoMap[k] = v; changed = true;
           }
         }
+        nextState.sessionInfoMap = nextInfoMap;
       }
-      // If nothing changed, return current state to avoid triggering subscribers
-      if (!changed) return;
-    }));
+      return changed ? nextState : state;
+    });
   },
 
-  // ── Derived (deprecated: use selectors instead) ──────────────────────────
+  // ── Derived ──────────────────────────────────────────────────────────────
 
-  getOverviewItems: (): SessionOverviewItem[] => selectOverviewItems(
-    useSessionStore.getState(),
-  ),
-  getTabs: (): SessionTabState[] => selectTabs(useSessionStore.getState()),
-
+  getOverviewItems: (): SessionOverviewItem[] => selectOverviewItems(get()),
+  getTabs: (): SessionTabState[] => selectTabs(get()),
 }));

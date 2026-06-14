@@ -5,6 +5,8 @@ import { useMeshStore } from "./store/meshStore";
 import { getVsCodeApi } from "./lib/vscodeApi";
 import { getLogger } from "./lib/logger";
 import { syncMessageCount } from "./store/sync";
+
+const log = getLogger("webview.messageHandler");
 import type {
   SessionTabState,
   SessionInfoSnapshot,
@@ -57,13 +59,14 @@ interface SessionSwitch {
   type: "session/switch";
   agentId: string;
   sessionId: string;
-  messages: ChatMessage[];
   tokenUsage?: TokenUsage;
   contextWindowMax?: number;
   model?: string;
   mode?: string;
   cwd?: string;
   createdAt?: string;
+  isTurnActive?: boolean;
+  isStreaming?: boolean;
 }
 
 interface SessionTurnActive {
@@ -236,6 +239,12 @@ type WebviewMessage =
 // ── Handler functions ───────────────────────────────────────────────────────
 
 function handleSetTabs(data: SetTabsMessage): void {
+  log.info("handleSetTabs", {
+    tabCount: data.tabs.length,
+    tabs: data.tabs.map((t) => sessionKeyOf(t.agentId, t.sessionId)),
+    hasWorkspaceRoot: !!data.workspaceRoot,
+    hasAgentInfo: !!data.agentInfoMap ? Object.keys(data.agentInfoMap).length : 0,
+  });
   useSessionStore.getState().bulkSetTabs({
     tabs: data.tabs,
     workspaceRoot: data.workspaceRoot,
@@ -291,82 +300,48 @@ function handleSessionStreamEnd(data: SessionStreamEnd): void {
 
 function handleSessionSwitch(data: SessionSwitch): void {
   const key = sessionKeyOf(data.agentId, data.sessionId);
-  const store = useSessionStore.getState();
-
-  // Set active session and messages atomically
-  store.setActiveSession(key);
-  useMessageStore.getState().setMessages(key, data.messages);
-
-  // Mark all messages as seen so unread badge clears on switch
-  const newestId =
-    data.messages && data.messages.length > 0
-      ? data.messages[data.messages.length - 1].id
-      : null;
-  if (newestId) {
-    useUiStateStore.getState().saveScrollState(key, { lastSeenMessageId: newestId });
-  }
-
-  // Clear streaming state on session switch
-  useUiStateStore.getState().saveScrollState(key, {
-    streamingActive: false,
-    streamingAction: null,
-    streamingStartedAt: null,
+  const prevKey = useSessionStore.getState().activeSessionKey;
+  log.info("handleSessionSwitch", {
+    from: prevKey,
+    to: key,
+    hasTokenUsage: !!data.tokenUsage,
+    model: data.model,
   });
 
-  // Build the new sessionInfo for the switched-to session
+  // Single atomic update: build new sessionInfo.
+  // setActiveSession is optimistic in AppContainer.switchTab() (Webview side)
+  // but here we also set it for consistency with handleSessionSwitch flow.
+  const msgStore = useMessageStore.getState();
+  const cachedMsgs = msgStore.perSession[key] ?? [];
+  const existing = useSessionStore.getState().sessionInfoMap[key];
+
   const newInfo: SessionInfoSnapshot = {
     sessionId: data.sessionId,
     agentId: data.agentId,
     status: "idle",
-    isTurnActive: false,
-    isStreaming: false,
+    isTurnActive: data.isTurnActive ?? false,
+    isStreaming: data.isStreaming ?? false,
     tokenUsage: data.tokenUsage,
     contextWindowMax: data.contextWindowMax,
     model: data.model,
     mode: data.mode,
     cwd: data.cwd,
-    messageCount: data.messages?.length ?? 0,
+    messageCount: cachedMsgs.length,
     createdAt: data.createdAt,
-    lastResponseAt: null,
+    lastResponseAt: existing?.lastResponseAt ?? null,
   };
 
-  // Sync messageCount for all sessions using the produce-based action.
-  // setSessionInfo uses sessionInfoEquals to skip no-op writes, preventing
-  // unnecessary re-renders from useSyncExternalStore subscribers.
-  const msgStore = useMessageStore.getState();
-  store.setSessionInfo(data.agentId, data.sessionId, newInfo);
-  for (const [k, msgs] of Object.entries(msgStore.perSession)) {
-    if (k === key) continue;
-    const existing = store.sessionInfoMap[k];
-    if (existing && existing.messageCount !== msgs.length) {
-      const [aId, sId] = k.split(":");
-      store.updateMessageCount(aId, sId, msgs.length);
-    }
-  }
+  useSessionStore.getState().setActiveSession(key);
+  useSessionStore.getState().setSessionInfo(data.agentId, data.sessionId, newInfo);
 }
 
 function handleSessionTurnActive(data: SessionTurnActive): void {
   const msgKey = sessionKeyOf(data.agentId, data.sessionId);
   const active = data.active;
-  const action = data.action;
+  log.debug("handleSessionTurnActive", { agentId: data.agentId, sessionId: data.sessionId, active, action: data.action });
 
   // Sync streamingMap so Composer button reflects turn state
   useMessageStore.getState().setStreaming(msgKey, active);
-
-  // Persist streaming state in uiStateStore
-  if (active) {
-    useUiStateStore.getState().saveScrollState(msgKey, {
-      streamingActive: true,
-      streamingAction: action ?? `Waiting for ${data.agentId}…`,
-      streamingStartedAt: new Date().toISOString(),
-    });
-  } else {
-    useUiStateStore.getState().saveScrollState(msgKey, {
-      streamingActive: false,
-      streamingAction: null,
-      streamingStartedAt: null,
-    });
-  }
 
   // Update session status in sessionInfoMap
   const existing = useSessionStore.getState().sessionInfoMap[msgKey];
@@ -413,6 +388,7 @@ function handleSessionCompression(data: SessionCompression): void {
 function handleSessionCompleted(data: SessionCompleted): void {
   const key = sessionKeyOf(data.agentId, data.sessionId);
   const existing = useSessionStore.getState().sessionInfoMap[key];
+  log.info("handleSessionCompleted", { agentId: data.agentId, sessionId: data.sessionId, title: data.title });
   if (existing) {
     useSessionStore.getState().setSessionInfo(data.agentId, data.sessionId, {
       ...existing,
@@ -540,6 +516,8 @@ export function setupMessageHandlers(): void {
   window.addEventListener("message", (event: MessageEvent) => {
     const data = event.data as WebviewMessage;
     if (!data?.type) return;
+
+    log.debug("received", { type: data.type });
 
     switch (data.type) {
       case "setTabs":

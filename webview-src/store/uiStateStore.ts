@@ -1,27 +1,17 @@
 import { create } from "zustand";
-import { produce } from "immer";
 import type { SessionOverviewFilter, SessionOverviewState } from "../types";
-import { getLogger } from "../lib/logger";
 
-const log = getLogger("webview.store.ui");
+// ── Constants ───────────────────────────────────────────────────────────────
 
-// ── Per-session UI state ────────────────────────────────────────────────────
-
-export interface ScrollState {
-  scrollTop: number;
-  lastSeenMessageId: string | null;
-  streamingActive: boolean;
-  streamingAction: string | null;
-  streamingStartedAt: string | null;
-}
+export const SCROLL_BOTTOM_THRESHOLD = 100;
 
 // ── Store shape ──────────────────────────────────────────────────────────────
+// NOTE: Scroll state (isAtBottom, unreadCount, etc.) is NOT stored here.
+// It is derived locally in ChatArea from raw DOM scroll events to avoid
+// Zustand → useSyncExternalStore → infinite re-render loops.
 
 interface UiStateStore {
-  // Per-session UI state (from sessionUiStateStore)
-  scrollStates: Record<string, ScrollState>;
-
-  // Overview panel chrome (from sessionStore)
+  // Overview panel chrome
   overviewVisible: boolean;
   overviewWidth: number;
   overviewPosition: "right" | "left";
@@ -29,14 +19,6 @@ interface UiStateStore {
   overviewExpandedSessions: string[];
   overviewSelectedSessionIds: string[];
   overviewSelectionMode: boolean;
-
-  // ── Per-session actions ────────────────────────────────────────────────
-
-  saveScrollState: (key: string, partial: Partial<ScrollState>) => void;
-  getScrollState: (key: string) => ScrollState;
-  clearScrollState: (key: string) => void;
-  clearAllScrollStates: () => void;
-  computeUnreadCount: (key: string, messageIds: string[]) => number;
 
   // ── Overview chrome actions ────────────────────────────────────────────
 
@@ -52,21 +34,10 @@ interface UiStateStore {
 
   // ── Bulk actions ───────────────────────────────────────────────────────
 
-  /** Replace entire overview state (for message handler) */
   setOverviewState: (state: Partial<SessionOverviewState>) => void;
 }
 
-const defaultScrollState: ScrollState = {
-  scrollTop: 0,
-  lastSeenMessageId: null,
-  streamingActive: false,
-  streamingAction: null,
-  streamingStartedAt: null,
-};
-
-export const useUiStateStore = create<UiStateStore>((set, get) => ({
-  scrollStates: {},
-
+export const useUiStateStore = create<UiStateStore>((set) => ({
   overviewVisible: false,
   overviewWidth: 280,
   overviewPosition: "right",
@@ -75,105 +46,105 @@ export const useUiStateStore = create<UiStateStore>((set, get) => ({
   overviewSelectedSessionIds: [],
   overviewSelectionMode: false,
 
-  // ── Per-session actions ────────────────────────────────────────────────
-
-  saveScrollState: (key, partial) =>
-    set(produce((draft: UiStateStore) => {
-      const prev = draft.scrollStates[key] ?? defaultScrollState;
-      // Only write if at least one field actually changed
-      let changed = false;
-      for (const [k, v] of Object.entries(partial)) {
-        if ((prev as any)[k] !== v) { changed = true; break; }
-      }
-      if (!changed) return;
-      draft.scrollStates[key] = { ...prev, ...partial };
-    })),
-
-  getScrollState: (key) => {
-    return get().scrollStates[key] ?? defaultScrollState;
-  },
-
-  clearScrollState: (key) =>
-    set(produce((draft: UiStateStore) => {
-      delete draft.scrollStates[key];
-    })),
-
-  clearAllScrollStates: () => set({ scrollStates: {} }),
-
-  computeUnreadCount: (key, messageIds) => {
-    if (messageIds.length === 0) return 0;
-    const state = get().scrollStates[key];
-    if (!state || !state.lastSeenMessageId) {
-      return messageIds.length;
-    }
-    const idx = messageIds.indexOf(state.lastSeenMessageId);
-    if (idx < 0) return 0;
-    return messageIds.length - idx - 1;
-  },
-
-  // ── Overview chrome actions ────────────────────────────────────────────
-
-  setOverviewVisible: (v) => {
-    log.debug("setOverviewVisible", { visible: v });
-    set((s) => s.overviewVisible === v ? s : { overviewVisible: v });
-  },
-  setOverviewWidth: (w) => set((s) => s.overviewWidth === w ? s : { overviewWidth: w }),
-  setOverviewPosition: (p) => set((s) => s.overviewPosition === p ? s : { overviewPosition: p }),
-  setOverviewFilter: (f) => set((s) => s.overviewFilter === f ? s : { overviewFilter: f }),
-  setOverviewExpandedSessions: (sessions) =>
-    set((s) => {
-      if (s.overviewExpandedSessions.length === sessions.length &&
-          s.overviewExpandedSessions.every((v, i) => v === sessions[i])) return s;
-      return { overviewExpandedSessions: sessions };
+  setOverviewVisible: (v: boolean) =>
+    set((state) => {
+      if (state.overviewVisible === v) return state;
+      return { ...state, overviewVisible: v };
     }),
-  setOverviewSelectedSessionIds: (sessionIds) =>
-    set((s) => {
-      if (s.overviewSelectedSessionIds.length === sessionIds.length &&
-          s.overviewSelectedSessionIds.every((v, i) => v === sessionIds[i])) return s;
-      return { overviewSelectedSessionIds: sessionIds };
+
+  setOverviewWidth: (w: number) =>
+    set((state) => {
+      if (state.overviewWidth === w) return state;
+      return { ...state, overviewWidth: w };
     }),
-  toggleOverviewSelected: (sessionId) =>
-    set((s) => {
-      const idx = s.overviewSelectedSessionIds.indexOf(sessionId);
+
+  setOverviewPosition: (p: "right" | "left") =>
+    set((state) => {
+      if (state.overviewPosition === p) return state;
+      return { ...state, overviewPosition: p };
+    }),
+
+  setOverviewFilter: (f: SessionOverviewFilter) =>
+    set((state) => {
+      if (state.overviewFilter === f) return state;
+      return { ...state, overviewFilter: f };
+    }),
+
+  setOverviewExpandedSessions: (sessions: string[]) =>
+    set((state) => {
+      if (
+        state.overviewExpandedSessions.length === sessions.length &&
+        state.overviewExpandedSessions.every((v, i) => v === sessions[i])
+      )
+        return state;
+      return { ...state, overviewExpandedSessions: sessions };
+    }),
+
+  setOverviewSelectedSessionIds: (sessionIds: string[]) =>
+    set((state) => {
+      if (
+        state.overviewSelectedSessionIds.length === sessionIds.length &&
+        state.overviewSelectedSessionIds.every((v, i) => v === sessionIds[i])
+      )
+        return state;
+      return { ...state, overviewSelectedSessionIds: sessionIds };
+    }),
+
+  toggleOverviewSelected: (sessionId: string) =>
+    set((state) => {
+      const idx = state.overviewSelectedSessionIds.indexOf(sessionId);
       if (idx >= 0) {
-        const next = s.overviewSelectedSessionIds.filter((_, i) => i !== idx);
-        return next.length !== s.overviewSelectedSessionIds.length
-          ? { overviewSelectedSessionIds: next }
-          : s;
+        const next = state.overviewSelectedSessionIds.filter((_, i) => i !== idx);
+        return next.length !== state.overviewSelectedSessionIds.length
+          ? { ...state, overviewSelectedSessionIds: next }
+          : state;
       }
-      return { overviewSelectedSessionIds: [...s.overviewSelectedSessionIds, sessionId] };
+      return {
+        ...state,
+        overviewSelectedSessionIds: [
+          ...state.overviewSelectedSessionIds,
+          sessionId,
+        ],
+      };
     }),
-  setOverviewSelectionMode: (enabled) =>
-    set((s) => s.overviewSelectionMode === enabled ? s : { overviewSelectionMode: enabled }),
-  toggleOverviewSelection: (sessionId) =>
-    set((s) => {
-      const idx = s.overviewSelectedSessionIds.indexOf(sessionId);
+
+  setOverviewSelectionMode: (enabled: boolean) =>
+    set((state) =>
+      state.overviewSelectionMode === enabled ? state : { ...state, overviewSelectionMode: enabled },
+    ),
+
+  toggleOverviewSelection: (sessionId: string) =>
+    set((state) => {
+      const idx = state.overviewSelectedSessionIds.indexOf(sessionId);
       let nextIds: string[];
       if (idx >= 0) {
-        nextIds = s.overviewSelectedSessionIds.filter((_, i) => i !== idx);
+        nextIds = state.overviewSelectedSessionIds.filter((_, i) => i !== idx);
       } else {
-        nextIds = [...s.overviewSelectedSessionIds, sessionId];
+        nextIds = [...state.overviewSelectedSessionIds, sessionId];
       }
-      return { overviewSelectedSessionIds: nextIds, overviewSelectionMode: true };
+      return { ...state, overviewSelectedSessionIds: nextIds, overviewSelectionMode: true };
     }),
 
-  // ── Bulk actions ───────────────────────────────────────────────────────
-
-  setOverviewState: (state) =>
-    set(produce((draft: UiStateStore) => {
+  setOverviewState: (ovState: Partial<SessionOverviewState>) =>
+    set((state) => {
       let changed = false;
-      if (state.filter !== undefined && draft.overviewFilter !== state.filter) {
-        draft.overviewFilter = state.filter; changed = true;
+      const next = { ...state };
+      if (ovState.filter !== undefined && next.overviewFilter !== ovState.filter) {
+        next.overviewFilter = ovState.filter;
+        changed = true;
       }
-      if (state.expandedSessions !== undefined && draft.overviewExpandedSessions !== state.expandedSessions) {
-        draft.overviewExpandedSessions = state.expandedSessions; changed = true;
+      if (ovState.expandedSessions !== undefined && next.overviewExpandedSessions !== ovState.expandedSessions) {
+        next.overviewExpandedSessions = ovState.expandedSessions;
+        changed = true;
       }
-      if (state.selectedSessionIds !== undefined && draft.overviewSelectedSessionIds !== state.selectedSessionIds) {
-        draft.overviewSelectedSessionIds = state.selectedSessionIds; changed = true;
+      if (ovState.selectedSessionIds !== undefined && next.overviewSelectedSessionIds !== ovState.selectedSessionIds) {
+        next.overviewSelectedSessionIds = ovState.selectedSessionIds;
+        changed = true;
       }
-      if (state.selectionMode !== undefined && draft.overviewSelectionMode !== state.selectionMode) {
-        draft.overviewSelectionMode = state.selectionMode; changed = true;
+      if (ovState.selectionMode !== undefined && next.overviewSelectionMode !== ovState.selectionMode) {
+        next.overviewSelectionMode = ovState.selectionMode;
+        changed = true;
       }
-      if (!changed) return;
-    })),
+      return changed ? next : state;
+    }),
 }));

@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { produce } from "immer";
 import type {
   MeshAgentStatus,
   MeshTaskEntry,
@@ -10,18 +9,11 @@ import type {
 // ── Store shape ──────────────────────────────────────────────────────────────
 
 export interface MeshState {
-  // Agent statuses for MeshPanel
   agentStatuses: MeshAgentStatus[];
-  // Task board entries
   tasks: MeshTaskEntry[];
-  // Recent message log
   recentMessages: MeshRecentMessage[];
-  // Composer multi-@ send targets
   sendTargets: SendTarget[];
-  // Mesh panel visibility
   meshPanelVisible: boolean;
-
-  // ── Actions ───────────────────────────────────────────────────────────
 
   setAgentStatuses: (statuses: MeshAgentStatus[]) => void;
   updateAgentStatus: (agentId: string, updates: Partial<MeshAgentStatus>) => void;
@@ -30,7 +22,6 @@ export interface MeshState {
   setRecentMessages: (messages: MeshRecentMessage[]) => void;
   addRecentMessage: (message: MeshRecentMessage) => void;
 
-  // Send target management
   addSendTarget: (target: SendTarget) => void;
   removeSendTarget: (agentId: string, sessionId: string) => void;
   clearSendTargets: () => void;
@@ -40,11 +31,10 @@ export interface MeshState {
     status: SendTarget["status"]
   ) => void;
 
-  // Mesh panel visibility
   setMeshPanelVisible: (visible: boolean) => void;
 }
 
-export const useMeshStore = create<MeshState>((set) => ({
+export const useMeshStore = create<MeshState>((set, get) => ({
   agentStatuses: [],
   tasks: [],
   recentMessages: [],
@@ -54,60 +44,71 @@ export const useMeshStore = create<MeshState>((set) => ({
   setAgentStatuses: (statuses) => set((s) => s.agentStatuses === statuses ? s : { agentStatuses: statuses }),
 
   updateAgentStatus: (agentId, updates) =>
-    set(produce((draft: MeshState) => {
-      const idx = draft.agentStatuses.findIndex((a) => a.agentId === agentId);
-      if (idx >= 0) {
-        Object.assign(draft.agentStatuses[idx], updates);
-      }
-    })),
+    set((state) => {
+      const idx = state.agentStatuses.findIndex((a) => a.agentId === agentId);
+      if (idx < 0) return state;
+      const prev = state.agentStatuses[idx];
+      const next = { ...prev, ...updates };
+      if (prev === next) return state;
+      const arr = [...state.agentStatuses];
+      arr[idx] = next;
+      return { ...state, agentStatuses: arr };
+    }),
 
   setTasks: (tasks) => set((s) => s.tasks === tasks ? s : { tasks }),
 
   updateTask: (taskId, updates) =>
-    set(produce((draft: MeshState) => {
-      const idx = draft.tasks.findIndex((t) => t.id === taskId);
-      if (idx >= 0) {
-        Object.assign(draft.tasks[idx], updates);
-      }
-    })),
+    set((state) => {
+      const idx = state.tasks.findIndex((t) => t.id === taskId);
+      if (idx < 0) return state;
+      const prev = state.tasks[idx];
+      const next = { ...prev, ...updates };
+      if (prev === next) return state;
+      const arr = [...state.tasks];
+      arr[idx] = next;
+      return { ...state, tasks: arr };
+    }),
 
   setRecentMessages: (messages) => set((s) => s.recentMessages === messages ? s : { recentMessages: messages }),
 
   addRecentMessage: (message) =>
-    set(produce((draft: MeshState) => {
-      draft.recentMessages.push(message);
-      if (draft.recentMessages.length > 50) {
-        draft.recentMessages = draft.recentMessages.slice(-50);
-      }
-    })),
+    set((state) => {
+      const arr = [...state.recentMessages, message];
+      if (arr.length > 50) arr.splice(0, arr.length - 50);
+      return { ...state, recentMessages: arr };
+    }),
 
   addSendTarget: (target) =>
-    set(produce((draft: MeshState) => {
-      const exists = draft.sendTargets.some(
+    set((state) => {
+      const exists = state.sendTargets.some(
         (t) => t.agentId === target.agentId && t.sessionId === target.sessionId
       );
-      if (!exists) {
-        draft.sendTargets.push(target);
-      }
-    })),
+      if (exists) return state;
+      return { ...state, sendTargets: [...state.sendTargets, target] };
+    }),
 
   removeSendTarget: (agentId, sessionId) =>
-    set((s) => {
-      const filtered = s.sendTargets.filter(
+    set((state) => {
+      const filtered = state.sendTargets.filter(
         (t) => !(t.agentId === agentId && t.sessionId === sessionId)
       );
-      return filtered.length !== s.sendTargets.length ? { sendTargets: filtered } : s;
+      return filtered.length !== state.sendTargets.length ? { sendTargets: filtered } : state;
     }),
 
   clearSendTargets: () => set({ sendTargets: [] }),
 
   updateSendTargetStatus: (agentId, sessionId, status) =>
-    set(produce((draft: MeshState) => {
-      const target = draft.sendTargets.find(
+    set((state) => {
+      const idx = state.sendTargets.findIndex(
         (t) => t.agentId === agentId && t.sessionId === sessionId
       );
-      if (target && target.status !== status) target.status = status;
-    })),
+      if (idx < 0) return state;
+      const prev = state.sendTargets[idx];
+      if (prev.status === status) return state;
+      const arr = [...state.sendTargets];
+      arr[idx] = { ...prev, status };
+      return { ...state, sendTargets: arr };
+    }),
 
   setMeshPanelVisible: (visible) => set((s) => s.meshPanelVisible === visible ? s : { meshPanelVisible: visible }),
 }));

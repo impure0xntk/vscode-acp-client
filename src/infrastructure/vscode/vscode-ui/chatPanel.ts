@@ -1,5 +1,3 @@
-import * as fs from "fs";
-import * as path from "path";
 import type { TokenUsage } from "../../../application/session/types";
 import type {
   ChatMessage,
@@ -29,7 +27,7 @@ function sessionKey(agentId: string, sessionId: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Inline file-path extraction & existence check
+// Inline file-path extraction (no I/O — candidates validated in webview)
 // ---------------------------------------------------------------------------
 
 const LOOKS_LIKE_PATH_RE =
@@ -51,39 +49,12 @@ function extractCandidatePaths(text: string): string[] {
   return out;
 }
 
-function resolveCandidate(candidate: string, cwd: string): string {
-  if (
-    candidate.startsWith("/") ||
-    candidate.startsWith("~") ||
-    /^[A-Za-z]:\\/.test(candidate)
-  ) {
-    return candidate.startsWith("~")
-      ? candidate.replace("~", process.env.HOME ?? "~")
-      : candidate;
-  }
-  return path.resolve(cwd, candidate);
-}
-
-function findExistingInlinePaths(content: string, cwd: string): string[] {
-  const candidates = extractCandidatePaths(content);
-  const existing: string[] = [];
-  for (const c of candidates) {
-    try {
-      const resolved = resolveCandidate(c, cwd);
-      if (fs.existsSync(resolved)) {
-        existing.push(c);
-      }
-    } catch {
-      // ignore
-    }
-  }
-  return existing;
-}
-
 function attachInlineFilePaths(message: ChatMessage, cwd: string): ChatMessage {
-  const existing = findExistingInlinePaths(message.content, cwd);
-  if (existing.length === 0) return message;
-  return { ...message, inlineFilePaths: existing };
+  // Extract path-like candidates without blocking existence check.
+  // Full validation is deferred to the webview for responsiveness.
+  const candidates = extractCandidatePaths(message.content);
+  if (candidates.length === 0) return message;
+  return { ...message, inlineFilePaths: candidates };
 }
 
 /**
@@ -246,14 +217,13 @@ export class ChatPanel {
     sessionId: string,
     info: import("../../../application/session/types").SessionInfo
   ): void {
-    // Send full message snapshot (session/switch) — high cost but only on session switch
-    const cwd = info.cwd;
-    const enriched = info.messages.map((m) => attachInlineFilePaths(m, cwd));
+    // Metadata-only switch — messages are already cached in the webview
+    // from prior pushMessage/pushStream events.  This avoids serialising
+    // the full message array on every tab switch.
     this.postMessage({
       type: "session/switch",
       agentId,
       sessionId,
-      messages: enriched,
       isTurnActive: info.isTurnActive,
       isStreaming: info.isStreaming,
       tokenUsage: {
@@ -265,11 +235,8 @@ export class ChatPanel {
       model: info.model,
       mode: info.mode,
       cwd: info.cwd,
-      messageCount: info.messages.length,
       createdAt: info.createdAt.toISOString(),
     });
-    // Also push metadata-only update for sessionInfoMap
-    this.pushSessionInfo(agentId, sessionId, info);
     const commands = this._onGetSessionCommands?.(agentId, sessionId) ?? [];
     if (commands.length > 0) {
       this.pushAvailableCommands(agentId, sessionId, commands);

@@ -13,6 +13,11 @@ import type { SessionInfoSnapshot } from "../store/sessionStore";
 export function useSessionInfo(
   sessionKey: string | null,
 ): SessionInfoSnapshot | undefined {
+  const cacheRef = useRef<{ key: string | null; snapshot: SessionInfoSnapshot | undefined }>({
+    key: null,
+    snapshot: undefined,
+  });
+
   const subscribe = useCallback(
     (onStoreChange: () => void) => {
       if (!sessionKey) return () => {};
@@ -25,9 +30,16 @@ export function useSessionInfo(
     [sessionKey],
   );
 
-  const getSnapshot = useCallback(() => {
+  const getSnapshot = useCallback((): SessionInfoSnapshot | undefined => {
     if (!sessionKey) return undefined;
-    return useSessionStore.getState().sessionInfoMap[sessionKey];
+    const current = useSessionStore.getState().sessionInfoMap[sessionKey];
+    const cache = cacheRef.current;
+    if (cache.key === sessionKey && cache.snapshot === current) {
+      return cache.snapshot;
+    }
+    cache.key = sessionKey;
+    cache.snapshot = current;
+    return current;
   }, [sessionKey]);
 
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);

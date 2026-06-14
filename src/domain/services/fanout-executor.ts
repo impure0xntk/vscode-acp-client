@@ -4,13 +4,14 @@
 // refs: docs/mesh-orchestrator-integration-design.md Section 4
 // ============================================================================
 
+import type { ContentBlock } from "@agentclientprotocol/sdk";
 import type { SessionOrchestrator } from "../../application/session/orchestrator";
 import type {
   SendTarget,
   MultiSendResult,
   UserMessagePayload,
 } from "../models/mesh";
-import type { ChatMessage } from "../../domain/models/chat";
+import type { ChatMessage, ContextAttachmentDTO } from "../../domain/models/chat";
 import { getLogger } from "../../platform/backends";
 
 const log = getLogger("mesh.fanout");
@@ -98,10 +99,26 @@ export class FanoutExecutor {
         timestamp: Date.now(),
       };
       this.pushUserMessage(target.agentId, target.sessionId, userMessage);
+
+      // Convert attachments to ACP ContentBlock[] for the agent prompt
+      const context: ContentBlock[] = [];
+      for (const att of (payload.attachments ?? []) as ContextAttachmentDTO[]) {
+        if (!att.path) continue;
+        context.push({
+          type: "resource",
+          resource: {
+            uri: `file://${att.path}`,
+            mimeType: "text/plain",
+            text: att.content,
+          },
+        });
+      }
+
       await this.sessionOrchestrator.prompt(
         target.agentId,
         target.sessionId,
-        payload.text
+        payload.text,
+        context
       );
       return { target, status: "sent" };
     } catch (e) {

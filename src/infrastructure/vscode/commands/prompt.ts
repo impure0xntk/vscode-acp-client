@@ -19,6 +19,56 @@ import {
 import type { SendTarget } from "../../../domain/models/mesh";
 import type { MeshOrchestrator } from "../../../domain/services/mesh-orchestrator";
 
+// -----------------------------------------------------------------------
+// Internal state — captured via closure so handleDirectMulti can access
+// without threading through every call site.
+// -----------------------------------------------------------------------
+let _chatPanel: ChatPanel | null = null;
+let _orchestrator: SessionOrchestrator | null = null;
+let _meshOrchestrator: MeshOrchestrator | null = null;
+
+/**
+ * Handle direct multi-send for both single-session (onSendMessage) and
+ * multi-target (mesh:directMulti) paths.  This is the single code path
+ * for sending user messages to agent sessions (DRY).
+ */
+function handleDirectMulti(
+  text: string,
+  attachments: ContextAttachmentDTO[],
+  targets: SendTarget[]
+): void {
+  const chatPanel = _chatPanel;
+  const orchestrator = _orchestrator;
+  const meshOrchestrator = _meshOrchestrator;
+  if (!chatPanel || !orchestrator) return;
+
+  const userMessage: ChatMessage = {
+    id: crypto.randomUUID(),
+    role: "user",
+    content: text,
+    timestamp: Date.now(),
+    attachmentsJson:
+      attachments.length > 0 ? JSON.stringify(attachments) : undefined,
+  };
+  const context = buildPromptContext(attachments);
+
+  if (meshOrchestrator) {
+    // Route through MeshOrchestrator → FanoutExecutor for parallel delivery.
+    // FanoutExecutor handles pushUserMessage + prompt for each target.
+    // Turn lifecycle (isTurnActive) is managed entirely by prompt() → _executePrompt(),
+    // so we must NOT touch setIsTurnActive here.
+    void meshOrchestrator.directMultiSend(targets, text, attachments);
+  } else {
+    // Fallback: direct per-target send (degraded, no marker routing)
+    // Turn lifecycle is managed entirely by prompt() → _executePrompt(),
+    // so we must NOT touch setIsTurnActive here.
+    for (const target of targets) {
+      chatPanel.pushMessage(target.agentId, target.sessionId, userMessage);
+      void orchestrator.prompt(target.agentId, target.sessionId, text, context);
+    }
+  }
+}
+
 /**
  * Wire chat panel events to the orchestrator.
  * This replaces the wireChatPanelEvents() function in extension.ts.
@@ -39,39 +89,20 @@ export function wireChatPanelEvents(
   persistentHistory?: PersistentHistoryStore,
   meshOrchestrator?: MeshOrchestrator
 ): void {
+  // Capture into closure-scoped vars so handleDirectMulti can access
+  // without threading through every call site.
+  _chatPanel = chatPanel;
+  _orchestrator = orchestrator;
+  _meshOrchestrator = meshOrchestrator ?? null;
+
   if (!chatPanel) return;
 
   chatPanel.onSendMessage(({ agentId, sessionId, text, attachments }) => {
-    // Store user message in orchestrator state so tab switches / forks preserve it
-    const userMessage: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: text,
-      timestamp: Date.now(),
-      attachmentsJson:
-        attachments.length > 0 ? JSON.stringify(attachments) : undefined,
-    };
-    orchestrator.appendMessageSilent(agentId, sessionId, userMessage);
-
-    const context = buildPromptContext(attachments);
-    orchestrator.prompt(agentId, sessionId, text, context).then(
-      (queuedEntry) => {
-        if (queuedEntry) {
-          // Prompt was queued (turn was active) — no need to set isTurnActive
-          // The orchestrator will auto-dequeue when the turn completes
-        } else {
-          // Prompt was sent immediately — turn is now complete
-          orchestrator.setIsTurnActive(agentId, sessionId, false);
-        }
-      },
-      () => orchestrator.setIsTurnActive(agentId, sessionId, false)
-    );
-    // Only set isTurnActive immediately if the prompt was NOT queued
-    // (queued prompts don't start a new turn yet)
-    const sessionInfo = orchestrator.getSessionInfo(agentId, sessionId);
-    if (sessionInfo && !sessionInfo.isTurnActive) {
-      orchestrator.setIsTurnActive(agentId, sessionId, true);
-    }
+    // Single code path: always route through handleDirectMulti (DRY).
+    const targets: SendTarget[] = [
+      { agentId, sessionId, label: agentId, status: "idle" },
+    ];
+    handleDirectMulti(text, attachments, targets);
   });
 
   chatPanel.onCancelTurn(({ agentId, sessionId }) => {
@@ -396,90 +427,7 @@ export function wireChatPanelEvents(
           attachments: ContextAttachmentDTO[];
           targets: SendTarget[];
         };
-        // Build user message once, reused for all targets
-        const userMessage: ChatMessage = {
-          id: crypto.randomUUID(),
-          role: "user",
-          content: text,
-          timestamp: Date.now(),
-          attachmentsJson:
-            attachments.length > 0
-              ? JSON.stringify(attachments)
-              : undefined,
-        };
-        const context = buildPromptContext(attachments);
-
-        if (meshOrchestrator) {
-          // Route through MeshOrchestrator → FanoutExecutor for parallel delivery.
-          // FanoutExecutor handles pushUserMessage + prompt for each target.
-          // Note: do NOT set isTurnActive here — _executePrompt() manages the
-          // turn lifecycle internally. Setting it beforehand would cause prompt()
-          // to always enqueue (queue) instead of sending immediately.
-          void meshOrchestrator.directMultiSend(targets, text, attachments).then(
-            (result) => {
-              for (const r of result.results) {
-                orchestrator.setIsTurnActive(
-                  r.target.agentId,
-                  r.target.sessionId,
-                  false
-                );
-              }
-            },
-            () => {
-              for (const target of targets) {
-                orchestrator.setIsTurnActive(
-                  target.agentId,
-                  target.sessionId,
-                  false
-                );
-              }
-            }
-          );
-        } else {
-          // Fallback: direct per-target send (degraded, no marker routing)
-          for (const target of targets) {
-            orchestrator.appendMessageSilent(
-              target.agentId,
-              target.sessionId,
-              userMessage
-            );
-            chatPanel?.pushMessage(
-              target.agentId,
-              target.sessionId,
-              userMessage
-            );
-            orchestrator
-              .prompt(target.agentId, target.sessionId, text, context)
-              .then(
-                (queuedEntry) => {
-                  if (!queuedEntry) {
-                    orchestrator.setIsTurnActive(
-                      target.agentId,
-                      target.sessionId,
-                      false
-                    );
-                  }
-                },
-                () =>
-                  orchestrator.setIsTurnActive(
-                    target.agentId,
-                    target.sessionId,
-                    false
-                  )
-              );
-            const sessionInfo = orchestrator.getSessionInfo(
-              target.agentId,
-              target.sessionId
-            );
-            if (sessionInfo && !sessionInfo.isTurnActive) {
-              orchestrator.setIsTurnActive(
-                target.agentId,
-                target.sessionId,
-                true
-              );
-            }
-          }
-        }
+        handleDirectMulti(text, attachments, targets);
         break;
       }
 

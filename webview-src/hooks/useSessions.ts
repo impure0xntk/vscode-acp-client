@@ -1,44 +1,64 @@
+import { useSyncExternalStore, useCallback } from "react";
 import { useSessionStore } from "../store/sessionStore";
-import type { SessionTabState, SessionInfoSnapshot } from "../store/sessionStore";
+import type { SessionInfoSnapshot, SessionTabState } from "../store/sessionStore";
 
 // ── Session / Tab hooks ─────────────────────────────────────────────────────
 
 /**
- * Subscribe to tab/session state and actions.
+ * Subscribe to tab/session structural state and actions.
+ * Does NOT include sessionInfoMap — use useSessionInfo(sessionKey) for
+ * per-session live fields instead.
  */
 export function useSessions() {
-  // Read via getState() to avoid useSyncExternalStore subscription.
-  // useSessionStore(selector) would subscribe and trigger infinite re-renders
-  // because every store write creates new object/array references.
-  const s = useSessionStore.getState();
+  const subscribe = useCallback(
+    (onStoreChange: () => void) => {
+      return useSessionStore.subscribe((state, prevState) => {
+        if (
+          state.activeSessionKey !== prevState.activeSessionKey ||
+          state.tabOrder !== prevState.tabOrder ||
+          state.tabTitles !== prevState.tabTitles ||
+          state.tabIcons !== prevState.tabIcons ||
+          state.workspaceRoot !== prevState.workspaceRoot ||
+          state.connectedAgents !== prevState.connectedAgents ||
+          state.agentInfoMap !== prevState.agentInfoMap ||
+          state.workspaceFolders !== prevState.workspaceFolders ||
+          state.statusline !== prevState.statusline
+        ) {
+          onStoreChange();
+        }
+      });
+    },
+    [],
+  );
 
-  return {
-    // State — tabs is derived, not a direct property
-    tabs: s.getTabs(),
-    activeSessionId: s.activeSessionKey?.split(":")[1] ?? null,
-    activeAgentId: s.activeSessionKey?.split(":")[0] ?? null,
-    workspaceRoot: s.workspaceRoot,
-    connectedAgents: s.connectedAgents,
-    agentInfoMap: s.agentInfoMap,
-    workspaceFolders: s.workspaceFolders,
-    sessionInfoMap: s.sessionInfoMap,
-    statusline: s.statusline,
-    // Actions
-    setTabs: s.setTabOrder,
-    addTab: s.addTab,
-    removeTab: s.removeTab,
-    updateTab: s.setTabTitle,
-    setActiveSession: s.setActiveSession,
-    reorderTabs: s.setTabOrder,
-    setWorkspaceRoot: s.setWorkspaceRoot,
-    setAgentInfo: s.setAgentInfo,
-    setConnectedAgents: s.setConnectedAgents,
-    setWorkspaceFolders: s.setWorkspaceFolders,
-    setSessionCommands: s.setSessionCommands,
-    setStatusline: s.setStatusline,
-    setSessionInfoMap: s.setSessionInfoMap,
-    setSessionInfo: s.setSessionInfo,
-  };
+  const getSnapshot = useCallback(() => {
+    const s = useSessionStore.getState();
+    return {
+      tabs: s.getTabs(),
+      activeSessionId: s.activeSessionKey?.split(":")[1] ?? null,
+      activeAgentId: s.activeSessionKey?.split(":")[0] ?? null,
+      workspaceRoot: s.workspaceRoot,
+      connectedAgents: s.connectedAgents,
+      agentInfoMap: s.agentInfoMap,
+      workspaceFolders: s.workspaceFolders,
+      statusline: s.statusline,
+      // Actions
+      setTabOrder: s.setTabOrder,
+      addTab: s.addTab,
+      removeTab: s.removeTab,
+      setTabTitle: s.setTabTitle,
+      setActiveSession: s.setActiveSession,
+      setWorkspaceRoot: s.setWorkspaceRoot,
+      setAgentInfo: s.setAgentInfo,
+      setConnectedAgents: s.setConnectedAgents,
+      setWorkspaceFolders: s.setWorkspaceFolders,
+      setSessionCommands: s.setSessionCommands,
+      setStatusline: s.setStatusline,
+      setSessionInfo: s.setSessionInfo,
+    };
+  }, []);
+
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }
 
 /**

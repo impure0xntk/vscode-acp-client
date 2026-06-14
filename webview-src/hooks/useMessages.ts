@@ -1,37 +1,78 @@
+import { useSyncExternalStore, useCallback, useRef } from "react";
 import { useMessageStore } from "../store/messageStore";
-import { useSessionStore } from "../store/sessionStore";
 import type { ChatMessage } from "../types";
 
-// ── Message hooks ───────────────────────────────────────────────────────────
+export interface MessagesSnapshot {
+  messages: ChatMessage[];
+  isStreaming: boolean;
+}
+
+const EMPTY_MESSAGES: ChatMessage[] = [];
+const EMPTY_SNAPSHOT: MessagesSnapshot = {
+  messages: EMPTY_MESSAGES,
+  isStreaming: false,
+};
+
+interface Cache {
+  key: string | null;
+  msgs: ChatMessage[] | undefined;
+  streaming: boolean;
+  snapshot: MessagesSnapshot;
+}
 
 /**
  * Subscribe to messages and streaming state for a given session key.
- * Returns messages, isStreaming, and action functions scoped to the key.
+ *
+ * getSnapshot is referentially stable: it returns the same object reference
+ * until the underlying store data identity actually changes.  This prevents
+ * downstream re-renders when nothing has changed.
  */
-export function useMessages(sessionKey: string | null) {
-  // Read via getState() to avoid useSyncExternalStore subscription.
-  // useMessageStore(selector) would subscribe and trigger infinite re-renders
-  // because every store write creates new object references.
-  const { perSession, streaming, setMessages, appendMessage, setStreaming, appendStreamChunk } =
-    useMessageStore.getState();
+export function useMessages(sessionKey: string | null): MessagesSnapshot {
+  const cacheRef = useRef<Cache>({
+    key: null,
+    msgs: undefined,
+    streaming: false,
+    snapshot: EMPTY_SNAPSHOT,
+  });
 
-  const messages = sessionKey ? perSession[sessionKey] ?? [] : [];
-  const isStreaming = sessionKey ? streaming[sessionKey] ?? false : false;
+  // Reset cache when sessionKey changes
+  const cache = cacheRef.current;
+  if (cache.key !== sessionKey) {
+    cache.key = sessionKey;
+    cache.msgs = undefined;
+    cache.streaming = false;
+    cache.snapshot = EMPTY_SNAPSHOT;
+  }
 
-  return {
-    messages,
-    isStreaming,
-    setMessages: (msgs: ChatMessage[]) => {
-      if (sessionKey) setMessages(sessionKey, msgs);
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      if (!sessionKey) return () => {};
+      return useMessageStore.subscribe((state, prev) => {
+        if (
+          state.perSession[sessionKey] !== prev.perSession[sessionKey] ||
+          state.streaming[sessionKey] !== prev.streaming[sessionKey]
+        ) {
+          onChange();
+        }
+      });
     },
-    appendMessage: (msg: ChatMessage) => {
-      if (sessionKey) appendMessage(sessionKey, msg);
-    },
-    setStreaming: (v: boolean) => {
-      if (sessionKey) setStreaming(sessionKey, v);
-    },
-    appendStreamChunk: (agentId: string, sessionId: string, chunk: string) => {
-      if (sessionKey) appendStreamChunk(sessionKey, agentId, sessionId, chunk);
-    },
-  };
+    [sessionKey],
+  );
+
+  const getSnapshot = useCallback((): MessagesSnapshot => {
+    if (!sessionKey) return EMPTY_SNAPSHOT;
+    const s = useMessageStore.getState();
+    const msgs = s.perSession[sessionKey] ?? EMPTY_MESSAGES;
+    const streaming = s.streaming[sessionKey] ?? false;
+    if (cache.msgs === msgs && cache.streaming === streaming) {
+      return cache.snapshot;
+    }
+    const snapshot: MessagesSnapshot = { messages: msgs, isStreaming: streaming };
+    cache.msgs = msgs;
+    cache.streaming = streaming;
+    cache.snapshot = snapshot;
+    return snapshot;
+  }, [sessionKey]);
+
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }

@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { produce } from "immer";
 import type { ChatMessage } from "../types";
 import { extractCandidatePaths } from "../lib/pathPatterns";
 import { getLogger } from "../lib/logger";
@@ -26,60 +25,92 @@ export const useMessageStore = create<MessageState>((set) => ({
   streaming: {},
 
   setMessages: (key, msgs) =>
-    set(produce((draft: MessageState) => {
-      const prev = draft.perSession[key];
-      if (prev && prev.length === msgs.length) return;
-      draft.perSession[key] = msgs;
+    set((state) => {
+      const prev = state.perSession[key];
+      // Same reference → no change, return same state object
+      if (prev === msgs) return state;
+      // Same length (content may differ) — still update, but skip if identical
+      if (prev && prev.length === msgs.length) {
+        let same = true;
+        for (let i = 0; i < prev.length; i++) {
+          if (prev[i] !== msgs[i]) { same = false; break; }
+        }
+        if (same) return state;
+      }
       log.debug("setMessages", { key, count: msgs.length });
-    })),
+      return {
+        ...state,
+        perSession: { ...state.perSession, [key]: msgs },
+      };
+    }),
 
   appendMessage: (key, msg) =>
-    set(produce((draft: MessageState) => {
-      if (!draft.perSession[key]) draft.perSession[key] = [];
-      draft.perSession[key].push(msg);
-      log.trace("appendMessage", { key, msgId: msg.id, role: msg.role, len: draft.perSession[key].length });
-    })),
+    set((state) => {
+      const existing = state.perSession[key] ?? [];
+      log.trace("appendMessage", { key, msgId: msg.id, role: msg.role, len: existing.length + 1 });
+      return {
+        ...state,
+        perSession: { ...state.perSession, [key]: [...existing, msg] },
+      };
+    }),
 
   setStreaming: (key, v) =>
-    set(produce((draft: MessageState) => {
-      if (draft.streaming[key] === v) return;
-      draft.streaming[key] = v;
+    set((state) => {
+      if (state.streaming[key] === v) return state;
       log.trace("setStreaming", { key, streaming: v });
-    })),
+      return {
+        ...state,
+        streaming: { ...state.streaming, [key]: v },
+      };
+    }),
 
   appendStreamChunk: (key, agentId, sessionId, chunk) =>
-    set(produce((draft: MessageState) => {
-      if (!draft.perSession[key]) draft.perSession[key] = [];
-      const existing = draft.perSession[key];
+    set((state) => {
+      const existing = state.perSession[key] ?? [];
       const last = existing[existing.length - 1];
+      let newMessages: ChatMessage[];
       if (last && last.role === "agent" && last.agentId === agentId) {
         const newContent = last.content + chunk;
         const freshPaths = extractCandidatePaths(newContent);
         const mergedPaths = [
           ...new Set([...(last.inlineFilePaths ?? []), ...freshPaths]),
         ];
-        existing[existing.length - 1] = {
+        // Mutate the last element in-place for the new array
+        const updatedLast: ChatMessage = {
           ...last,
           content: newContent,
           inlineFilePaths: mergedPaths.length > 0 ? mergedPaths : undefined,
         };
-        if (!draft.streaming[key]) draft.streaming[key] = true;
-        return;
+        newMessages = [...existing.slice(0, -1), updatedLast];
+      } else {
+        newMessages = [
+          ...existing,
+          {
+            id: crypto.randomUUID(),
+            role: "agent",
+            content: chunk,
+            timestamp: Date.now(),
+            agentId,
+            sessionId,
+          },
+        ];
       }
-      existing.push({
-        id: crypto.randomUUID(),
-        role: "agent",
-        content: chunk,
-        timestamp: Date.now(),
-        agentId,
-        sessionId,
-      });
-      if (!draft.streaming[key]) draft.streaming[key] = true;
-      log.trace("appendStreamChunk:new", { key, agentId, chunkLen: chunk.length });
-    })),
+      const newStreaming = state.streaming[key] === true
+        ? state.streaming
+        : { ...state.streaming, [key]: true };
+      log.trace("appendStreamChunk", { key, agentId, chunkLen: chunk.length });
+      return {
+        ...state,
+        perSession: { ...state.perSession, [key]: newMessages },
+        streaming: newStreaming,
+      };
+    }),
 
   clearSession: (key) =>
-    set(produce((draft: MessageState) => {
-      delete draft.perSession[key];
-    })),
+    set((state) => {
+      if (!(key in state.perSession)) return state;
+      const next = { ...state.perSession };
+      delete next[key];
+      return { ...state, perSession: next };
+    }),
 }));

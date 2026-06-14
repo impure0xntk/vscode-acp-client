@@ -170,17 +170,19 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
 
   // -----------------------------------------------------------------------
   // Session turn active changed — push updated SessionInfo so UI derives state
-  // Only push for the active session to prevent cross-tab leakage
+  // Push for ALL sessions (not just active) so multi-@ and background turns
+  // are reflected in tabs, overview, and streaming status.
   // -----------------------------------------------------------------------
   orchestrator.on(
     "sessionTurnActiveChanged",
     ({ agentId, sessionId }: { agentId: string; sessionId: string }) => {
       const cp = getChatPanel();
-      const activeSessionId = orchestrator.getActiveSessionId(agentId);
-      if (sessionId !== activeSessionId) return;
       const info = orchestrator.getSessionInfo(agentId, sessionId);
       if (info) {
         cp?.pushSessionInfo(agentId, sessionId, info);
+        // Also push explicit turnActive so the active session UI updates
+        // even when session/info mutation is a no-op (same snapshot).
+        cp?.pushTurnActive(agentId, sessionId, info.isTurnActive);
       }
       // Push session overview so status/token changes reflect in the overview
       if (cp) {
@@ -195,7 +197,11 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
 
   // -----------------------------------------------------------------------
   // Session message — core data flow: agent response → webview
-  // Only push for the active session to prevent cross-tab leakage
+  // Push messages for ALL sessions — the fanout executor routes to the
+  // correct (agentId, sessionId) pair, so no cross-tab leakage is possible.
+  // The active-session guard was removed because pushUserMessage fires
+  // *before* orchestrator.prompt() updates activeSessions, causing every
+  // message to be dropped during the race window.
   // -----------------------------------------------------------------------
   orchestrator.on(
     "sessionMessage",
@@ -215,17 +221,6 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
           sessionId,
           role: message.role,
           contentLen: message.content?.length,
-        });
-        return;
-      }
-      // Guard: only push messages for the currently active session
-      const activeSessionId = orchestrator.getActiveSessionId(agentId);
-      if (sessionId !== activeSessionId) {
-        log.debug("sessionMessage skipped (not active session)", {
-          agentId,
-          sessionId,
-          activeSessionId,
-          role: message.role,
         });
         return;
       }

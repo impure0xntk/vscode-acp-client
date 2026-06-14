@@ -16,7 +16,6 @@ import {
   useSessionStore,
   sessionKeyOf,
   selectTabs,
-  selectOverviewItemsMap,
 } from "../store/sessionStore";
 import type { SessionState, SessionTabState } from "../store/sessionStore";
 import { useMessageStore } from "../store/messageStore";
@@ -127,9 +126,6 @@ export function AppContainer(): React.ReactElement {
   const activeMessages = activeSessionKey
     ? useMessageStore.getState().perSession[activeSessionKey] ?? []
     : [];
-  const activeIsStreaming = activeSessionKey
-    ? useMessageStore.getState().streaming[activeSessionKey] ?? false
-    : false;
 
   const availableCommands = activeSessionKey
     ? sessionCommands[activeSessionKey] ?? []
@@ -154,13 +150,19 @@ export function AppContainer(): React.ReactElement {
   // ── Actions ─────────────────────────────────────────────────────────
   const sendMessage = useCallback(
     (text: string, attachments: ContextAttachment[] = [], agentId?: string, sessionId?: string, targets?: SendTarget[]) => {
-      if (targets && targets.length > 0) {
-        getVsCodeApi().postMessage({ type: "mesh:directMulti", text, attachments, targets });
-      } else {
-        getVsCodeApi().postMessage({ type: "sendMessage", text, attachments, agentId, sessionId });
-      }
+      // Always route through mesh:directMulti for a single code path (DRY).
+      // Build targets from explicit targets or fall back to the active session.
+      const resolvedTargets: SendTarget[] = targets?.length
+        ? targets
+        : agentId && sessionId
+          ? [{ agentId, sessionId, label: displayModel ?? agentId, status: displayStatus ?? "idle" }]
+          : activeAgentId && activeSessionId
+            ? [{ agentId: activeAgentId, sessionId: activeSessionId, label: displayModel ?? activeAgentId, status: displayStatus ?? "idle" }]
+            : [];
+
+      getVsCodeApi().postMessage({ type: "mesh:directMulti", text, attachments, targets: resolvedTargets });
     },
-    []
+    [activeAgentId, activeSessionId, displayModel, displayStatus]
   );
 
   const cancelTurn = useCallback((agentId?: string, sessionId?: string) => {
@@ -168,18 +170,24 @@ export function AppContainer(): React.ReactElement {
   }, []);
 
   const switchTab = useCallback((agentId: string, sessionId: string) => {
+    const key = sessionKeyOf(agentId, sessionId);
+    const prevKey = useSessionStore.getState().activeSessionKey;
+    log.info("session switch", { from: prevKey, to: key });
+    useSessionStore.getState().setActiveSession(key);
+    scrollToMessageRef.current = undefined;
     getVsCodeApi().postMessage({ type: "switchSession", sessionId, agentId });
   }, []);
 
   const newSessionWithPicker = useCallback(() => {
+    log.info("new session picker requested");
     getVsCodeApi().postMessage({ type: "openNewSessionPicker" });
   }, []);
 
   const closeSession = useCallback((agentId: string, sessionId: string) => {
     const store = useSessionStore.getState();
     const key = sessionKeyOf(agentId, sessionId);
+    log.info("close session", { agentId, sessionId });
     store.removeTab(key);
-    useUiStateStore.getState().clearScrollState(key);
     getVsCodeApi().postMessage({ type: "closeSession", sessionId, agentId });
   }, []);
 
@@ -312,16 +320,32 @@ export function AppContainer(): React.ReactElement {
     [completedNotifications, tabs],
   );
 
-  // Derive overview items as a lookup map.
-  // Read sessionInfoMap imperatively — this memo only runs when
-  // tabOrder/tabTitles/tabIcons change (structural changes), NOT on
-  // every streaming field update. Live status/fields in overview items
-  // will be stale until next structural change; that's acceptable since
-  // the overview panel has its own SessionOverviewCardBase subscription.
-  const overviewItemsMap = useMemo(
-    () => selectOverviewItemsMap(useSessionStore.getState()),
-    [tabOrder, tabTitles, tabIcons],
-  );
+  // Derive overview items as a lookup map — structural data only.
+  // Does NOT read sessionInfoMap. Live status/fields are handled by each
+  // SessionOverviewCard via useSessionInfo(sessionKey).
+  const overviewItemsMap = useMemo(() => {
+    const acc: Record<string, import("../types").SessionOverviewItem> = {};
+    for (const key of tabOrder) {
+      const [agentId, sessionId] = key.split(":");
+      acc[key] = {
+        sessionId,
+        agentId,
+        title: tabTitles[key] ?? sessionId,
+        status: "idle",
+        progress: {
+          elapsedMs: 0,
+          tokenUsage: { input: 0, output: 0, total: 0 },
+          messageCount: 0,
+          toolCallCount: 0,
+          toolCallsCompleted: 0,
+        },
+        recentResponses: [],
+        createdAt: new Date().toISOString(),
+        lastResponseAt: null,
+      };
+    }
+    return acc;
+  }, [tabOrder, tabTitles]);
 
   // ── File/symbol resolution (kept as-is for now) ─────────────────────
   const fetchFiles = useCallback((query: string) => {
@@ -486,10 +510,6 @@ export function AppContainer(): React.ReactElement {
         />
         <ChatArea
           activeKey={activeSessionKey}
-          messages={activeMessages}
-          isStreaming={activeIsStreaming}
-          status={displayStatus}
-          isTurnActive={displayIsTurnActive}
           disabled={!activeSessionId}
           onSend={handleMeshSend}
           onCancel={handleCancel}

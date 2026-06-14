@@ -1,4 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import { getLogger } from "../../lib/logger";
+
+const log = getLogger("webview.SessionOverviewCard");
 import type { SessionOverviewItem } from "../../types";
 import { useSessionInfo } from "../../hooks/useSessionInfo";
 import { UnreadBadge } from "../ui/UnreadBadge";
@@ -107,6 +110,7 @@ export function SessionOverviewCard({
     didLongPressRef.current = false;
     longPressTimerRef.current = setTimeout(() => {
       didLongPressRef.current = true;
+      log.debug("card long press", { sessionId: session.sessionId });
       onLongPress(session.sessionId);
     }, LONG_PRESS_MS);
   }, [session.sessionId, onLongPress]);
@@ -128,12 +132,13 @@ export function SessionOverviewCard({
   // ── Click handler ──────────────────────────────────────────────────
   const handleClick = useCallback(() => {
     if (didLongPressRef.current) {
-      // Consumed by long-press — don't navigate
       return;
     }
     if (selectionMode) {
+      log.debug("card click → toggle select", { sessionId: session.sessionId });
       onSelect(session.sessionId);
     } else {
+      log.info("card click → focus", { sessionId: session.sessionId, agentId: session.agentId });
       onFocus();
     }
   }, [selectionMode, onSelect, session.sessionId, onFocus]);

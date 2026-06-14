@@ -1,22 +1,20 @@
-import React, { useState, useRef, useCallback } from "react";
-import { useShallow } from "zustand/shallow";
+import React, { useRef, useCallback, useEffect } from "react";
+import { useSyncExternalStore, useCallback as useCallbackReact } from "react";
 import { ChatContainer } from "../components/ChatContainer";
 import { Composer } from "../components/Composer";
 import { StreamingStatus } from "../components/StreamingStatus";
 import { QueuedPromptList } from "../components/QueuedPromptList";
 import { useSessionStore, sessionKeyOf } from "../store/sessionStore";
-import type { SessionState } from "../store/sessionStore";
-import { useUiStateStore } from "../store/uiStateStore";
+import { useSessionInfo } from "../hooks/useSessionInfo";
+import { useMessageStore } from "../store/messageStore";
+import { useMessages } from "../hooks/useMessages";
+import { useScrollStateStore, type SessionScrollState } from "../store/scrollStateStore";
 import type { SendTarget } from "../types";
-import type { SessionStatus } from "../components/StatusIcon";
 
+// ── Props ───────────────────────────────────────────────────────────────────
 
 interface ChatAreaProps {
   activeKey: string | null;
-  messages: import("../types").ChatMessage[];
-  isStreaming: boolean;
-  status?: SessionStatus;
-  isTurnActive: boolean;
   disabled: boolean;
   onSend: (
     text: string,
@@ -32,18 +30,75 @@ interface ChatAreaProps {
   fetchSymbols: (query: string) => Promise<import("../types").SuggestionItem[]>;
   resolveSymbol: (name: string) => Promise<import("../types").ContextAttachment>;
   availableCommands: import("../store/sessionStore").SlashCommand[];
-  /** Ref setter that receives the internal scrollToMessage function */
   scrollToMessageRef?: React.MutableRefObject<
     ((id: string) => void) | undefined
   >;
 }
 
+// ── Stable scroll-state selector (subscribes only to active session) ────────
+
+function useActiveScrollState(activeKey: string | null) {
+  const subscribe = useCallbackReact(
+    (onStoreChange: () => void) => {
+      if (!activeKey) return () => {};
+      return useScrollStateStore.subscribe((state, prevState) => {
+        const cur = state.perSession[activeKey];
+        const prev = prevState.perSession[activeKey];
+        if (cur !== prev) onStoreChange();
+      });
+    },
+    [activeKey],
+  );
+
+  const getSnapshot = useCallbackReact((): SessionScrollState => {
+    if (!activeKey) return EMPTY_SCROLL;
+    return useScrollStateStore.getState().perSession[activeKey] ?? EMPTY_SCROLL;
+  }, [activeKey]);
+
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+}
+
+const EMPTY_SCROLL: SessionScrollState = {
+  scrollTop: 0,
+  readUpToMessageId: null,
+  isAtBottom: true,
+};
+
+// ── Stable message-ID array selector (referentially cached) ─────────────────
+
+function useMessageIdArray(activeKey: string | null) {
+  const cacheRef = useRef<{ ids: string[]; ref: unknown }>({ ids: [], ref: undefined });
+
+  const subscribe = useCallbackReact(
+    (onStoreChange: () => void) => {
+      if (!activeKey) return () => {};
+      return useMessageStore.subscribe((state, prevState) => {
+        if (state.perSession[activeKey] !== prevState.perSession[activeKey]) {
+          onStoreChange();
+        }
+      });
+    },
+    [activeKey],
+  );
+
+  const getSnapshot = useCallbackReact((): string[] => {
+    if (!activeKey) return [];
+    const msgs = useMessageStore.getState().perSession[activeKey];
+    const cache = cacheRef.current;
+    if (msgs === cache.ref) return cache.ids;
+    const ids = msgs ? msgs.map((m) => m.id) : [];
+    cache.ref = msgs;
+    cache.ids = ids;
+    return ids;
+  }, [activeKey]);
+
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+}
+
+// ── Component ──────────────────────────────────────────────────────────────
+
 export function ChatArea({
   activeKey,
-  messages,
-  isStreaming,
-  status,
-  isTurnActive,
   disabled,
   onSend,
   onCancel,
@@ -57,24 +112,81 @@ export function ChatArea({
   availableCommands,
   scrollToMessageRef: externalScrollToMessageRef,
 }: ChatAreaProps) {
-  const [showScrollButton, setShowScrollButton] = useState(false);
-  const [scrollUnreadCount, setScrollUnreadCount] = useState(0);
   const forceScrollToBottomRef = useRef<() => void>();
-  const scrollToUnreadRef = useRef<() => void>();
-  const scrollStateRef = useRef<{
-    isAtBottom: boolean;
-    unreadCount: number;
-    scrollToBottom: () => void;
-  }>({ isAtBottom: true, unreadCount: 0, scrollToBottom: () => {} });
+  const scrollToUnreadRef = useRef<(id: string) => void>();
 
-  const handleScrollStateChange = useCallback(
-    (state: { isAtBottom: boolean; unreadCount: number }) => {
-      setShowScrollButton(!state.isAtBottom);
-      setScrollUnreadCount(state.unreadCount);
+  // ── Subscribe to per-session data via stable selectors ───────────────
+  const { messages: activeMessages, isStreaming } = useMessages(activeKey ?? null);
+  const scrollState = useActiveScrollState(activeKey);
+  const messageIds = useMessageIdArray(activeKey);
+
+  const { isAtBottom, readUpToMessageId } = scrollState;
+
+  // ── Imperative scroll handlers (stable references) ─────────────────
+  const scrollTopRef = useRef(0);
+
+  // ── Scroll handler from ChatContainer: update store (not local state) ─
+  // Uses a ref for the callback identity so it never changes.
+  const handleScroll = useCallback(
+    (metrics: {
+      scrollTop: number;
+      scrollHeight: number;
+      clientHeight: number;
+      isAtBottom: boolean;
+    }) => {
+      if (!activeKey) return;
+      const store = useScrollStateStore.getState();
+      scrollTopRef.current = metrics.scrollTop;
+
+      store.setIsAtBottom(activeKey, metrics.isAtBottom);
+
+      if (metrics.isAtBottom) {
+        // At bottom → mark all as read
+        const ids = useMessageStore.getState().perSession[activeKey];
+        const newestId = ids && ids.length > 0 ? ids[ids.length - 1].id : null;
+        store.setReadUpTo(activeKey, newestId);
+      }
+      // When not at bottom, we update readUpTo based on the last visible message.
+      // This is handled in a scroll-end debounce or on explicit user action,
+      // not in the hot path of every scroll event.
     },
-    []
+    [activeKey],
   );
 
+  // ── Auto-advance readUpTo when new messages arrive AND user is at bottom ─
+  // This runs as an effect (not in render body), with stable deps.
+  const msgLen = activeMessages.length;
+  const prevLenRef = useRef(msgLen);
+  useEffect(() => {
+    if (!activeKey) return;
+    const wasEmpty = prevLenRef.current === 0 && msgLen > 0;
+    prevLenRef.current = msgLen;
+    if (wasEmpty) {
+      forceScrollToBottomRef.current?.();
+    }
+  }, [activeKey, msgLen]);
+
+  // ── When messages arrive and isAtBottom is true, advance readUpTo ────
+  const prevMsgCountForReadRef = useRef(0);
+  useEffect(() => {
+    if (!activeKey || !isAtBottom) return;
+    if (msgLen <= prevMsgCountForReadRef.current) return;
+    prevMsgCountForReadRef.current = msgLen;
+    const store = useScrollStateStore.getState();
+    const ids = useMessageStore.getState().perSession[activeKey];
+    const newestId = ids && ids.length > 0 ? ids[ids.length - 1].id : null;
+    store.setReadUpTo(activeKey, newestId);
+  }, [activeKey, isAtBottom, msgLen]);
+
+  // ── Compute unread count & firstUnreadId from store data ─────────────
+  // Purely derived, no setState — computed every render from stable inputs.
+  const { unreadCount, firstUnreadId } = deriveUnread(
+    readUpToMessageId,
+    activeMessages,
+    isAtBottom,
+  );
+
+  // ── Handlers ──────────────────────────────────────────────────────
   const handleSend = useCallback(
     (
       text: string,
@@ -84,57 +196,60 @@ export function ChatArea({
       onSend(text, attachments, targets);
       forceScrollToBottomRef.current?.();
     },
-    [onSend]
+    [onSend],
   );
 
-  // Subscribe to sessionInfoMap + promptQueue for this session
-  const { sessionInfoMap, promptQueue } = useSessionStore(useShallow((s: SessionState) => ({
-    sessionInfoMap: s.sessionInfoMap,
-    promptQueue: s.promptQueue,
-  })));
-  const activeSessionInfo = activeKey ? sessionInfoMap[activeKey] : undefined;
-  const lastResponseAt = activeSessionInfo?.lastResponseAt;
+  const handleScrollToBottomClick = useCallback(() => {
+    if (unreadCount > 0 && firstUnreadId) {
+      scrollToUnreadRef.current?.(firstUnreadId);
+    } else {
+      forceScrollToBottomRef.current?.();
+    }
+  }, [unreadCount, firstUnreadId]);
+
+  // ── Session info ──────────────────────────────────────────────────
+  const activeSessionInfo = useSessionInfo(activeKey);
+  const promptQueue = useSessionStore((s) => s.promptQueue);
   const sessionQueue = activeKey ? (promptQueue[activeKey] ?? []) : [];
+  const lastResponseAt = activeSessionInfo?.lastResponseAt;
+  const isTurnActive = activeSessionInfo?.isTurnActive ?? false;
+  const status = activeSessionInfo?.status;
 
   return (
     <>
       <div className="chat-container-wrapper">
         <ChatContainer
           key={activeKey ?? "none"}
-          messages={messages}
-          isStreaming={isStreaming || isTurnActive}
           sessionId={activeKey?.split(":")[1]}
           sessionKey={activeKey ?? undefined}
           status={status}
-          isActive={true}
           scrollToMessageRef={externalScrollToMessageRef}
-          scrollStateRef={scrollStateRef}
-          onScrollStateChange={handleScrollStateChange}
+          onScroll={handleScroll}
           forceScrollToBottomRef={forceScrollToBottomRef}
           scrollToUnreadRef={scrollToUnreadRef}
         />
 
-        {showScrollButton && (
+        {!isAtBottom && (
           <button
             className="scroll-to-bottom-button"
-            onClick={() => {
-              if (scrollUnreadCount > 0) {
-                scrollToUnreadRef.current?.();
-              } else {
-                scrollStateRef.current?.scrollToBottom();
-              }
-            }}
-            aria-label={scrollUnreadCount > 0 ? "Scroll to unread" : "Scroll to bottom"}
+            onClick={handleScrollToBottomClick}
+            aria-label={unreadCount > 0 ? "Scroll to unread" : "Scroll to bottom"}
           >
-            <span className="scroll-to-bottom-icon">{scrollUnreadCount > 0 ? "↧" : "↓"}</span>
-            {scrollUnreadCount > 0 && (
-              <span className="scroll-to-bottom-badge">{scrollUnreadCount}</span>
+            <span className="scroll-to-bottom-icon">
+              {unreadCount > 0 ? "↧" : "↓"}
+            </span>
+            {unreadCount > 0 && (
+              <span className="scroll-to-bottom-badge">{unreadCount}</span>
             )}
           </button>
         )}
       </div>
       <StreamingStatus
-        action={isTurnActive ? `Waiting for ${activeKey?.split(":")[0] ?? "agent"}…` : undefined}
+        action={
+          isTurnActive
+            ? `Waiting for ${activeKey?.split(":")[0] ?? "agent"}…`
+            : undefined
+        }
         active={isTurnActive}
         lastResponseAt={lastResponseAt ?? undefined}
         sessionKey={activeKey ?? undefined}
@@ -146,7 +261,12 @@ export function ChatArea({
           if (!activeKey) return;
           const [agentId, sessionId] = activeKey.split(":");
           const vscode = (window as any).acquireVsCodeApi?.();
-          vscode?.postMessage({ type: "queue:cancel", agentId, sessionId, promptId });
+          vscode?.postMessage({
+            type: "queue:cancel",
+            agentId,
+            sessionId,
+            promptId,
+          });
         }}
       />
       <Composer
@@ -165,4 +285,24 @@ export function ChatArea({
       />
     </>
   );
+}
+
+// ── Pure derivation (no side effects, no hooks) ────────────────────────────
+
+function deriveUnread(
+  readUpToId: string | null,
+  messages: import("../types").ChatMessage[],
+  isAtBottom: boolean,
+): { unreadCount: number; firstUnreadId: string | null } {
+  if (isAtBottom || !readUpToId || messages.length === 0) {
+    return { unreadCount: 0, firstUnreadId: null };
+  }
+  const idx = messages.findIndex((m) => m.id === readUpToId);
+  if (idx < 0 || idx + 1 >= messages.length) {
+    return { unreadCount: 0, firstUnreadId: null };
+  }
+  return {
+    unreadCount: messages.length - idx - 1,
+    firstUnreadId: messages[idx + 1].id,
+  };
 }

@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import type { SessionTabState } from "../store/sessionStore";
-import { useUiStateStore } from "../store/uiStateStore";
 import { useMessageStore } from "../store/messageStore";
 import { StatusIcon } from "./StatusIcon";
 import type { StatusIconType } from "./StatusIcon";
@@ -58,16 +57,12 @@ export function SessionSwitcher({
 
   const activeTab = tabs.find((t) => t.sessionId === activeSessionId);
 
-  // Derive unread counts — read via getState() to avoid subscribing to
-  // the entire uiStates/perSession objects (prevents infinite update loops).
+  // Unread counts: precise tracking is local to ChatArea.
+  // For the switcher dropdown, show 0 (no per-tab scroll state in Zustand).
   const unreadMap = useMemo(() => {
-    const uiStore = useUiStateStore.getState();
-    const msgStore = useMessageStore.getState();
     const map = new Map<string, number>();
     for (const tab of tabs) {
-      const key = `${tab.agentId}:${tab.sessionId}`;
-      const ids = (msgStore.perSession[key] ?? []).map((m) => m.id);
-      map.set(key, uiStore.computeUnreadCount(key, ids));
+      map.set(`${tab.agentId}:${tab.sessionId}`, 0);
     }
     return map;
   }, [tabs]);

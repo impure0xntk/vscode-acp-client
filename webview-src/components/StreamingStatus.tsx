@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Icon } from "../lib/icons";
 import { elapsedColor } from "../shared/elapsedColor";
-import { useUiStateStore } from "../store/uiStateStore";
+import { useSessionStore } from "../store/sessionStore";
 
 export interface StreamingStatusProps {
   /** Human-readable action label, e.g. "Reading src/auth.ts" */
@@ -16,9 +16,9 @@ export interface StreamingStatusProps {
   lastResponseAt?: string;
   /**
    * Session key (${agentId}:${sessionId}). When provided, the component
-   * reads streaming state from the store for that specific session instead
-   * of using the active session. This keeps the timer alive across tab
-   * switches.
+   * reads streaming state from sessionInfoMap for that specific session
+   * instead of using the active session. This keeps the timer alive across
+   * tab switches.
    */
   sessionKey?: string;
 }
@@ -26,9 +26,8 @@ export interface StreamingStatusProps {
 /**
  * StreamingStatus — shows the current agent action + elapsed time while streaming.
  *
- * Streaming state (active/action/startedAt) is persisted to uiStateStore
- * so that the timer and colour tier survive tab switches. Each session key
- * carries its own independent streaming state.
+ * Streaming state (active/action/startedAt) is stored in sessionInfoMap
+ * so that the timer and colour tier survive tab switches.
  */
 export function StreamingStatus({
   action,
@@ -36,22 +35,17 @@ export function StreamingStatus({
   lastResponseAt,
   sessionKey,
 }: StreamingStatusProps): React.ReactElement | null {
-  // Read store imperatively to avoid useSyncExternalStore subscription.
-  // Subscribing here would cause an infinite loop: parent components call
-  // saveScrollState which triggers re-render → subscription fires → repeat.
-  const storeState = sessionKey
-    ? useUiStateStore.getState().getScrollState(sessionKey) ?? null
+  // Read streaming state from sessionInfoMap (no Zustand subscription —
+  // read imperatively to avoid re-render loops).
+  const sessionInfo = sessionKey
+    ? useSessionStore.getState().sessionInfoMap[sessionKey]
     : null;
 
-  // Determine effective streaming state.
-  // Priority: store (for background sessions) > direct props (for active).
-  const storedActive = storeState?.streamingActive ?? false;
-  const storedAction = storeState?.streamingAction ?? null;
-  const storedStartedAt = storeState?.streamingStartedAt ?? null;
+  const storedActive = sessionInfo?.isTurnActive ?? false;
+  const storedStartedAt = sessionInfo?.lastResponseAt ?? null;
 
   const effectiveActive = active || (sessionKey ? storedActive : false);
-  const effectiveAction = action || (sessionKey ? storedAction : null);
-  // Anchor time: explicit lastResponseAt > stored start > now
+  const effectiveAction = action || (sessionKey && storedActive ? `Waiting for ${sessionKey.split(":")[0]}…` : null);
   const anchorMs = lastResponseAt
     ? new Date(lastResponseAt).getTime()
     : storedStartedAt
@@ -60,8 +54,6 @@ export function StreamingStatus({
 
   const [elapsedSec, setElapsedSec] = useState(0);
   const rafRef = useRef<number | null>(null);
-  // Stable anchor ref: captures anchorMs on first render to avoid re-render
-  // loops when anchorMs falls back to Date.now().
   const anchorRef = useRef(anchorMs);
   anchorRef.current = anchorMs;
 

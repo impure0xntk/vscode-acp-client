@@ -7,7 +7,7 @@ import type {
   ConnectedAgentInfo,
 } from "../store/sessionStore";
 import type { SessionOverviewItem } from "../types";
-import { useUiStateStore } from "../store/uiStateStore";
+import { useScrollStateStore } from "../store/scrollStateStore";
 import { useMessageStore } from "../store/messageStore";
 import { useSessionStore, sessionKeyOf } from "../store/sessionStore";
 import { SessionTab } from "./SessionTab";
@@ -100,6 +100,7 @@ export function SessionTabs({
     setDragIndex(index);
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", String(index));
+    log.debug("tab drag start", { index });
   }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
@@ -115,6 +116,7 @@ export function SessionTabs({
         const newTabs = [...tabs];
         const [moved] = newTabs.splice(dragIndex, 1);
         newTabs.splice(targetIndex, 0, moved);
+        log.info("tab reorder", { from: dragIndex, to: targetIndex, tab: sessionKeyOf(moved.agentId, moved.sessionId) });
         onTabReorder(newTabs);
       }
       setDragIndex(null);
@@ -162,19 +164,41 @@ export function SessionTabs({
     setPopupSession(null);
   }, [clearTimers]);
 
-  // Derive unread counts — only recompute when tab keys change.
+  // Derive unread counts from scrollStateStore + messageStore.
+  // Recomputes only when tab keys change (structural) — the actual
+  // unread count for each tab is read imperatively via getState().
   const tabKeys = useMemo(
     () => tabs.map((t) => sessionKeyOf(t.agentId, t.sessionId)).join(","),
     [tabs],
   );
   const unreadMap = useMemo(() => {
+    const scrollStore = useScrollStateStore.getState();
     const msgStore = useMessageStore.getState();
-    const uiStore = useUiStateStore.getState();
     const map = new Map<string, number>();
     for (const tab of tabs) {
       const key = sessionKeyOf(tab.agentId, tab.sessionId);
-      const ids = (msgStore.perSession[key] ?? []).map((m) => m.id);
-      map.set(key, uiStore.computeUnreadCount(key, ids));
+      const scrollState = scrollStore.perSession[key];
+      const msgs = msgStore.perSession[key] ?? [];
+      const totalCount = msgs.length;
+
+      if (!scrollState || totalCount === 0) {
+        map.set(key, 0);
+        continue;
+      }
+
+      const { readUpToMessageId, isAtBottom } = scrollState;
+      if (isAtBottom || !readUpToMessageId) {
+        map.set(key, 0);
+        continue;
+      }
+
+      const idx = msgs.findIndex((m) => m.id === readUpToMessageId);
+      if (idx < 0 || idx + 1 >= totalCount) {
+        map.set(key, 0);
+        continue;
+      }
+
+      map.set(key, totalCount - idx - 1);
     }
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -213,8 +237,14 @@ export function SessionTabs({
                 isHovered={isHovered}
                 agentColor={agentColor}
                 unreadCount={unread}
-                onClick={() => onTabClick(tab.sessionId, tab.agentId)}
-                onClose={() => onTabClose(tab.sessionId, tab.agentId)}
+                onClick={() => {
+                  log.debug("tab click", { agentId: tab.agentId, sessionId: tab.sessionId, key });
+                  onTabClick(tab.sessionId, tab.agentId);
+                }}
+                onClose={() => {
+                  log.info("tab close", { agentId: tab.agentId, sessionId: tab.sessionId, key });
+                  onTabClose(tab.sessionId, tab.agentId);
+                }}
                 onMouseEnter={(e) => handleTabMouseEnter(e, tab)}
                 onMouseLeave={handleTabMouseLeave}
               />

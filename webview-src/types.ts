@@ -262,7 +262,7 @@ export interface SendTarget {
   agentId: string;
   sessionId: string;
   label: string;
-  status?: "idle" | "running" | "completed" | "error";
+  status?: "idle" | "running" | "completed" | "error" | "cancelled";
 }
 
 export interface MeshAgentStatus {
