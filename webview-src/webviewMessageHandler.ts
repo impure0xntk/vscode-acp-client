@@ -4,7 +4,7 @@ import { useUiStateStore } from "./store/uiStateStore";
 import { useMeshStore } from "./store/meshStore";
 import { getVsCodeApi } from "./lib/vscodeApi";
 import { getLogger } from "./lib/logger";
-import { syncMessageCount, syncAllMessageCounts } from "./store/sync";
+import { syncMessageCount } from "./store/sync";
 import type {
   SessionTabState,
   SessionInfoSnapshot,
@@ -313,8 +313,8 @@ function handleSessionSwitch(data: SessionSwitch): void {
     streamingStartedAt: null,
   });
 
-  // Update sessionInfoMap
-  store.setSessionInfo(data.agentId, data.sessionId, {
+  // Build the new sessionInfo for the switched-to session
+  const newInfo: SessionInfoSnapshot = {
     sessionId: data.sessionId,
     agentId: data.agentId,
     status: "idle",
@@ -328,10 +328,21 @@ function handleSessionSwitch(data: SessionSwitch): void {
     messageCount: data.messages?.length ?? 0,
     createdAt: data.createdAt,
     lastResponseAt: null,
-  });
+  };
 
-  // Sync messageCount for ALL other sessions
-  syncAllMessageCounts();
+  // Sync messageCount for all sessions using the produce-based action.
+  // setSessionInfo uses sessionInfoEquals to skip no-op writes, preventing
+  // unnecessary re-renders from useSyncExternalStore subscribers.
+  const msgStore = useMessageStore.getState();
+  store.setSessionInfo(data.agentId, data.sessionId, newInfo);
+  for (const [k, msgs] of Object.entries(msgStore.perSession)) {
+    if (k === key) continue;
+    const existing = store.sessionInfoMap[k];
+    if (existing && existing.messageCount !== msgs.length) {
+      const [aId, sId] = k.split(":");
+      store.updateMessageCount(aId, sId, msgs.length);
+    }
+  }
 }
 
 function handleSessionTurnActive(data: SessionTurnActive): void {
@@ -522,8 +533,8 @@ function handleMeshPanelToggle(data: MeshPanelToggleMessage): void {
 // ── Setup function ──────────────────────────────────────────────────────────
 
 /**
- * webview メッセージハンドラを設定する。
- * 拡張ホストからのメッセージを各ストアへ振り分ける。
+ * Configures the webview message handler.
+ * Distributes messages from the extended host to each store.
  */
 export function setupMessageHandlers(): void {
   window.addEventListener("message", (event: MessageEvent) => {

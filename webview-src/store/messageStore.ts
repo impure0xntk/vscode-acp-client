@@ -27,6 +27,8 @@ export const useMessageStore = create<MessageState>((set) => ({
 
   setMessages: (key, msgs) =>
     set(produce((draft: MessageState) => {
+      const prev = draft.perSession[key];
+      if (prev && prev.length === msgs.length) return;
       draft.perSession[key] = msgs;
       log.debug("setMessages", { key, count: msgs.length });
     })),
@@ -40,6 +42,7 @@ export const useMessageStore = create<MessageState>((set) => ({
 
   setStreaming: (key, v) =>
     set(produce((draft: MessageState) => {
+      if (draft.streaming[key] === v) return;
       draft.streaming[key] = v;
       log.trace("setStreaming", { key, streaming: v });
     })),
@@ -60,7 +63,7 @@ export const useMessageStore = create<MessageState>((set) => ({
           content: newContent,
           inlineFilePaths: mergedPaths.length > 0 ? mergedPaths : undefined,
         };
-        draft.streaming[key] = true;
+        if (!draft.streaming[key]) draft.streaming[key] = true;
         return;
       }
       existing.push({
@@ -71,7 +74,7 @@ export const useMessageStore = create<MessageState>((set) => ({
         agentId,
         sessionId,
       });
-      draft.streaming[key] = true;
+      if (!draft.streaming[key]) draft.streaming[key] = true;
       log.trace("appendStreamChunk:new", { key, agentId, chunkLen: chunk.length });
     })),
 

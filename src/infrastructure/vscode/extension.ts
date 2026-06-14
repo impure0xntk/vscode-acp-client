@@ -32,6 +32,8 @@ import {
 } from "./vscode-ui/tree";
 import { ensureChatPanel, registerConnectCommands } from "./commands/connect";
 import { registerSessionCommands } from "./commands/session";
+import { registerExportDebugLogCommand } from "./commands/exportDebugLog";
+import { LogEntrySinkImpl } from "../../domain/services/log-entry-sink";
 import { wireChatPanelEvents } from "./commands/prompt";
 import {
   wireSessionEvents,
@@ -401,6 +403,11 @@ export async function activate(
   orchestrator.setHistoryStore(persistentHistory);
   orchestrator.setSessionHistoryStore(historyStore);
 
+  // Wire log entry sink for webview logs
+  const logSink = new LogEntrySinkImpl();
+  logSink.setStore(persistentHistory);
+  ChatPanel.setLogSink(logSink);
+
   registerCommands(context);
   updateContext();
 
@@ -621,6 +628,11 @@ function registerCommands(context: vscode.ExtensionContext): void {
     }
   );
 
+  const exportDebugLogCmd = registerExportDebugLogCommand(
+    context,
+    () => persistentHistory ?? null
+  );
+
   const toggleOverviewCmd = vscode.commands.registerCommand(
     "acp.toggleSessionOverview",
     () => {
@@ -643,6 +655,7 @@ function registerCommands(context: vscode.ExtensionContext): void {
     showTrafficCmd,
     toggleOverviewCmd,
     clearLogsCmd,
+    exportDebugLogCmd,
   ]) {
     context.subscriptions.push(d);
   }

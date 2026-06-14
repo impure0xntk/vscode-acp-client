@@ -43,10 +43,13 @@ import type { OrchestrationStateAPI } from "../orchestration";
 import type { PlatformAPI } from "../platform";
 import type { LogStorageAPI, ClearLogsOptions, ClearLogsResult } from "../logStorage";
 import { VsCodeOutputBackend } from "../backends/vscode-output-backend";
+import { LogEntrySinkBackend } from "../backends/log-entry-sink-backend";
 import { LoggerFactoryImpl } from "../backends/logger-impl";
-import { initLoggerFactory } from "../backends";
+import { initLoggerFactory, getLoggerFactory } from "../backends";
 import type { LogLevelValue } from "../backends/types";
 import type { PersistentHistoryStore } from "../../application/session/persistentHistory";
+import type { LogEntrySink } from "../backends/log-entry-sink-backend";
+import { LogEntrySinkImpl } from "../../domain/services/log-entry-sink";
 
 // ---------------------------------------------------------------------------
 // VSCode LogStorage API
@@ -76,6 +79,10 @@ class VscodeLogStorageAPI implements LogStorageAPI {
       sessionId: options?.sessionId ?? null,
     });
   }
+
+  getStore(): PersistentHistoryStore | null {
+    return this.store;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -95,6 +102,7 @@ export class VscodePlatform implements PlatformAPI {
   logStorage: LogStorageAPI;
 
   private ctx: vscode.ExtensionContext;
+  private sinkBackend: LogEntrySinkBackend | null = null;
 
   constructor(options: { context: vscode.ExtensionContext }) {
     this.ctx = options.context;
@@ -103,8 +111,9 @@ export class VscodePlatform implements PlatformAPI {
     // ── Initialize logging ────────────────────────────────────────────
     const logChannel = vscode.window.createOutputChannel("ACP Client");
     const logLevel: LogLevelValue = 1; // default: debug for VS Code
-    const backend = new VsCodeOutputBackend(logChannel, logLevel);
-    const factory = new LoggerFactoryImpl(backend);
+    const baseBackend = new VsCodeOutputBackend(logChannel, logLevel);
+    this.sinkBackend = new LogEntrySinkBackend(baseBackend);
+    const factory = new LoggerFactoryImpl(this.sinkBackend);
     initLoggerFactory(factory);
 
     this.ui = new VscodeUIAPI();
@@ -118,6 +127,10 @@ export class VscodePlatform implements PlatformAPI {
 
   setLogStore(store: PersistentHistoryStore): void {
     (this.logStorage as VscodeLogStorageAPI).setStore(store);
+    // Wire the log entry sink to the persistent store
+    const sink = new LogEntrySinkImpl();
+    sink.setStore(store);
+    this.sinkBackend?.setSink(sink);
   }
 
   async initialize(): Promise<void> {

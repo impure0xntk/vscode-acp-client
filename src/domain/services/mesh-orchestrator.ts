@@ -20,7 +20,7 @@ import type {
 import { MessageBus } from "./message-bus";
 import { FileLockManager } from "./file-lock-manager";
 import { TaskBoardStore } from "./task-board-store";
-import { FanoutExecutor } from "./fanout-executor";
+import { FanoutExecutor, type FanoutExecutorDeps } from "./fanout-executor";
 import { PipelineExecutor } from "./pipeline-executor";
 import { SupervisorManager } from "./supervisor-manager";
 import {
@@ -40,6 +40,8 @@ export interface MeshOrchestratorDeps {
   messageBus: MessageBus;
   fileLockManager: FileLockManager;
   taskBoardStore: TaskBoardStore;
+  /** Callback to push user message into the target session chat UI */
+  pushUserMessage?: FanoutExecutorDeps["pushUserMessage"];
 }
 
 // ----------------------------------------------------------------------------
@@ -66,6 +68,7 @@ export class MeshOrchestrator {
     this.taskBoardStore = deps.taskBoardStore;
     this.fanoutExecutor = new FanoutExecutor({
       sessionOrchestrator: deps.sessionOrchestrator,
+      pushUserMessage: deps.pushUserMessage ?? (() => {}),
     });
     this.pipelineExecutor = new PipelineExecutor({
       sessionOrchestrator: deps.sessionOrchestrator,

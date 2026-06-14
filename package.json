@@ -102,6 +102,14 @@
       {
         "command": "acp.closeAllSessions",
         "title": "ACP: Close All Sessions"
+      },
+      {
+        "command": "acp.clearLogs",
+        "title": "ACP: Clear Persisted Logs"
+      },
+      {
+        "command": "acp.exportDebugLog",
+        "title": "ACP: Export Debug Log"
       }
     ],
     "keybindings": [
@@ -323,6 +331,13 @@
           "minimum": 200,
           "maximum": 600,
           "description": "Width of the session overview panel in pixels"
+        },
+        "acp.logging.retentionDays": {
+          "type": "number",
+          "default": 90,
+          "minimum": 1,
+          "maximum": 365,
+          "description": "Number of days to retain log entries in the database"
         }
       }
     }

@@ -7,6 +7,35 @@ import type { ChatMessage, TokenUsage } from "../../domain/models/chat";
 import { SCHEMA_SQL } from "./schema";
 
 // ============================================================================
+// Log Entry types
+// ============================================================================
+
+export interface LogEntry {
+  id?: number;
+  source: string;
+  traceId: string | null;
+  sessionId: string | null;
+  agentId: string | null;
+  category: string;
+  level: number;
+  message: string;
+  contextJson: string | null;
+  timestamp: number;
+}
+
+export interface LogExportFilter {
+  sessions?: string[] | null;
+  since?: number | null;
+  agentId?: string | null;
+  source?: string | null;
+}
+
+export interface LogExportResult {
+  sessions: PersistentSessionEntry[];
+  logs: LogEntry[];
+}
+
+// ============================================================================
 // Configuration
 // ============================================================================
 
@@ -459,6 +488,94 @@ export class PersistentHistoryStore {
     );
     this.persist();
     return ids.length;
+  }
+
+  // ========================================================================
+  // Log Entry CRUD
+  // ========================================================================
+
+  saveLogEntry(entry: Omit<LogEntry, "id">): void {
+    if (!this.db) return;
+    this.db.run(
+      `INSERT INTO log_entries (
+        source, trace_id, session_id, agent_id,
+        category, level, message, context_json, timestamp
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        entry.source,
+        entry.traceId,
+        entry.sessionId,
+        entry.agentId,
+        entry.category,
+        entry.level,
+        entry.message,
+        entry.contextJson,
+        entry.timestamp,
+      ]
+    );
+    // Persist periodically — callers should batch or debounce
+    this.persist();
+  }
+
+  getLogs(filter?: LogExportFilter): LogEntry[] {
+    if (!this.db) return [];
+
+    const conditions: string[] = [];
+    const params: (string | number)[] = [];
+
+    if (filter?.sessions && filter.sessions.length > 0) {
+      const placeholders = filter.sessions.map(() => "?").join(",");
+      conditions.push(`session_id IN (${placeholders})`);
+      params.push(...filter.sessions);
+    }
+    if (filter?.since !== undefined && filter.since !== null) {
+      conditions.push("timestamp >= ?");
+      params.push(filter.since);
+    }
+    if (filter?.agentId !== undefined && filter.agentId !== null) {
+      conditions.push("agent_id = ?");
+      params.push(filter.agentId);
+    }
+    if (filter?.source !== undefined && filter.source !== null) {
+      conditions.push("source = ?");
+      params.push(filter.source);
+    }
+
+    const where =
+      conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+    const result = this.db.exec(
+      `SELECT * FROM log_entries ${where} ORDER BY timestamp ASC`,
+      params
+    );
+
+    if (result.length === 0) return [];
+    return result[0].values.map((row) => ({
+      id: row[0] as number,
+      source: row[1] as string,
+      traceId: row[2] as string | null,
+      sessionId: row[3] as string | null,
+      agentId: row[4] as string | null,
+      category: row[5] as string,
+      level: row[6] as number,
+      message: row[7] as string,
+      contextJson: row[8] as string | null,
+      timestamp: row[9] as number,
+    }));
+  }
+
+  cleanupExpiredLogs(retentionDays: number): number {
+    if (!this.db) return 0;
+    const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+
+    const before = this.db.exec(
+      "SELECT COUNT(*) as cnt FROM log_entries WHERE timestamp < ?",
+      [cutoff]
+    );
+    const count = (before[0]?.values[0]?.[0] as number) ?? 0;
+
+    this.db.run("DELETE FROM log_entries WHERE timestamp < ?", [cutoff]);
+    this.persist();
+    return count;
   }
 
   // ========================================================================

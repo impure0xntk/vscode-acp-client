@@ -97,8 +97,9 @@ export function SessionOverviewCard({
   const didLongPressRef = useRef(false);
 
   useEffect(() => {
+    const prev = prevStatusRef.current;
     const wasActive =
-      prevStatusRef.current === "running" || prevStatusRef.current === "waiting";
+      prev === "running" || prev === "waiting" || prev === "waiting_for_input";
     const isTerminal =
       session.status === "completed" || session.status === "error";
 

@@ -12,8 +12,13 @@ import {
   ResizableSessionOverviewPanel,
 } from "../components/SessionOverview/SessionOverviewPanel";
 import { MeshPanel } from "../components/MeshPanel";
-import { useSessionStore, sessionKeyOf } from "../store/sessionStore";
-import type { SessionState } from "../store/sessionStore";
+import {
+  useSessionStore,
+  sessionKeyOf,
+  selectTabs,
+  selectOverviewItemsMap,
+} from "../store/sessionStore";
+import type { SessionState, SessionTabState } from "../store/sessionStore";
 import { useMessageStore } from "../store/messageStore";
 import { useUiStateStore } from "../store/uiStateStore";
 import { useMeshStore } from "../store/meshStore";
@@ -51,12 +56,15 @@ export function AppContainer(): React.ReactElement {
     statusline: s.statusline,
   })));
 
-  // Derived from upstream references — only recomputed when they change
-  const tabs = useMemo(() => {
-    const orderedKeys = tabOrder.length > 0 ? tabOrder : Object.keys(sessionInfoMap);
+  // Derived in-render from already-subscribed store primitives.
+  // Avoids a separate store subscription that creates new objects each call.
+  const tabs = useMemo<SessionTabState[]>(() => {
+    const orderedKeys = tabOrder.length > 0
+      ? tabOrder
+      : Object.keys(sessionInfoMap);
     return orderedKeys
-      .filter((key: string) => sessionInfoMap[key])
-      .map((key: string): import("../store/sessionStore").SessionTabState => {
+      .filter((key) => sessionInfoMap[key])
+      .map((key): SessionTabState => {
         const [agentId, sessionId] = key.split(":");
         return {
           sessionId,
@@ -85,11 +93,6 @@ export function AppContainer(): React.ReactElement {
     overviewSelectionMode: s.overviewSelectionMode,
   })));
 
-  const { perSession, streamingMap } = useMessageStore(useShallow((s) => ({
-    perSession: s.perSession,
-    streamingMap: s.streaming,
-  })));
-
   // ── Derived values ──────────────────────────────────────────────────
   const activeSessionId = activeSessionKey ? activeSessionKey.split(":")[1] : null;
   const activeAgentId = activeSessionKey ? activeSessionKey.split(":")[0] : null;
@@ -114,11 +117,15 @@ export function AppContainer(): React.ReactElement {
     ? new Date(activeSessionInfo.createdAt).getTime()
     : undefined;
 
+  // Read messages/streaming imperatively to avoid subscribing to the
+  // entire perSession/streaming maps. Subscribing causes an infinite loop
+  // because every store write creates new object references, which triggers
+  // re-render → new snapshot → repeat.
   const activeMessages = activeSessionKey
-    ? perSession[activeSessionKey] ?? []
+    ? useMessageStore.getState().perSession[activeSessionKey] ?? []
     : [];
   const activeIsStreaming = activeSessionKey
-    ? streamingMap[activeSessionKey] ?? false
+    ? useMessageStore.getState().streaming[activeSessionKey] ?? false
     : false;
 
   const availableCommands = activeSessionKey
@@ -302,15 +309,15 @@ export function AppContainer(): React.ReactElement {
     [completedNotifications, tabs],
   );
 
-  // Derive overview items as a lookup map
-  const overviewItemsMap = useMemo(() => {
-    const items = useSessionStore.getState().getOverviewItems();
-    const acc: Record<string, import("../types").SessionOverviewItem> = {};
-    for (const item of items) {
-      acc[`${item.agentId}:${item.sessionId}`] = item;
-    }
-    return acc;
-  }, [tabs, sessionInfoMap, perSession]);
+  // Derive overview items as a lookup map.
+  // selectOverviewItemsMap returns a new object each call, so we memoize
+  // based on the upstream primitives (sessionInfoMap, tabOrder, tabTitles)
+  // that are already subscribed above. This avoids triggering re-renders
+  // from a separate store subscription.
+  const overviewItemsMap = useMemo(
+    () => selectOverviewItemsMap(useSessionStore.getState()),
+    [sessionInfoMap, tabOrder, tabTitles],
+  );
 
   // ── File/symbol resolution (kept as-is for now) ─────────────────────
   const fetchFiles = useCallback((query: string) => {

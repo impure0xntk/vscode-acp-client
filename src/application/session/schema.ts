@@ -35,6 +35,24 @@ CREATE TABLE IF NOT EXISTS messages (
   FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS log_entries (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  source TEXT NOT NULL,
+  trace_id TEXT,
+  session_id TEXT,
+  agent_id TEXT,
+  category TEXT NOT NULL,
+  level INTEGER NOT NULL,
+  message TEXT NOT NULL,
+  context_json TEXT,
+  timestamp INTEGER NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_sessions_agent ON sessions(agent_id);
 CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, timestamp);
+CREATE INDEX IF NOT EXISTS idx_log_entries_source ON log_entries(source, timestamp);
+CREATE INDEX IF NOT EXISTS idx_log_entries_trace ON log_entries(trace_id, timestamp);
+CREATE INDEX IF NOT EXISTS idx_log_entries_session ON log_entries(session_id, timestamp);
+CREATE INDEX IF NOT EXISTS idx_log_entries_agent ON log_entries(agent_id, timestamp);
+CREATE INDEX IF NOT EXISTS idx_log_entries_category ON log_entries(category, timestamp);
 `;

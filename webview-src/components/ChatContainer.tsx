@@ -7,7 +7,7 @@ import React, {
   useMemo,
 } from "react";
 import { Message } from "./Message";
-import type { ChatMessage } from "../types";
+import type { ChatMessage, ToolCall } from "../types";
 import { useUiStateStore } from "../store/uiStateStore";
 import { getLogger } from "../lib/logger";
 
@@ -62,15 +62,19 @@ function sessionIdFrom(msg: ChatMessage): string {
  */
 function mergeToolBatches(messages: ChatMessage[]): ChatMessage[] {
   const result: ChatMessage[] = [];
-  let pendingCalls: ChatMessage["toolCalls"] = [];
+  let pendingCalls: ToolCall[] = [];
   let lastAgentIdx = -1; // index into result[] of the most recent agent message
 
   for (const msg of messages) {
     if (msg.role === "tool") {
-      const calls = msg.toolCalls ?? [];
-      pendingCalls = [...pendingCalls, ...calls];
-      // Emit the tool message as its own entry
-      result.push(msg);
+      const calls: ChatMessage["toolCalls"] = msg.toolCalls ?? [];
+      // Deduplicate by id — same tool call may appear in multiple tool messages
+      const existingIds = new Set<string>(pendingCalls.map((c) => c.id));
+      const newCalls = calls.filter((c) => !existingIds.has(c.id));
+      pendingCalls = [...pendingCalls, ...newCalls];
+      // Emit the tool message without toolCalls to avoid duplicate rendering
+      // (toolCalls are merged into the preceding agent message instead)
+      result.push({ ...msg, toolCalls: undefined });
       continue;
     }
 
@@ -106,16 +110,22 @@ function mergeToolBatches(messages: ChatMessage[]): ChatMessage[] {
  * Build an array aligned to `messages` that carries the inherited
  * "run key" for each slot.  Consecutive messages with the same run key
  * suppress the header (isConsecutive).
+ *
+ * Tool messages inherit the run key of the preceding agent message so
+ * that consecutive tool messages (and agent→tool sequences) all share
+ * the same key, suppressing redundant headers.
  */
 function buildRunKeys(messages: ChatMessage[]): (string | undefined)[] {
   const result: (string | undefined)[] = [];
+  let lastKey: string | undefined = undefined;
   for (const msg of messages) {
-    const sid = sessionIdFrom(msg);
-    result.push(
-      msg.agentId !== undefined && sid !== "__nosession__"
-        ? `${sid}::${msg.agentId}`
-        : undefined
-    );
+    if (msg.role === "agent" && msg.agentId !== undefined) {
+      const sid = sessionIdFrom(msg);
+      if (sid !== "__nosession__") {
+        lastKey = `${sid}::${msg.agentId}`;
+      }
+    }
+    result.push(lastKey);
   }
   return result;
 }

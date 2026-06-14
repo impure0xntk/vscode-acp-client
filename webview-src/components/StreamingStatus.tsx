@@ -60,6 +60,10 @@ export function StreamingStatus({
 
   const [elapsedSec, setElapsedSec] = useState(0);
   const rafRef = useRef<number | null>(null);
+  // Stable anchor ref: captures anchorMs on first render to avoid re-render
+  // loops when anchorMs falls back to Date.now().
+  const anchorRef = useRef(anchorMs);
+  anchorRef.current = anchorMs;
 
   useEffect(() => {
     if (!effectiveActive || !effectiveAction) {
@@ -68,15 +72,15 @@ export function StreamingStatus({
       return;
     }
     const tick = () => {
-      setElapsedSec((Date.now() - anchorMs) / 1000);
+      setElapsedSec((Date.now() - anchorRef.current) / 1000);
       rafRef.current = requestAnimationFrame(tick);
     };
-    setElapsedSec((Date.now() - anchorMs) / 1000);
+    setElapsedSec((Date.now() - anchorRef.current) / 1000);
     rafRef.current = requestAnimationFrame(tick);
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     };
-  }, [effectiveActive, effectiveAction, anchorMs]);
+  }, [effectiveActive, effectiveAction]);
 
   if (!effectiveActive || !effectiveAction) return null;
 

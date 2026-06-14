@@ -15,8 +15,7 @@ const log = getLogger("webview.Composer");
 import { ContextBar } from "./ContextBar";
 import { ContextPicker } from "./ContextPicker";
 import type { FileCandidate } from "./ContextPicker";
-import { StatusIcon } from "./StatusIcon";
-import { SendTargetChip } from "./ui/SendTargetChip";
+import { Icon } from "../lib/icons";
 import {
   useTriggerPicker,
   type TriggerState,
@@ -535,17 +534,26 @@ export function Composer({
     <div className="composer">
       <ContextBar attachments={attachments} onRemove={handleRemoveAttachment} />
 
-      {/* Multi-@ send target chips */}
+      {/* Multi-@ send target chips — rendered in ContextBar style */}
       {sendTargets.length > 0 && (
         <div className="send-targets-bar">
-          <span className="send-targets-label">To:</span>
           {sendTargets.map((target) => (
-            <SendTargetChip
-              key={`${target.agentId}:${target.sessionId}`}
-              target={target}
-              onRemove={() => removeSendTarget(target.agentId, target.sessionId)}
-            />
-          ))}
+              <span
+                key={`${target.agentId}:${target.sessionId}`}
+                className="context-chip"
+                title={`${target.agentId}:${target.sessionId}`}
+              >
+                <Icon name="chat" className="context-chip-icon" size="sm" />
+                <span className="context-chip-label">{target.label}</span>
+                <button
+                  className="context-chip-remove"
+                  onClick={() => removeSendTarget(target.agentId, target.sessionId)}
+                  title="Remove"
+                >
+                  <Icon name="close" size="sm" />
+                </button>
+              </span>
+            ))}
         </div>
       )}
 

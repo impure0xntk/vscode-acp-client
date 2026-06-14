@@ -3,7 +3,6 @@ import { renderMarkdown, type RenderContext } from "../lib/markdown";
 import { getVsCodeApi } from "../lib/vscodeApi";
 import { Icon, iconForType } from "../lib/icons";
 import { ToolBatchSummary } from "./ToolCallCard/ToolBatchSummary";
-import { ToolInlineSummary } from "./ToolCallCard/ToolInlineSummary";
 import { ToolCallCard, getFileExtension, fileIcon } from "./ToolCallCard";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { MessageActions } from "./MessageActions";
@@ -155,7 +154,13 @@ export const Message = React.memo(function Message({
 
   const batchCalls = useMemo(() => {
     if (!toolCalls || toolCalls.length === 0) return undefined;
-    return toolCalls.map((tc) => ({
+    // Deduplicate by id — same tool call may arrive via multiple tool messages
+    const seen = new Set<string>();
+    return toolCalls.filter((tc) => {
+      if (seen.has(tc.id)) return false;
+      seen.add(tc.id);
+      return true;
+    }).map((tc) => ({
       id: tc.id,
       title: tc.title,
       kind: tc.kind,
@@ -187,12 +192,6 @@ export const Message = React.memo(function Message({
           <span className="message-time">{time}</span>
         </div>
       )}
-      {isTool && isConsecutive && (
-        <div className="message-header">
-          <span className="message-role">Agent</span>
-          <span className="message-time">{time}</span>
-        </div>
-      )}
       <div className={isUser ? "message-body-row" : ""}>
         {isUser && (
           <div className="message-user-actions">
@@ -209,24 +208,19 @@ export const Message = React.memo(function Message({
                 dangerouslySetInnerHTML={{ __html: renderMarkdown(content, renderCtx) }}
                 onClick={handleMarkdownClick}
               />
-              {!isSystem && (
+              {!isSystem && !isTool && (
                 <MessageActions messageId={id} content={content} isUserMessage={isUser} sessionId={sessionId ?? ""} />
               )}
             </div>
           )}
         </div>
-        {batchCalls && !isUser && (
-          <span className="message-tool-inline">
-            <ToolInlineSummary calls={batchCalls} />
-          </span>
-        )}
       </div>
       {isCompression && compressionInfo && (
         <div className="message-compression">
           <ContextCompressionNotice compressionInfo={compressionInfo} />
         </div>
       )}
-      {batchCalls && isUser && (
+      {batchCalls && (
         <div className="message-tool-batch">
           {batchCalls.length === 1 ? (
             <ToolCallCard {...batchCalls[0]} />

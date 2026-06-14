@@ -73,6 +73,15 @@ export function IconCross({ className, size = 16 }: IconProps): React.ReactEleme
   );
 }
 
+export function IconChat({ className, size = 16 }: IconProps): React.ReactElement {
+  return (
+    <Svg className={className} size={size}>
+      <path d="M2 2.5h12a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H9l-3 3-3-3H2a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1z" />
+      <path d="M5 7h6M5 9.5h4" />
+    </Svg>
+  );
+}
+
 export function IconBan({ className, size = 16 }: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
@@ -443,6 +452,7 @@ export function IconPlug({ className, size = 16 }: IconProps): React.ReactElemen
 // ── Lookup table: name → component ──────────────────────────────────────────
 
 const ICON_COMPONENTS: Record<string, React.FC<IconProps>> = {
+  chat:              IconChat,
   "circle-filled":   IconCircleFilled,
   "circle-outline":  IconCircleOutline,
   "pass-filled":     IconCheck,

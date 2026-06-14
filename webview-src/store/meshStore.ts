@@ -51,7 +51,7 @@ export const useMeshStore = create<MeshState>((set) => ({
   sendTargets: [],
   meshPanelVisible: false,
 
-  setAgentStatuses: (statuses) => set({ agentStatuses: statuses }),
+  setAgentStatuses: (statuses) => set((s) => s.agentStatuses === statuses ? s : { agentStatuses: statuses }),
 
   updateAgentStatus: (agentId, updates) =>
     set(produce((draft: MeshState) => {
@@ -61,7 +61,7 @@ export const useMeshStore = create<MeshState>((set) => ({
       }
     })),
 
-  setTasks: (tasks) => set({ tasks }),
+  setTasks: (tasks) => set((s) => s.tasks === tasks ? s : { tasks }),
 
   updateTask: (taskId, updates) =>
     set(produce((draft: MeshState) => {
@@ -71,12 +71,11 @@ export const useMeshStore = create<MeshState>((set) => ({
       }
     })),
 
-  setRecentMessages: (messages) => set({ recentMessages: messages }),
+  setRecentMessages: (messages) => set((s) => s.recentMessages === messages ? s : { recentMessages: messages }),
 
   addRecentMessage: (message) =>
     set(produce((draft: MeshState) => {
       draft.recentMessages.push(message);
-      // Keep last 50 messages
       if (draft.recentMessages.length > 50) {
         draft.recentMessages = draft.recentMessages.slice(-50);
       }
@@ -93,11 +92,12 @@ export const useMeshStore = create<MeshState>((set) => ({
     })),
 
   removeSendTarget: (agentId, sessionId) =>
-    set(produce((draft: MeshState) => {
-      draft.sendTargets = draft.sendTargets.filter(
+    set((s) => {
+      const filtered = s.sendTargets.filter(
         (t) => !(t.agentId === agentId && t.sessionId === sessionId)
       );
-    })),
+      return filtered.length !== s.sendTargets.length ? { sendTargets: filtered } : s;
+    }),
 
   clearSendTargets: () => set({ sendTargets: [] }),
 
@@ -106,8 +106,8 @@ export const useMeshStore = create<MeshState>((set) => ({
       const target = draft.sendTargets.find(
         (t) => t.agentId === agentId && t.sessionId === sessionId
       );
-      if (target) target.status = status;
+      if (target && target.status !== status) target.status = status;
     })),
 
-  setMeshPanelVisible: (visible) => set({ meshPanelVisible: visible }),
+  setMeshPanelVisible: (visible) => set((s) => s.meshPanelVisible === visible ? s : { meshPanelVisible: visible }),
 }));

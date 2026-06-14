@@ -16,6 +16,7 @@ import {
   searchSymbols,
   resolveSymbolByName,
 } from "../../../adapter/context/symbol";
+import type { SendTarget } from "../../../domain/models/mesh";
 
 /**
  * Wire chat panel events to the orchestrator.
@@ -383,6 +384,47 @@ export function wireChatPanelEvents(
       case "sessionOverview:collapse":
         // Webview manages expanded state internally; no extension host action needed.
         break;
+
+      // ==================================================================
+      // Multi-@ direct send (mesh:directMulti)
+      // ==================================================================
+      case "mesh:directMulti": {
+        const { text, attachments, targets } = data as {
+          text: string;
+          attachments: ContextAttachmentDTO[];
+          targets: SendTarget[];
+        };
+        // For each target: push the user message to that session's chat,
+        // then send the prompt to the agent. This mirrors the single-agent
+        // path in onSendMessage() but for multiple targets.
+        for (const target of targets) {
+          const userMessage: ChatMessage = {
+            id: crypto.randomUUID(),
+            role: "user",
+            content: text,
+            timestamp: Date.now(),
+            attachmentsJson:
+              attachments.length > 0 ? JSON.stringify(attachments) : undefined,
+          };
+          orchestrator.appendMessageSilent(target.agentId, target.sessionId, userMessage);
+          chatPanel?.pushMessage(target.agentId, target.sessionId, userMessage);
+
+          const context = buildPromptContext(attachments);
+          orchestrator.prompt(target.agentId, target.sessionId, text, context).then(
+            (queuedEntry) => {
+              if (!queuedEntry) {
+                orchestrator.setIsTurnActive(target.agentId, target.sessionId, false);
+              }
+            },
+            () => orchestrator.setIsTurnActive(target.agentId, target.sessionId, false),
+          );
+          const sessionInfo = orchestrator.getSessionInfo(target.agentId, target.sessionId);
+          if (sessionInfo && !sessionInfo.isTurnActive) {
+            orchestrator.setIsTurnActive(target.agentId, target.sessionId, true);
+          }
+        }
+        break;
+      }
 
       // ==================================================================
       // Prompt Queue messages

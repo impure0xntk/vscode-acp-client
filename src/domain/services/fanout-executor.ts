@@ -10,9 +10,20 @@ import type {
   MultiSendResult,
   UserMessagePayload,
 } from "../models/mesh";
+import type { ChatMessage } from "../../domain/models/chat";
 import { getLogger } from "../../platform/backends";
 
 const log = getLogger("mesh.fanout");
+
+// ----------------------------------------------------------------------------
+// PushUserMessage — callback to display user message in target chat
+// ----------------------------------------------------------------------------
+
+export type PushUserMessageFn = (
+  agentId: string,
+  sessionId: string,
+  message: ChatMessage,
+) => void;
 
 // ----------------------------------------------------------------------------
 // Dependencies
@@ -20,6 +31,8 @@ const log = getLogger("mesh.fanout");
 
 export interface FanoutExecutorDeps {
   sessionOrchestrator: SessionOrchestrator;
+  /** Callback to push user message into the target session chat UI */
+  pushUserMessage: PushUserMessageFn;
 }
 
 // ----------------------------------------------------------------------------
@@ -38,9 +51,11 @@ export interface FanoutResult {
 
 export class FanoutExecutor {
   private sessionOrchestrator: SessionOrchestrator;
+  private pushUserMessage: PushUserMessageFn;
 
   constructor(deps: FanoutExecutorDeps) {
     this.sessionOrchestrator = deps.sessionOrchestrator;
+    this.pushUserMessage = deps.pushUserMessage;
   }
 
   /**
@@ -76,6 +91,13 @@ export class FanoutExecutor {
     log.debug("sending to target", { agentId: target.agentId, sessionId: target.sessionId });
 
     try {
+      const userMessage: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: "user",
+        content: payload.text,
+        timestamp: Date.now(),
+      };
+      this.pushUserMessage(target.agentId, target.sessionId, userMessage);
       await this.sessionOrchestrator.prompt(
         target.agentId,
         target.sessionId,

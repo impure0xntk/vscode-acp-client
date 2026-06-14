@@ -187,21 +187,24 @@ export function SessionTabs({
     setPopupSession(null);
   }, [clearTimers]);
 
-  // Subscribe to stores so the component re-renders on changes.
-  const perSession = useMessageStore(useShallow((s) => s.perSession));
+  // Subscribe to sessionInfoMap (stable reference when unchanged).
   const sessionInfoMap = useSessionStore(useShallow((s) => s.sessionInfoMap));
 
-  // Derive unread counts — recomputed whenever tabs or perSession changes.
+  // Derive unread counts from imperative reads.
+  // Subscribing to useMessageStore(s => s.perSession) causes an infinite loop
+  // because every store write creates a new perSession object reference.
   const unreadMap = React.useMemo(() => {
+    const msgStore = useMessageStore.getState();
     const uiStore = useUiStateStore.getState();
     const map = new Map<string, number>();
     for (const tab of tabs) {
       const key = sessionKeyOf(tab.agentId, tab.sessionId);
-      const ids = (perSession[key] ?? []).map((m) => m.id);
+      const ids = (msgStore.perSession[key] ?? []).map((m) => m.id);
       map.set(key, uiStore.computeUnreadCount(key, ids));
     }
     return map;
-  }, [tabs, perSession]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabs, sessionInfoMap]);
 
   return (
     <div className="session-tabs-bar">

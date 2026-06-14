@@ -1,5 +1,4 @@
 import React, { useCallback, useMemo } from "react";
-import { useShallow } from "zustand/shallow";
 import type {
   SessionOverviewState,
   SessionOverviewFilter,
@@ -8,7 +7,11 @@ import type {
 import type { ConnectedAgentInfo } from "../../store/sessionStore";
 import { useUiStateStore } from "../../store/uiStateStore";
 import { useMessageStore } from "../../store/messageStore";
-import { useSessionStore } from "../../store/sessionStore";
+import {
+  useSessionStore,
+  selectOverviewItems,
+  sessionKeyOf,
+} from "../../store/sessionStore";
 import { SessionOverviewToolbar } from "./SessionOverviewToolbar";
 import { SessionOverviewCard } from "./SessionOverviewCard";
 import { useResizeHandle } from "../../hooks/useResizeHandle";
@@ -64,15 +67,24 @@ export function SessionOverviewPanel({
   const selectedIds = state.selectedSessionIds ?? [];
   const selectionMode = state.selectionMode ?? false;
 
-  // Subscribe to stores so the component re-renders on changes.
-  const { sessionInfoMap, storeActiveKey } = useSessionStore(useShallow((s) => ({
-    sessionInfoMap: s.sessionInfoMap,
-    storeActiveKey: s.activeSessionKey,
-  })));
-  const perSession = useMessageStore(useShallow((s) => s.perSession));
+  // Subscribe to activeSessionKey (primitive — stable identity).
+  const storeActiveKey = useSessionStore((s) => s.activeSessionKey);
 
-  // Derive overview items from store (single source of truth: tabs + sessionInfoMap)
-  const overviewItems = useSessionStore.getState().getOverviewItems();
+  // Subscribe to the upstream primitives that feed selectOverviewItems.
+  // We read them individually (not as an object) so Zustand's built-in
+  // equality check (===) works — each primitive is referentially stable
+  // when unchanged thanks to the no-op guards added to all store actions.
+  const sessionInfoMap = useSessionStore((s) => s.sessionInfoMap);
+  const tabOrder = useSessionStore((s) => s.tabOrder);
+  const tabTitles = useSessionStore((s) => s.tabTitles);
+
+  // Derive overview items from the stable primitives via useMemo.
+  // selectOverviewItems returns a new array each call, so we must not
+  // use it directly as a store selector (would cause infinite loop).
+  const overviewItems = useMemo(
+    () => selectOverviewItems({ sessionInfoMap, tabOrder, tabTitles } as any),
+    [sessionInfoMap, tabOrder, tabTitles],
+  );
 
   // Apply filter to sessions
   const filteredSessions = useMemo(() => {
@@ -85,17 +97,26 @@ export function SessionOverviewPanel({
     0
   );
 
-  // Build a lookup map for unread counts.
+  // Build unread count map from message store via imperative reads.
+  // Subscribing to useMessageStore with a dynamic key set causes reference
+  // instability (visibleKeys array is new each render), which triggers the
+  // useSyncExternalStore loop. Reading getState() avoids subscription.
   const unreadMap = useMemo(() => {
+    const msgStore = useMessageStore.getState();
     const uiStore = useUiStateStore.getState();
     const map = new Map<string, number>();
-    for (const s of overviewItems) {
-      const key = `${s.agentId}:${s.sessionId}`;
-      const ids = (perSession[key] ?? []).map((m) => m.id);
+    for (const s of filteredSessions) {
+      const key = sessionKeyOf(s.agentId, s.sessionId);
+      const msgs = msgStore.perSession[key];
+      const ids = (msgs ?? []).map((m) => m.id);
       map.set(key, uiStore.computeUnreadCount(key, ids));
     }
     return map;
-  }, [overviewItems, perSession]);
+  // Only recompute when the filtered session list (identity) changes or
+  // when the overview is toggled open/closed (isVisible).
+  // Message count changes are handled by the sessionInfo subscription above.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredSessions, isVisible]);
 
   // Count selected sessions (any status can be closed)
   const selectedCount = selectedIds.length;

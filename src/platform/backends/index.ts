@@ -16,6 +16,8 @@ export { VsCodeOutputBackend } from "./vscode-output-backend";
 export { PinoBridgeBackend } from "./pino-bridge-backend";
 export { ConsoleLoggerBackend } from "./console-backend";
 export { FilterLoggerBackend } from "./filter-backend";
+export { LogEntrySinkBackend } from "./log-entry-sink-backend";
+export type { LogEntrySink } from "./log-entry-sink-backend";
 
 import { ConsoleLoggerBackend } from "./console-backend";
 import { LoggerFactoryImpl } from "./logger-impl";

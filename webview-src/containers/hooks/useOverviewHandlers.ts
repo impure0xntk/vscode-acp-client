@@ -61,7 +61,6 @@ export function useOverviewHandlers(deps: OverviewHandlerDeps) {
     const selectedIds = sessionOverviewState.selectedSessionIds ?? [];
     const sessionInfoMap = useSessionStore.getState().sessionInfoMap;
     for (const sessionId of selectedIds) {
-      // Find the full key "agentId:sessionId" from sessionInfoMap
       const entry = Object.entries(sessionInfoMap).find(
         ([, info]) => info.sessionId === sessionId,
       );

@@ -9,6 +9,8 @@ import type {
 import type { UIAPI, WebviewPanel } from "../../../platform/ui";
 import type { EventEmitter, PlatformUri } from "../../../platform/types";
 import { VscodeUIAPI, toPlatformUri } from "../../../platform/adapters/vscode";
+import type { LogEntrySink } from "../../../platform/backends/log-entry-sink-backend";
+import { LogLevelValue } from "../../../platform/backends/types";
 
 // ============================================================================
 // Snapshot sent to webview on session switch
@@ -112,6 +114,13 @@ export class ChatPanel {
 
   /** Extension-side logger — set by extension.ts after construction. */
   logger: { debug(msg: string): void; info(msg: string): void; warn(msg: string): void; error(msg: string): void } | null = null;
+
+  /** Log entry sink — set by extension.ts to persist webview logs to DB. */
+  private static logSink: LogEntrySink | null = null;
+
+  static setLogSink(sink: LogEntrySink): void {
+    ChatPanel.logSink = sink;
+  }
 
   get onSendMessage() {
     return this._onSendMessage.event;
@@ -468,7 +477,7 @@ export class ChatPanel {
   }
 
   /**
-   * Forward webview log messages to the extension logger.
+   * Forward webview log messages to the extension logger and persist to DB.
    */
   private handleWebviewLog(payload: Record<string, unknown>): void {
     const level = String(payload.level ?? "info");
@@ -492,6 +501,24 @@ export class ChatPanel {
         break;
       default:
         this.logger?.info(line);
+    }
+
+    // Persist webview log to DB via sink
+    if (ChatPanel.logSink) {
+      const levelMap: Record<string, LogLevelValue> = {
+        trace: 0,
+        debug: 1,
+        info: 2,
+        warn: 3,
+        error: 4,
+      };
+      ChatPanel.logSink.emit({
+        level: levelMap[level] ?? 2,
+        category: `webview.${category}`,
+        message,
+        timestamp: Date.now(),
+        context,
+      });
     }
   }
 

@@ -80,6 +80,12 @@ export const useUiStateStore = create<UiStateStore>((set, get) => ({
   saveScrollState: (key, partial) =>
     set(produce((draft: UiStateStore) => {
       const prev = draft.scrollStates[key] ?? defaultScrollState;
+      // Only write if at least one field actually changed
+      let changed = false;
+      for (const [k, v] of Object.entries(partial)) {
+        if ((prev as any)[k] !== v) { changed = true; break; }
+      }
+      if (!changed) return;
       draft.scrollStates[key] = { ...prev, ...partial };
     })),
 
@@ -109,47 +115,65 @@ export const useUiStateStore = create<UiStateStore>((set, get) => ({
 
   setOverviewVisible: (v) => {
     log.debug("setOverviewVisible", { visible: v });
-    set({ overviewVisible: v });
+    set((s) => s.overviewVisible === v ? s : { overviewVisible: v });
   },
-  setOverviewWidth: (w) => set({ overviewWidth: w }),
-  setOverviewPosition: (p) => set({ overviewPosition: p }),
-  setOverviewFilter: (f) => set({ overviewFilter: f }),
+  setOverviewWidth: (w) => set((s) => s.overviewWidth === w ? s : { overviewWidth: w }),
+  setOverviewPosition: (p) => set((s) => s.overviewPosition === p ? s : { overviewPosition: p }),
+  setOverviewFilter: (f) => set((s) => s.overviewFilter === f ? s : { overviewFilter: f }),
   setOverviewExpandedSessions: (sessions) =>
-    set({ overviewExpandedSessions: sessions }),
+    set((s) => {
+      if (s.overviewExpandedSessions.length === sessions.length &&
+          s.overviewExpandedSessions.every((v, i) => v === sessions[i])) return s;
+      return { overviewExpandedSessions: sessions };
+    }),
   setOverviewSelectedSessionIds: (sessionIds) =>
-    set({ overviewSelectedSessionIds: sessionIds }),
+    set((s) => {
+      if (s.overviewSelectedSessionIds.length === sessionIds.length &&
+          s.overviewSelectedSessionIds.every((v, i) => v === sessionIds[i])) return s;
+      return { overviewSelectedSessionIds: sessionIds };
+    }),
   toggleOverviewSelected: (sessionId) =>
-    set(produce((draft: UiStateStore) => {
-      const idx = draft.overviewSelectedSessionIds.indexOf(sessionId);
+    set((s) => {
+      const idx = s.overviewSelectedSessionIds.indexOf(sessionId);
       if (idx >= 0) {
-        draft.overviewSelectedSessionIds.splice(idx, 1);
-      } else {
-        draft.overviewSelectedSessionIds.push(sessionId);
+        const next = s.overviewSelectedSessionIds.filter((_, i) => i !== idx);
+        return next.length !== s.overviewSelectedSessionIds.length
+          ? { overviewSelectedSessionIds: next }
+          : s;
       }
-    })),
+      return { overviewSelectedSessionIds: [...s.overviewSelectedSessionIds, sessionId] };
+    }),
   setOverviewSelectionMode: (enabled) =>
-    set({ overviewSelectionMode: enabled }),
+    set((s) => s.overviewSelectionMode === enabled ? s : { overviewSelectionMode: enabled }),
   toggleOverviewSelection: (sessionId) =>
-    set(produce((draft: UiStateStore) => {
-      const idx = draft.overviewSelectedSessionIds.indexOf(sessionId);
+    set((s) => {
+      const idx = s.overviewSelectedSessionIds.indexOf(sessionId);
+      let nextIds: string[];
       if (idx >= 0) {
-        draft.overviewSelectedSessionIds.splice(idx, 1);
+        nextIds = s.overviewSelectedSessionIds.filter((_, i) => i !== idx);
       } else {
-        draft.overviewSelectedSessionIds.push(sessionId);
+        nextIds = [...s.overviewSelectedSessionIds, sessionId];
       }
-      draft.overviewSelectionMode = true;
-    })),
+      return { overviewSelectedSessionIds: nextIds, overviewSelectionMode: true };
+    }),
 
   // ── Bulk actions ───────────────────────────────────────────────────────
 
   setOverviewState: (state) =>
     set(produce((draft: UiStateStore) => {
-      if (state.filter !== undefined) draft.overviewFilter = state.filter;
-      if (state.expandedSessions !== undefined)
-        draft.overviewExpandedSessions = state.expandedSessions;
-      if (state.selectedSessionIds !== undefined)
-        draft.overviewSelectedSessionIds = state.selectedSessionIds;
-      if (state.selectionMode !== undefined)
-        draft.overviewSelectionMode = state.selectionMode;
+      let changed = false;
+      if (state.filter !== undefined && draft.overviewFilter !== state.filter) {
+        draft.overviewFilter = state.filter; changed = true;
+      }
+      if (state.expandedSessions !== undefined && draft.overviewExpandedSessions !== state.expandedSessions) {
+        draft.overviewExpandedSessions = state.expandedSessions; changed = true;
+      }
+      if (state.selectedSessionIds !== undefined && draft.overviewSelectedSessionIds !== state.selectedSessionIds) {
+        draft.overviewSelectedSessionIds = state.selectedSessionIds; changed = true;
+      }
+      if (state.selectionMode !== undefined && draft.overviewSelectionMode !== state.selectionMode) {
+        draft.overviewSelectionMode = state.selectionMode; changed = true;
+      }
+      if (!changed) return;
     })),
 }));

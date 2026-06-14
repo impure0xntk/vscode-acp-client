@@ -800,7 +800,7 @@ body {
 
 .message-markdown-wrap {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 4px;
 }
 
@@ -815,8 +815,7 @@ body {
     visibility 0.15s ease;
   flex-shrink: 0;
   line-height: 1;
-  align-self: flex-end;
-  margin-bottom: 2px;
+  align-self: center;
 }
 
 .message:hover .message-actions-inline,
@@ -980,6 +979,8 @@ body {
 
 .message-markdown {
   line-height: 1.6;
+  min-width: 0;
+  flex: 1;
 }
 
 .message-markdown p {
@@ -1515,11 +1516,12 @@ body {
 }
 
 .tool-kind {
-  color: var(--fg-secondary);
+  color: var(--fg-muted);
   font-size: 9px;
   text-transform: uppercase;
   flex-shrink: 0;
   white-space: nowrap;
+  opacity: 0.7;
 }
 
 .tool-kind-icon {
@@ -1530,8 +1532,9 @@ body {
 }
 
 .tool-title {
-  font-weight: 500;
+  font-weight: 400;
   font-size: 10px;
+  color: var(--fg-muted);
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -1949,7 +1952,8 @@ body {
   color: #4fc3f7; /* blue — normal (matches ProgressBar) */
 }
 .status-icon-completed {
-  color: var(--success);
+  color: var(--fg-muted);
+  opacity: 0.6;
 }
 .status-icon-error {
   color: var(--error);
@@ -4794,217 +4798,6 @@ body {
   font-size: 9px;
   flex-shrink: 0;
   margin-left: auto;
-}
-
-/* ============================================================================
-   Tool Inline Summary — appended to end of agent message text
-   ============================================================================ */
-
-.message-tool-inline {
-  display: inline;
-  margin-left: 4px;
-  vertical-align: baseline;
-}
-
-.tool-inline {
-  display: inline;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--fg-muted);
-  vertical-align: baseline;
-}
-
-/* ── Status icon (check / cross) ── */
-.tool-inline-status-ok {
-  color: var(--fg-muted);
-  opacity: 0.7;
-  display: inline-flex;
-  align-items: center;
-  vertical-align: -1px;
-}
-
-.tool-inline-status-failed {
-  color: var(--error);
-  display: inline-flex;
-  align-items: center;
-  vertical-align: -1px;
-}
-
-/* ── Clickable summary button ── */
-.tool-inline-summary {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 1px 4px;
-  border: none;
-  border-radius: 3px;
-  background: transparent;
-  color: inherit;
-  font-family: inherit;
-  font-size: inherit;
-  cursor: pointer;
-  text-align: left;
-  transition: background 0.15s ease;
-  vertical-align: baseline;
-  line-height: 1.3;
-}
-
-.tool-inline-summary:hover {
-  background: var(--accent-hover);
-}
-
-.tool-inline-summary:focus-visible {
-  outline: 1px solid var(--accent);
-  outline-offset: -1px;
-}
-
-/* ── Prefix text ("ツールを実行しました。") ── */
-.tool-inline-prefix {
-  font-family: var(--font-ui);
-  font-size: 10px;
-  color: var(--fg-muted);
-  margin-right: 2px;
-  white-space: nowrap;
-}
-
-.tool-inline-failed .tool-inline-prefix {
-  color: var(--error);
-  font-weight: 500;
-}
-
-/* ── Ops count ── */
-.tool-inline-ops {
-  font-weight: 600;
-  font-size: 9px;
-  color: var(--fg-secondary);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-/* ── Duration ── */
-.tool-inline-duration {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  color: var(--fg-muted);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-/* ── Kind entries inline ── */
-.tool-inline-kinds {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-}
-
-.tool-inline-kind-entry {
-  display: inline-flex;
-  align-items: center;
-  gap: 1px;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  color: var(--fg-secondary);
-  white-space: nowrap;
-}
-
-.tool-inline-kind-count {
-  font-weight: 600;
-  font-size: 9px;
-  color: var(--fg-muted);
-}
-
-/* ── File chips inline ── */
-.tool-inline-file {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  flex-shrink: 0;
-}
-
-.tool-inline-file .file-chip-ext {
-  width: 12px;
-  height: 10px;
-  font-size: 6px;
-}
-
-.tool-inline-file .file-chip-label {
-  color: var(--fg-secondary);
-  max-width: 80px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ── "more" indicator ── */
-.tool-inline-more {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  color: var(--fg-muted);
-  padding: 0 2px;
-  flex-shrink: 0;
-}
-
-/* ── Locations container ── */
-.tool-inline-locations {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 1;
-  min-width: 0;
-  overflow: hidden;
-}
-
-/* ── Inline file chip base ── */
-.tool-inline-file {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 1px 3px;
-  border-radius: 3px;
-  background: var(--bg-secondary);
-  color: var(--fg-primary);
-  font-size: 9px;
-  cursor: default;
-  flex-shrink: 0;
-  transition: background 0.15s;
-}
-
-.tool-inline-file:hover {
-  background: var(--accent-hover);
-}
-
-/* ── Expanded container ── */
-.tool-inline-expanded {
-  display: block;
-  margin-top: 3px;
-  animation: tool-inline-expand 0.15s ease-out;
-}
-
-@keyframes tool-inline-expand {
-  from {
-    opacity: 0;
-    transform: translateY(-2px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* ── Expanded item wrappers ── */
-.tool-inline-item {
-  margin-top: 1px;
-  border-left: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
-  padding-left: 4px;
-}
-
-.tool-inline-error-item {
-  margin-top: 1px;
-  border-left: 2px solid var(--error);
-  padding-left: 4px;
 }
 
 /* ============================================================================
