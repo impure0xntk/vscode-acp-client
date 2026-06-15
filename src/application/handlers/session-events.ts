@@ -266,7 +266,7 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
           cwd: info.cwd,
           status: info.status,
           createdAt: info.createdAt.toISOString(),
-          messageCount: info.messages.length,
+          messageCount: 0,
           tokenUsage: info.tokenUsage,
         };
         void historyStore.addEntry(entry);

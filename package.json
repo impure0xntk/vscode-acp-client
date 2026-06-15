@@ -338,6 +338,32 @@
           "minimum": 1,
           "maximum": 365,
           "description": "Number of days to retain log entries in the database"
+        },
+        "acp.defaultChatPanel": {
+          "type": "string",
+          "enum": [
+            "classic",
+            "unified"
+          ],
+          "default": "classic",
+          "description": "Default chat panel mode: classic (single-session) or unified (multi-session)"
+        },
+        "acp.unifiedChat.layoutMode": {
+          "type": "string",
+          "enum": [
+            "single",
+            "split",
+            "grid"
+          ],
+          "default": "single",
+          "description": "Default layout mode for the unified chat panel"
+        },
+        "acp.unifiedChat.splitRatio": {
+          "type": "number",
+          "default": 0.6,
+          "minimum": 0.2,
+          "maximum": 0.8,
+          "description": "Default split ratio for the unified chat panel split mode (0.0 = top 100%, 1.0 = bottom 100%)"
         }
       }
     }

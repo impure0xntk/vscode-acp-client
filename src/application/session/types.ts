@@ -1,7 +1,7 @@
-import type { ChatMessage, TokenUsage } from "../../domain/models/chat";
+import type { TokenUsage, ChatMessage } from "../../domain/models/chat";
 import type { ContentBlock } from "@agentclientprotocol/sdk";
 
-export type { ChatMessage, TokenUsage };
+export type { TokenUsage };
 
 // ============================================================================
 // Queued Prompt — message buffered while a turn is active
@@ -50,7 +50,6 @@ export interface SessionInfo {
   status: SessionStatus;
   /** Outcome of the most recent turn; null if no turn has completed yet. */
   lastTurnOutcome: TurnOutcome | null;
-  messages: ChatMessage[];
   /** True while streaming content is in progress */
   isStreaming: boolean;
   tokenUsage: TokenUsage;
@@ -62,4 +61,6 @@ export interface SessionInfo {
   pendingCancel: boolean;
   /** Previous context usage (tokens) — used for compression detection */
   _prevContextUsed?: number;
+  /** Messages in the session — used for fork/replay operations */
+  messages: ChatMessage[];
 }

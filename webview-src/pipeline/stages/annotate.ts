@@ -12,6 +12,7 @@ import type {
   SessionCompressionInfo,
 } from "../types";
 import type { ContextAttachment } from "../../types";
+import { extractCandidatePaths } from "../../lib/pathPatterns";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -65,12 +66,25 @@ function resolveAttachments(
   }));
 }
 
+function extractInlinePaths(content: string): string[] {
+  const paths: string[] = [];
+  const inlineCodeRegex = /`([^`]+)`/g;
+  let match;
+  while ((match = inlineCodeRegex.exec(content)) !== null) {
+    const code = match[1];
+    const candidates = extractCandidatePaths(code);
+    paths.push(...candidates);
+  }
+  return [...new Set(paths)].slice(0, 50);
+}
+
 function buildRenderContext(
-  _msg: ClassifiedMessage,
-  _config: AnnotateConfig,
+  msg: ClassifiedMessage,
+  config: AnnotateConfig,
 ): { filePaths: Set<string> } | undefined {
-  // TODO: extract inline file paths from content when detectInlinePaths is true
-  return undefined;
+  if (!config.detectInlinePaths) return undefined;
+  const paths = extractInlinePaths(msg.content);
+  return paths.length > 0 ? { filePaths: new Set(paths) } : undefined;
 }
 
 /**

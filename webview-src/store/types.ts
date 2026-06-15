@@ -1,7 +1,7 @@
 // Re-exported from sessionStore for backward compatibility.
 export type {
   SessionTabState,
-  SessionInfoSnapshot,
+  SessionInfoDTO,
   ConnectedAgentInfo,
   AgentInfo,
   WorkspaceFolder,

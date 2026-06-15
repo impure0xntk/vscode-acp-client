@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo, useRef } from "react";
 import { renderMarkdown } from "../lib/markdown";
 import { getVsCodeApi } from "../lib/vscodeApi";
 import { Icon } from "../lib/icons";
@@ -6,6 +6,7 @@ import { ToolBatchSummary } from "./ToolCallCard/ToolBatchSummary";
 import { ToolCallCard } from "./ToolCallCard";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { MessageActions } from "./MessageActions";
+import { usePathResolutionStore } from "../store/pathResolutionStore";
 import type { ChatDisplayItem } from "../pipeline";
 
 export interface MessageProps {
@@ -133,6 +134,25 @@ export const Message = React.memo(function Message({
     thinking,
   } = item;
 
+  const resolvedPathsRef = useRef<Set<string> | undefined>(undefined);
+  const rawResolved = usePathResolutionStore(
+    (state) => state.resolvedPaths[sessionId ?? ""],
+  );
+  if (rawResolved !== resolvedPathsRef.current) {
+    resolvedPathsRef.current = rawResolved;
+  }
+  const resolvedPaths = resolvedPathsRef.current;
+
+  const mergedContext = useMemo(
+    () => ({
+      filePaths: new Set([
+        ...(renderContext?.filePaths ?? []),
+        ...(resolvedPaths ? [...resolvedPaths] : []),
+      ]),
+    }),
+    [renderContext?.filePaths, resolvedPaths],
+  );
+
   const time = new Date(timestamp ?? 0).toLocaleTimeString();
   const isSystem = role === "system";
   const isUser = role === "user";
@@ -140,8 +160,6 @@ export const Message = React.memo(function Message({
   const hasToolCalls = resolvedToolCalls !== undefined && resolvedToolCalls.length > 0;
   const hasAttachments = isUser && attachments.length > 0;
   const hasContent = content.trim().length > 0;
-  // Agent messages with tool calls but no text content (e.g. tool-only turns)
-  // should skip the markdown body to avoid empty whitespace.
   const isToolOnlyAgent = isAgent && hasToolCalls && !hasContent;
 
   const handleMarkdownClick = useCallback(
@@ -197,7 +215,7 @@ export const Message = React.memo(function Message({
                 <div
                   className={`message-markdown${isSystem ? " message-system-markdown" : ""}`}
                   dangerouslySetInnerHTML={{
-                    __html: renderMarkdown(content, renderContext),
+                    __html: renderMarkdown(content, mergedContext),
                   }}
                   onClick={handleMarkdownClick}
                 />

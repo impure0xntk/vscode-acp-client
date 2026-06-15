@@ -1077,8 +1077,8 @@ body {
 
 .inline-code-link-label {
   font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.4;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 /* System message variant: slightly dimmer to match system text colour */
@@ -4922,4 +4922,414 @@ body {
 /* System message variant: override italic from .message-system .message-body */
 .message-system .message-body:has(.context-compression-notice) {
   font-style: normal;
+}
+
+/* ============================================================================
+   Unified Chat Panel — multi-session simultaneous view
+   ============================================================================ */
+
+/* ── Root container ── */
+.unified-chat-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.unified-chat-panel--single { }
+.unified-chat-panel--split { }
+.unified-chat-panel--grid { }
+
+/* ── Panel mode toggle ── */
+.panel-mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 8px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.panel-mode-btn {
+  padding: 2px 10px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 11px;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.panel-mode-btn:hover {
+  color: var(--fg-primary);
+  background: var(--accent-hover);
+}
+
+.panel-mode-btn--active {
+  color: var(--fg-primary);
+  background: var(--bg-input);
+  border-color: var(--border);
+}
+
+/* ── Layout toggle bar ── */
+.unified-layout-toggle {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 8px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.unified-layout-btn {
+  padding: 2px 8px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 10px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.unified-layout-btn:hover {
+  background: var(--accent-hover);
+  color: var(--fg-secondary);
+}
+
+.unified-layout-btn--active {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+/* ── Multi-session view container ── */
+.multi-session-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.multi-session-view--empty {
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-muted);
+  font-size: 12px;
+}
+
+.multi-session-view--split {
+  flex-direction: column;
+}
+
+.multi-session-view--grid {
+  flex-direction: row;
+  flex-wrap: wrap;
+  overflow-y: auto;
+}
+
+/* ── Session section ── */
+.unified-session-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.unified-session-section--focus {
+  flex: 1;
+}
+
+.unified-session-section--pinned {
+  flex: 0 0 auto;
+}
+
+/* Grid mode: each section takes half width */
+.multi-session-view--grid .unified-session-section {
+  flex: 0 0 50%;
+  max-height: 50%;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── Section header ── */
+.unified-section-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.unified-section-header--active {
+  background: color-mix(in srgb, var(--accent) 6%, var(--bg-secondary));
+}
+
+.unified-section-header-bar {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: none;
+  border-left: 3px solid var(--accent);
+  background: transparent;
+  color: var(--fg-primary);
+  font-size: 10px;
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+  transition: background 0.15s ease;
+}
+
+.unified-section-header-bar:hover {
+  background: var(--accent-hover);
+}
+
+.unified-section-header-agent {
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--fg-secondary);
+  flex-shrink: 0;
+}
+
+.unified-section-header-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-primary);
+}
+
+.unified-section-header-streaming {
+  color: #4fc3f7;
+  font-size: 9px;
+  flex-shrink: 0;
+  animation: blink 1s step-end infinite;
+}
+
+.unified-section-header-turn {
+  color: var(--warning);
+  font-size: 9px;
+  flex-shrink: 0;
+}
+
+.unified-section-header-count {
+  color: var(--fg-muted);
+  font-size: 9px;
+  flex-shrink: 0;
+}
+
+/* ── Pin button ── */
+.unified-section-header-pin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.unified-section-header-pin:hover {
+  background: var(--accent-hover);
+  color: var(--fg-primary);
+}
+
+.unified-section-header-pin--active {
+  color: var(--accent);
+}
+
+/* ── Split divider ── */
+.unified-split-divider {
+  height: 4px;
+  flex-shrink: 0;
+  background: var(--border);
+  cursor: row-resize;
+  transition: background 0.15s ease;
+}
+
+.unified-split-divider:hover {
+  background: var(--accent);
+}
+
+/* ── Session chips bar ── */
+.session-chips-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.session-chips-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.session-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  border-left: 2px solid var(--accent);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--fg-secondary);
+  font-size: 10px;
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.session-chip:hover {
+  background: var(--accent-hover);
+  color: var(--fg-primary);
+}
+
+.session-chip--active {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--fg-primary);
+  border-color: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.session-chip-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--fg-muted);
+  flex-shrink: 0;
+}
+
+.session-chip-agent {
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+.session-chip-unread {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--accent);
+  color: var(--user-fg);
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.session-chip-add {
+  border-left-color: transparent;
+  color: var(--fg-muted);
+}
+
+/* ── Send targets bar (multi-@) ── */
+.send-targets-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 0;
+  flex-wrap: wrap;
+}
+
+/* ── Send All button (Composer) ── */
+.send-all-button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  color: var(--accent);
+  opacity: 0.8;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.send-all-button:hover:not(:disabled) {
+  background: var(--accent-hover);
+  opacity: 1;
+}
+
+.send-all-button:disabled {
+  color: var(--fg-muted);
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+/* ── Streaming section highlight ── */
+.unified-session-section--streaming {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #4fc3f7 30%, transparent);
+}
+
+.unified-session-section--streaming .unified-section-header {
+  background: color-mix(in srgb, #4fc3f7 8%, var(--bg-secondary));
+}
+
+/* ── Disconnected session section ── */
+.unified-session-section--disconnected {
+  opacity: 0.6;
+}
+
+.unified-disconnected-body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  color: var(--fg-muted);
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* ── Agent chip in message header ── */
+.message-agent-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.message-agent-chip-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.message-agent-chip-id {
+  color: var(--fg-secondary);
 }

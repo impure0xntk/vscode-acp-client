@@ -7,7 +7,7 @@ import type {
   SessionOverviewFilter,
   SessionOverviewItem,
 } from "../../types";
-import type { ConnectedAgentInfo, SessionInfoSnapshot } from "../../store/sessionStore";
+import type { ConnectedAgentInfo, SessionInfoDTO } from "../../store/sessionStore";
 import { useScrollStateStore } from "../../store/scrollStateStore";
 import { useMessageStore } from "../../store/messageStore";
 import {
@@ -88,7 +88,7 @@ export function SessionOverviewPanel({
       return keys.map((key): SessionOverviewItem => {
         const [agentId, sessionId] = key.split(":");
         const title = tabTitles[key] ?? sessionId;
-        const info: SessionInfoSnapshot | undefined = sessionInfoMap[key];
+        const info: SessionInfoDTO | undefined = sessionInfoMap[key];
         // Minimal item — live fields will be filled by SessionOverviewCard.
         return {
           sessionId,

@@ -9,6 +9,7 @@ import type { EventEmitter, PlatformUri } from "../../../platform/types";
 import { VscodeUIAPI, toPlatformUri } from "../../../platform/adapters/vscode";
 import type { LogEntrySink } from "../../../platform/backends/log-entry-sink-backend";
 import { LogLevelValue } from "../../../platform/backends/types";
+import { BatchedPathResolver } from "../../../extension/pathResolver";
 
 // ============================================================================
 // Snapshot sent to webview on session switch
@@ -67,6 +68,8 @@ export class ChatPanel {
   private panel: WebviewPanel | null = null;
   private ui: UIAPI;
   private extensionUri: PlatformUri;
+  private pathResolver: BatchedPathResolver;
+  private currentSessionKey: string = "";
 
   private _onSendMessage: EventEmitter<{
     agentId: string;
@@ -130,6 +133,13 @@ export class ChatPanel {
   private constructor(ui: UIAPI, extensionUri: PlatformUri) {
     this.ui = ui;
     this.extensionUri = extensionUri;
+    this.pathResolver = new BatchedPathResolver(process.cwd(), {
+      onResolved: (paths) => {
+        if (this.currentSessionKey) {
+          this.postMessage({ type: "pathsResolved", sessionKey: this.currentSessionKey, paths });
+        }
+      },
+    });
     this._onSendMessage = ui.createEventEmitter();
     this._onCancelTurn = ui.createEventEmitter();
     this._onAttachFile = ui.createEventEmitter();
@@ -216,9 +226,9 @@ export class ChatPanel {
     sessionId: string,
     info: import("../../../application/session/types").SessionInfo
   ): void {
-    // Metadata-only switch — messages are already cached in the webview
-    // from prior pushMessage/pushStream events.  This avoids serialising
-    // the full message array on every tab switch.
+    this.currentSessionKey = sessionKey(agentId, sessionId);
+    const cwd = info.cwd ?? process.cwd();
+    this.pathResolver.updateCwd(cwd);
     this.postMessage({
       type: "session/switch",
       agentId,
@@ -254,10 +264,20 @@ export class ChatPanel {
       sessionId,
       message: enriched,
     });
+    // Enqueue path candidates for async existence check
+    const candidates = enriched.inlineFilePaths ?? [];
+    if (candidates.length > 0) {
+      this.pathResolver.enqueue(candidates);
+    }
   }
 
   pushStreamChunk(agentId: string, sessionId: string, chunk: string): void {
     this.postMessage({ type: "session/stream", agentId, sessionId, chunk });
+    // Enqueue path candidates from streaming chunks
+    const candidates = extractCandidatePaths(chunk);
+    if (candidates.length > 0) {
+      this.pathResolver.enqueue(candidates);
+    }
   }
 
   pushStreamEnd(agentId: string, sessionId: string): void {
@@ -356,6 +376,7 @@ export class ChatPanel {
       agentId,
       sessionId,
       status: info.status,
+      lastTurnOutcome: info.lastTurnOutcome,
       tokenUsage: {
         inputTokens: info.tokenUsage.input,
         outputTokens: info.tokenUsage.output,
@@ -366,8 +387,8 @@ export class ChatPanel {
       mode: info.mode,
       cwd: info.cwd,
       isStreaming: info.isStreaming,
-      messageCount: info.messages.length,
       createdAt: info.createdAt.toISOString(),
+      lastResponseAt: info.lastResponseAt,
     });
   }
 

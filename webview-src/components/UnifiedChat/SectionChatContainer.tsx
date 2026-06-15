@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useEffect } from "react";
+import { useLogger } from "../../hooks/useLogger";
 import { ChatContainer } from "../ChatContainer";
 
 export interface SectionChatContainerProps {
@@ -15,6 +16,7 @@ export interface SectionChatContainerProps {
 
 export const SectionChatContainer = React.memo(function SectionChatContainer({
   sessionKey,
+  agentId,
   sessionId,
   status,
   isActive,
@@ -23,6 +25,16 @@ export const SectionChatContainer = React.memo(function SectionChatContainer({
   forceScrollToBottomRef,
   scrollToUnreadRef,
 }: SectionChatContainerProps): React.ReactElement {
+  const log = useLogger("SectionChatContainer");
+
+  useEffect(() => {
+    log.debug("mount", { sessionKey, sessionId, agentId });
+    return () => {
+      log.debug("unmount", { sessionKey });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionKey, sessionId, agentId]);
+
   return (
     <div
       className="unified-session-section"

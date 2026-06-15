@@ -26,11 +26,16 @@ export interface AgentTabInfo {
   color?: string;
 }
 
-/** Minimal SessionInfo snapshot sent to webview for derivation of display data */
-export interface SessionInfoSnapshot {
+/**
+ * SessionInfoDTO — lightweight projection of SessionInfo for the webview.
+ * Excludes `messages` (managed separately by messageStore) and derived
+ * counters (messageCount, toolCallCount, toolCallsCompleted).
+ */
+export interface SessionInfoDTO {
   sessionId: string;
   agentId: string;
   status: import("../../../domain/models/session").SessionStatus;
+  lastTurnOutcome: import("../../../domain/models/session").TurnOutcome | null;
   isStreaming: boolean;
   tokenUsage: {
     inputTokens: number;
@@ -41,11 +46,9 @@ export interface SessionInfoSnapshot {
   cwd?: string;
   model?: string;
   mode?: string;
-  /** Message count for overview chip display */
-  messageCount: number;
   /** ISO date string */
   createdAt: string;
-  /** ISO date string — last time agent produced output (message/stream/streamEnd/completed). Null if never. */
+  /** ISO date string — last time agent produced output. Null if never. */
   lastResponseAt: string | null;
 }
 
@@ -61,7 +64,7 @@ export interface SetTabsMessage {
   workspaceFolders: Array<{ name: string; path: string }>;
   agentInfoMap: Record<string, unknown>;
   /** Full SessionInfo map for deriving model state in webview */
-  sessionInfoMap: Record<string, SessionInfoSnapshot>;
+  sessionInfoMap: Record<string, SessionInfoDTO>;
 }
 
 // ============================================================================
@@ -76,7 +79,7 @@ export class ChatPresenter {
   private workspaceRoot: string | null = null;
   private workspaceFolders: Array<{ name: string; path: string }> = [];
   private agentInfoMap: Record<string, unknown> = {};
-  private sessionInfoMap: Record<string, SessionInfoSnapshot> = {};
+  private sessionInfoMap: Record<string, SessionInfoDTO> = {};
 
   // -----------------------------------------------------------------------
   // Configuration
@@ -135,11 +138,12 @@ export class ChatPresenter {
     };
     this.tabs.set(key, tab);
 
-    // Store full SessionInfo snapshot for webview derivation
+    // Store SessionInfoDTO for webview derivation
     this.sessionInfoMap[key] = {
       sessionId: session.sessionId,
       agentId,
       status: session.status,
+      lastTurnOutcome: session.lastTurnOutcome,
       isStreaming: session.status === "running",
       tokenUsage: {
         inputTokens: session.tokenUsage.input,
@@ -150,7 +154,6 @@ export class ChatPresenter {
       cwd: session.cwd,
       model: session.model,
       mode: session.mode,
-      messageCount: session.messageCount,
       createdAt: createdAt.toISOString(),
       lastResponseAt: null,
     };

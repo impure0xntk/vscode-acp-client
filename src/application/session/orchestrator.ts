@@ -1272,6 +1272,39 @@ export class SessionOrchestrator extends EventEmitter {
   }
 
   // ========================================================================
+  // Pinned Sessions
+  // ========================================================================
+
+  // agentId → Set<sessionId>
+  private pinnedSessions: Map<string, Set<string>> = new Map();
+
+  pinSession(agentId: string, sessionId: string): void {
+    let pinned = this.pinnedSessions.get(agentId);
+    if (!pinned) {
+      pinned = new Set();
+      this.pinnedSessions.set(agentId, pinned);
+    }
+    pinned.add(sessionId);
+    this.emit("sessionPinned", { agentId, sessionId });
+  }
+
+  unpinSession(agentId: string, sessionId: string): void {
+    const pinned = this.pinnedSessions.get(agentId);
+    if (!pinned) return;
+    pinned.delete(sessionId);
+    if (pinned.size === 0) this.pinnedSessions.delete(agentId);
+    this.emit("sessionUnpinned", { agentId, sessionId });
+  }
+
+  getPinnedSessions(agentId: string): string[] {
+    return Array.from(this.pinnedSessions.get(agentId) ?? []);
+  }
+
+  isSessionPinned(agentId: string, sessionId: string): boolean {
+    return this.pinnedSessions.get(agentId)?.has(sessionId) ?? false;
+  }
+
+  // ========================================================================
   // Active Session (per-agent)
   // ========================================================================
 

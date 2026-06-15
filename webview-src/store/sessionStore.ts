@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { getLogger } from "../lib/logger";
+import { removePipelineCache } from "../hooks/useMessagePipeline";
 
 const log = getLogger("sessionStore");
 import type {
@@ -22,22 +23,19 @@ export interface SessionTabState {
 export type SessionState = "idle" | "running" | "completed" | "error" | "cancelled";
 export type TurnOutcome = "completed" | "error" | "cancelled";
 
-export interface SessionInfoSnapshot {
+export interface SessionInfoDTO {
   sessionId: string;
   agentId: string;
   status: SessionState;
   lastTurnOutcome: TurnOutcome | null;
   isStreaming: boolean;
-  tokenUsage?: { inputTokens: number; outputTokens: number; totalTokens: number };
+  tokenUsage: { inputTokens: number; outputTokens: number; totalTokens: number };
   contextWindowMax?: number;
   model?: string;
   mode?: string;
   cwd?: string;
-  messageCount?: number;
-  toolCallCount?: number;
-  toolCallsCompleted?: number;
-  createdAt?: string;
-  lastResponseAt?: string | null;
+  createdAt: string;
+  lastResponseAt: string | null;
 }
 
 export interface AgentInfo {
@@ -132,46 +130,35 @@ export function selectTabs(state: SessionStoreState): SessionTabState[] {
 }
 
 /**
- * Compare two SessionInfoSnapshot for referential equality.
- *
- * The store must only create a new object when data actually changes.
- * If every write produces a new object (even with the same data),
- * this function would short-circuit — so the callers are responsible
- * for avoiding unnecessary writes.
- *
- * We use strict reference-equality on tokenUsage as a fast-path: if the
- * store reuses the same object when token counts haven't changed, this
- * avoids deep comparison on every field.
+ * Compare two SessionInfoDTO for referential equality.
  */
-function sessionInfoEquals(a: SessionInfoSnapshot, b: SessionInfoSnapshot): boolean {
+function sessionInfoEquals(a: SessionInfoDTO, b: SessionInfoDTO): boolean {
   if (a === b) return true;
   return (
     a.status === b.status &&
     a.lastTurnOutcome === b.lastTurnOutcome &&
-    a.status === b.status &&
     a.isStreaming === b.isStreaming &&
     a.tokenUsage === b.tokenUsage &&
     a.contextWindowMax === b.contextWindowMax &&
     a.model === b.model &&
     a.mode === b.mode &&
     a.cwd === b.cwd &&
-    a.messageCount === b.messageCount &&
-    a.toolCallCount === b.toolCallCount &&
-    a.toolCallsCompleted === b.toolCallsCompleted &&
     a.createdAt === b.createdAt &&
     a.lastResponseAt === b.lastResponseAt
   );
 }
 
 /**
- * SessionInfoSnapshot から SessionOverviewItem を導出する。
+ * SessionInfoDTO から SessionOverviewItem を導出する。
+ * messageCount / toolCallCount / toolCallsCompleted は
+ * messageStore のセレクタで取得する設計のため、ここでは 0 とする。
  */
 export function snapshotToOverviewItem(
-  info: SessionInfoSnapshot,
+  info: SessionInfoDTO,
   titleHint?: string,
 ): SessionOverviewItem {
   const status = info.status;
-  const createdAt = info.createdAt ?? new Date().toISOString();
+  const createdAt = info.createdAt;
 
   const elapsedMs =
     (status === "running" && info.lastResponseAt)
@@ -181,23 +168,23 @@ export function snapshotToOverviewItem(
   const progress: SessionProgress = {
     elapsedMs,
     tokenUsage: {
-      input: info.tokenUsage?.inputTokens ?? 0,
-      output: info.tokenUsage?.outputTokens ?? 0,
-      total: info.tokenUsage?.totalTokens ?? 0,
+      input: info.tokenUsage.inputTokens,
+      output: info.tokenUsage.outputTokens,
+      total: info.tokenUsage.totalTokens,
     },
     contextWindow:
       info.contextWindowMax != null
         ? {
-            used: info.tokenUsage?.totalTokens ?? 0,
+            used: info.tokenUsage.totalTokens,
             max: info.contextWindowMax,
             percentage: Math.round(
-              ((info.tokenUsage?.totalTokens ?? 0) / info.contextWindowMax) * 100,
+              (info.tokenUsage.totalTokens / info.contextWindowMax) * 100,
             ),
           }
         : undefined,
-    messageCount: info.messageCount ?? 0,
-    toolCallCount: info.toolCallCount ?? 0,
-    toolCallsCompleted: info.toolCallsCompleted ?? 0,
+    messageCount: 0,
+    toolCallCount: 0,
+    toolCallsCompleted: 0,
   };
 
   const recentResponses: ResponsePreview[] = [];
@@ -214,14 +201,14 @@ export function snapshotToOverviewItem(
     recentResponses,
     cwd: info.cwd,
     createdAt,
-    lastResponseAt: info.lastResponseAt ?? null,
+    lastResponseAt: info.lastResponseAt,
   };
 }
 
 // ── Store shape ──────────────────────────────────────────────────────────────
 
 export interface SessionStoreState {
-  sessionInfoMap: Record<string, SessionInfoSnapshot>;
+  sessionInfoMap: Record<string, SessionInfoDTO>;
   tabOrder: string[];
   activeSessionKey: string | null;
   tabTitles: Record<string, string>;
@@ -239,10 +226,17 @@ export interface SessionStoreState {
   };
   promptQueue: Record<string, QueuedPrompt[]>;
 
+  // ── UnifiedChatPanel ──────────────────────────────────────────────────
+  /** Pinned session keys (agentId:sessionId) */
+  pinnedSessionKeys: string[];
+  /** Layout mode for the unified chat panel */
+  layoutMode: "single" | "split" | "grid";
+  /** Split mode divider ratio (0.0 = top 100%, 1.0 = bottom 100%) */
+  splitRatio: number;
+
   // ── Actions ───────────────────────────────────────────────────────────
-  setSessionInfoMap: (map: Record<string, SessionInfoSnapshot>) => void;
-  setSessionInfo: (agentId: string, sessionId: string, info: SessionInfoSnapshot) => void;
-  updateMessageCount: (agentId: string, sessionId: string, count: number) => void;
+  setSessionInfoMap: (map: Record<string, SessionInfoDTO>) => void;
+  setSessionInfo: (agentId: string, sessionId: string, info: SessionInfoDTO) => void;
 
   setTabOrder: (order: string[]) => void;
   setTabTitle: (sessionKey: string, title: string) => void;
@@ -269,11 +263,18 @@ export interface SessionStoreState {
     connectedAgents?: ConnectedAgentInfo[];
     workspaceFolders?: WorkspaceFolder[];
     agentInfoMap?: Record<string, AgentInfo>;
-    sessionInfoMap?: Record<string, SessionInfoSnapshot>;
+    sessionInfoMap?: Record<string, SessionInfoDTO>;
   }) => void;
 
   getOverviewItems: () => SessionOverviewItem[];
   getTabs: () => SessionTabState[];
+
+  pinSession: (sessionKey: string) => void;
+  unpinSession: (sessionKey: string) => void;
+  togglePin: (sessionKey: string) => void;
+  setLayoutMode: (mode: "single" | "split" | "grid") => void;
+  setSplitRatio: (ratio: number) => void;
+  setFocusSession: (sessionKey: string | null) => void;
 }
 
 export const useSessionStore = create<SessionStoreState>((set, get) => ({
@@ -289,6 +290,11 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
   sessionCommands: {},
   statusline: { hostname: "", repoName: "", branch: "" },
   promptQueue: {},
+
+  // ── UnifiedChatPanel ─────────────────────────────────────────────────
+  pinnedSessionKeys: [],
+  layoutMode: "single",
+  splitRatio: 0.6,
 
   // ── Session info ─────────────────────────────────────────────────────────
 
@@ -323,20 +329,6 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
       return {
         ...state,
         sessionInfoMap: { ...state.sessionInfoMap, [key]: info },
-      };
-    }),
-
-  updateMessageCount: (agentId, sessionId, count) =>
-    set((state) => {
-      const key = sessionKeyOf(agentId, sessionId);
-      const existing = state.sessionInfoMap[key];
-      if (!existing || existing.messageCount === count) return state;
-      return {
-        ...state,
-        sessionInfoMap: {
-          ...state.sessionInfoMap,
-          [key]: { ...existing, messageCount: count },
-        },
       };
     }),
 
@@ -381,6 +373,8 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
       const nextActive = state.activeSessionKey === targetKey
         ? (nextOrder.length > 0 ? nextOrder[Math.min(idx, nextOrder.length - 1)] : null)
         : state.activeSessionKey;
+      // Clean up the pipeline cache for the removed session
+      removePipelineCache(targetKey);
       return {
         ...state,
         tabOrder: nextOrder,
@@ -516,4 +510,37 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
 
   getOverviewItems: (): SessionOverviewItem[] => selectOverviewItems(get()),
   getTabs: (): SessionTabState[] => selectTabs(get()),
+
+  // ── UnifiedChatPanel ─────────────────────────────────────────────────
+
+  pinSession: (sessionKey) =>
+    set((state) => {
+      if (state.pinnedSessionKeys.includes(sessionKey)) return state;
+      return { ...state, pinnedSessionKeys: [...state.pinnedSessionKeys, sessionKey] };
+    }),
+
+  unpinSession: (sessionKey) =>
+    set((state) => {
+      if (!state.pinnedSessionKeys.includes(sessionKey)) return state;
+      return {
+        ...state,
+        pinnedSessionKeys: state.pinnedSessionKeys.filter((k) => k !== sessionKey),
+      };
+    }),
+
+  togglePin: (sessionKey) =>
+    set((state) => {
+      const pinned = state.pinnedSessionKeys.includes(sessionKey)
+        ? state.pinnedSessionKeys.filter((k) => k !== sessionKey)
+        : [...state.pinnedSessionKeys, sessionKey];
+      return { ...state, pinnedSessionKeys: pinned };
+    }),
+
+  setLayoutMode: (mode) =>
+    set((s) => s.layoutMode === mode ? s : { layoutMode: mode }),
+
+  setSplitRatio: (ratio) =>
+    set((s) => s.splitRatio === ratio ? s : { splitRatio: Math.max(0, Math.min(1, ratio)) }),
+
+  setFocusSession: (sessionKey) => set((s) => s.activeSessionKey === sessionKey ? s : { activeSessionKey: sessionKey }),
 }));

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../lib/icons";
 import { elapsedColor } from "../shared/elapsedColor";
-import { useSessionStore } from "../store/sessionStore";
+import { useSessionInfo } from "../hooks/useSessionInfo";
 
 export interface StreamingStatusProps {
   /** Human-readable action label, e.g. "Reading src/auth.ts" */
@@ -35,11 +35,9 @@ export function StreamingStatus({
   lastResponseAt,
   sessionKey,
 }: StreamingStatusProps): React.ReactElement | null {
-  // Subscribe to sessionInfoMap so that lastResponseAt / status updates
-  // from the extension host trigger a re-render immediately.
-  const sessionInfo = useSessionStore((s) =>
-    sessionKey ? s.sessionInfoMap[sessionKey] : undefined,
-  );
+  // Subscribe to session info via useSessionInfo — only re-renders when
+  // the specific session's DTO actually changes (referential equality).
+  const sessionInfo = useSessionInfo(sessionKey ?? null);
 
   const storedActive = sessionInfo?.status === "running";
   const storedLastResponseAt = sessionInfo?.lastResponseAt ?? null;

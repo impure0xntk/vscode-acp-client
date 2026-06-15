@@ -2,9 +2,11 @@ import { sessionKeyOf, useSessionStore } from "./store/sessionStore";
 import { useMessageStore } from "./store/messageStore";
 import { useUiStateStore } from "./store/uiStateStore";
 import { useMeshStore } from "./store/meshStore";
+import { usePathResolutionStore } from "./store/pathResolutionStore";
 import { getVsCodeApi } from "./lib/vscodeApi";
 import { getLogger } from "./lib/logger";
-import { syncMessageCount } from "./store/sync";
+import { toSessionInfoDTO } from "./store/mappers";
+import type { SessionInfoDTO } from "./store/sessionStore";
 
 const log = getLogger("webview.messageHandler");
 
@@ -24,7 +26,6 @@ export function setPendingSwitch(agentId: string, sessionId: string): void {
 }
 import type {
   SessionTabState,
-  SessionInfoSnapshot,
   ConnectedAgentInfo,
   AgentInfo,
   WorkspaceFolder,
@@ -49,7 +50,7 @@ interface SetTabsMessage {
   agents?: ConnectedAgentInfo[];
   workspaceFolders?: WorkspaceFolder[];
   agentInfoMap?: Record<string, AgentInfo>;
-  sessionInfoMap?: Record<string, SessionInfoSnapshot>;
+  sessionInfoMap?: Record<string, SessionInfoDTO>;
 }
 
 interface SessionMessage {
@@ -121,7 +122,16 @@ interface SessionInfo {
   type: "session/info";
   agentId: string;
   sessionId: string;
-  [key: string]: unknown;
+  status: string;
+  lastTurnOutcome: string | null;
+  tokenUsage: { inputTokens: number; outputTokens: number; totalTokens: number };
+  contextWindowMax?: number;
+  model?: string;
+  mode?: string;
+  cwd?: string;
+  isStreaming: boolean;
+  createdAt: string;
+  lastResponseAt: string | null;
 }
 
 interface AgentInfoMessage {
@@ -223,6 +233,26 @@ interface MeshPanelToggleMessage {
   visible: boolean;
 }
 
+// ── Session pin/unpin messages ─────────────────────────────────────────────
+
+interface SessionPinnedNotification {
+  type: "session.pinned";
+  agentId: string;
+  sessionId: string;
+}
+
+interface SessionUnpinnedNotification {
+  type: "session.unpinned";
+  agentId: string;
+  sessionId: string;
+}
+
+interface PathsResolvedMessage {
+  type: "pathsResolved";
+  sessionKey: string;
+  paths: string[];
+}
+
 type WebviewMessage =
   | SetTabsMessage
   | SessionMessage
@@ -250,7 +280,10 @@ type WebviewMessage =
   | MeshMessageMessage
   | MeshAgentConnectedMessage
   | MeshAgentDisconnectedMessage
-  | MeshPanelToggleMessage;
+  | MeshPanelToggleMessage
+  | SessionPinnedNotification
+  | SessionUnpinnedNotification
+  | PathsResolvedMessage;
 
 // ── Handler functions ───────────────────────────────────────────────────────
 
@@ -303,7 +336,6 @@ function handleSetTabs(data: SetTabsMessage): void {
 function handleSessionMessage(data: SessionMessage): void {
   const msgKey = sessionKeyOf(data.agentId, data.sessionId);
   useMessageStore.getState().appendMessage(msgKey, data.message);
-  syncMessageCount(data.agentId, data.sessionId);
 }
 
 function handleSessionStream(data: SessionStream): void {
@@ -327,18 +359,17 @@ function handleSessionStream(data: SessionStream): void {
   }
 }
 
+
 function handleSessionStreamEnd(data: SessionStreamEnd): void {
   const msgKey = sessionKeyOf(data.agentId, data.sessionId);
   useMessageStore.getState().setStreaming(msgKey, false);
   // Sync sessionInfoMap status so Overview/Tab indicators return to idle
   const existing = useSessionStore.getState().sessionInfoMap[msgKey];
   if (existing && existing.status === "running") {
-    const msgsAfter = useMessageStore.getState().perSession[msgKey];
     useSessionStore.getState().setSessionInfo(data.agentId, data.sessionId, {
       ...existing,
       status: "idle",
       isStreaming: false,
-      messageCount: msgsAfter?.length ?? existing.messageCount,
       lastResponseAt: new Date().toISOString(),
     });
   }
@@ -453,20 +484,21 @@ function handleSessionCompleted(data: SessionCompleted): void {
 }
 
 function handleSessionInfo(data: SessionInfo): void {
-  const aId = data.agentId;
-  const sId = data.sessionId;
-  const existing = useSessionStore.getState().sessionInfoMap[sessionKeyOf(aId, sId)];
-  const snapshot = data as unknown as SessionInfoSnapshot;
-
-  // Always sync messageCount from the authoritative source (messageStore).
-  // The session/info message may carry a stale messageCount from the
-  // orchestrator's in-memory state which can lag behind the actual messages
-  // already pushed to the webview via session/message events.
-  const msgStore = useMessageStore.getState();
-  const msgs = msgStore.perSession[sessionKeyOf(aId, sId)];
-  snapshot.messageCount = msgs?.length ?? existing?.messageCount ?? 0;
-
-  useSessionStore.getState().setSessionInfo(aId, sId, snapshot);
+  const dto = toSessionInfoDTO({
+    sessionId: data.sessionId,
+    agentId: data.agentId,
+    status: data.status,
+    lastTurnOutcome: data.lastTurnOutcome,
+    isStreaming: data.isStreaming,
+    tokenUsage: { input: data.tokenUsage.inputTokens, output: data.tokenUsage.outputTokens, total: data.tokenUsage.totalTokens },
+    contextWindowMax: data.contextWindowMax,
+    model: data.model,
+    mode: data.mode,
+    cwd: data.cwd,
+    createdAt: data.createdAt,
+    lastResponseAt: data.lastResponseAt,
+  });
+  useSessionStore.getState().setSessionInfo(data.agentId, data.sessionId, dto);
 }
 
 function handleAgentInfo(data: AgentInfoMessage): void {
@@ -552,6 +584,24 @@ function handleMeshAgentDisconnected(data: MeshAgentDisconnectedMessage): void {
 
 function handleMeshPanelToggle(data: MeshPanelToggleMessage): void {
   useMeshStore.getState().setMeshPanelVisible(data.visible);
+}
+
+function handlePathsResolved(data: PathsResolvedMessage): void {
+  usePathResolutionStore.getState().addResolvedPaths(data.sessionKey, data.paths);
+}
+
+// ── Session pin/unpin handlers ─────────────────────────────────────────────
+
+function handleSessionPinned(data: SessionPinnedNotification): void {
+  const key = sessionKeyOf(data.agentId, data.sessionId);
+  log.info("session pinned", { agentId: data.agentId, sessionId: data.sessionId });
+  useSessionStore.getState().pinSession(key);
+}
+
+function handleSessionUnpinned(data: SessionUnpinnedNotification): void {
+  const key = sessionKeyOf(data.agentId, data.sessionId);
+  log.info("session unpinned", { agentId: data.agentId, sessionId: data.sessionId });
+  useSessionStore.getState().unpinSession(key);
 }
 
 // ── Setup function ──────────────────────────────────────────────────────────
@@ -648,6 +698,15 @@ export function setupMessageHandlers(): void {
         break;
       case "mesh:togglePanel":
         handleMeshPanelToggle(data);
+        break;
+      case "pathsResolved":
+        handlePathsResolved(data);
+        break;
+      case "session.pinned":
+        handleSessionPinned(data);
+        break;
+      case "session.unpinned":
+        handleSessionUnpinned(data);
         break;
     }
   });

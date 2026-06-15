@@ -27,10 +27,10 @@ export interface Session {
 // Session Info — extended runtime state (includes messages, token usage)
 // ============================================================================
 
-import type { ChatMessage, TokenUsage } from "./chat";
+import type { TokenUsage } from "./chat";
 
 // Re-export for convenience
-export type { ChatMessage, TokenUsage };
+export type { TokenUsage };
 
 export interface SessionInfo {
   sessionId: string;
@@ -41,7 +41,6 @@ export interface SessionInfo {
   model?: string;
   status: SessionStatus;
   lastTurnOutcome: TurnOutcome | null;
-  messages: ChatMessage[];
   /** True while streaming content is in progress (between stream start and stream end) */
   isStreaming: boolean;
   tokenUsage: TokenUsage;

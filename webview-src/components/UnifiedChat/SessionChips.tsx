@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useCallback } from "react";
+import { useLogger } from "../../hooks/useLogger";
 import { StatusIcon } from "../StatusIcon";
 
 export interface SessionChipData {
@@ -23,6 +24,23 @@ export const SessionChips = React.memo(function SessionChips({
   onSelect,
   onAdd,
 }: SessionChipsProps): React.ReactElement {
+  const log = useLogger("SessionChips");
+
+  const handleSelect = useCallback(
+    (key: string) => {
+      log.debug("chip select", { key });
+      onSelect(key);
+    },
+    [onSelect, log],
+  );
+
+  const handleAdd = useCallback(() => {
+    log.info("chip add — new session picker requested");
+    onAdd();
+  }, [onAdd, log]);
+
+  log.debug("render", { count: sessions.length, activeSessionKey });
+
   return (
     <div className="session-chips-bar">
       {sessions.map((session) => {
@@ -31,7 +49,7 @@ export const SessionChips = React.memo(function SessionChips({
           <button
             key={session.key}
             className={`session-chip${isActive ? " session-chip--active" : ""}`}
-            onClick={() => onSelect(session.key)}
+            onClick={() => handleSelect(session.key)}
             type="button"
             style={{ borderLeftColor: session.color }}
           >
@@ -46,10 +64,10 @@ export const SessionChips = React.memo(function SessionChips({
       })}
       <button
         className="session-chip session-chip-add"
-        onClick={onAdd}
+        onClick={handleAdd}
         type="button"
       >
-        + 追加
+        + Add
       </button>
     </div>
   );

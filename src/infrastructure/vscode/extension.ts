@@ -555,6 +555,17 @@ function wireOrchestratorEvents(meshOrch: MeshOrchestrator): void {
     });
   });
 
+  // Session pin/unpin: forward to webview
+  orchestrator.on("sessionPinned", ({ agentId, sessionId }) => {
+    if (!chatPanel) return;
+    chatPanel.postMessage({ type: "session.pinned", agentId, sessionId });
+  });
+
+  orchestrator.on("sessionUnpinned", ({ agentId, sessionId }) => {
+    if (!chatPanel) return;
+    chatPanel.postMessage({ type: "session.unpinned", agentId, sessionId });
+  });
+
   // Send overview position setting to webview
   void sendOverviewPosition();
 }

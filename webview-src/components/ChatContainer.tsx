@@ -15,6 +15,7 @@ export interface ChatContainerProps {
   sessionKey?: string;
   agentId?: string;
   status?: "idle" | "running" | "completed" | "error" | "cancelled" | "warning";
+  isActive?: boolean;
   scrollToMessageRef?: React.MutableRefObject<
     ((id: string) => void) | undefined
   >;

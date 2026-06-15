@@ -1,4 +1,4 @@
-import type { SessionStatus } from "./session";
+import type { SessionStatus, TurnOutcome } from "./session";
 
 // ============================================================================
 // Agent Definition — static configuration for an agent
@@ -73,6 +73,7 @@ export interface SessionStatusInfo {
   sessionId: string;
   title: string;
   status: SessionStatus;
+  lastTurnOutcome: TurnOutcome | null;
   isActive: boolean;
   messageCount: number;
   tokenUsage: TokenUsage;

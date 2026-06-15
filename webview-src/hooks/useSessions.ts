@@ -1,6 +1,6 @@
 import { useSyncExternalStore, useCallback } from "react";
 import { useSessionStore } from "../store/sessionStore";
-import type { SessionInfoSnapshot, SessionTabState } from "../store/sessionStore";
+import type { SessionInfoDTO, SessionTabState } from "../store/sessionStore";
 
 // ── Session / Tab hooks ─────────────────────────────────────────────────────
 
@@ -75,9 +75,9 @@ export function computeActiveSessionKey(
 }
 
 /**
- * Get the SessionInfoSnapshot for the active session.
+ * Get the SessionInfoDTO for the active session.
  */
-export function useActiveSessionInfo(): SessionInfoSnapshot | undefined {
+export function useActiveSessionInfo(): SessionInfoDTO | undefined {
   const s = useSessionStore.getState();
   const activeSessionId = s.activeSessionKey?.split(":")[1] ?? null;
   const activeAgentId = s.activeSessionKey?.split(":")[0] ?? null;

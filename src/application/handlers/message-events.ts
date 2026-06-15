@@ -136,8 +136,7 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
           orchestrator.getSessionInfo(agentId, sessionId)?.title ?? sessionId,
         status: "running",
         isActive: true,
-        messageCount:
-          orchestrator.getSessionInfo(agentId, sessionId)?.messages.length ?? 0,
+        messageCount: 0,
         tokenUsage: orchestrator.getSessionInfo(agentId, sessionId)
           ?.tokenUsage ?? {
           input: 0,

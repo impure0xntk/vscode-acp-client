@@ -79,7 +79,7 @@ export function registerSessionCommands(
         const pick = await vscode.window.showQuickPick(
           sessions.map((s) => ({
             label: `$(circle-${s.status === "running" ? "filled" : "outline"}) ${s.title}`,
-            description: `${s.sessionId.slice(0, 8)} · ${s.status} · ${s.messages.length} msgs`,
+            description: `${s.sessionId.slice(0, 8)} · ${s.status}`,
             sessionId: s.sessionId,
           })),
           { placeHolder: "Select session to fork" }
@@ -336,7 +336,7 @@ export function registerSessionCommands(
       const pick = await vscode.window.showQuickPick(
         sessions.map((s) => ({
           label: s.title,
-          description: `${s.sessionId.slice(0, 8)} · ${s.messages.length} msgs`,
+          description: `${s.sessionId.slice(0, 8)} · ${s.status}`,
           sessionId: s.sessionId,
         })),
         { placeHolder: "Select session to fork" }
@@ -536,6 +536,62 @@ export function registerSessionCommands(
         }
       }
       sendTabsToChatPanel();
+    }
+  );
+
+  // acp.pinSession
+  const pinSessionCmd = vscode.commands.registerCommand(
+    "acp.pinSession",
+    async () => {
+      const agentId = await pickConnectedAgent("Select agent");
+      if (!agentId) return;
+      const sessions = orchestrator.getSessionsForAgent(agentId);
+      if (sessions.length === 0) {
+        void vscode.window.showWarningMessage("ACP: No sessions for this agent");
+        return;
+      }
+      const pick = await vscode.window.showQuickPick(
+        sessions.map((s) => ({
+          label: `$(circle-${s.status === "running" ? "filled" : "outline"}) ${s.title}`,
+          description: `${s.sessionId.slice(0, 8)} · ${s.status}`,
+          sessionId: s.sessionId,
+        })),
+        { placeHolder: "Select session to pin" }
+      );
+      if (!pick) return;
+      orchestrator.pinSession(agentId, pick.sessionId);
+    }
+  );
+
+  // acp.unpinSession
+  const unpinSessionCmd = vscode.commands.registerCommand(
+    "acp.unpinSession",
+    async () => {
+      const agentId = await pickConnectedAgent("Select agent");
+      if (!agentId) return;
+      const sessions = orchestrator.getSessionsForAgent(agentId);
+      if (sessions.length === 0) {
+        void vscode.window.showWarningMessage("ACP: No sessions for this agent");
+        return;
+      }
+      const pinnedIds = orchestrator.getPinnedSessions(agentId);
+      if (pinnedIds.length === 0) {
+        void vscode.window.showWarningMessage("ACP: No pinned sessions for this agent");
+        return;
+      }
+      const pick = await vscode.window.showQuickPick(
+        pinnedIds.map((sid) => {
+          const s = sessions.find((ss) => ss.sessionId === sid);
+          return {
+            label: `$(circle-${s?.status === "running" ? "filled" : "outline"}) ${s?.title ?? sid.slice(0, 8)}`,
+            description: `${sid.slice(0, 8)} · ${s?.status ?? "unknown"}`,
+            sessionId: sid,
+          };
+        }),
+        { placeHolder: "Select session to unpin" }
+      );
+      if (!pick) return;
+      orchestrator.unpinSession(agentId, pick.sessionId);
     }
   );
 

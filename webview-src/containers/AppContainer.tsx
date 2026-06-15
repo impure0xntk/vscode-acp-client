@@ -20,6 +20,7 @@ import {
 } from "../store/sessionStore";
 import type { SessionStoreState, SessionTabState } from "../store/sessionStore";
 import { useMessageStore } from "../store/messageStore";
+import { selectMessageCount } from "../store/selectors";
 import { useUiStateStore } from "../store/uiStateStore";
 import { useMeshStore } from "../store/meshStore";
 import { getVsCodeApi } from "../lib/vscodeApi";
@@ -28,6 +29,7 @@ import { useShallow } from "zustand/shallow";
 import { useChatHandlers } from "./hooks/useChatHandlers";
 import { useOverviewHandlers } from "./hooks/useOverviewHandlers";
 import { ChatArea } from "./ChatArea";
+import { UnifiedChatPanel } from "../components/UnifiedChat/UnifiedChatPanel";
 import type { ContextAttachment, SendTarget } from "../types";
 
 export function AppContainer(): React.ReactElement {
@@ -84,6 +86,7 @@ export function AppContainer(): React.ReactElement {
   );
 
   const {
+    panelMode,
     overviewVisible,
     overviewWidth,
     overviewPosition,
@@ -92,6 +95,7 @@ export function AppContainer(): React.ReactElement {
     overviewSelectedSessionIds,
     overviewSelectionMode,
   } = useUiStateStore(useShallow((s) => ({
+    panelMode: s.panelMode,
     overviewVisible: s.overviewVisible,
     overviewWidth: s.overviewWidth,
     overviewPosition: s.overviewPosition,
@@ -115,7 +119,9 @@ export function AppContainer(): React.ReactElement {
     totalTokens: 0,
   };
   const displayContextWindowMax = activeSessionInfo?.contextWindowMax;
-  const displayMessageCount = activeSessionInfo?.messageCount ?? 0;
+  const displayMessageCount = activeSessionKey
+    ? selectMessageCount(useMessageStore.getState(), activeSessionKey.split(":")[0], activeSessionKey.split(":")[1])
+    : 0;
   const displaySessionStartMs = activeSessionInfo?.createdAt
     ? new Date(activeSessionInfo.createdAt).getTime()
     : undefined;
@@ -475,81 +481,118 @@ export function AppContainer(): React.ReactElement {
         />
       )}
       <div className="main-content">
-        {!overviewVisible && (
-          <SessionTabs
-            tabs={tabs}
-            activeSessionId={activeSessionId}
-            activeAgentId={activeAgentId}
-            connectedAgents={connectedAgents}
-            overviewItems={overviewItemsMap}
-            onTabClick={handleTabClick}
-            onTabClose={handleTabClose}
-            onTabReorder={(tabs) => {
-              const order = tabs.map((t) => sessionKeyOf(t.agentId, t.sessionId));
-              useSessionStore.getState().setTabOrder(order);
-            }}
-            onNewSession={handleNewSession}
+        {/* Panel mode toggle */}
+        <div className="panel-mode-toggle">
+          <button
+            className={`panel-mode-btn${panelMode === "classic" ? " panel-mode-btn--active" : ""}`}
+            onClick={() => useUiStateStore.getState().setPanelMode("classic")}
+            type="button"
+          >
+            Classic
+          </button>
+          <button
+            className={`panel-mode-btn${panelMode === "unified" ? " panel-mode-btn--active" : ""}`}
+            onClick={() => useUiStateStore.getState().setPanelMode("unified")}
+            type="button"
+          >
+            Unified
+          </button>
+        </div>
+
+        {panelMode === "unified" ? (
+          <UnifiedChatPanel
+            onSendMessage={handleMeshSend}
+            onCancel={handleCancel}
+            onSwitchSession={switchTab}
+            disabled={!activeSessionId}
+            status={displayStatus}
+            fetchFiles={fetchFiles}
+            resolveFile={resolveFile}
+            resolveSelection={resolveSelection}
+            resolveDiff={resolveDiff}
+            fetchSymbols={fetchSymbols}
+            resolveSymbol={resolveSymbol}
+            availableCommands={availableCommands}
           />
-        )}
-        {validNotifications.length > 0 && (
-          <div className="completion-notification-stack">
-            {validNotifications.map((notif, idx) => (
-              <CompletionNotification
-                key={`${notif.agentId}:${notif.sessionId}:${idx}`}
-                agentId={notif.agentId}
-                sessionId={notif.sessionId}
-                title={notif.title}
-                outcome={notif.outcome}
-                onDismiss={dismissCompletedNotification}
-                onSwitchTab={handleTabClick}
+        ) : (
+          <>
+            {!overviewVisible && (
+              <SessionTabs
+                tabs={tabs}
+                activeSessionId={activeSessionId}
+                activeAgentId={activeAgentId}
+                connectedAgents={connectedAgents}
+                overviewItems={overviewItemsMap}
+                onTabClick={handleTabClick}
+                onTabClose={handleTabClose}
+                onTabReorder={(tabs) => {
+                  const order = tabs.map((t) => sessionKeyOf(t.agentId, t.sessionId));
+                  useSessionStore.getState().setTabOrder(order);
+                }}
+                onNewSession={handleNewSession}
               />
-            ))}
-          </div>
+            )}
+            {validNotifications.length > 0 && (
+              <div className="completion-notification-stack">
+                {validNotifications.map((notif, idx) => (
+                  <CompletionNotification
+                    key={`${notif.agentId}:${notif.sessionId}:${idx}`}
+                    agentId={notif.agentId}
+                    sessionId={notif.sessionId}
+                    title={notif.title}
+                    outcome={notif.outcome}
+                    onDismiss={dismissCompletedNotification}
+                    onSwitchTab={handleTabClick}
+                  />
+                ))}
+              </div>
+            )}
+            <TopToolbar
+              messages={activeMessages}
+              agentId={activeAgentId ?? undefined}
+              agentName={activeAgentId ? agentInfoMap[activeAgentId]?.name : undefined}
+              connectedAgents={connectedAgents}
+              model={displayModel}
+              mode={displayMode}
+              cwd={displayCwd}
+              workspaceRoot={workspaceRoot}
+              status={displayStatus}
+              onJumpToMessage={handleJumpToMessage}
+              sessionOverviewVisible={overviewVisible}
+              onToggleSessionOverview={toggleSessionOverview}
+              sessionOverviewPosition={overviewPosition}
+            />
+            <ChatArea
+              activeKey={activeSessionKey}
+              disabled={!activeSessionId}
+              onSend={handleMeshSend}
+              onCancel={handleCancel}
+              onSwitchSession={switchTab}
+              fetchFiles={fetchFiles}
+              resolveFile={resolveFile}
+              resolveSelection={resolveSelection}
+              resolveDiff={resolveDiff}
+              fetchSymbols={fetchSymbols}
+              resolveSymbol={resolveSymbol}
+              availableCommands={availableCommands}
+              scrollToMessageRef={scrollToMessageRef}
+            />
+            <BottomToolbar
+              model={displayModel}
+              mode={displayMode}
+              tokenUsage={displayTokenUsage}
+              contextWindowMax={displayContextWindowMax}
+              messageCount={displayMessageCount}
+              sessionStatus={displayStatus}
+              agentInfo={activeAgentId ? agentInfoMap[activeAgentId] : undefined}
+              sessionId={activeSessionId ?? undefined}
+              sessionStartMs={displaySessionStartMs}
+              onForkSession={activeSessionId ? () => forkSession(activeSessionId) : undefined}
+              statusline={statusline}
+              cwd={displayCwd}
+            />
+          </>
         )}
-        <TopToolbar
-          messages={activeMessages}
-          agentId={activeAgentId ?? undefined}
-          agentName={activeAgentId ? agentInfoMap[activeAgentId]?.name : undefined}
-          connectedAgents={connectedAgents}
-          model={displayModel}
-          mode={displayMode}
-          cwd={displayCwd}
-          workspaceRoot={workspaceRoot}
-          status={displayStatus}
-          onJumpToMessage={handleJumpToMessage}
-          sessionOverviewVisible={overviewVisible}
-          onToggleSessionOverview={toggleSessionOverview}
-          sessionOverviewPosition={overviewPosition}
-        />
-        <ChatArea
-          activeKey={activeSessionKey}
-          disabled={!activeSessionId}
-          onSend={handleMeshSend}
-          onCancel={handleCancel}
-          onSwitchSession={switchTab}
-          fetchFiles={fetchFiles}
-          resolveFile={resolveFile}
-          resolveSelection={resolveSelection}
-          resolveDiff={resolveDiff}
-          fetchSymbols={fetchSymbols}
-          resolveSymbol={resolveSymbol}
-          availableCommands={availableCommands}
-          scrollToMessageRef={scrollToMessageRef}
-        />
-        <BottomToolbar
-          model={displayModel}
-          mode={displayMode}
-          tokenUsage={displayTokenUsage}
-          contextWindowMax={displayContextWindowMax}
-          messageCount={displayMessageCount}
-          sessionStatus={displayStatus}
-          agentInfo={activeAgentId ? agentInfoMap[activeAgentId] : undefined}
-          sessionId={activeSessionId ?? undefined}
-          sessionStartMs={displaySessionStartMs}
-          onForkSession={activeSessionId ? () => forkSession(activeSessionId) : undefined}
-          statusline={statusline}
-          cwd={displayCwd}
-        />
       </div>
 
       {meshPanelVisible && (

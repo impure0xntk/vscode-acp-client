@@ -254,7 +254,7 @@ export class PersistentHistoryStore {
         [
           info.title,
           info.status,
-          info.messages.length,
+          0,
           info.tokenUsage.input,
           info.tokenUsage.output,
           info.tokenUsage.total,
@@ -280,7 +280,7 @@ export class PersistentHistoryStore {
           info.status,
           workspaceName,
           info.createdAt.toISOString(),
-          info.messages.length,
+          0,
           info.tokenUsage.input,
           info.tokenUsage.output,
           info.tokenUsage.total,

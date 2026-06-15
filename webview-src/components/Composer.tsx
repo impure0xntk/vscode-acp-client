@@ -108,6 +108,17 @@ export function Composer({
   const historyIdxRef = useRef(-1);
   const inputBeforeNavRef = useRef("");
 
+  // ── Reset textarea height ─────────────────────────────────────────
+  const resetHeight = useCallback(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
+  }, []);
+
+  // ── Reset picker (ref-wired; useTriggerPicker.reset is assigned after init) ──
+  const resetPickerImpl = useRef<() => void>(() => {});
+  const resetPicker = useCallback(() => { resetPickerImpl.current(); }, []);
+
   // ── Multi-@ send targets ──────────────────────────────────────────
   const sendTargets = useMeshStore((s) => s.sendTargets);
   const addSendTarget = useMeshStore((s) => s.addSendTarget);
@@ -116,6 +127,40 @@ export function Composer({
 
   // Track multi-@ mode: true when at least one @ target is selected
   const isMultiMode = sendTargets.length > 0;
+
+  // ── Send to All Pinned ────────────────────────────────────────────
+  const pinnedSessionKeys = useSessionStore((s) => s.pinnedSessionKeys);
+  const hasPinnedSessions = pinnedSessionKeys.length > 0;
+
+  const handleSendToAllPinned = useCallback(() => {
+    const trimmed = text.trim();
+    if ((!trimmed && attachments.length === 0) || disabled) return;
+
+    // Build targets from all pinned sessions
+    const sessionInfoMap = useSessionStore.getState().sessionInfoMap;
+    const pinnedTargets: SendTarget[] = pinnedSessionKeys
+      .filter((key) => sessionInfoMap[key]) // only include sessions that exist
+      .map((key) => {
+        const [agentId, sessionId] = key.split(":");
+        const info = sessionInfoMap[key];
+        return {
+          agentId,
+          sessionId,
+          label: info?.sessionId?.slice(0, 8) ?? sessionId,
+          status: (info?.status ?? "idle") as "idle" | "running" | "completed" | "error" | "cancelled",
+        };
+      });
+
+    if (pinnedTargets.length === 0) return;
+
+    log.info("sendToAllPinned", { textLen: trimmed.length, targetCount: pinnedTargets.length });
+    onSend(trimmed, attachments, pinnedTargets);
+
+    resetPicker();
+    setText("");
+    setAttachments([]);
+    resetHeight();
+  }, [text, attachments, disabled, pinnedSessionKeys, onSend, resetHeight, resetPicker]);
 
   // ── Suggestion fetch ─────────────────────────────────────────────
 
@@ -387,13 +432,16 @@ export function Composer({
     handleChange: onTriggerChange,
     handleSelect,
     handleClose: onClosePicker,
-    reset: resetPicker,
+    reset: resetPickerHook,
     pickerKeyDownRef,
     registerKeyHandler,
   } = useTriggerPicker({
     fetchSuggestions,
     resolveItem,
   });
+
+  // Wire up the early-defined resetPicker callback to the hook's reset
+  resetPickerImpl.current = resetPickerHook;
 
   // ── Text-change handler ──────────────────────────────────────────
 
@@ -426,12 +474,6 @@ export function Composer({
 
   const handleRemoveAttachment = useCallback((id: string) => {
     setAttachments((prev) => prev.filter((a) => a.id !== id));
-  }, []);
-
-  const resetHeight = useCallback(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-    }
   }, []);
 
   // ── Send ─────────────────────────────────────────────────────────
@@ -591,14 +633,26 @@ export function Composer({
             ■
           </button>
         ) : (
-          <button
-            className="send-button"
-            onClick={handleSend}
-            disabled={disabled || (!text.trim() && attachments.length === 0)}
-            title="Send message"
-          >
-            ↑
-          </button>
+          <>
+            <button
+              className="send-button"
+              onClick={handleSend}
+              disabled={disabled || (!text.trim() && attachments.length === 0)}
+              title="Send to active session"
+            >
+              ↑
+            </button>
+            {hasPinnedSessions && (
+              <button
+                className="send-all-button"
+                onClick={handleSendToAllPinned}
+                disabled={disabled || (!text.trim() && attachments.length === 0)}
+                title={`Send to all pinned (${pinnedSessionKeys.length})`}
+              >
+                ↑↑
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>
