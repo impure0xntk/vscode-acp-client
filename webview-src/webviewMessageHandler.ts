@@ -82,7 +82,6 @@ interface SessionSwitch {
   mode?: string;
   cwd?: string;
   createdAt?: string;
-  isTurnActive?: boolean;
   isStreaming?: boolean;
 }
 
@@ -338,7 +337,6 @@ function handleSessionStreamEnd(data: SessionStreamEnd): void {
     useSessionStore.getState().setSessionInfo(data.agentId, data.sessionId, {
       ...existing,
       status: "idle",
-      isTurnActive: false,
       isStreaming: false,
       messageCount: msgsAfter?.length ?? existing.messageCount,
       lastResponseAt: new Date().toISOString(),
@@ -404,7 +402,6 @@ function handleSessionTurnActive(data: SessionTurnActive): void {
   if (existing) {
     useSessionStore.getState().setSessionInfo(data.agentId, data.sessionId, {
       ...existing,
-      isTurnActive: active,
       isStreaming: active,
       status: active ? "running" : "idle",
     });
@@ -449,7 +446,6 @@ function handleSessionCompleted(data: SessionCompleted): void {
     useSessionStore.getState().setSessionInfo(data.agentId, data.sessionId, {
       ...existing,
       status: "completed",
-      isTurnActive: false,
       isStreaming: false,
       lastResponseAt: new Date().toISOString(),
     });

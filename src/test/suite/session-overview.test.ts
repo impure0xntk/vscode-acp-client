@@ -60,7 +60,6 @@ function makeSessionInfo(
     status: "idle",
     lastTurnOutcome: null,
     messages: [],
-    isTurnActive: false,
     isStreaming: false,
     createdAt: now,
     updatedAt: now,

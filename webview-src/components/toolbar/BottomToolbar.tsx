@@ -18,7 +18,6 @@ export interface DetailsPanelProps {
   messageCount: number;
   tokenUsage: { inputTokens: number; outputTokens: number };
   totalTokens: number;
-  isTurnActive: boolean;
   sessionStatus?: string;
   agentInfo?: AgentInfo;
   meta?: ToolbarMeta[];
@@ -44,7 +43,7 @@ export function DetailsPanel(p: DetailsPanelProps): React.ReactElement {
     builtins.push({ key: "status", label: "Status", value: p.sessionStatus, category: "session" });
   if (p.sessionId)
     builtins.push({ key: "sid", label: "Session", value: p.sessionId.slice(0, 8) + "...", category: "session" });
-  if (p.isTurnActive)
+  if (p.sessionStatus === "running")
     builtins.push({ key: "turn", label: "Turn", value: "Active", category: "session" });
 
   const runtime: ToolbarMeta[] = [];
@@ -135,7 +134,6 @@ export interface BottomToolbarProps {
   tokenUsage: { inputTokens: number; outputTokens: number };
   contextWindowMax?: number;
   messageCount: number;
-  isTurnActive: boolean;
   sessionStatus?: SessionTabStatus;
   agentInfo?: AgentInfo;
   sessionId?: string;
@@ -157,7 +155,6 @@ export function BottomToolbar(props: BottomToolbarProps): React.ReactElement {
     tokenUsage,
     contextWindowMax,
     messageCount,
-    isTurnActive,
     sessionStatus,
     agentInfo,
     sessionId,
@@ -177,10 +174,10 @@ export function BottomToolbar(props: BottomToolbarProps): React.ReactElement {
   // Build chips
   const chips: ToolbarMeta[] = [];
 
-  if (mode && isTurnActive) {
+  if (mode && sessionStatus === "running") {
     chips.push({ key: "mode", label: "Mode", value: mode, category: "runtime", modeIcon: mode });
   }
-  if (model && isTurnActive) {
+  if (model && sessionStatus === "running") {
     chips.push({ key: "model", label: "Model", value: model, category: "runtime" });
   }
   if (messageCount > 0) {
@@ -274,7 +271,6 @@ export function BottomToolbar(props: BottomToolbarProps): React.ReactElement {
           messageCount={messageCount}
           tokenUsage={tokenUsage}
           totalTokens={total}
-          isTurnActive={isTurnActive}
           sessionStatus={sessionStatus}
           agentInfo={agentInfo}
           meta={meta}

@@ -19,18 +19,14 @@ export interface SessionTabState {
   status?: "idle" | "running" | "completed" | "error" | "cancelled";
 }
 
-export type SessionState = "idle" | "running";
+export type SessionState = "idle" | "running" | "completed" | "error" | "cancelled";
 export type TurnOutcome = "completed" | "error" | "cancelled";
-// Note: SessionState (type) is the session's runtime state.
-// The Zustand store interface below is also named SessionState — they are
-// distinguished by context (type vs value).
 
 export interface SessionInfoSnapshot {
   sessionId: string;
   agentId: string;
   status: SessionState;
   lastTurnOutcome: TurnOutcome | null;
-  isTurnActive: boolean;
   isStreaming: boolean;
   tokenUsage?: { inputTokens: number; outputTokens: number; totalTokens: number };
   contextWindowMax?: number;
@@ -152,7 +148,7 @@ function sessionInfoEquals(a: SessionInfoSnapshot, b: SessionInfoSnapshot): bool
   return (
     a.status === b.status &&
     a.lastTurnOutcome === b.lastTurnOutcome &&
-    a.isTurnActive === b.isTurnActive &&
+    a.status === b.status &&
     a.isStreaming === b.isStreaming &&
     a.tokenUsage === b.tokenUsage &&
     a.contextWindowMax === b.contextWindowMax &&
@@ -323,7 +319,7 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
       const key = sessionKeyOf(agentId, sessionId);
       const prev = state.sessionInfoMap[key];
       if (prev && sessionInfoEquals(prev, info)) return state;
-      log.debug("setSessionInfo", { agentId, sessionId, status: info.status, isTurnActive: info.isTurnActive });
+      log.debug("setSessionInfo", { agentId, sessionId, status: info.status });
       return {
         ...state,
         sessionInfoMap: { ...state.sessionInfoMap, [key]: info },

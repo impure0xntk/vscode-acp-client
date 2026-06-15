@@ -32,7 +32,7 @@ export interface SessionOverviewItem {
   sessionId: string;
   agentId: string;
   title: string;
-  status: "idle" | "running";
+  status: "idle" | "running" | "completed" | "error" | "cancelled";
   lastTurnOutcome: "completed" | "error" | "cancelled" | null;
   model?: string;
   mode?: string;
@@ -195,7 +195,6 @@ export interface FullState {
   type: "fullState";
   messages: ChatMessage[];
   tokenUsage: TokenUsage;
-  isTurnActive: boolean;
 }
 
 // ── Queued Prompt ───────────────────────────────────────────────────

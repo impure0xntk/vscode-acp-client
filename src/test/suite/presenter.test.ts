@@ -150,7 +150,7 @@ describe("ChatPresenter — Session / Tab Management", () => {
     assert.strictEqual(info.sessionId, "sess-1");
     assert.strictEqual(info.agentId, "claude");
     assert.strictEqual(info.status, "running");
-    assert.strictEqual(info.isTurnActive, true);
+    assert.strictEqual(info.status, "running");
     assert.strictEqual(info.isStreaming, true);
   });
 

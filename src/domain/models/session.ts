@@ -2,7 +2,7 @@
 // Session — runtime state for a single agent session
 // ============================================================================
 
-export type SessionStatus = "idle" | "running";
+export type SessionStatus = "idle" | "running" | "completed" | "error" | "cancelled";
 
 export type TurnOutcome = "completed" | "error" | "cancelled";
 
@@ -42,7 +42,6 @@ export interface SessionInfo {
   status: SessionStatus;
   lastTurnOutcome: TurnOutcome | null;
   messages: ChatMessage[];
-  isTurnActive: boolean;
   /** True while streaming content is in progress (between stream start and stream end) */
   isStreaming: boolean;
   tokenUsage: TokenUsage;

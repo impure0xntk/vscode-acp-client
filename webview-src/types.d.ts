@@ -113,7 +113,6 @@ export interface FullState {
   type: "fullState";
   messages: ChatMessage[];
   tokenUsage: TokenUsage;
-  isTurnActive: boolean;
 }
 export interface ToolCallInfo {
   id: string;
@@ -146,7 +145,7 @@ export interface SessionOverviewItem {
   sessionId: string;
   agentId: string;
   title: string;
-  status: "idle" | "running" | "waiting" | "completed" | "error" | "cancelled";
+  status: "idle" | "running" | "completed" | "error" | "cancelled";
   model?: string;
   mode?: string;
   progress: SessionProgress;

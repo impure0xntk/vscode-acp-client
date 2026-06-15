@@ -16,7 +16,7 @@ export interface TopToolbarProps {
   mode?: string;
   cwd?: string;
   workspaceRoot?: string;
-  isTurnActive?: boolean;
+  status?: "idle" | "running" | "completed" | "error" | "cancelled";
   onJumpToMessage: (messageId: string) => void;
   sessionOverviewVisible?: boolean;
   onToggleSessionOverview?: () => void;
@@ -35,7 +35,7 @@ export function TopToolbar({
   mode,
   cwd,
   workspaceRoot,
-  isTurnActive,
+  status,
   onJumpToMessage,
   sessionOverviewVisible,
   onToggleSessionOverview,
@@ -85,12 +85,12 @@ export function TopToolbar({
             <Icon name="folder-opened" size="sm" /> {cwdLabel}
           </span>
         )}
-        {model && isTurnActive && (
+        {model && status === "running" && (
           <span className="top-toolbar-model" title={model}>
             {model}
           </span>
         )}
-        {mode && isTurnActive && (
+        {mode && status === "running" && (
           <span className="top-toolbar-mode" title={mode}>
             {mode}
           </span>

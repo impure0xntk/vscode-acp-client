@@ -36,7 +36,7 @@ export interface ComposerProps {
   onNewSession?: () => void;
   onSwitchSession?: (agentId: string, sessionId: string) => void;
   disabled?: boolean;
-  isTurnActive?: boolean;
+  status?: "idle" | "running" | "completed" | "error" | "cancelled";
   fetchFiles: (query: string) => Promise<FileCandidate[]>;
   resolveFile: (path: string) => Promise<ContextAttachment>;
   resolveSelection: () => Promise<ContextAttachment | null>;
@@ -88,7 +88,7 @@ export function Composer({
   onNewSession,
   onSwitchSession,
   disabled = false,
-  isTurnActive = false,
+  status = "idle",
   fetchFiles,
   resolveFile,
   resolveSelection,
@@ -582,7 +582,7 @@ export function Composer({
           disabled={disabled}
           rows={1}
         />
-        {isTurnActive ? (
+        {status === "running" ? (
           <button
             className="stop-button"
             onClick={onCancel}

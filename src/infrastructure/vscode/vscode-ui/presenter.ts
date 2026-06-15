@@ -31,7 +31,6 @@ export interface SessionInfoSnapshot {
   sessionId: string;
   agentId: string;
   status: import("../../../domain/models/session").SessionStatus;
-  isTurnActive: boolean;
   isStreaming: boolean;
   tokenUsage: {
     inputTokens: number;
@@ -141,7 +140,6 @@ export class ChatPresenter {
       sessionId: session.sessionId,
       agentId,
       status: session.status,
-      isTurnActive: session.status === "running",
       isStreaming: session.status === "running",
       tokenUsage: {
         inputTokens: session.tokenUsage.input,

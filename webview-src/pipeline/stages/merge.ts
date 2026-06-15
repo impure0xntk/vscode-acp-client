@@ -91,14 +91,14 @@ export function mergeToolBatches(
         pendingTool = { ...msg, role: "agent" as const };
       }
     } else if (msg.role === "agent" && pendingTool) {
-      // Case 3: agent after a promoted tool — inherit carried-over toolCalls.
-      result.push({
-        ...msg,
-        toolCalls: deduplicateToolCalls([
-          ...(pendingTool.toolCalls ?? []),
-          ...(msg.toolCalls ?? []),
-        ]),
-      });
+      // Case 3: agent after a promoted tool — flush the pending tool as its
+      // own agent-role message first, then push the agent message separately.
+      // This ensures tool calls are rendered as a distinct card (User -> Tool
+      // -> Agent) rather than being merged into the agent message, which would
+      // change the visual order when the pipeline is rebuilt from scratch
+      // (e.g. on session switch).
+      result.push({ ...pendingTool, role: "agent" as const });
+      result.push(msg);
       pendingTool = null;
     } else {
       // Any other message — pass through.

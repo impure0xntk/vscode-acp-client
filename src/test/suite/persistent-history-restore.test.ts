@@ -33,7 +33,6 @@ function makeSession(overrides: Partial<SessionInfo> = {}): SessionInfo {
     status: "idle",
     lastTurnOutcome: null,
     messages: [],
-    isTurnActive: false,
     isStreaming: false,
     tokenUsage: { input: 100, output: 50, total: 150 },
     createdAt: new Date(),

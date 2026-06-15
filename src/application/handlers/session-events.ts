@@ -187,7 +187,7 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
       const info = orchestrator.getSessionInfo(agentId, sessionId);
       if (info) {
         cp?.pushSessionInfo(agentId, sessionId, info);
-        cp?.pushTurnActive(agentId, sessionId, info.isTurnActive);
+        cp?.pushTurnActive(agentId, sessionId, info.status === "running");
       }
       // Debounce overview updates — rapid turnActive changes during a turn
       // can flood the webview with sessionOverview:state messages.

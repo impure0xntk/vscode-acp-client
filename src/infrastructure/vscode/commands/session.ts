@@ -255,7 +255,6 @@ export function registerSessionCommands(
         for (const s of agent.sessions.filter(
           (ss) => ss.status === "running"
         )) {
-          orchestrator.setIsTurnActive(agent.agentId, s.sessionId, false);
           await orchestrator.cancel(agent.agentId, s.sessionId);
         }
       }

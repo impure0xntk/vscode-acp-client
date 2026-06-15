@@ -433,7 +433,6 @@ export class SessionOrchestrator extends EventEmitter {
       status: "idle",
       lastTurnOutcome: null,
       messages: [],
-      isTurnActive: false,
       isStreaming: false,
       createdAt: now,
       updatedAt: now,
@@ -644,7 +643,6 @@ export class SessionOrchestrator extends EventEmitter {
         status: "idle",
         lastTurnOutcome: null,
         messages: restoredMessages,
-        isTurnActive: false,
         isStreaming: false,
         createdAt: now,
         updatedAt: now,
@@ -855,7 +853,7 @@ export class SessionOrchestrator extends EventEmitter {
     // This ensures messages sent during an active turn are stacked and
     // delivered in order after the turn completes, even if the user
     // switches to a different session tab meanwhile.
-    if (sessionInfo.isTurnActive) {
+    if (sessionInfo.status === "running") {
       const entry: QueuedPrompt = {
         id: crypto.randomUUID(),
         agentId,
@@ -912,7 +910,6 @@ export class SessionOrchestrator extends EventEmitter {
     sessionInfo.status = "running";
     sessionInfo.lastTurnOutcome = null;
     sessionInfo.updatedAt = new Date();
-    sessionInfo.isTurnActive = true;
     sessionInfo.isStreaming = true;
     log.debug("turn started", { agentId, sessionId });
 
@@ -961,7 +958,6 @@ export class SessionOrchestrator extends EventEmitter {
       });
       throw e;
     } finally {
-      sessionInfo.isTurnActive = false;
       sessionInfo.status = "idle";
       sessionInfo.updatedAt = new Date();
 
@@ -994,7 +990,7 @@ export class SessionOrchestrator extends EventEmitter {
 
     // Another turn may have started (e.g., from a different caller) — skip
     const sessionInfo = this.getSessionInfo(agentId, sessionId);
-    if (!sessionInfo || sessionInfo.isTurnActive) return;
+    if (!sessionInfo || sessionInfo.status === "running") return;
 
     const next = queue.shift()!;
     next.status = "sending";
@@ -1028,7 +1024,6 @@ export class SessionOrchestrator extends EventEmitter {
     if (sessionInfo) {
       sessionInfo.pendingCancel = true;
       sessionInfo.isStreaming = false;
-      sessionInfo.isTurnActive = false;
       sessionInfo.status = "idle";
       sessionInfo.lastTurnOutcome = "cancelled";
       sessionInfo.updatedAt = new Date();
@@ -1274,22 +1269,6 @@ export class SessionOrchestrator extends EventEmitter {
       this.flushToolCallGroup(agentId, sessionId, kind, calls);
     }
     this.pendingToolCalls.delete(key);
-  }
-
-  // ========================================================================
-  // Turn Active Management
-  // ========================================================================
-
-  setIsTurnActive(agentId: string, sessionId: string, active: boolean): void {
-    const sessionInfo = this.getSessionInfo(agentId, sessionId);
-    if (!sessionInfo) {
-      throw new Error(`Session ${sessionId} not found for agent ${agentId}`);
-    }
-
-    sessionInfo.isTurnActive = active;
-    sessionInfo.updatedAt = new Date();
-
-    this.emit("sessionTurnActiveChanged", { agentId, sessionId, active });
   }
 
   // ========================================================================

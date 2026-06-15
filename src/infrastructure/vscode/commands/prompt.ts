@@ -54,13 +54,9 @@ function meshSend(
   if (meshOrchestrator) {
     // Route through MeshOrchestrator → FanoutExecutor for parallel delivery.
     // FanoutExecutor handles pushUserMessage + prompt for each target.
-    // Turn lifecycle (isTurnActive) is managed entirely by prompt() → _executePrompt(),
-    // so we must NOT touch setIsTurnActive here.
     void meshOrchestrator.meshSend(targets, text, attachments);
   } else {
     // Fallback: direct per-target send (degraded, no marker routing)
-    // Turn lifecycle is managed entirely by prompt() → _executePrompt(),
-    // so we must NOT touch setIsTurnActive here.
     for (const target of targets) {
       chatPanel.pushMessage(target.agentId, target.sessionId, userMessage);
       void orchestrator.prompt(target.agentId, target.sessionId, text, context);
@@ -105,7 +101,6 @@ export function wireChatPanelEvents(
   });
 
   chatPanel.onCancelTurn(({ agentId, sessionId }) => {
-    orchestrator.setIsTurnActive(agentId, sessionId, false);
     void orchestrator.cancel(agentId, sessionId);
   });
 

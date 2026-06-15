@@ -35,13 +35,13 @@ export function StreamingStatus({
   lastResponseAt,
   sessionKey,
 }: StreamingStatusProps): React.ReactElement | null {
-  // Subscribe to sessionInfoMap so that lastResponseAt / isTurnActive updates
+  // Subscribe to sessionInfoMap so that lastResponseAt / status updates
   // from the extension host trigger a re-render immediately.
   const sessionInfo = useSessionStore((s) =>
     sessionKey ? s.sessionInfoMap[sessionKey] : undefined,
   );
 
-  const storedActive = sessionInfo?.isTurnActive ?? false;
+  const storedActive = sessionInfo?.status === "running";
   const storedLastResponseAt = sessionInfo?.lastResponseAt ?? null;
 
   const effectiveActive = active || (sessionKey ? storedActive : false);

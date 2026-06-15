@@ -18,7 +18,7 @@ import {
   sessionKeyOf,
   selectTabs,
 } from "../store/sessionStore";
-import type { SessionState, SessionTabState } from "../store/sessionStore";
+import type { SessionStoreState, SessionTabState } from "../store/sessionStore";
 import { useMessageStore } from "../store/messageStore";
 import { useUiStateStore } from "../store/uiStateStore";
 import { useMeshStore } from "../store/meshStore";
@@ -48,7 +48,7 @@ export function AppContainer(): React.ReactElement {
     agentInfoMap,
     sessionCommands,
     statusline,
-  } = useSessionStore(useShallow((s: SessionState) => ({
+  } = useSessionStore(useShallow((s: SessionStoreState) => ({
     activeSessionKey: s.activeSessionKey,
     tabOrder: s.tabOrder,
     tabTitles: s.tabTitles,
@@ -71,7 +71,7 @@ export function AppContainer(): React.ReactElement {
   // tabOrder is the sole source of truth for which tabs exist and their order.
   const tabs = useMemo<SessionTabState[]>(
     () =>
-      tabOrder.map((key): SessionTabState => {
+      tabOrder.map((key: string): SessionTabState => {
         const [agentId, sessionId] = key.split(":");
         return {
           sessionId,
@@ -109,7 +109,6 @@ export function AppContainer(): React.ReactElement {
   const displayMode = activeSessionInfo?.mode;
   const displayCwd = activeSessionInfo?.cwd;
   const displayStatus = activeSessionInfo?.status;
-  const displayIsTurnActive = activeSessionInfo?.isTurnActive ?? false;
   const displayTokenUsage = activeSessionInfo?.tokenUsage ?? {
     inputTokens: 0,
     outputTokens: 0,
@@ -516,7 +515,7 @@ export function AppContainer(): React.ReactElement {
           mode={displayMode}
           cwd={displayCwd}
           workspaceRoot={workspaceRoot}
-          isTurnActive={displayIsTurnActive}
+          status={displayStatus}
           onJumpToMessage={handleJumpToMessage}
           sessionOverviewVisible={overviewVisible}
           onToggleSessionOverview={toggleSessionOverview}
@@ -543,7 +542,6 @@ export function AppContainer(): React.ReactElement {
           tokenUsage={displayTokenUsage}
           contextWindowMax={displayContextWindowMax}
           messageCount={displayMessageCount}
-          isTurnActive={displayIsTurnActive}
           sessionStatus={displayStatus}
           agentInfo={activeAgentId ? agentInfoMap[activeAgentId] : undefined}
           sessionId={activeSessionId ?? undefined}

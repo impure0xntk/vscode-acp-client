@@ -18,7 +18,6 @@ export interface SessionSnapshot {
   agentId: string;
   sessionId: string;
   messages: ChatMessage[];
-  isTurnActive: boolean;
   tokenUsage: TokenUsage; // { input, output, total }
 }
 
@@ -224,7 +223,6 @@ export class ChatPanel {
       type: "session/switch",
       agentId,
       sessionId,
-      isTurnActive: info.isTurnActive,
       isStreaming: info.isStreaming,
       tokenUsage: {
         inputTokens: info.tokenUsage.input,
@@ -367,7 +365,6 @@ export class ChatPanel {
       model: info.model,
       mode: info.mode,
       cwd: info.cwd,
-      isTurnActive: info.isTurnActive,
       isStreaming: info.isStreaming,
       messageCount: info.messages.length,
       createdAt: info.createdAt.toISOString(),

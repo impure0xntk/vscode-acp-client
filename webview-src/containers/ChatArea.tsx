@@ -212,8 +212,8 @@ export function ChatArea({
   const promptQueue = useSessionStore((s) => s.promptQueue);
   const sessionQueue = activeKey ? (promptQueue[activeKey] ?? []) : [];
   const lastResponseAt = activeSessionInfo?.lastResponseAt;
-  const isTurnActive = activeSessionInfo?.isTurnActive ?? false;
   const status = activeSessionInfo?.status;
+  const isTurnActive = status === "running";
 
   return (
     <>
@@ -274,7 +274,7 @@ export function ChatArea({
         onSend={handleSend}
         onCancel={onCancel}
         onSwitchSession={onSwitchSession}
-        isTurnActive={isTurnActive}
+        status={status}
         disabled={disabled}
         fetchFiles={fetchFiles}
         resolveFile={resolveFile}

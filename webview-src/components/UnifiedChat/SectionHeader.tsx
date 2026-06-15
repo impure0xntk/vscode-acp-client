@@ -8,7 +8,6 @@ export interface SectionHeaderProps {
   status: "idle" | "running" | "completed" | "error" | "cancelled";
   color: string;
   isStreaming: boolean;
-  isTurnActive: boolean;
   messageCount: number;
   isActive: boolean;
   onClick: () => void;
@@ -20,7 +19,6 @@ export const SectionHeader = React.memo(function SectionHeader({
   status,
   color,
   isStreaming,
-  isTurnActive,
   messageCount,
   isActive,
   onClick,
@@ -44,7 +42,7 @@ export const SectionHeader = React.memo(function SectionHeader({
         {isStreaming && (
           <span className="unified-section-header-streaming">streaming</span>
         )}
-        {isTurnActive && (
+        {status === "running" && (
           <span className="unified-section-header-turn">turn</span>
         )}
         <span className="unified-section-header-count">({messageCount})</span>

@@ -28,7 +28,7 @@ export interface QueuedPrompt {
 // Session Status — runtime state of the session itself
 // ============================================================================
 
-export type SessionStatus = "idle" | "running";
+export type SessionStatus = "idle" | "running" | "completed" | "error" | "cancelled";
 
 // ============================================================================
 // Turn Outcome — how the last turn ended
@@ -51,7 +51,6 @@ export interface SessionInfo {
   /** Outcome of the most recent turn; null if no turn has completed yet. */
   lastTurnOutcome: TurnOutcome | null;
   messages: ChatMessage[];
-  isTurnActive: boolean;
   /** True while streaming content is in progress */
   isStreaming: boolean;
   tokenUsage: TokenUsage;
