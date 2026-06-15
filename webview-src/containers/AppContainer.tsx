@@ -160,6 +160,13 @@ export function AppContainer(): React.ReactElement {
             ? [{ agentId: activeAgentId, sessionId: activeSessionId, label: displayModel ?? activeAgentId, status: displayStatus ?? "idle" }]
             : [];
 
+      // Guard: if no targets resolved, the session is not yet established.
+      // Dropping the message prevents it from being silently lost.
+      if (resolvedTargets.length === 0) {
+        log.warn("sendMessage dropped — no active session", { textLen: text.length });
+        return;
+      }
+
       getVsCodeApi().postMessage({ type: "mesh:directMulti", text, attachments, targets: resolvedTargets });
     },
     [activeAgentId, activeSessionId, displayModel, displayStatus]

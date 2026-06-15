@@ -7,6 +7,7 @@ import type { SessionCompressionInfo } from "../types";
 // ============================================================================
 
 interface ContextCompressionNoticeProps {
+  /** From CompressionDisplayItem.info — session compression metadata */
   compressionInfo: SessionCompressionInfo;
 }
 

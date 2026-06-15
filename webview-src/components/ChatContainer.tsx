@@ -1,7 +1,7 @@
-import React, { useRef, memo, useMemo, useCallback, useEffect } from "react";
-import { Message } from "./Message";
-import type { ChatMessage } from "../types";
+import React, { useRef, memo, useCallback, useEffect } from "react";
+import { DisplayItemView } from "./DisplayItemView";
 import { useMessages } from "../hooks/useMessages";
+import { useMessagePipeline } from "../hooks/useMessagePipeline";
 import { useScrollController } from "../hooks/useScrollController";
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -13,6 +13,7 @@ const SCROLL_BOTTOM_THRESHOLD = 100;
 export interface ChatContainerProps {
   sessionId?: string;
   sessionKey?: string;
+  agentId?: string;
   status?: "idle" | "running" | "completed" | "error" | "cancelled" | "warning";
   scrollToMessageRef?: React.MutableRefObject<
     ((id: string) => void) | undefined
@@ -30,77 +31,28 @@ export interface ChatContainerProps {
   }) => void;
 }
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-function sessionIdFrom(msg: ChatMessage): string {
-  return msg.sessionId ?? "__nosession__";
-}
-
-function mergeToolBatches(messages: ChatMessage[]): ChatMessage[] {
-  const result: ChatMessage[] = [];
-
-  for (const msg of messages) {
-    if (msg.role === "tool") {
-      // Look back at the last non-tool message in result to decide behavior.
-      const lastNonTool = findLastNonTool(result);
-      if (lastNonTool && lastNonTool.role === "agent") {
-        // Agent → Tool → … : merge tool calls into the preceding agent message.
-        const merged: ChatMessage = {
-          ...lastNonTool,
-          toolCalls: [
-            ...(lastNonTool.toolCalls ?? []),
-            ...(msg.toolCalls ?? []),
-          ],
-        };
-        result[result.indexOf(lastNonTool)] = merged;
-      } else {
-        // User → Tool → … (no preceding agent): treat as new agent message.
-        result.push({ ...msg, role: "agent" });
-      }
-    } else {
-      result.push(msg);
-    }
-  }
-
-  return result;
-}
-
-function findLastNonTool(messages: ChatMessage[]): ChatMessage | null {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].role !== "tool") return messages[i];
-  }
-  return null;
-}
-
-function buildRunKeys(messages: ChatMessage[]): (string | undefined)[] {
-  const result: (string | undefined)[] = [];
-  let lastKey: string | undefined = undefined;
-  for (const msg of messages) {
-    if (msg.role === "agent" && msg.agentId !== undefined) {
-      const sid = sessionIdFrom(msg);
-      if (sid !== "__nosession__") {
-        lastKey = `${sid}::${msg.agentId}`;
-      }
-    }
-    result.push(lastKey);
-  }
-  return result;
-}
-
 // ── Component ──────────────────────────────────────────────────────────────
 
 export const ChatContainer = memo(function ChatContainer({
   sessionId,
   sessionKey,
+  agentId,
   status,
   scrollToMessageRef,
   onScroll,
   forceScrollToBottomRef,
   scrollToUnreadRef,
 }: ChatContainerProps): React.ReactElement {
-  const { messages, isStreaming } = useMessages(sessionKey ?? null);
+  const { messages: rawMessages, isStreaming } = useMessages(sessionKey ?? null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Process raw messages through the pipeline
+  const items = useMessagePipeline(
+    rawMessages,
+    sessionId ?? "",
+    agentId ?? "",
+  );
 
   const {
     scrollToMessage,
@@ -142,10 +94,8 @@ export const ChatContainer = memo(function ChatContainer({
     });
   }, []); // intentionally empty — reads onScroll via ref
 
-  // ── Render helpers ──────────────────────────────────────────────────
-  const isEmpty = messages.length === 0;
-  const merged = useMemo(() => mergeToolBatches(messages), [messages]);
-  const runKeys = useMemo(() => buildRunKeys(merged), [merged]);
+  // ── Render ──────────────────────────────────────────────────────────
+  const isEmpty = items.length === 0;
 
   return (
     <div
@@ -165,25 +115,14 @@ export const ChatContainer = memo(function ChatContainer({
         </div>
       ) : (
         <div className="message-list">
-          {merged.map((msg, idx) => (
-            <React.Fragment key={msg.id}>
-              <Message
-                id={msg.id}
-                role={msg.role}
-                content={msg.content}
-                timestamp={msg.timestamp}
-                toolCalls={msg.toolCalls}
-                inlineFilePaths={msg.inlineFilePaths}
-                attachments={msg.attachments}
-                isConsecutive={
-                  idx > 0 &&
-                  runKeys[idx] !== undefined &&
-                  runKeys[idx] === runKeys[idx - 1]
-                }
-                sessionId={sessionId}
-                compressionInfo={msg.compressionInfo}
-              />
-            </React.Fragment>
+          {items.map((item, idx) => (
+            <DisplayItemView
+              key={item.key}
+              item={item}
+              idx={idx}
+              items={items}
+              sessionId={sessionId}
+            />
           ))}
           {isStreaming && (
             <div className="streaming-cursor">

@@ -253,6 +253,19 @@ function handleSetTabs(data: SetTabsMessage): void {
     agentInfoMap: data.agentInfoMap,
     sessionInfoMap: data.sessionInfoMap,
   });
+
+  // Set activeSessionKey if not already set or if the current key is no
+  // longer in the tab list.  Without this, a race between setTabs and
+  // session/switch messages leaves activeSessionKey null, causing the
+  // first user message to be silently dropped (no resolved targets).
+  const store = useSessionStore.getState();
+  const currentKey = store.activeSessionKey;
+  const newKeys = data.tabs.map((t) => sessionKeyOf(t.agentId, t.sessionId));
+  if (!currentKey || !newKeys.includes(currentKey)) {
+    const fallback = newKeys[0] ?? null;
+    log.info("handleSetTabs: setting activeSessionKey", { from: currentKey, to: fallback });
+    store.setActiveSession(fallback);
+  }
 }
 
 function handleSessionMessage(data: SessionMessage): void {

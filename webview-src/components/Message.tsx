@@ -1,26 +1,18 @@
-import React, { useCallback, useMemo } from "react";
-import { renderMarkdown, type RenderContext } from "../lib/markdown";
+import React, { useCallback } from "react";
+import { renderMarkdown } from "../lib/markdown";
 import { getVsCodeApi } from "../lib/vscodeApi";
-import { Icon, iconForType } from "../lib/icons";
+import { Icon } from "../lib/icons";
 import { ToolBatchSummary } from "./ToolCallCard/ToolBatchSummary";
-import { ToolCallCard, getFileExtension, fileIcon } from "./ToolCallCard";
+import { ToolCallCard } from "./ToolCallCard";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { MessageActions } from "./MessageActions";
-import { ContextCompressionNotice } from "./ContextCompressionNotice";
-import type { ChatMessage, ContextAttachment } from "../types";
+import type { ChatDisplayItem } from "../pipeline";
 
 export interface MessageProps {
-  id: string;
-  role: "user" | "agent" | "system" | "tool";
-  content: string;
-  timestamp: number;
-  toolCalls?: ChatMessage["toolCalls"];
-  thinking?: ChatMessage["thinking"];
-  inlineFilePaths?: string[];
-  attachments?: ContextAttachment[];
-  isConsecutive?: boolean;
+  /** Chat-type PipelineItem — only standard chat messages reach this component */
+  item: ChatDisplayItem;
+  isConsecutive: boolean;
   sessionId?: string;
-  compressionInfo?: ChatMessage["compressionInfo"];
 }
 
 function openFileFromLink(e: React.MouseEvent<HTMLElement>): void {
@@ -31,8 +23,11 @@ function openFileFromLink(e: React.MouseEvent<HTMLElement>): void {
   const filePath = anchor.dataset.filePath;
   if (!filePath) return;
   const line = anchor.dataset.fileLine ? Number(anchor.dataset.fileLine) : undefined;
-  try { getVsCodeApi().postMessage({ type: "openFile", path: filePath, line }); }
-  catch { /* */ }
+  try {
+    getVsCodeApi().postMessage({ type: "openFile", path: filePath, line });
+  } catch {
+    /* vscode API not available in test */
+  }
 }
 
 function copyCodeBlock(e: React.MouseEvent<HTMLElement>): void {
@@ -44,19 +39,27 @@ function copyCodeBlock(e: React.MouseEvent<HTMLElement>): void {
   e.preventDefault();
   e.stopPropagation();
   try {
-    getVsCodeApi().postMessage({ type: "copyToClipboard", text: codeEl.textContent ?? "" });
+    getVsCodeApi().postMessage({
+      type: "copyToClipboard",
+      text: codeEl.textContent ?? "",
+    });
     btn.setAttribute("data-copied", "true");
     setTimeout(() => btn.removeAttribute("data-copied"), 1500);
-  } catch { /* */ }
+  } catch {
+    /* vscode API not available in test */
+  }
 }
 
-function AttachmentChip({ attachment }: { attachment: ContextAttachment }): React.ReactElement {
+function AttachmentChip({
+  attachment,
+}: {
+  attachment: ChatDisplayItem["attachments"][number];
+}): React.ReactElement {
+  const isNavigable = attachment.isNavigable;
+
   const handleClick = useCallback(() => {
     if (!attachment.path) return;
-    const line =
-      attachment.type === "selection" || attachment.type === "symbol"
-        ? attachment.lineRange?.[0]
-        : attachment.lineRange?.[0];
+    const line = attachment.lineRange?.[0];
     try {
       getVsCodeApi().postMessage({ type: "openFile", path: attachment.path, line });
     } catch {
@@ -64,25 +67,9 @@ function AttachmentChip({ attachment }: { attachment: ContextAttachment }): Reac
     }
   }, [attachment]);
 
-  const isNavigable = !!attachment.path;
-
-  // Label: file basename, or "selection", or "symbol", or "diff"
-  const basename = attachment.path
-    ? attachment.path.split("/").pop() ?? attachment.path
-    : undefined;
-  const ext = attachment.path ? getFileExtension(attachment.path) : "";
-
-  // Detail: full path for file, line range for selection/symbol, label for diff
-  const detail =
-    attachment.type === "diff"
-      ? attachment.label
-      : attachment.lineRange
-        ? `${basename}:${attachment.lineRange[0]}-${attachment.lineRange[1]}`
-        : attachment.path ?? attachment.label;
-
   return (
     <span
-      className={`file-chip file-chip-inline${isNavigable ? "" : ""}`}
+      className="file-chip file-chip-inline"
       onClick={isNavigable ? handleClick : undefined}
       title={
         attachment.type === "diff"
@@ -110,16 +97,16 @@ function AttachmentChip({ attachment }: { attachment: ContextAttachment }): Reac
       ) : attachment.type === "symbol" ? (
         <Icon name="symbol-class" size="sm" className="file-chip-icon" />
       ) : (
-        <span className="file-chip-ext">{fileIcon(ext)}</span>
+        <span className="file-chip-ext">{"•"}</span>
       )}
       <span className="file-chip-label">
         {attachment.type === "selection"
-          ? `selection`
+          ? "selection"
           : attachment.type === "symbol"
             ? attachment.label
             : attachment.type === "diff"
               ? "diff"
-              : basename}
+              : (attachment.path.split("/").pop() ?? attachment.path)}
       </span>
       {attachment.type === "selection" && attachment.lineRange && (
         <span className="file-chip-detail">
@@ -132,61 +119,53 @@ function AttachmentChip({ attachment }: { attachment: ContextAttachment }): Reac
 }
 
 export const Message = React.memo(function Message({
-  id, role, content, timestamp, toolCalls, thinking, inlineFilePaths, attachments, isConsecutive, sessionId, compressionInfo,
+  item,
+  isConsecutive,
+  sessionId,
 }: MessageProps): React.ReactElement {
-  const time = new Date(timestamp).toLocaleTimeString();
+  const {
+    role,
+    content,
+    timestamp,
+    resolvedToolCalls,
+    attachments,
+    renderContext,
+    thinking,
+  } = item;
+
+  const time = new Date(timestamp ?? 0).toLocaleTimeString();
   const isSystem = role === "system";
   const isUser = role === "user";
-  const isTool = role === "tool";
   const isAgent = role === "agent";
-  const isCompression = isSystem && compressionInfo !== undefined;
-  const hasToolCalls = toolCalls !== undefined && toolCalls.length > 0;
-  const hasAttachments = isUser && attachments !== undefined && attachments.length > 0;
+  const hasToolCalls = resolvedToolCalls !== undefined && resolvedToolCalls.length > 0;
+  const hasAttachments = isUser && attachments.length > 0;
   const hasContent = content.trim().length > 0;
   // Agent messages with tool calls but no text content (e.g. tool-only turns)
   // should skip the markdown body to avoid empty whitespace.
   const isToolOnlyAgent = isAgent && hasToolCalls && !hasContent;
 
-  const renderCtx: RenderContext | undefined = inlineFilePaths?.length
-    ? { filePaths: new Set(inlineFilePaths) }
-    : undefined;
-
-  const handleMarkdownClick = useCallback((e: React.MouseEvent<HTMLElement>) => {
-    const copyBtn = (e.target as HTMLElement).closest('[data-action="copy"]');
-    if (copyBtn) { copyCodeBlock(e as React.MouseEvent<HTMLElement>); return; }
-    openFileFromLink(e);
-  }, []);
-
-  const batchCalls = useMemo(() => {
-    if (!toolCalls || toolCalls.length === 0) return undefined;
-    // Deduplicate by id — same tool call may arrive via multiple tool messages
-    const seen = new Set<string>();
-    return toolCalls.filter((tc) => {
-      if (seen.has(tc.id)) return false;
-      seen.add(tc.id);
-      return true;
-    }).map((tc) => ({
-      id: tc.id,
-      title: tc.title,
-      kind: tc.kind,
-      status: tc.status,
-      input: tc.input,
-      output: tc.output ?? tc.content?.map((c) => c.text).join("\n"),
-      durationMs: tc.durationMs,
-      locations: tc.locations,
-      diffContent: tc.diffContent,
-    }));
-  }, [toolCalls]);
+  const handleMarkdownClick = useCallback(
+    (e: React.MouseEvent<HTMLElement>) => {
+      const copyBtn = (e.target as HTMLElement).closest('[data-action="copy"]');
+      if (copyBtn) {
+        copyCodeBlock(e as React.MouseEvent<HTMLElement>);
+        return;
+      }
+      openFileFromLink(e);
+    },
+    [],
+  );
 
   return (
     <div
-      className={`message ${isSystem ? "message-system" : isUser ? "message-user" : isTool ? "message-tool" : "message-agent"}`}
-      data-message-id={id}
+      className={`message ${isSystem ? "message-system" : isUser ? "message-user" : "message-agent"}`}
       data-role={role}
     >
       {hasAttachments && (
         <div className="user-attach-row">
-          {attachments!.map((a) => <AttachmentChip key={a.id} attachment={a} />)}
+          {attachments.map((a) => (
+            <AttachmentChip key={a.id} attachment={a} />
+          ))}
         </div>
       )}
       {!isConsecutive && (
@@ -200,7 +179,12 @@ export const Message = React.memo(function Message({
       <div className={isUser ? "message-body-row" : ""}>
         {isUser && (
           <div className="message-user-actions">
-            <MessageActions messageId={id} content={content} isUserMessage={isUser} sessionId={sessionId ?? ""} />
+            <MessageActions
+              messageId={item.key}
+              content={content}
+              isUserMessage={isUser}
+              sessionId={sessionId ?? ""}
+            />
           </div>
         )}
         {!isToolOnlyAgent && (
@@ -211,33 +195,38 @@ export const Message = React.memo(function Message({
               <div className="message-markdown-wrap">
                 <div
                   className={`message-markdown${isSystem ? " message-system-markdown" : ""}`}
-                  dangerouslySetInnerHTML={{ __html: renderMarkdown(content, renderCtx) }}
+                  dangerouslySetInnerHTML={{
+                    __html: renderMarkdown(content, renderContext),
+                  }}
                   onClick={handleMarkdownClick}
                 />
-                {!isSystem && !isTool && (
-                  <MessageActions messageId={id} content={content} isUserMessage={isUser} sessionId={sessionId ?? ""} />
+                {!isSystem && (
+                  <MessageActions
+                    messageId={item.key}
+                    content={content}
+                    isUserMessage={isUser}
+                    sessionId={sessionId ?? ""}
+                  />
                 )}
               </div>
             )}
           </div>
         )}
       </div>
-      {isCompression && compressionInfo && (
-        <div className="message-compression">
-          <ContextCompressionNotice compressionInfo={compressionInfo} />
-        </div>
-      )}
-      {batchCalls && (
+      {hasToolCalls && resolvedToolCalls && (
         <div className="message-tool-batch">
-          {batchCalls.length === 1 ? (
-            <ToolCallCard {...batchCalls[0]} />
+          {resolvedToolCalls.length === 1 ? (
+            <ToolCallCard {...resolvedToolCalls[0]} />
           ) : (
-            <ToolBatchSummary calls={batchCalls} />
+            <ToolBatchSummary calls={resolvedToolCalls} />
           )}
         </div>
       )}
       {thinking && (
-        <ThinkingBlock content={thinking.content} isStreaming={thinking.isStreaming} />
+        <ThinkingBlock
+          content={thinking.content}
+          isStreaming={thinking.isStreaming}
+        />
       )}
     </div>
   );

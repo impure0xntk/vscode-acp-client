@@ -222,6 +222,7 @@ export function ChatArea({
           key={activeKey ?? "none"}
           sessionId={activeKey?.split(":")[1]}
           sessionKey={activeKey ?? undefined}
+          agentId={activeKey?.split(":")[0]}
           status={status}
           scrollToMessageRef={externalScrollToMessageRef}
           onScroll={handleScroll}
