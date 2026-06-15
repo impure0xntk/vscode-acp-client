@@ -12,7 +12,6 @@ import type {
   SessionCompressionInfo,
 } from "../types";
 import type { ContextAttachment } from "../../types";
-import { extractCandidatePaths } from "../../lib/pathPatterns";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -66,27 +65,6 @@ function resolveAttachments(
   }));
 }
 
-function extractInlinePaths(content: string): string[] {
-  const paths: string[] = [];
-  const inlineCodeRegex = /`([^`]+)`/g;
-  let match;
-  while ((match = inlineCodeRegex.exec(content)) !== null) {
-    const code = match[1];
-    const candidates = extractCandidatePaths(code);
-    paths.push(...candidates);
-  }
-  return [...new Set(paths)].slice(0, 50);
-}
-
-function buildRenderContext(
-  msg: ClassifiedMessage,
-  config: AnnotateConfig,
-): { filePaths: Set<string> } | undefined {
-  if (!config.detectInlinePaths) return undefined;
-  const paths = extractInlinePaths(msg.content);
-  return paths.length > 0 ? { filePaths: new Set(paths) } : undefined;
-}
-
 /**
  * Build the group key used to detect consecutive messages from the same source.
  * Messages sharing the same groupKey as their predecessor are marked consecutive
@@ -94,12 +72,11 @@ function buildRenderContext(
  */
 function groupKeyOf(msg: ClassifiedMessage): string {
   if (msg.systemKind !== "info") return "";
-  const agentId = (msg as unknown as Record<string, unknown>).agentId as string | undefined;
   switch (msg.role) {
     case "agent":
-      return `agent:${agentId ?? "unknown"}`;
+      return `agent:${msg.agentId ?? "unknown"}`;
     case "tool":
-      return `agent:${agentId ?? "unknown"}`;
+      return `agent:${msg.agentId ?? "unknown"}`;
     case "system":
       return "system";
     case "user":
@@ -118,7 +95,7 @@ function groupKeyOf(msg: ClassifiedMessage): string {
  */
 function toPipelineItem(
   msg: ClassifiedMessage,
-  config: AnnotateConfig,
+  _config: AnnotateConfig,
   prevGroupKey: string,
 ): { item: PipelineItem | null; groupKey: string } {
   const baseKey = `${msg.role}-${msg.id ?? msg.timestamp ?? "unknown"}`;
@@ -189,9 +166,10 @@ function toPipelineItem(
           content: msg.content,
           key,
           timestamp: ts,
+          agentId: msg.agentId,
           resolvedToolCalls: resolveToolCalls(msg),
-          attachments: resolveAttachments(msg, config),
-          renderContext: buildRenderContext(msg, config),
+          attachments: resolveAttachments(msg, _config),
+
           thinking,
           isConsecutive,
           groupKey: gk,

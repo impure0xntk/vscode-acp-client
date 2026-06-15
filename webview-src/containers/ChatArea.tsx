@@ -138,6 +138,7 @@ export function ChatArea({
       const store = useScrollStateStore.getState();
       scrollTopRef.current = metrics.scrollTop;
 
+      store.setScrollTop(activeKey, metrics.scrollTop);
       store.setIsAtBottom(activeKey, metrics.isAtBottom);
 
       if (metrics.isAtBottom) {

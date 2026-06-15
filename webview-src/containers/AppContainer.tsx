@@ -113,6 +113,8 @@ export function AppContainer(): React.ReactElement {
   const displayMode = activeSessionInfo?.mode;
   const displayCwd = activeSessionInfo?.cwd;
   const displayStatus = activeSessionInfo?.status;
+  const displayLastTurnOutcome = activeSessionInfo?.lastTurnOutcome ?? null;
+  const displayLastResponseAt = activeSessionInfo?.lastResponseAt ?? null;
   const displayTokenUsage = activeSessionInfo?.tokenUsage ?? {
     inputTokens: 0,
     outputTokens: 0,
@@ -590,6 +592,8 @@ export function AppContainer(): React.ReactElement {
               onForkSession={activeSessionId ? () => forkSession(activeSessionId) : undefined}
               statusline={statusline}
               cwd={displayCwd}
+              lastTurnOutcome={displayLastTurnOutcome}
+              lastResponseAt={displayLastResponseAt}
             />
           </>
         )}

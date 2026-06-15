@@ -1,10 +1,11 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { useScrollStateStore } from "../store/scrollStateStore";
 
 /**
  * Scroll controller hook — provides imperative scroll helpers.
  *
- * Scroll position persistence and unread tracking are managed by
- * `useScrollStateStore` in the parent component. This hook only handles:
+ * Scroll position persistence on unmount is handled by ChatContainer's
+ * cleanup effect. This hook only handles:
  * - scroll-to-message (for links)
  * - force scroll-to-bottom (on send)
  * - scroll-to-first-unread (on badge click)
@@ -18,14 +19,47 @@ export function useScrollController(
   const key = sessionKey ?? "__nosession__";
 
   // ── Scroll restore on session key change ──────────────────────────────
+  // ChatContainer unmounts on key change and saves scroll position in its
+  // cleanup effect. When the new ChatContainer mounts, this effect runs
+  // to restore the saved position.
   const prevKeyRef = useRef(key);
-  if (prevKeyRef.current !== key) {
+  const isFirstRenderRef = useRef(true);
+
+  useEffect(() => {
+    const isKeyChange = prevKeyRef.current !== key;
     prevKeyRef.current = key;
-    // Scroll to bottom by default when switching sessions
+
+    // Skip restore on initial mount — content hasn't been rendered yet
+    if (isFirstRenderRef.current) {
+      isFirstRenderRef.current = false;
+      // Still scroll to bottom on first mount
+      requestAnimationFrame(() => {
+        const el = containerRef.current;
+        if (el) {
+          el.scrollTop = el.scrollHeight;
+        }
+      });
+      return;
+    }
+
+    if (!isKeyChange) return;
+
+    // Restore scroll position for the new session.
+    // Use rAF to ensure the DOM has been painted with new session content.
     requestAnimationFrame(() => {
-      bottomRef.current?.scrollIntoView({ behavior: "instant" });
+      const el = containerRef.current;
+      if (!el) return;
+
+      const state = useScrollStateStore.getState().perSession[key];
+      if (state && !state.isAtBottom && state.scrollTop > 0) {
+        // Restore saved scroll position
+        el.scrollTop = state.scrollTop;
+      } else {
+        // No saved state or was at bottom → scroll to bottom
+        el.scrollTop = el.scrollHeight;
+      }
     });
-  }
+  }, [key, containerRef]);
 
   // ── Scroll-to-message (for message links) ───────────────────────────
   const scrollToMessage = useCallback(
@@ -44,8 +78,11 @@ export function useScrollController(
 
   // ── Force scroll to bottom (on send) ────────────────────────────────
   const forceScrollToBottom = useCallback(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "instant" });
-  }, [bottomRef]);
+    const el = containerRef.current;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [containerRef]);
 
   // ── Scroll to first unread or bottom (on badge click) ───────────────
   const scrollToUnread = useCallback(
@@ -58,16 +95,19 @@ export function useScrollController(
       if (msgEl) {
         msgEl.scrollIntoView({ behavior: "smooth", block: "start" });
       } else {
-        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+        el.scrollTop = el.scrollHeight;
       }
     },
-    [containerRef, bottomRef],
+    [containerRef],
   );
 
   // ── Scroll-to-bottom on badge click ─────────────────────────────────
   const handleScrollToBottom = useCallback(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [bottomRef]);
+    const el = containerRef.current;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [containerRef]);
 
   return {
     scrollToMessage,

@@ -27,13 +27,13 @@ function sessionKey(agentId: string, sessionId: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Inline file-path extraction (no I/O — candidates validated in webview)
+// Inline file-path extraction (no I/O — candidates validated by BatchedPathResolver)
 // ---------------------------------------------------------------------------
 
 const LOOKS_LIKE_PATH_RE =
   /^(\.{0,2}\/|~\/|\/|[A-Za-z]:\\)[\w./~$-]+(?:\.[a-zA-Z0-9]+)?$|^[\w./-]+\/[\w./-]+$/;
 
-function extractCandidatePaths(text: string): string[] {
+export function extractCandidatePaths(text: string): string[] {
   const tokens = text.split(/[\s,;:|"'()[\]{}<>]+/).filter(Boolean);
   const seen = new Set<string>();
   const out: string[] = [];
@@ -47,14 +47,6 @@ function extractCandidatePaths(text: string): string[] {
     out.push(trimmed);
   }
   return out;
-}
-
-function attachInlineFilePaths(message: ChatMessage, cwd: string): ChatMessage {
-  // Extract path-like candidates without blocking existence check.
-  // Full validation is deferred to the webview for responsiveness.
-  const candidates = extractCandidatePaths(message.content);
-  if (candidates.length === 0) return message;
-  return { ...message, inlineFilePaths: candidates };
 }
 
 /**
@@ -255,17 +247,20 @@ export class ChatPanel {
     agentId: string,
     sessionId: string,
     message: ChatMessage,
-    cwd?: string
+    _cwd?: string
   ): void {
-    const enriched = cwd ? attachInlineFilePaths(message, cwd) : message;
+    // Attach path candidates for session restore (resource_link blocks).
+    // Existence is validated asynchronously by BatchedPathResolver separately.
+    const candidates = extractCandidatePaths(message.content);
+    const enriched = candidates.length > 0
+      ? { ...message, inlineFilePaths: candidates }
+      : message;
     this.postMessage({
       type: "session/message",
       agentId,
       sessionId,
       message: enriched,
     });
-    // Enqueue path candidates for async existence check
-    const candidates = enriched.inlineFilePaths ?? [];
     if (candidates.length > 0) {
       this.pathResolver.enqueue(candidates);
     }

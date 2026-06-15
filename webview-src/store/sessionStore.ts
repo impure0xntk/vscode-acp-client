@@ -149,9 +149,9 @@ function sessionInfoEquals(a: SessionInfoDTO, b: SessionInfoDTO): boolean {
 }
 
 /**
- * SessionInfoDTO から SessionOverviewItem を導出する。
- * messageCount / toolCallCount / toolCallsCompleted は
- * messageStore のセレクタで取得する設計のため、ここでは 0 とする。
+ * Derives SessionOverviewItem from SessionInfoDTO.
+ * messageCount / toolCallCount / toolCallsCompleted
+ * are obtained via messageStore selectors, so set to 0 here.
  */
 export function snapshotToOverviewItem(
   info: SessionInfoDTO,
@@ -276,7 +276,7 @@ export interface SessionStoreState {
   togglePin: (sessionKey: string) => void;
   setLayoutMode: (mode: "single" | "split" | "grid") => void;
   setSplitDirection: (dir: "vertical" | "horizontal") => void;
-  setSplitRatio: (ratio: number) => void;
+  setSplitRatios: (ratios: number[]) => void;
   setFocusSession: (sessionKey: string | null) => void;
 }
 

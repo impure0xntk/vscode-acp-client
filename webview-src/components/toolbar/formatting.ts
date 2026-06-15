@@ -17,6 +17,14 @@ export function fmtDuration(ms: number): string {
   return `${s}s`;
 }
 
+export function fmtTimestamp(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
 export function fmtCaps(caps: string[]): string {
   if (caps.length <= 3) return caps.join(", ");
   return `${caps.slice(0, 3).join(", ")}, +${caps.length - 3} more`;

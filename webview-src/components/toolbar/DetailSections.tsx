@@ -1,7 +1,7 @@
 import React from "react";
 import type { AgentInfo } from "../../store/sessionStore";
 import { Icon } from "../../lib/icons";
-import { fmtCaps, fmtDuration } from "./formatting";
+import { fmtCaps, fmtDuration, fmtTimestamp } from "./formatting";
 
 // ── Row ─────────────────────────────────────────────────────────────────────
 
@@ -87,6 +87,72 @@ export function MetricsSection({
         <Row label="Messages" value={String(messageCount)} />
         <Row label="Duration" value={`▸ ${duration}`} />
         {model && <Row label="Est. Cost" value={`— (${model})`} />}
+      </div>
+    </section>
+  );
+}
+
+// ── TurnSection ─────────────────────────────────────────────────────────────
+
+export function TurnSection({
+  outcome,
+  lastResponseAt,
+  sessionStartMs,
+}: {
+  outcome: "completed" | "error" | "cancelled" | null;
+  lastResponseAt: string | null;
+  sessionStartMs?: number;
+}): React.ReactElement | null {
+  if (!outcome && !lastResponseAt) return null;
+
+  const outcomeLabel =
+    outcome === "completed"
+      ? "Completed"
+      : outcome === "error"
+        ? "Error"
+        : outcome === "cancelled"
+          ? "Cancelled"
+          : lastResponseAt
+            ? "Active"
+            : "—";
+
+  const outcomeIcon =
+    outcome === "completed"
+      ? "check"
+      : outcome === "error"
+        ? "cross"
+        : outcome === "cancelled"
+          ? "ban"
+          : "circle-outline";
+
+  const outcomeClass =
+    outcome === "completed"
+      ? "turn-section-outcome--completed"
+      : outcome === "error"
+        ? "turn-section-outcome--error"
+        : outcome === "cancelled"
+          ? "turn-section-outcome--cancelled"
+          : "turn-section-outcome--active";
+
+  // Compute turn duration from session start to last response
+  const turnDuration =
+    lastResponseAt && sessionStartMs
+      ? fmtDuration(new Date(lastResponseAt).getTime() - sessionStartMs)
+      : null;
+
+  return (
+    <section className="toolbar-details-section">
+      <h3 className="toolbar-details-section-title">Turn</h3>
+      <div className="toolbar-details-grid">
+        <div className={`toolbar-detail-item ${outcomeClass}`}>
+          <span className="toolbar-detail-label">Outcome</span>
+          <span className="toolbar-detail-value">
+            <Icon name={outcomeIcon} size={12} className="turn-section-icon" />
+            {outcomeLabel}
+          </span>
+        </div>
+        <Row label="Last Response" value={fmtTimestamp(lastResponseAt)} />
+        {turnDuration && <Row label="Turn Duration" value={turnDuration} />}
       </div>
     </section>
   );

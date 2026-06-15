@@ -2,10 +2,10 @@
 
 import type { Disposable, Event, EventEmitter, PlatformUri } from "./types";
 
-/** メッセージ重要度 */
+/** Message severity */
 export type MessageSeverity = "info" | "warning" | "error";
 
-/** QuickPick アイテム */
+/** QuickPick item */
 export interface QuickPickItem {
   label: string;
   description?: string;
@@ -14,13 +14,13 @@ export interface QuickPickItem {
   iconPath?: string;
 }
 
-/** QuickPick ボタン */
+/** QuickPick button */
 export interface QuickPickButton {
   iconPath: string;
   tooltip?: string;
 }
 
-/** 入力ボックスオプション */
+/** Input box options */
 export interface InputBoxOptions {
   prompt?: string;
   value?: string;
@@ -28,7 +28,7 @@ export interface InputBoxOptions {
   password?: boolean;
 }
 
-/** ファイルダイアログオプション */
+/** File dialog options */
 export interface OpenDialogOptions {
   canSelectMany?: boolean;
   canSelectFiles?: boolean;
@@ -37,7 +37,7 @@ export interface OpenDialogOptions {
   filters?: Record<string, string[]>;
 }
 
-/** ステータスバーアイテム */
+/** Status bar item */
 export interface StatusBarItem {
   text: string;
   tooltip: string;
@@ -47,14 +47,14 @@ export interface StatusBarItem {
   dispose(): void;
 }
 
-/** 出力チャネル */
+/** Output channel */
 export interface OutputChannel {
   appendLine(value: string): void;
   show(): void;
   dispose(): void;
 }
 
-/** ツリービューアイテム */
+/** Tree view item */
 export interface TreeItem {
   label: string;
   collapsibleState: "none" | "collapsed" | "expanded";
@@ -64,14 +64,14 @@ export interface TreeItem {
   tooltip?: string;
 }
 
-/** ツリーデータプロバイダ */
+/** Tree data provider */
 export interface TreeDataProvider<T> {
   onDidChangeTreeData: Event<T | undefined>;
   getTreeItem(element: T): TreeItem;
   getChildren(element?: T): T[] | Promise<T[]>;
 }
 
-/** Webview パネル */
+/** Webview panel */
 export interface WebviewPanel {
   readonly webview: Webview;
   reveal(): void;
@@ -90,7 +90,7 @@ export interface Webview {
   cspSource: string;
 }
 
-/** UI API インターフェース */
+/** UI API interface */
 export interface UIAPI {
   // ── Message display ──
   showMessage(message: string, severity?: MessageSeverity): Promise<void>;

@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import type { ChatMessage } from "../types";
-import { extractCandidatePaths } from "../lib/pathPatterns";
 import { getLogger } from "../lib/logger";
 
 const log = getLogger("webview.store.message");
@@ -71,15 +70,9 @@ export const useMessageStore = create<MessageState>((set) => ({
       let newMessages: ChatMessage[];
       if (last && last.role === "agent" && last.agentId === agentId) {
         const newContent = last.content + chunk;
-        const freshPaths = extractCandidatePaths(newContent);
-        const mergedPaths = [
-          ...new Set([...(last.inlineFilePaths ?? []), ...freshPaths]),
-        ];
-        // Mutate the last element in-place for the new array
         const updatedLast: ChatMessage = {
           ...last,
           content: newContent,
-          inlineFilePaths: mergedPaths.length > 0 ? mergedPaths : undefined,
         };
         newMessages = [...existing.slice(0, -1), updatedLast];
       } else {

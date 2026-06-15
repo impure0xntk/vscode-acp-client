@@ -130,7 +130,6 @@ export const Message = React.memo(function Message({
     timestamp,
     resolvedToolCalls,
     attachments,
-    renderContext,
     thinking,
   } = item;
 
@@ -145,12 +144,9 @@ export const Message = React.memo(function Message({
 
   const mergedContext = useMemo(
     () => ({
-      filePaths: new Set([
-        ...(renderContext?.filePaths ?? []),
-        ...(resolvedPaths ? [...resolvedPaths] : []),
-      ]),
+      filePaths: resolvedPaths ? new Set(resolvedPaths) : new Set(),
     }),
-    [renderContext?.filePaths, resolvedPaths],
+    [resolvedPaths],
   );
 
   const time = new Date(timestamp ?? 0).toLocaleTimeString();

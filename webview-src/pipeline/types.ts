@@ -54,15 +54,19 @@ export interface ResolvedAttachment {
   detail: string;
 }
 
-export interface RenderContext {
-  filePaths?: Set<string>;
-}
+// ---------------------------------------------------------------------------
+// RenderContext is intentionally removed — inline path linking now relies
+// solely on the extension-host BatchedPathResolver (pathsResolved messages).
+// The webview no longer performs speculative path detection.
+// ---------------------------------------------------------------------------
 
 // ── PipelineItem — final pipeline output (union) ────────────────────────────
 
 /** Standard chat message rendered by <Message /> */
 export interface ChatDisplayItem {
   type: "chat";
+  /** Agent identifier — used for grouping consecutive messages from the same agent */
+  agentId?: string;
   /** Resolved tool calls carried over from merge stage */
   resolvedToolCalls?: ResolvedToolCall[];
   /** Resolved context attachments */
@@ -75,7 +79,6 @@ export interface ChatDisplayItem {
   timestamp: number | undefined;
   /** Role for styling */
   role: "user" | "agent" | "system" | "tool";
-  renderContext: RenderContext | undefined;
   /** Thinking content if present */
   thinking: { content: string; isStreaming: boolean } | undefined;
   /** True when this message is consecutive from the same source — header should be hidden */
@@ -150,7 +153,6 @@ export interface MergeConfig {
 }
 
 export interface AnnotateConfig {
-  detectInlinePaths: boolean;
   resolveAttachments: boolean;
 }
 

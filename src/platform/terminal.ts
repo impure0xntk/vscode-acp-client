@@ -2,7 +2,7 @@
 
 import type { Disposable } from "./types";
 
-/** ターミナル API インターフェース */
+/** Terminal API interface */
 export interface TerminalAPI {
   createTerminal(options: {
     name?: string;

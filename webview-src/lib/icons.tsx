@@ -11,6 +11,8 @@ interface IconProps {
   size?: number;
   strokeWidth?: number;
   fill?: string;
+  title?: string;
+  style?: React.CSSProperties;
 }
 
 // ── Primitive SVG wrapper ───────────────────────────────────────────────────
@@ -261,6 +263,73 @@ export function IconQuestion({ className, size = 16, strokeWidth }: IconProps): 
   );
 }
 
+export function IconPin({ className, size = 16 }: IconProps): React.ReactElement {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M8 1.5l2.5 2.5v4l-2.5 2.5-2.5-2.5v-4z" />
+      <line x1="8" y1="8" x2="8" y2="14.5" />
+    </svg>
+  );
+}
+
+export function IconPinFilled({ className, size = 16 }: IconProps): React.ReactElement {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M8 1.5l2.5 2.5v4l-2.5 2.5-2.5-2.5v-4z" />
+      <line x1="8" y1="8" x2="8" y2="14.5" stroke="var(--bg-primary, #1e1e1e)" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+export function IconRows({ className, size = 16 }: IconProps): React.ReactElement {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="2" y="2" width="12" height="4" rx="1" />
+      <rect x="2" y="10" width="12" height="4" rx="1" />
+    </svg>
+  );
+}
+
+export function IconColumns({ className, size = 16 }: IconProps): React.ReactElement {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="2" y="2" width="5" height="12" rx="1" />
+      <rect x="9" y="2" width="5" height="12" rx="1" />
+    </svg>
+  );
+}
+
+export function IconMoreVertical({ className, size = 16 }: IconProps): React.ReactElement {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" className={className}>
+      <circle cx="8" cy="3" r="1.5" />
+      <circle cx="8" cy="8" r="1.5" />
+      <circle cx="8" cy="13" r="1.5" />
+    </svg>
+  );
+}
+
+export function IconLayoutGrid({ className, size = 16 }: IconProps): React.ReactElement {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2" className={className}>
+      <rect x="2" y="2" width="5" height="5" rx="1" />
+      <rect x="9" y="2" width="5" height="5" rx="1" />
+      <rect x="2" y="9" width="5" height="5" rx="1" />
+      <rect x="9" y="9" width="5" height="5" rx="1" />
+    </svg>
+  );
+}
+
+export function IconLayoutList({ className, size = 16 }: IconProps): React.ReactElement {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2" className={className}>
+      <rect x="2" y="2.5" width="12" height="3" rx="1" />
+      <rect x="2" y="6.5" width="12" height="3" rx="1" />
+      <rect x="2" y="10.5" width="12" height="3" rx="1" />
+    </svg>
+  );
+}
+
 export function IconOutput({ className, size = 16 }: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
@@ -498,6 +567,11 @@ const ICON_COMPONENTS: Record<string, React.FC<IconProps>> = {
   "tool-task":        IconBulletList,
   "tool-mcp":         IconPlug,
   compress:           IconCompress,
+  pin:                IconPin,
+  "pin-filled":       IconPinFilled,
+  "more-vertical":    IconMoreVertical,
+  "layout-grid":       IconLayoutGrid,
+  "layout-list":       IconLayoutList,
 };
 
 export function Icon({

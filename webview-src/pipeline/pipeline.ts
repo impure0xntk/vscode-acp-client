@@ -16,15 +16,23 @@ import { annotateMessages } from "./stages/annotate";
  */
 export class MessagePipeline {
   private cache: PipelineItem[] = [];
+  /** Last groupKey from the most recent annotation pass — preserved across resets */
+  private lastGroupKey: string = "";
 
   constructor(private config: PipelineConfig) {}
 
   /**
    * Process all messages from scratch (first render).
+   * Carries over lastGroupKey from previous state so that consecutive
+   * message detection works across session switches.
    */
   process(messages: RawMessage[], ctx: PipelineContext): PipelineItem[] {
-    const result = this.runStages(messages, ctx);
+    const result = this.runStages(messages, ctx, this.lastGroupKey);
     this.cache = result;
+    // Update lastGroupKey from the last cached item
+    const lastItem = result.length > 0 ? result[result.length - 1] : null;
+    this.lastGroupKey =
+      lastItem && lastItem.type === "chat" ? lastItem.groupKey : "";
     return this.cache;
   }
 
@@ -68,6 +76,8 @@ export class MessagePipeline {
               content:
                 lastCached.type === "chat" ? lastCached.content : "",
               timestamp: lastCached.timestamp ?? 0,
+              agentId:
+                lastCached.type === "chat" ? lastCached.agentId : undefined,
               systemKind:
                 lastCached.type === "chat"
                   ? ("info" as const)
@@ -119,8 +129,12 @@ export class MessagePipeline {
     // across the cache boundary.
     const lastCached =
       this.cache.length > 0 ? this.cache[this.cache.length - 1] : null;
+    // Use the last chat item's groupKey, or fall back to the preserved
+    // lastGroupKey (which survives cache resets from system messages).
     const lastGroupKey =
-      lastCached && lastCached.type === "chat" ? lastCached.groupKey : "";
+      lastCached && lastCached.type === "chat"
+        ? lastCached.groupKey
+        : this.lastGroupKey;
     const annotated = annotateMessages(
       mergedNew,
       this.config.annotate,
@@ -128,14 +142,26 @@ export class MessagePipeline {
     );
 
     this.cache = [...this.cache, ...annotated];
+    // Update lastGroupKey from the newly appended items.
+    // Only update when the last annotated item is a chat message;
+    // system messages (compression, mode_change, etc.) don't change
+    // the groupKey context for consecutive detection.
+    const lastAnnotated = annotated.length > 0 ? annotated[annotated.length - 1] : null;
+    if (lastAnnotated && lastAnnotated.type === "chat") {
+      this.lastGroupKey = lastAnnotated.groupKey;
+    }
+    // For non-chat items, keep the existing lastGroupKey unchanged
     return this.cache;
   }
 
   /**
    * Clear the internal cache (e.g. on session switch).
+   * Preserves lastGroupKey so consecutive message detection works
+   * across session switches.
    */
   clear(): void {
     this.cache = [];
+    // Intentionally NOT resetting lastGroupKey
   }
 
   /**
@@ -153,7 +179,11 @@ export class MessagePipeline {
 
   // ── Private ───────────────────────────────────────────────────────────
 
-  private runStages(messages: RawMessage[], ctx: PipelineContext): PipelineItem[] {
+  private runStages(
+    messages: RawMessage[],
+    ctx: PipelineContext,
+    initialGroupKey: string = "",
+  ): PipelineItem[] {
     // 1. Classify
     const classified: ClassifiedMessage[] = messages.map((msg) => classifyMessage(msg));
 
@@ -165,7 +195,7 @@ export class MessagePipeline {
       ? mergeToolBatches(filtered, this.config.merge)
       : filtered;
 
-    // 4. Annotate — returns PipelineItem[]
-    return annotateMessages(merged, this.config.annotate);
+    // 4. Annotate — returns PipelineItem[], carrying over groupKey context
+    return annotateMessages(merged, this.config.annotate, initialGroupKey);
   }
 }

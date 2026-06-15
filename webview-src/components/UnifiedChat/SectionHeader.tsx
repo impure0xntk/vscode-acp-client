@@ -1,6 +1,9 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useRef, useState, useEffect } from "react";
 import { useLogger } from "../../hooks/useLogger";
 import { StatusIcon } from "../StatusIcon";
+import type { StatusIconType, TurnOutcome } from "../StatusIcon";
+import type { SessionInfoDTO } from "../../store/sessionStore";
+import { IconPin, IconPinFilled, IconMoreVertical, IconCross } from "../../lib/icons";
 
 export interface SectionHeaderProps {
   sessionKey: string;
@@ -8,14 +11,14 @@ export interface SectionHeaderProps {
   title: string;
   status: "idle" | "running" | "completed" | "error" | "cancelled";
   color: string;
-  isStreaming: boolean;
-  isTurnActive: boolean;
   messageCount: number;
   isActive: boolean;
   isPinned: boolean;
   onClick: () => void;
   onTogglePin: () => void;
   onClose: () => void;
+  /** Session info for token usage and elapsed time display */
+  info?: SessionInfoDTO;
 }
 
 export const SectionHeader = React.memo(function SectionHeader({
@@ -24,18 +27,25 @@ export const SectionHeader = React.memo(function SectionHeader({
   title,
   status,
   color,
-  isStreaming,
-  isTurnActive,
   messageCount,
   isActive,
   isPinned,
   onClick,
   onTogglePin,
   onClose,
+  info,
 }: SectionHeaderProps): React.ReactElement {
   const log = useLogger("SectionHeader");
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Local tick for elapsedMs — recompute every second while running.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (info?.status !== "running" || !info?.lastResponseAt) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [info?.status, info?.lastResponseAt]);
 
   const handleClick = useCallback(() => {
     log.debug("header click", { sessionKey, agentId, isActive });
@@ -84,6 +94,29 @@ export const SectionHeader = React.memo(function SectionHeader({
     return () => document.removeEventListener("mousedown", handler);
   }, [menuOpen]);
 
+  // Compute effective status from info
+  const rawStatus = info?.status ?? status;
+  const lastOutcome: TurnOutcome | null = info?.lastTurnOutcome ?? null;
+  const effectiveStatus: StatusIconType =
+    rawStatus === "running"
+      ? "running"
+      : rawStatus === "idle" && lastOutcome
+        ? lastOutcome
+        : rawStatus === "idle"
+          ? "idle"
+          : rawStatus;
+
+  const elapsedMs =
+    effectiveStatus === "running" && info?.lastResponseAt
+      ? Date.now() - new Date(info.lastResponseAt).getTime()
+      : undefined;
+
+  // Token usage percentage
+  const tokenPercentage =
+    info?.contextWindowMax && info.contextWindowMax > 0
+      ? Math.round((info.tokenUsage.totalTokens / info.contextWindowMax) * 100)
+      : null;
+
   log.debug("render", { sessionKey, agentId, status, isActive, isPinned, messageCount });
 
   return (
@@ -100,16 +133,21 @@ export const SectionHeader = React.memo(function SectionHeader({
         }}
       >
         <span className="unified-section-header-agent">{agentId}</span>
-        <StatusIcon status={status} size="sm" />
+        <StatusIcon status={effectiveStatus} elapsedMs={elapsedMs} size="sm" />
         <span className="unified-section-header-title">{title}</span>
-        {isStreaming && (
-          <span className="unified-section-header-streaming">streaming</span>
-        )}
-        {isTurnActive && (
-          <span className="unified-section-header-turn">turn</span>
-        )}
         <span className="unified-section-header-count">({messageCount})</span>
       </button>
+
+      {/* Token usage mini bar */}
+      {tokenPercentage !== null && (
+        <div className="section-header-token-bar" title={`${tokenPercentage}% context used`}>
+          <div
+            className={`section-header-token-bar-fill${tokenPercentage >= 90 ? " section-header-token-bar-fill--critical" : tokenPercentage >= 70 ? " section-header-token-bar-fill--warning" : ""}`}
+            style={{ width: `${Math.min(tokenPercentage, 100)}%` }}
+          />
+        </div>
+      )}
+
       <div className="unified-section-header-actions">
         <button
           className={`unified-section-header-pin${isPinned ? " unified-section-header-pin--active" : ""}`}
@@ -117,7 +155,7 @@ export const SectionHeader = React.memo(function SectionHeader({
           type="button"
           title={isPinned ? "Unpin session" : "Pin session"}
         >
-          {isPinned ? "📌" : "📍"}
+          {isPinned ? <IconPinFilled size={14} /> : <IconPin size={14} />}
         </button>
         <div className="unified-section-header-menu" ref={menuRef}>
           <button
@@ -126,7 +164,7 @@ export const SectionHeader = React.memo(function SectionHeader({
             type="button"
             title="Section options"
           >
-            ⋮
+            <IconMoreVertical size={14} />
           </button>
           {menuOpen && (
             <div className="unified-section-header-menu-dropdown">
@@ -148,6 +186,7 @@ export const SectionHeader = React.memo(function SectionHeader({
                 }}
                 type="button"
               >
+                <IconCross size={12} style={{ marginRight: 6, display: "inline-block", verticalAlign: "middle" }} />
                 Close
               </button>
             </div>

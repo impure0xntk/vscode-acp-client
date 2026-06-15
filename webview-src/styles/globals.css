@@ -606,6 +606,63 @@ body {
   color: var(--fg-primary);
 }
 
+/* ── Turn Section (Details panel) ──────────────────────────────────── */
+
+.turn-section-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
+.turn-section-outcome--completed .toolbar-detail-value {
+  color: var(--success);
+}
+
+.turn-section-outcome--error .toolbar-detail-value {
+  color: var(--error);
+}
+
+.turn-section-outcome--cancelled .toolbar-detail-value {
+  color: var(--fg-muted);
+  opacity: 0.7;
+}
+
+.turn-section-outcome--active .toolbar-detail-value {
+  color: #4fc3f7;
+}
+
+/* ── Turn chip (statusline) ──────────────────────────────────────── */
+
+.toolbar-chip--turn-completed {
+  border-left: 2px solid var(--success);
+}
+.toolbar-chip--turn-completed .toolbar-chip-value {
+  color: var(--success);
+}
+
+.toolbar-chip--turn-error {
+  border-left: 2px solid var(--error);
+}
+.toolbar-chip--turn-error .toolbar-chip-value {
+  color: var(--error);
+}
+
+.toolbar-chip--turn-cancelled {
+  border-left: 2px solid var(--fg-muted);
+  opacity: 0.7;
+}
+.toolbar-chip--turn-cancelled .toolbar-chip-value {
+  color: var(--fg-muted);
+}
+
+.toolbar-chip--turn-running {
+  border-left: 2px solid #4fc3f7;
+}
+.toolbar-chip--turn-running .toolbar-chip-value {
+  color: #4fc3f7;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -4975,24 +5032,27 @@ body {
   border-color: var(--border);
 }
 
-/* ── Layout toggle bar ── */
+/* ═══════════════════════════════════════════════════════════════════
+   Layout toggle bar — 8px grid
+   ═══════════════════════════════════════════════════════════════════ */
+
 .unified-layout-toggle {
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 2px 8px;
+  gap: 4px;
+  padding: 4px 8px;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
 .unified-layout-btn {
-  padding: 2px 8px;
+  padding: 4px 8px;
   border: 1px solid transparent;
-  border-radius: 3px;
+  border-radius: 4px;
   background: transparent;
   color: var(--fg-muted);
-  font-size: 10px;
+  font-size: 11px;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
@@ -5058,7 +5118,11 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
-/* ── Section header ── */
+/* ═══════════════════════════════════════════════════════════════════
+   Section header — 8px grid
+   Font: 11px label, padding 4px 8px, height ~32px (4×8)
+   ═══════════════════════════════════════════════════════════════════ */
+
 .unified-section-header {
   display: flex;
   align-items: center;
@@ -5066,6 +5130,7 @@ body {
   flex-shrink: 0;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
+  min-height: 32px;
 }
 
 .unified-section-header--active {
@@ -5076,13 +5141,13 @@ body {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
+  gap: 8px;
+  padding: 4px 8px;
   border: none;
   border-left: 3px solid var(--accent);
   background: transparent;
   color: var(--fg-primary);
-  font-size: 10px;
+  font-size: 11px;
   cursor: pointer;
   text-align: left;
   min-width: 0;
@@ -5096,6 +5161,7 @@ body {
 .unified-section-header-agent {
   font-weight: 600;
   font-family: var(--font-mono);
+  font-size: 11px;
   color: var(--fg-secondary);
   flex-shrink: 0;
 }
@@ -5107,25 +5173,44 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--fg-primary);
-}
-
-.unified-section-header-streaming {
-  color: #4fc3f7;
-  font-size: 9px;
-  flex-shrink: 0;
-  animation: blink 1s step-end infinite;
-}
-
-.unified-section-header-turn {
-  color: var(--warning);
-  font-size: 9px;
-  flex-shrink: 0;
+  font-size: 11px;
 }
 
 .unified-section-header-count {
   color: var(--fg-muted);
-  font-size: 9px;
+  font-size: 10px;
   flex-shrink: 0;
+}
+
+/* ── Token usage bar (in section header) ── */
+.section-header-token-bar {
+  height: 3px;
+  width: 60px;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--fg-muted) 15%, transparent);
+  border-radius: 1.5px;
+  overflow: hidden;
+}
+
+.section-header-token-bar-fill {
+  height: 100%;
+  border-radius: 1.5px;
+  background: #4fc3f7;
+  transition: width 0.3s ease;
+}
+
+.section-header-token-bar-fill--warning {
+  background: #ffd54f;
+}
+
+.section-header-token-bar-fill--critical {
+  background: #ef5350;
+  animation: token-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes token-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 /* ── Pin button ── */
@@ -5133,14 +5218,13 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: none;
-  border-radius: 3px;
+  border-radius: 4px;
   background: transparent;
   color: var(--fg-muted);
-  font-size: 12px;
   cursor: pointer;
   flex-shrink: 0;
   transition: background 0.15s ease, color 0.15s ease;
@@ -5168,7 +5252,7 @@ body {
   background: var(--accent);
 }
 
-/* ── Session chips bar ── */
+/* ── Session chips bar (legacy, kept for reference) ── */
 .session-chips-bar {
   display: flex;
   align-items: center;
@@ -5338,20 +5422,22 @@ body {
 .unified-split-direction-toggle {
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 2px 8px;
+  gap: 4px;
+  padding: 4px 8px;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
 .unified-split-dir-btn {
-  padding: 2px 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
   border: 1px solid transparent;
-  border-radius: 3px;
+  border-radius: 4px;
   background: transparent;
   color: var(--fg-muted);
-  font-size: 12px;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
@@ -5386,7 +5472,7 @@ body {
 .unified-section-header-actions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   flex-shrink: 0;
 }
 
@@ -5398,14 +5484,13 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: none;
-  border-radius: 3px;
+  border-radius: 4px;
   background: transparent;
   color: var(--fg-muted);
-  font-size: 14px;
   cursor: pointer;
   flex-shrink: 0;
   transition: background 0.15s ease, color 0.15s ease;
@@ -5425,14 +5510,17 @@ body {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   overflow: hidden;
+  margin-top: 4px;
 }
 
 .unified-section-header-menu-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   width: 100%;
-  padding: 4px 12px;
+  padding: 6px 12px;
   border: none;
   background: transparent;
   color: var(--fg-primary);
@@ -5450,13 +5538,308 @@ body {
   color: var(--error, #f44);
 }
 
-/* ── Session picker dropdown ── */
+/* ── Session picker dropdown (legacy wrapper) ── */
 .session-chips-add-wrapper {
   position: relative;
   flex-shrink: 0;
 }
 
-.session-chips-picker {
+/* ── Unified session bar ── */
+/* ═══════════════════════════════════════════════════════════════════
+   Session Bar — tabs + cards
+   8px grid: padding 8px, gap 4px/8px, radius 4px
+   ═══════════════════════════════════════════════════════════════════ */
+
+.unified-session-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.unified-session-bar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Scroll container ──────────────────────────────────────────── */
+.unified-session-bar-scroll {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.unified-session-bar-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.unified-session-bar-scroll--cards {
+  flex-direction: column;
+  align-items: stretch;
+  overflow-x: visible;
+  overflow-y: auto;
+  max-height: 160px;
+}
+
+/* ── Display mode toggle button ────────────────────────────────── */
+.unified-session-bar-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.unified-session-bar-mode-toggle:hover {
+  background: var(--accent-hover);
+  color: var(--fg-primary);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Tab mode — compact horizontal tabs
+   ═══════════════════════════════════════════════════════════════════ */
+
+.unified-session-bar-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.unified-session-bar-tab:hover {
+  background: var(--accent-hover);
+  color: var(--fg-primary);
+}
+
+.unified-session-bar-tab--active {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--fg-primary);
+  border-color: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.unified-session-bar-tab--hovered {
+  background: var(--accent-hover);
+}
+
+.unified-session-bar-tab-agent {
+  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.unified-session-bar-tab-title {
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 1;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--fg-secondary);
+}
+
+.unified-session-bar-tab-pin {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.unified-session-bar-tab-badge {
+  flex-shrink: 0;
+}
+
+.unified-session-bar-tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.unified-session-bar-tab-close:hover {
+  background: color-mix(in srgb, var(--error) 15%, transparent);
+  color: var(--error);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Card mode — SessionOverviewCard-based compact cards
+   ═══════════════════════════════════════════════════════════════════ */
+
+.unified-session-overview-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-left: 3px solid transparent;
+  border-radius: 4px;
+  background: var(--bg-primary);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.unified-session-overview-card:hover {
+  background: var(--accent-hover);
+}
+
+.unified-session-overview-card:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.unified-session-overview-card--active {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.unified-session-overview-card[data-status="completed"] {
+  border-left-color: var(--success);
+}
+
+.unified-session-overview-card[data-status="error"] {
+  border-left-color: var(--error);
+}
+
+.unified-session-overview-card[data-status="cancelled"] {
+  border-left-color: var(--fg-muted);
+}
+
+/* Card header */
+.unified-session-overview-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  min-width: 0;
+}
+
+.unified-session-overview-card-header-inner {
+  flex: 1;
+  min-width: 0;
+}
+
+.unified-session-overview-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.unified-session-overview-card-pin {
+  opacity: 0.7;
+}
+
+.unified-session-overview-card-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.unified-session-overview-card-close:hover {
+  background: color-mix(in srgb, var(--error) 15%, transparent);
+  color: var(--error);
+}
+
+/* Card footer */
+.unified-session-overview-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.unified-session-overview-card-timestamp {
+  font-size: 10px;
+  color: var(--fg-muted);
+}
+
+/* Card responses */
+.unified-session-overview-card-responses {
+  margin-top: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Add session button + picker
+   ═══════════════════════════════════════════════════════════════════ */
+
+.unified-session-bar-add {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.unified-session-bar-add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.unified-session-bar-add-btn:hover {
+  background: var(--accent-hover);
+  color: var(--fg-primary);
+  border-color: var(--accent);
+}
+
+/* ── Picker dropdown (shared) ──────────────────────────────────── */
+
+.session-chips-picker,
+.unified-session-bar-picker {
   position: absolute;
   top: 100%;
   right: 0;
@@ -5468,22 +5851,24 @@ body {
   border: 1px solid var(--border);
   border-radius: 4px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  margin-top: 2px;
+  margin-top: 4px;
 }
 
-.session-chips-picker-empty {
+.session-chips-picker-empty,
+.unified-session-bar-picker-empty {
   padding: 8px 12px;
   color: var(--fg-muted);
   font-size: 11px;
   font-style: italic;
 }
 
-.session-chips-picker-item {
+.session-chips-picker-item,
+.unified-session-bar-picker-item {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
-  padding: 4px 8px;
+  padding: 6px 8px;
   border: none;
   background: transparent;
   color: var(--fg-primary);
@@ -5493,24 +5878,28 @@ body {
   transition: background 0.1s ease;
 }
 
-.session-chips-picker-item:hover {
+.session-chips-picker-item:hover,
+.unified-session-bar-picker-item:hover {
   background: var(--accent-hover);
 }
 
-.session-chips-picker-dot {
+.session-chips-picker-dot,
+.unified-session-bar-picker-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
-.session-chips-picker-agent {
+.session-chips-picker-agent,
+.unified-session-bar-picker-agent {
   font-weight: 600;
   font-family: var(--font-mono);
   flex-shrink: 0;
 }
 
-.session-chips-picker-session {
+.session-chips-picker-session,
+.unified-session-bar-picker-session {
   color: var(--fg-muted);
   font-size: 10px;
   overflow: hidden;

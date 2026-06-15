@@ -6,7 +6,7 @@ import {
 } from "../../store/sessionStore";
 import type { SessionStoreState, SessionTabState } from "../../store/sessionStore";
 import { useLogger } from "../../hooks/useLogger";
-import { SessionChips } from "./SessionChips";
+import { UnifiedSessionBar } from "./UnifiedSessionBar";
 import { MultiSessionView } from "./MultiSessionView";
 import { Composer } from "../Composer";
 
@@ -63,6 +63,7 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
     setSplitDirection,
     setSplitRatios,
     setFocusSession,
+    removeTab,
   } = useSessionStore(
     useShallow((s: SessionStoreState) => ({
       activeSessionKey: s.activeSessionKey,
@@ -81,6 +82,7 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
       setSplitDirection: s.setSplitDirection,
       setSplitRatios: s.setSplitRatios,
       setFocusSession: s.setFocusSession,
+      removeTab: s.removeTab,
     }))
   );
 
@@ -106,25 +108,6 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
         };
       }),
     [tabOrder, tabTitles, tabIcons],
-  );
-
-  // Build session chip data from tabs (structural only — no sessionInfoMap).
-  // Status is read imperatively; live status rendering is handled by each
-  // SessionChips consumer via useSessionInfo if needed.
-  const sessionChips = useMemo(
-    () =>
-      tabs.map((tab: SessionTabState) => {
-        const agent = connectedAgents.find((a) => a.agentId === tab.agentId);
-        return {
-          key: sessionKeyOf(tab.agentId, tab.sessionId),
-          agentId: tab.agentId,
-          title: tab.title ?? tab.sessionId.slice(0, 8),
-          status: "idle" as const,
-          color: agent?.color ?? "#0e639c",
-          unreadCount: 0,
-        };
-      }),
-    [tabs, connectedAgents],
   );
 
   const handleFocusChange = useCallback(
@@ -158,9 +141,9 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
       log.info("close section", { key });
       // Unpin first, then remove tab
       unpinSession(key);
-      useSessionStore.getState().removeTab(key);
+      removeTab(key);
     },
-    [unpinSession, log],
+    [unpinSession, removeTab, log],
   );
 
   const handleLayoutChange = useCallback(
@@ -184,11 +167,14 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
 
   return (
     <div className={`unified-chat-panel unified-chat-panel--${layoutMode}`}>
-      {/* Session chips bar */}
-      <SessionChips
-        sessions={sessionChips}
+      {/* Session bar */}
+      <UnifiedSessionBar
+        tabs={tabs}
         activeSessionKey={activeSessionKey}
-        onSelect={handleFocusChange}
+        pinnedSessionKeys={pinnedSessionKeys}
+        connectedAgents={connectedAgents}
+        onFocusChange={handleFocusChange}
+        onClose={handleClose}
         onAdd={handleAddSession}
       />
 

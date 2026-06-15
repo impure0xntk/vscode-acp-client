@@ -1,5 +1,5 @@
 import React, { type ReactNode } from "react";
-import type { SessionTabStatus } from "../../store/sessionStore";
+import type { SessionTabStatus, TurnOutcome } from "../../store/sessionStore";
 import { Icon } from "../../lib/icons";
 
 export type ContextColor = "normal" | "warning" | "critical";
@@ -14,6 +14,7 @@ export interface ToolbarMeta {
   modeIcon?: string;
   contextColor?: ContextColor;
   barPct?: number;
+  turnStatus?: TurnOutcome | "running" | null;
 }
 
 const STATUS_DOT: Record<SessionTabStatus, { color: string; icon: string }> = {
@@ -22,6 +23,13 @@ const STATUS_DOT: Record<SessionTabStatus, { color: string; icon: string }> = {
   completed:  { color: "#4ec9b0", icon: "pass-filled" },
   error:      { color: "#f14c4c", icon: "circle-filled" },
   cancelled:  { color: "#666666", icon: "circle-slash" },
+};
+
+const TURN_ICON: Record<string, string> = {
+  running: "watch",
+  completed: "pass-filled",
+  error: "error",
+  cancelled: "circle-slash",
 };
 
 const MODE_ICON: Record<string, string> = {
@@ -41,13 +49,16 @@ export function Chip({
   const cat = meta.category ?? "";
   const dot = meta.statusIndicator ? STATUS_DOT[meta.statusIndicator] : null;
   const resolvedModeIcon = meta.modeIcon ? (MODE_ICON[meta.modeIcon] ?? meta.modeIcon) : null;
+  const turnKey = meta.turnStatus ?? null;
+  const turnIconName = turnKey ? (TURN_ICON[turnKey] ?? null) : null;
+  const turnCls = turnKey ? ` toolbar-chip--turn-${turnKey}` : "";
   const ctxColor = meta.contextColor
     ? ` toolbar-chip--ctx-${meta.contextColor}`
     : "";
 
   return (
     <span
-      className={`toolbar-chip toolbar-chip--${cat}${ctxColor}${onClick ? " toolbar-chip--clickable" : ""}`}
+      className={`toolbar-chip toolbar-chip--${cat}${turnCls}${ctxColor}${onClick ? " toolbar-chip--clickable" : ""}`}
       title={`${meta.label}: ${meta.value}`}
       aria-label={`${meta.label}: ${meta.value}`}
       onClick={onClick}
@@ -61,6 +72,9 @@ export function Chip({
           style={{ color: dot.color }}
           size="sm"
         />
+      )}
+      {turnIconName && !dot && (
+        <Icon name={turnIconName} className="toolbar-chip-icon" size="sm" />
       )}
       {resolvedModeIcon && (
         <Icon name={resolvedModeIcon} className="toolbar-chip-icon" size="sm" />

@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import { useShallow } from "zustand/shallow";
 import {
   useSessionStore,
@@ -9,25 +9,33 @@ import { useSessionInfo } from "../../hooks/useSessionInfo";
 import { useLogger } from "../../hooks/useLogger";
 import { SectionHeader } from "./SectionHeader";
 import { SectionChatContainer } from "./SectionChatContainer";
-import { AgentChip } from "./AgentChip";
+import { IconRows, IconColumns } from "../../lib/icons";
 
 // ── Color palette ──────────────────────────────────────────────────────────
+// WCAG AA compliant on dark bg (#1e1e1e) — contrast ratio ≥ 4.5:1
 
 const AGENT_COLOR_PALETTE = [
-  "#0e639c", // blue
-  "#6c20a3", // purple
-  "#bf8803", // amber
-  "#238636", // green
-  "#c44569", // rose
-  "#8b5cf6", // violet
-  "#0ea5e9", // sky
-  "#f97316", // orange
+  "hsl(210, 70%, 60%)", // blue
+  "hsl(270, 55%, 60%)", // purple
+  "hsl(45,  80%, 55%)", // amber
+  "hsl(145, 45%, 50%)", // green
+  "hsl(345, 60%, 55%)", // rose
+  "hsl(195, 75%, 55%)", // sky
+  "hsl(25,  80%, 55%)", // orange
+  "hsl(320, 50%, 55%)", // pink
 ] as const;
 
-function getSessionColor(state: SessionStoreState, sessionKey: string): string {
-  const idx = state.tabOrder.indexOf(sessionKey);
-  if (idx < 0) return AGENT_COLOR_PALETTE[0];
-  return AGENT_COLOR_PALETTE[idx % AGENT_COLOR_PALETTE.length];
+/** Stable hash-based color — independent of tab order */
+function hashKey(key: string): number {
+  let h = 0;
+  for (let i = 0; i < key.length; i++) {
+    h = ((h << 5) - h + key.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
+function getSessionColor(_state: SessionStoreState, sessionKey: string): string {
+  return AGENT_COLOR_PALETTE[hashKey(sessionKey) % AGENT_COLOR_PALETTE.length];
 }
 
 // ── Single section component ───────────────────────────────────────────────
@@ -42,6 +50,8 @@ interface SessionSectionProps {
   splitIndex: number;
   /** Total number of visible sections in split mode */
   splitTotal: number;
+  /** Per-section split ratios (normalized) */
+  splitRatios: number[];
   pinnedKeys: string[];
   onFocusChange: (key: string) => void;
   onPin: (key: string) => void;
@@ -57,16 +67,25 @@ const SessionSection = React.memo(function SessionSection({
   splitDirection,
   splitIndex,
   splitTotal,
+  splitRatios,
   onFocusChange,
   onPin,
   onUnpin,
   onClose,
-}: SessionSectionProps): React.ReactElement {
+}: SessionSectionProps): React.ReactElement | null {
   const log = useLogger("SessionSection");
   const info = useSessionInfo(sessionKey);
   const color = getSessionColor(useSessionStore.getState(), sessionKey);
   const messages = useMessageStore.getState().perSession[sessionKey] ?? [];
   const lastAgentMsg = [...messages].reverse().find((m) => m.role === "agent");
+
+  // Auto-remove disconnected sessions
+  useEffect(() => {
+    if (!info) {
+      log.info("session disconnected — auto-closing", { sessionKey });
+      onClose(sessionKey);
+    }
+  }, [info, onClose, log, sessionKey]);
 
   log.debug("render", {
     sessionKey,
@@ -77,28 +96,9 @@ const SessionSection = React.memo(function SessionSection({
     messageCount: messages.length,
   });
 
-  // Session disconnected — show placeholder
+  // Don't render anything for disconnected sessions
   if (!info) {
-    return (
-      <div
-        className="unified-session-section unified-session-section--disconnected"
-      >
-        <div className="unified-section-header">
-          <div className="unified-section-header-bar" style={{ borderLeftColor: "#666" }}>
-            <span className="unified-section-header-agent">{sessionKey.split(":")[0]}</span>
-            <span className="unified-section-header-title" style={{ color: "var(--fg-muted)" }}>
-              {sessionKey.split(":")[1]?.slice(0, 8) ?? "unknown"}
-            </span>
-            <span className="unified-section-header-count" style={{ color: "var(--error)" }}>
-              disconnected
-            </span>
-          </div>
-        </div>
-        <div className="unified-disconnected-body">
-          <p>Session disconnected. Reconnect to the agent to continue.</p>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   const sectionClassName = [
@@ -107,17 +107,15 @@ const SessionSection = React.memo(function SessionSection({
     info.isStreaming ? "unified-session-section--streaming" : "",
   ].filter(Boolean).join(" ");
 
-  // ── Split flex sizing ────────────────────────────────────────────────
-  // Each section gets equal share. Divider drag adjusts via CSS custom
-  // property set on the container, but for simplicity we use equal flex
-  // and rely on the container's --split-ratios custom property.
+  // ── Split flex sizing from splitRatios ───────────────────────────────
   const sectionStyle: React.CSSProperties | undefined = (() => {
     if (layoutMode === "split") {
-      // Equal distribution; divider drag adjusts container-level ratios
-      const pct = 100 / splitTotal;
-      return splitDirection === "horizontal"
-        ? { flex: `1 1 ${pct}%`, maxWidth: `${pct}%` }
-        : { flex: `1 1 ${pct}%`, maxHeight: `${pct}%` };
+      const ratio = splitRatios[splitIndex] ?? (1 / splitTotal);
+      const pct = ratio * 100;
+      if (splitDirection === "horizontal") {
+        return { flex: `0 0 ${pct}%`, maxWidth: `${pct}%`, minWidth: "10%" };
+      }
+      return { flex: `0 0 ${pct}%`, maxHeight: `${pct}%`, minHeight: "10%" };
     }
     if (layoutMode === "grid") {
       const cols = splitTotal <= 1 ? 1 : splitTotal <= 2 ? 2 : splitTotal <= 4 ? 3 : 4;
@@ -138,30 +136,24 @@ const SessionSection = React.memo(function SessionSection({
         title={info.sessionId.slice(0, 8)}
         status={info.status}
         color={color}
-        isStreaming={info.isStreaming}
-        isTurnActive={info.isStreaming}
         messageCount={messages.length}
         isActive={isFocus}
         isPinned={isPinned}
         onClick={() => onFocusChange(sessionKey)}
         onTogglePin={() => (isPinned ? onUnpin(sessionKey) : onPin(sessionKey))}
         onClose={() => onClose(sessionKey)}
+        info={info}
       />
-      {lastAgentMsg && (
-        <AgentChip
+      <div onClick={() => onFocusChange(sessionKey)} style={{ flex: 1, minHeight: 0 }}>
+        <SectionChatContainer
+          sessionKey={sessionKey}
           agentId={info.agentId}
+          sessionId={info.sessionId}
+          status={info.status}
+          isActive={isFocus}
           color={color}
-          isConsecutive={false}
         />
-      )}
-      <SectionChatContainer
-        sessionKey={sessionKey}
-        agentId={info.agentId}
-        sessionId={info.sessionId}
-        status={info.status}
-        isActive={isFocus}
-        color={color}
-      />
+      </div>
     </div>
   );
 });
@@ -214,6 +206,17 @@ export const MultiSessionView = React.memo(function MultiSessionView({
     tabCount: tabOrder.length,
   });
 
+  // ── Determine visible sections ────────────────────────────────────────
+  const visibleKeys: string[] = [];
+  if (layoutMode === "single") {
+    if (focusKey) visibleKeys.push(focusKey);
+  } else {
+    if (focusKey) visibleKeys.push(focusKey);
+    for (const k of pinnedKeys) {
+      if (k !== focusKey) visibleKeys.push(k);
+    }
+  }
+
   // ── Divider drag state ────────────────────────────────────────────────
   const containerRef = useRef<HTMLDivElement>(null);
   const dragStateRef = useRef<{
@@ -227,16 +230,20 @@ export const MultiSessionView = React.memo(function MultiSessionView({
       e.preventDefault();
       const container = containerRef.current;
       if (!container) return;
+      // Ensure splitRatios has enough entries for all visible sections
+      const currentRatios = splitRatios.length >= visibleKeys.length
+        ? [...splitRatios]
+        : Array(visibleKeys.length).fill(1 / visibleKeys.length);
       dragStateRef.current = {
         dividerIndex,
         startPos: splitDirection === "horizontal" ? e.clientX : e.clientY,
-        startRatios: [...splitRatios],
+        startRatios: currentRatios,
       };
       document.body.style.cursor = splitDirection === "horizontal" ? "col-resize" : "row-resize";
       document.body.style.userSelect = "none";
       log.debug("divider drag start", { dividerIndex });
     },
-    [splitDirection, splitRatios, log],
+    [splitDirection, splitRatios, visibleKeys.length, log],
   );
 
   React.useEffect(() => {
@@ -252,14 +259,21 @@ export const MultiSessionView = React.memo(function MultiSessionView({
       const delta = (pos - startPos) / totalSize;
 
       const newRatios = [...drag.startRatios];
-      // Adjust the two ratios adjacent to the divider
       const i = drag.dividerIndex;
       const minRatio = 0.1;
-      const newUpper = Math.max(minRatio, Math.min(1 - minRatio, newRatios[i] + delta));
-      const deltaUpper = newUpper - newRatios[i];
-      newRatios[i] = newUpper;
+      // Adjust divider between section i and i+1
+      const newI = Math.max(minRatio, Math.min(1 - minRatio, newRatios[i] + delta));
+      const d = newI - newRatios[i];
+      newRatios[i] = newI;
       if (i + 1 < newRatios.length) {
-        newRatios[i + 1] = Math.max(minRatio, newRatios[i + 1] - deltaUpper);
+        newRatios[i + 1] = Math.max(minRatio, newRatios[i + 1] - d);
+      }
+      // Renormalize to sum to 1
+      const sum = newRatios.reduce((a, b) => a + b, 0);
+      if (sum > 0) {
+        for (let j = 0; j < newRatios.length; j++) {
+          newRatios[j] /= sum;
+        }
       }
       onSplitRatiosChange(newRatios);
     };
@@ -275,19 +289,6 @@ export const MultiSessionView = React.memo(function MultiSessionView({
       window.removeEventListener("mouseup", handleMouseUp);
     };
   }, [splitDirection, onSplitRatiosChange]);
-
-  // ── Determine visible sections ────────────────────────────────────────
-
-  const visibleKeys: string[] = [];
-  if (layoutMode === "single") {
-    if (focusKey) visibleKeys.push(focusKey);
-  } else {
-    // split / grid: show focus + all pinned (excluding focus duplicate)
-    if (focusKey) visibleKeys.push(focusKey);
-    for (const k of pinnedKeys) {
-      if (k !== focusKey) visibleKeys.push(k);
-    }
-  }
 
   if (visibleKeys.length === 0) {
     log.debug("no visible sessions — rendering empty state");
@@ -309,6 +310,7 @@ export const MultiSessionView = React.memo(function MultiSessionView({
 
   const renderSection = (sessionKey: string, isFocus: boolean) => {
     const isPinned = pinnedKeys.includes(sessionKey);
+    const idx = visibleKeys.indexOf(sessionKey);
     return (
       <SessionSection
         key={sessionKey}
@@ -317,8 +319,9 @@ export const MultiSessionView = React.memo(function MultiSessionView({
         isPinned={isPinned}
         layoutMode={layoutMode}
         splitDirection={splitDirection}
-        splitIndex={visibleKeys.indexOf(sessionKey)}
+        splitIndex={idx}
         splitTotal={visibleKeys.length}
+        splitRatios={splitRatios.length >= visibleKeys.length ? splitRatios : Array(visibleKeys.length).fill(1 / visibleKeys.length)}
         pinnedKeys={pinnedKeys}
         onFocusChange={onFocusChange}
         onPin={onPin}
@@ -348,7 +351,7 @@ export const MultiSessionView = React.memo(function MultiSessionView({
         type="button"
         title="Vertical split (stacked)"
       >
-        ↕
+        <IconRows size={12} />
       </button>
       <button
         className={`unified-split-dir-btn${splitDirection === "horizontal" ? " unified-split-dir-btn--active" : ""}`}
@@ -356,7 +359,7 @@ export const MultiSessionView = React.memo(function MultiSessionView({
         type="button"
         title="Horizontal split (side by side)"
       >
-        ↔
+        <IconColumns size={12} />
       </button>
     </div>
   );

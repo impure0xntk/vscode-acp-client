@@ -16,10 +16,10 @@ export { snapshotToOverviewItem };
 // ============================================================================
 
 /**
- * Spinner と Session Overview で共通の色グループ。
- * - active:  agent 応答中 → #4fc3f7 青
- * - waiting: agent 応答待ち → #ffd54f 黄
- * - done:   終了 → 色なし（各ステータス固有の色）
+ * Shared color group for Spinner and Session Overview.
+ * - active:  agent responding → #4fc3f7 blue
+ * - waiting: agent waiting for response → #ffd54f yellow
+ * - done:   finished → no color (uses status-specific color)
  */
 export type SessionColorGroup = "active" | "waiting" | "done";
 
@@ -36,7 +36,7 @@ export const COLOR_GROUP_ACCENT: Record<SessionColorGroup, string> = {
 };
 
 /**
- * Spinner と同じ elapsed-time ティアを返す。
+ * Returns the same elapsed-time tier as Spinner.
  * - "normal"  : < 10s
  * - "warning" : ≥ 10s
  * - "critical": ≥ 30s

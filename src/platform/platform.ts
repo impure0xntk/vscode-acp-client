@@ -9,7 +9,7 @@ import type { OrchestrationStateAPI } from "./orchestration";
 import type { TerminalAPI } from "./terminal";
 import type { UIAPI } from "./ui";
 
-/** 統合 Platform API */
+/** Unified Platform API */
 export interface PlatformAPI {
   readonly ui: UIAPI;
   readonly fs: FileSystemAPI;

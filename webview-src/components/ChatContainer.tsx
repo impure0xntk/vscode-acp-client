@@ -3,6 +3,7 @@ import { DisplayItemView } from "./DisplayItemView";
 import { useMessages } from "../hooks/useMessages";
 import { useMessagePipeline } from "../hooks/useMessagePipeline";
 import { useScrollController } from "../hooks/useScrollController";
+import { useScrollStateStore } from "../store/scrollStateStore";
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
@@ -47,6 +48,8 @@ export const ChatContainer = memo(function ChatContainer({
   const { messages: rawMessages, isStreaming } = useMessages(sessionKey ?? null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const sessionKeyRef = useRef(sessionKey);
+  sessionKeyRef.current = sessionKey;
 
   // Process raw messages through the pipeline
   const items = useMessagePipeline(
@@ -78,6 +81,23 @@ export const ChatContainer = memo(function ChatContainer({
     if (scrollToUnreadRef) scrollToUnreadRef.current = scrollToUnread;
   }, [scrollToUnreadRef, scrollToUnread]);
 
+  // ── Save scroll position on unmount (session switch / close) ───────
+  useEffect(() => {
+    const el = containerRef.current;
+    return () => {
+      const key = sessionKeyRef.current;
+      if (key && el) {
+        const { scrollTop, scrollHeight, clientHeight } = el;
+        const distance = scrollHeight - scrollTop - clientHeight;
+        useScrollStateStore.getState().setScrollTop(key, scrollTop);
+        useScrollStateStore.getState().setIsAtBottom(
+          key,
+          distance < SCROLL_BOTTOM_THRESHOLD,
+        );
+      }
+    };
+  }, []);
+
   // ── Scroll handler — stable callback via ref to avoid dependency ────
   const onScrollRef = useRef(onScroll);
   onScrollRef.current = onScroll;
@@ -93,7 +113,7 @@ export const ChatContainer = memo(function ChatContainer({
       clientHeight,
       isAtBottom: distance < SCROLL_BOTTOM_THRESHOLD,
     });
-  }, []); // intentionally empty — reads onScroll via ref
+  }, []);
 
   // ── Render ──────────────────────────────────────────────────────────
   const isEmpty = items.length === 0;
@@ -132,7 +152,7 @@ export const ChatContainer = memo(function ChatContainer({
           )}
         </div>
       )}
-      <div ref={bottomRef} />
+      <div ref={bottomRef} data-bottom-anchor="true" />
     </div>
   );
 });

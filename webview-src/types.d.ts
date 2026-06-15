@@ -56,6 +56,8 @@ export interface ChatMessage {
   timestamp: number;
   toolCalls?: ToolCall[];
   thinking?: ThinkingContent;
+  /** Agent identifier — used for grouping consecutive messages from the same agent */
+  agentId?: string;
   /** Session cwd — used to resolve relative file paths in inline code references */
   sessionCwd?: string;
   /** File paths confirmed to exist — inline code matching these becomes clickable links */
@@ -126,7 +128,7 @@ export interface ToolCallInfo {
 // Session Overview Panel types
 // ============================================================================
 
-/** セッション俯瞰パネルの状態 */
+/** Session overview panel state */
 export interface SessionOverviewState {
   sessions: SessionOverviewItem[];
   lastUpdated: string;
@@ -140,7 +142,7 @@ export type SessionOverviewFilter = "all" | "running" | "completed" | "error" | 
 export const FILTERABLE_STATUSES = ["running", "completed", "error", "cancelled"] as const;
 export type FilterableStatus = (typeof FILTERABLE_STATUSES)[number];
 
-/** 1セッション分の概要 */
+/** Single session summary */
 export interface SessionOverviewItem {
   sessionId: string;
   agentId: string;
@@ -155,7 +157,7 @@ export interface SessionOverviewItem {
   updatedAt: string;
 }
 
-/** 進捗指標 */
+/** Progress metrics */
 export interface SessionProgress {
   elapsedMs: number;
   tokenUsage: {
@@ -173,7 +175,7 @@ export interface SessionProgress {
   toolCallsCompleted: number;
 }
 
-/** 応答プレビュー */
+/** Response preview */
 export interface ResponsePreview {
   messageId: string;
   role: "agent" | "tool";
@@ -183,7 +185,7 @@ export interface ResponsePreview {
   timestamp: string;
 }
 
-/** Webview メッセージ (Session Overview 関連) */
+/** Webview message (Session Overview related) */
 export type SessionOverviewWebviewMessage =
   | { type: "sessionOverview:state"; payload: SessionOverviewState }
   | { type: "sessionOverview:update"; payload: SessionOverviewItem }

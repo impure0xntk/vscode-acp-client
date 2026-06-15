@@ -1,9 +1,9 @@
 import React from "react";
-import type { AgentInfo, SessionTabStatus } from "../../store/sessionStore";
+import type { AgentInfo, SessionTabStatus, TurnOutcome } from "../../store/sessionStore";
 import type { ToolbarMeta, ContextColor } from "../ui/Chip";
 import { Chip } from "../ui/Chip";
 import { fmt, fmtDuration, visualBar, contextColor, StatuslineInfo, statuslinePrefix, statuslineChips } from "./formatting";
-import { AgentSection, MetricsSection, SessionIdRow } from "./DetailSections";
+import { AgentSection, MetricsSection, SessionIdRow, TurnSection } from "./DetailSections";
 
 export type { ToolbarMeta, ContextColor };
 export { fmt, visualBar, contextColor };
@@ -26,6 +26,8 @@ export interface DetailsPanelProps {
   provider?: string;
   maxTokens?: number;
   onForkSession?: () => void;
+  lastTurnOutcome?: "completed" | "error" | "cancelled" | null;
+  lastResponseAt?: string | null;
 }
 
 const CAT_LABEL: Record<string, string> = {
@@ -79,6 +81,12 @@ export function DetailsPanel(p: DetailsPanelProps): React.ReactElement {
           {p.sessionId && <SessionIdRow sessionId={p.sessionId} onFork={p.onForkSession} />}
         </div>
       </section>
+
+      <TurnSection
+        outcome={p.lastTurnOutcome ?? null}
+        lastResponseAt={p.lastResponseAt ?? null}
+        sessionStartMs={p.sessionStartMs}
+      />
 
       {runtime.length > 0 && (
         <section className="toolbar-details-section">
@@ -144,6 +152,8 @@ export interface BottomToolbarProps {
   onForkSession?: () => void;
   statusline?: StatuslineInfo;
   cwd?: string;
+  lastTurnOutcome?: "completed" | "error" | "cancelled" | null;
+  lastResponseAt?: string | null;
 }
 
 // ── BottomToolbar ──────────────────────────────────────────────────────────
@@ -165,6 +175,8 @@ export function BottomToolbar(props: BottomToolbarProps): React.ReactElement {
     onForkSession,
     statusline,
     cwd,
+    lastTurnOutcome,
+    lastResponseAt,
   } = props;
 
   const total = tokenUsage.inputTokens + tokenUsage.outputTokens;
@@ -227,6 +239,47 @@ export function BottomToolbar(props: BottomToolbarProps): React.ReactElement {
     ? { key: "sessionStatus", label: "Session Status", value: sessionStatus, category: "session", statusIndicator: sessionStatus }
     : null;
 
+  // Turn outcome chip — shows the result of the most recent turn
+  const turnChip: ToolbarMeta | null = (() => {
+    if (sessionStatus === "running") {
+      return {
+        key: "turn",
+        label: "Turn",
+        value: "Active",
+        category: "session" as const,
+        turnStatus: "running" as const,
+      };
+    }
+    if (lastTurnOutcome === "completed") {
+      return {
+        key: "turn",
+        label: "Turn",
+        value: "Done",
+        category: "session" as const,
+        turnStatus: "completed" as const,
+      };
+    }
+    if (lastTurnOutcome === "error") {
+      return {
+        key: "turn",
+        label: "Turn",
+        value: "Error",
+        category: "session" as const,
+        turnStatus: "error" as const,
+      };
+    }
+    if (lastTurnOutcome === "cancelled") {
+      return {
+        key: "turn",
+        label: "Turn",
+        value: "Cancelled",
+        category: "session" as const,
+        turnStatus: "cancelled" as const,
+      };
+    }
+    return null;
+  })();
+
   return (
     <header className="toolbar">
       <div className="toolbar-main">
@@ -237,6 +290,7 @@ export function BottomToolbar(props: BottomToolbarProps): React.ReactElement {
               <Chip key={c.key} meta={c} />
             ))}
             {statusChip && <Chip meta={statusChip} />}
+            {turnChip && <Chip meta={turnChip} />}
             {chips.map((c) => (
               <Chip key={c.key} meta={c} />
             ))}
@@ -279,6 +333,8 @@ export function BottomToolbar(props: BottomToolbarProps): React.ReactElement {
           provider={provider}
           maxTokens={maxTokens}
           onForkSession={onForkSession}
+          lastTurnOutcome={lastTurnOutcome}
+          lastResponseAt={lastResponseAt}
         />
       )}
     </header>

@@ -36,19 +36,14 @@ export const SectionChatContainer = React.memo(function SectionChatContainer({
   }, [sessionKey, sessionId, agentId]);
 
   return (
-    <div
-      className="unified-session-section"
-      data-color-group={color}
-    >
-      <ChatContainer
-        sessionId={sessionId}
-        sessionKey={sessionKey}
-        status={status}
-        isActive={isActive}
-        scrollToMessageRef={scrollToMessageRef}
-        forceScrollToBottomRef={forceScrollToBottomRef}
-        scrollToUnreadRef={scrollToUnreadRef}
-      />
-    </div>
+    <ChatContainer
+      sessionId={sessionId}
+      sessionKey={sessionKey}
+      status={status}
+      isActive={isActive}
+      scrollToMessageRef={scrollToMessageRef}
+      forceScrollToBottomRef={forceScrollToBottomRef}
+      scrollToUnreadRef={scrollToUnreadRef}
+    />
   );
 });
