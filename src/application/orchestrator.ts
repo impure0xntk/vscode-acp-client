@@ -122,7 +122,7 @@ export class Orchestrator {
    * Cancel a running session.
    */
   cancelSession(agentId: string, sessionId: string): void {
-    this.sessionManager.updateSessionStatus(agentId, sessionId, "cancelled");
+    this.sessionManager.updateSessionStatus(agentId, sessionId, "idle");
   }
 
   // ========================================================================
@@ -169,7 +169,7 @@ export class Orchestrator {
     this.sessionManager.updateSessionStatus(
       fromAgentId,
       sessionId,
-      "completed"
+      "idle"
     );
 
     // Emit handoff event

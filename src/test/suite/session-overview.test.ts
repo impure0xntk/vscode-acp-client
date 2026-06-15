@@ -58,6 +58,7 @@ function makeSessionInfo(
     title: `/workspace/${agentId}`,
     cwd: `/tmp/${agentId}`,
     status: "idle",
+    lastTurnOutcome: null,
     messages: [],
     isTurnActive: false,
     isStreaming: false,
@@ -275,7 +276,8 @@ describe("SessionOrchestrator — getSessionOverview()", () => {
     agentSessions.set(
       "sess-1",
       makeSessionInfo("sess-1", "claude", {
-        status: "completed",
+        status: "idle",
+        lastTurnOutcome: "completed",
       })
     );
     sessions.set("claude", agentSessions);

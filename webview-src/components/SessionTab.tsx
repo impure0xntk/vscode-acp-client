@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import type { SessionTabState } from "../store/sessionStore";
 import { useSessionInfo } from "../hooks/useSessionInfo";
 import { StatusIcon } from "./StatusIcon";
-import type { StatusIconType } from "./StatusIcon";
+import type { StatusIconType, TurnOutcome } from "./StatusIcon";
 import { UnreadBadge } from "./ui/UnreadBadge";
 
 // ============================================================================
@@ -55,11 +55,19 @@ export function SessionTab({
     return () => clearInterval(id);
   }, [info?.status, info?.lastResponseAt]);
 
-  const raw = info?.status ?? "idle";
+  const rawStatus = info?.status ?? "idle";
+  const lastOutcome: TurnOutcome | null = info?.lastTurnOutcome ?? null;
+
+  // When idle with a turn outcome, show the outcome icon (✓/✗/⊘)
+  // so the user can see what happened without needing a separate indicator.
   const status: StatusIconType =
-    raw === "running" || raw === "completed" || raw === "error" || raw === "cancelled" || raw === "idle"
-      ? raw
-      : "idle";
+    rawStatus === "running"
+      ? "running"
+      : rawStatus === "idle" && lastOutcome
+        ? lastOutcome
+        : rawStatus === "idle"
+          ? "idle"
+          : rawStatus;
 
   const elapsedMs =
     status === "running" && info?.lastResponseAt

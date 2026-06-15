@@ -14,16 +14,21 @@ import {
 // Unified status icon system — SVG-based
 // ============================================================================
 
-export type SessionStatus =
-  | "idle"
-  | "running"
-  | "completed"
-  | "error"
-  | "cancelled"
-  | "warning";
+/** Session runtime state — no terminal values */
+export type SessionStatus = "idle" | "running";
+/** Turn outcome — set after a turn completes */
+export type TurnOutcome = "completed" | "error" | "cancelled";
 export type ToolStatus = "in_progress" | "completed" | "failed";
 
-export type StatusIconType = SessionStatus | ToolStatus | "working" | "pending" | "waiting" | "waiting_for_input" | "disconnected";
+export type StatusIconType =
+  | SessionStatus
+  | TurnOutcome
+  | ToolStatus
+  | "working"
+  | "pending"
+  | "waiting"
+  | "waiting_for_input"
+  | "disconnected";
 
 const classMap: Record<StatusIconType, string> = {
   idle: "idle",

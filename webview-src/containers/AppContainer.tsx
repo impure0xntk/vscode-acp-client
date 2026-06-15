@@ -4,6 +4,7 @@ import { BottomToolbar } from "../components/toolbar";
 import { TopToolbar } from "../components/TopToolbar";
 import { SessionTabs } from "../components/SessionTabs";
 import { CompletionNotification } from "../components/CompletionNotification";
+import type { TurnOutcome } from "../components/StatusIcon";
 import {
   SessionHistoryPanel,
   PersistentSessionEntry,
@@ -139,7 +140,7 @@ export function AppContainer(): React.ReactElement {
   const [selectedHistorySession, setSelectedHistorySession] =
     useState<PersistentSessionEntry | null>(null);
   const [completedNotifications, setCompletedNotifications] = useState<
-    Array<{ agentId: string; sessionId: string; title: string }>
+    Array<{ agentId: string; sessionId: string; title: string; outcome: TurnOutcome }>
   >([]);
 
   const scrollToMessageRef = useRef<(id: string) => void>();
@@ -343,6 +344,7 @@ export function AppContainer(): React.ReactElement {
         agentId,
         title: tabTitles[key] ?? sessionId,
         status: "idle",
+        lastTurnOutcome: null,
         progress: {
           elapsedMs: 0,
           tokenUsage: { input: 0, output: 0, total: 0 },
@@ -498,6 +500,7 @@ export function AppContainer(): React.ReactElement {
                 agentId={notif.agentId}
                 sessionId={notif.sessionId}
                 title={notif.title}
+                outcome={notif.outcome}
                 onDismiss={dismissCompletedNotification}
                 onSwitchTab={handleTabClick}
               />

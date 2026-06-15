@@ -18,6 +18,7 @@ function makeSessionStatus(
     sessionId: "sess-1",
     title: "Test Session",
     status: "idle",
+    lastTurnOutcome: null,
     isActive: false,
     messageCount: 0,
     tokenUsage: { input: 0, output: 0, total: 0 },

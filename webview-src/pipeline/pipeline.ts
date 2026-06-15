@@ -84,6 +84,30 @@ export class MessagePipeline {
         [...contextPrefix, ...filtered],
         this.config.merge,
       );
+
+      // Check if the contextPrefix was modified by merge (Case 1: tool after agent).
+      // When a tool message is absorbed into the contextPrefix agent, the merged
+      // result contains the updated agent with combined toolCalls. We must update
+      // the cache's last item accordingly — otherwise tool calls are silently lost.
+      if (contextPrefix.length > 0 && merged.length > 0) {
+        const originalTCs = contextPrefix[0].toolCalls;
+        const mergedTCs = merged[0].toolCalls;
+        // Reference comparison: if merge absorbed tool calls into the contextPrefix
+        // element, the toolCalls array reference will differ (deduplicateToolCalls
+        // always returns a new array when new calls are added).
+        if (mergedTCs !== originalTCs && mergedTCs != null) {
+          // Re-annotate the merged first element and update cache's last item.
+          const reannotated = annotateMessages(
+            [merged[0]],
+            this.config.annotate,
+            "", // groupKey reset — this is a standalone update
+          );
+          if (reannotated.length > 0) {
+            this.cache[this.cache.length - 1] = reannotated[0];
+          }
+        }
+      }
+
       // Drop the context prefix — it was only needed for merge context
       mergedNew = merged.slice(contextPrefix.length);
     } else {

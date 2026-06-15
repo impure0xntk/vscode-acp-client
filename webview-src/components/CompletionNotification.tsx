@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import { Icon } from "../lib/icons";
+import type { TurnOutcome } from "./StatusIcon";
 
 // ============================================================================
 // Props
@@ -9,6 +10,8 @@ interface CompletionNotificationProps {
   agentId: string;
   sessionId: string;
   title: string;
+  /** Turn outcome — determines the icon and styling */
+  outcome?: TurnOutcome;
   onDismiss: () => void;
   onSwitchTab: (sessionId: string, agentId: string) => void;
 }
@@ -17,10 +20,23 @@ interface CompletionNotificationProps {
 // CompletionNotification Component
 // ============================================================================
 
+const OUTCOME_ICON: Record<TurnOutcome, string> = {
+  completed: "pass-filled",
+  error: "error",
+  cancelled: "circle-slash",
+};
+
+const OUTCOME_CLASS: Record<TurnOutcome, string> = {
+  completed: "completion-notification--completed",
+  error: "completion-notification--error",
+  cancelled: "completion-notification--cancelled",
+};
+
 export function CompletionNotification({
   agentId,
   sessionId,
   title,
+  outcome = "completed",
   onDismiss,
   onSwitchTab,
 }: CompletionNotificationProps): React.ReactElement {
@@ -42,10 +58,12 @@ export function CompletionNotification({
   }, [onSwitchTab, sessionId, agentId, handleDismiss]);
 
   const displayName = title || sessionId.slice(0, 8);
+  const iconName = OUTCOME_ICON[outcome];
+  const outcomeCls = OUTCOME_CLASS[outcome];
 
   return (
     <div
-      className={`completion-notification${isVisible ? " completion-notification-visible" : ""}${isLeaving ? " completion-notification-leaving" : ""}`}
+      className={`completion-notification ${outcomeCls}${isVisible ? " completion-notification-visible" : ""}${isLeaving ? " completion-notification-leaving" : ""}`}
       onClick={handleClick}
       role="button"
       tabIndex={0}
@@ -54,7 +72,7 @@ export function CompletionNotification({
       }}
     >
       <div className="completion-notification-content">
-        <Icon name="pass-filled" className="completion-notification-icon" size="sm" />
+        <Icon name={iconName} className="completion-notification-icon" size="sm" />
         <span className="completion-notification-text">
           <span className="completion-notification-title">{displayName}</span>
           <span className="completion-notification-agent">{agentId}</span>

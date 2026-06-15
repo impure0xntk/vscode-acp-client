@@ -30,7 +30,8 @@ function makeSession(overrides: Partial<SessionInfo> = {}): SessionInfo {
     agentId: "claude",
     title: "Test Session",
     cwd: "/home/user/project",
-    status: "completed",
+    status: "idle",
+    lastTurnOutcome: null,
     messages: [],
     isTurnActive: false,
     isStreaming: false,
@@ -192,9 +193,8 @@ describe("PersistentHistory → SessionInfo data model compatibility", () => {
   });
 
   it("SessionStatus values are compatible between PersistentSessionEntry and SessionInfo", () => {
-    const validStatuses = ["idle", "running", "completed", "error", "cancelled"];
+    const validStatuses = ["idle", "running"];
     for (const status of validStatuses) {
-      // Both types accept the same status strings
       const entryStatus = status as SessionInfo["status"];
       assert.ok(validStatuses.includes(entryStatus));
     }

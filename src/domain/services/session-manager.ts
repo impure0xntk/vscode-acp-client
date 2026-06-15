@@ -41,6 +41,7 @@ export class SessionManager extends EventEmitter {
       id: sessionId,
       agentId,
       status: "idle",
+      lastTurnOutcome: null,
       context: {
         variables: {},
         childSessionIds: [],

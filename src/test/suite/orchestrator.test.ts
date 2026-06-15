@@ -54,11 +54,11 @@ describe("Orchestrator — Session Lifecycle", () => {
     assert.deepStrictEqual(session.context.metadata, {});
   });
 
-  it("cancelSession sets status to cancelled", () => {
+  it("cancelSession sets status to idle", () => {
     orch.startSession("claude", "sess-1");
     orch.cancelSession("claude", "sess-1");
     const session = orch.sessionManager.getSession("claude", "sess-1");
-    assert.strictEqual(session!.status, "cancelled");
+    assert.strictEqual(session!.status, "idle");
   });
 });
 
@@ -96,11 +96,11 @@ describe("Orchestrator — Handoff", () => {
     );
   });
 
-  it("handoff marks source session as completed", () => {
+  it("handoff marks source session as idle", () => {
     orch.startSession("claude", "sess-1");
     orch.handoff("claude", "gpt4", "sess-1", "sess-2");
     const source = orch.sessionManager.getSession("claude", "sess-1");
-    assert.strictEqual(source!.status, "completed");
+    assert.strictEqual(source!.status, "idle");
   });
 
   it("handoff adds new session ID to source childSessionIds", () => {

@@ -15,6 +15,7 @@ import {
   snapshotToOverviewItem,
 } from "./SessionOverviewCardBase";
 import { useSessionStore } from "../../store/sessionStore";
+import type { TurnOutcome } from "../StatusIcon";
 
 // ============================================================================
 // SessionOverviewCard — full vertical card for the overview panel
@@ -80,38 +81,40 @@ export function SessionOverviewCard({
 
   const tier = elapsedTier(liveItem.progress.elapsedMs);
 
-  const prevStatusRef = useRef<string | undefined>(undefined);
+  // Use lastTurnOutcome for attribute when idle, so CSS can style by outcome
+  const effectiveOutcome = liveItem.lastTurnOutcome;
+
+  const prevOutcomeRef = useRef<TurnOutcome | null | undefined>(undefined);
   const [isFlashing, setIsFlashing] = useState(false);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didLongPressRef = useRef(false);
 
   useEffect(() => {
-    const prev = prevStatusRef.current;
-    const current = liveItem.status;
+    const prev = prevOutcomeRef.current;
+    const current = liveItem.lastTurnOutcome;
 
     // Skip on first render (prev is undefined) to avoid false flash
     if (prev === undefined) {
-      prevStatusRef.current = current;
+      prevOutcomeRef.current = current;
       return;
     }
 
-    const wasActive =
-      prev === "running" || prev === "waiting" || prev === "waiting_for_input";
-    const isTerminal =
-      current === "completed" || current === "error";
+    // Flash when a new terminal outcome appears
+    const isTerminal = current === "completed" || current === "error" || current === "cancelled";
+    const isNew = current !== prev;
 
-    if (wasActive && isTerminal) {
+    if (isTerminal && isNew) {
       setIsFlashing(true);
     }
 
-    prevStatusRef.current = current;
-  }, [liveItem.status]);
+    prevOutcomeRef.current = current;
+  }, [liveItem.lastTurnOutcome]);
 
   const handleAnimationEnd = useCallback(() => {
     setIsFlashing(false);
   }, []);
 
-  const flashingStatus = isFlashing ? liveItem.status : undefined;
+  const flashingStatus = isFlashing ? (liveItem.lastTurnOutcome ?? liveItem.status) : undefined;
 
   // ── Long-press handling ────────────────────────────────────────────
   const handlePointerDown = useCallback(() => {
@@ -154,7 +157,7 @@ export function SessionOverviewCard({
   return (
     <div
       className={`session-overview-card${isExpanded ? " session-overview-card-expanded" : ""}${isActive ? " session-overview-card-active" : ""}${isSelected ? " session-overview-card-selected" : ""}`}
-      data-status={liveItem.status}
+      data-status={liveItem.status === "idle" && effectiveOutcome ? effectiveOutcome : liveItem.status}
       data-color-group={sessionColorGroup(liveItem.status)}
       data-elapsed-tier={tier}
       data-flashing={flashingStatus}

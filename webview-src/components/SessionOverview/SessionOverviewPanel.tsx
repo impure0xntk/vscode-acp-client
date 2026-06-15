@@ -7,7 +7,7 @@ import type {
   SessionOverviewFilter,
   SessionOverviewItem,
 } from "../../types";
-import type { ConnectedAgentInfo } from "../../store/sessionStore";
+import type { ConnectedAgentInfo, SessionInfoSnapshot } from "../../store/sessionStore";
 import { useScrollStateStore } from "../../store/scrollStateStore";
 import { useMessageStore } from "../../store/messageStore";
 import {
@@ -80,18 +80,22 @@ export function SessionOverviewPanel({
 
   // Build overview items from tabOrder + tabTitles (structural only).
   // Live status/elapsedMs come from each card's own subscription.
+  // We also read lastTurnOutcome here for filtering purposes.
   const overviewItems = useMemo(
     () => {
+      const sessionInfoMap = useSessionStore.getState().sessionInfoMap;
       const keys = tabOrder;
       return keys.map((key): SessionOverviewItem => {
         const [agentId, sessionId] = key.split(":");
         const title = tabTitles[key] ?? sessionId;
+        const info: SessionInfoSnapshot | undefined = sessionInfoMap[key];
         // Minimal item — live fields will be filled by SessionOverviewCard.
         return {
           sessionId,
           agentId,
           title,
-          status: "idle",
+          status: info?.status ?? "idle",
+          lastTurnOutcome: info?.lastTurnOutcome ?? null,
           progress: {
             elapsedMs: 0,
             tokenUsage: { input: 0, output: 0, total: 0 },
@@ -108,16 +112,17 @@ export function SessionOverviewPanel({
     [tabOrder, tabTitles],
   );
 
-  // Apply filter to sessions — but since we no longer have live status here,
-  // we show all sessions and let the card's own subscription handle visibility.
-  // For now, pass through all items; filtering by status would require a
-  // separate mechanism (e.g., a status summary map).
+  // Filter sessions by session state or turn outcome.
+  // "running" matches session status. "completed"/"error"/"cancelled" match lastTurnOutcome.
   const filteredSessions = useMemo(() => {
     if (state.filter === "all") return overviewItems;
-    // Without sessionInfoMap, we can't filter by status here.
-    // Return all items; the card will show its own live status.
-    // TODO: if status filtering is needed, add a lightweight status-only selector.
-    return overviewItems;
+    if (state.filter === "running") {
+      return overviewItems.filter((s) => s.status === "running");
+    }
+    // Turn outcome filters
+    return overviewItems.filter(
+      (s) => s.lastTurnOutcome === state.filter,
+    );
   }, [overviewItems, state.filter]);
 
   // Build unread count map from scrollStateStore + messageStore.

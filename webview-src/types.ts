@@ -32,7 +32,8 @@ export interface SessionOverviewItem {
   sessionId: string;
   agentId: string;
   title: string;
-  status: string;
+  status: "idle" | "running";
+  lastTurnOutcome: "completed" | "error" | "cancelled" | null;
   model?: string;
   mode?: string;
   progress: SessionProgress;
@@ -43,11 +44,15 @@ export interface SessionOverviewItem {
   lastResponseAt: string | null;
 }
 
-/** Filter modes — "none" means no filter active (show all) */
+/**
+ * Filter modes — "all" means no filter active (show all).
+ * "running" filters by session runtime state.
+ * "completed"/"error"/"cancelled" filter by lastTurnOutcome.
+ */
 export type SessionOverviewFilter = "all" | "running" | "completed" | "error" | "cancelled";
 export type SessionOverviewActiveFilter = SessionOverviewFilter; // alias for clarity
 
-/** Status values that can be used for filtering */
+/** Status values that can be used for filtering (session state + turn outcomes) */
 export const FILTERABLE_STATUSES = ["running", "completed", "error", "cancelled"] as const;
 export type FilterableStatus = (typeof FILTERABLE_STATUSES)[number];
 

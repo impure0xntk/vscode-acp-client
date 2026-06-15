@@ -19,10 +19,17 @@ export interface SessionTabState {
   status?: "idle" | "running" | "completed" | "error" | "cancelled";
 }
 
+export type SessionState = "idle" | "running";
+export type TurnOutcome = "completed" | "error" | "cancelled";
+// Note: SessionState (type) is the session's runtime state.
+// The Zustand store interface below is also named SessionState — they are
+// distinguished by context (type vs value).
+
 export interface SessionInfoSnapshot {
   sessionId: string;
   agentId: string;
-  status: "idle" | "running" | "completed" | "error" | "cancelled";
+  status: SessionState;
+  lastTurnOutcome: TurnOutcome | null;
   isTurnActive: boolean;
   isStreaming: boolean;
   tokenUsage?: { inputTokens: number; outputTokens: number; totalTokens: number };
@@ -77,6 +84,8 @@ export interface SlashCommand {
 }
 
 export type SessionTabStatus = "idle" | "running" | "completed" | "error" | "cancelled";
+// Note: SessionTabStatus includes turn outcome values for backward compatibility
+// with existing UI code. New code should use SessionState + TurnOutcome separately.
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -87,7 +96,7 @@ export function sessionKeyOf(agentId: string, sessionId: string): string {
 
 // ── Selectors (reactive, for use inside components) ────────────────────────
 
-export function selectOverviewItems(state: SessionState): SessionOverviewItem[] {
+export function selectOverviewItems(state: SessionStoreState): SessionOverviewItem[] {
   const { sessionInfoMap, tabOrder, tabTitles } = state;
   const orderedKeys = tabOrder.length > 0
     ? tabOrder
@@ -102,7 +111,7 @@ export function selectOverviewItems(state: SessionState): SessionOverviewItem[] 
     });
 }
 
-export function selectOverviewItemsMap(state: SessionState): Record<string, SessionOverviewItem> {
+export function selectOverviewItemsMap(state: SessionStoreState): Record<string, SessionOverviewItem> {
   const items = selectOverviewItems(state);
   const acc: Record<string, SessionOverviewItem> = {};
   for (const item of items) {
@@ -111,7 +120,7 @@ export function selectOverviewItemsMap(state: SessionState): Record<string, Sess
   return acc;
 }
 
-export function selectTabs(state: SessionState): SessionTabState[] {
+export function selectTabs(state: SessionStoreState): SessionTabState[] {
   const { tabOrder, tabTitles, tabIcons } = state;
 
   return tabOrder
@@ -142,6 +151,7 @@ function sessionInfoEquals(a: SessionInfoSnapshot, b: SessionInfoSnapshot): bool
   if (a === b) return true;
   return (
     a.status === b.status &&
+    a.lastTurnOutcome === b.lastTurnOutcome &&
     a.isTurnActive === b.isTurnActive &&
     a.isStreaming === b.isStreaming &&
     a.tokenUsage === b.tokenUsage &&
@@ -201,6 +211,7 @@ export function snapshotToOverviewItem(
     agentId: info.agentId,
     title: titleHint ?? info.sessionId,
     status,
+    lastTurnOutcome: info.lastTurnOutcome,
     model: info.model,
     mode: info.mode,
     progress,
@@ -213,7 +224,7 @@ export function snapshotToOverviewItem(
 
 // ── Store shape ──────────────────────────────────────────────────────────────
 
-export interface SessionState {
+export interface SessionStoreState {
   sessionInfoMap: Record<string, SessionInfoSnapshot>;
   tabOrder: string[];
   activeSessionKey: string | null;
@@ -249,7 +260,7 @@ export interface SessionState {
   setConnectedAgents: (agents: ConnectedAgentInfo[]) => void;
   setWorkspaceFolders: (folders: WorkspaceFolder[]) => void;
   setSessionCommands: (agentId: string, sessionId: string, commands: SlashCommand[]) => void;
-  setStatusline: (statusline: SessionState["statusline"]) => void;
+  setStatusline: (statusline: SessionStoreState["statusline"]) => void;
 
   setPromptQueue: (sessionKey: string, queue: QueuedPrompt[]) => void;
   addQueuedPrompt: (sessionKey: string, entry: QueuedPrompt) => void;
@@ -269,7 +280,7 @@ export interface SessionState {
   getTabs: () => SessionTabState[];
 }
 
-export const useSessionStore = create<SessionState>((set, get) => ({
+export const useSessionStore = create<SessionStoreState>((set, get) => ({
   sessionInfoMap: {},
   tabOrder: [],
   activeSessionKey: null,

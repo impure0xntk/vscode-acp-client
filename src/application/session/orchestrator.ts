@@ -34,7 +34,7 @@ import {
 } from "@agentclientprotocol/sdk";
 import * as child_process from "child_process";
 import { Readable, Writable } from "stream";
-import type { SessionInfo, SessionStatus, QueuedPrompt } from "./types";
+import type { SessionInfo, SessionStatus, TurnOutcome, QueuedPrompt } from "./types";
 import type {
   ChatMessage,
   TokenUsage,
@@ -110,6 +110,7 @@ export interface SessionStatusInfo {
   sessionId: string;
   title: string;
   status: SessionStatus;
+  lastTurnOutcome: TurnOutcome | null;
   isActive: boolean;
   messageCount: number;
   tokenUsage: TokenUsage;
@@ -430,6 +431,7 @@ export class SessionOrchestrator extends EventEmitter {
       title: abbreviatePath(effectiveCwd),
       cwd: effectiveCwd,
       status: "idle",
+      lastTurnOutcome: null,
       messages: [],
       isTurnActive: false,
       isStreaming: false,
@@ -640,6 +642,7 @@ export class SessionOrchestrator extends EventEmitter {
         title: sourceInfo?.title ?? `Restored ${sourceSessionId.slice(0, 8)}`,
         cwd: effectiveCwd,
         status: "idle",
+        lastTurnOutcome: null,
         messages: restoredMessages,
         isTurnActive: false,
         isStreaming: false,
@@ -907,9 +910,11 @@ export class SessionOrchestrator extends EventEmitter {
     });
 
     sessionInfo.status = "running";
+    sessionInfo.lastTurnOutcome = null;
     sessionInfo.updatedAt = new Date();
     sessionInfo.isTurnActive = true;
     sessionInfo.isStreaming = true;
+    log.debug("turn started", { agentId, sessionId });
 
     const promptBlocks: ContentBlock[] = [
       ...(context ?? []),
@@ -936,22 +941,30 @@ export class SessionOrchestrator extends EventEmitter {
         tokens: sessionInfo.tokenUsage,
       });
 
-      sessionInfo.status = "completed";
+      sessionInfo.lastTurnOutcome = "completed";
       sessionInfo.isStreaming = false;
       sessionInfo.lastResponseAt = new Date().toISOString();
       this.flushPendingToolCalls(agentId, sessionId);
+      log.info("turn completed", { agentId, sessionId, tokens: sessionInfo.tokenUsage });
       this.emit("sessionCompleted", {
         agentId,
         sessionId,
         title: sessionInfo.title,
       });
     } catch (e) {
-      sessionInfo.status = "error";
+      sessionInfo.lastTurnOutcome = "error";
       sessionInfo.isStreaming = false;
+      log.warn("turn error", {
+        agentId,
+        sessionId,
+        error: e instanceof Error ? e.message : String(e),
+      });
       throw e;
     } finally {
       sessionInfo.isTurnActive = false;
+      sessionInfo.status = "idle";
       sessionInfo.updatedAt = new Date();
+
       this.emit("sessionTurnActiveChanged", {
         agentId,
         sessionId,
@@ -1014,15 +1027,19 @@ export class SessionOrchestrator extends EventEmitter {
     const sessionInfo = agentSessions?.get(sessionId);
     if (sessionInfo) {
       sessionInfo.pendingCancel = true;
-      sessionInfo.status = "cancelled";
-      sessionInfo.isTurnActive = false;
       sessionInfo.isStreaming = false;
+      sessionInfo.isTurnActive = false;
+      sessionInfo.status = "idle";
+      sessionInfo.lastTurnOutcome = "cancelled";
       sessionInfo.updatedAt = new Date();
+
       this.emit("sessionTurnActiveChanged", {
         agentId,
         sessionId,
         active: false,
       });
+
+      log.info("turn cancelled", { agentId, sessionId });
     }
 
     await connection.cancel({ sessionId } satisfies CancelNotification);
@@ -1452,6 +1469,7 @@ export class SessionOrchestrator extends EventEmitter {
           sessionId,
           title: info.title,
           status: info.status,
+          lastTurnOutcome: info.lastTurnOutcome,
           isActive: sessionId === activeSessionId,
           messageCount: info.messages.length,
           tokenUsage: info.tokenUsage,
@@ -1847,13 +1865,8 @@ export class SessionOrchestrator extends EventEmitter {
       sessionId: string;
       agentId: string;
       title: string;
-      status:
-        | "idle"
-        | "running"
-        | "waiting"
-        | "completed"
-        | "error"
-        | "cancelled";
+      status: SessionStatus;
+      lastTurnOutcome: TurnOutcome | null;
       model?: string;
       mode?: string;
       progress: {
@@ -1882,13 +1895,8 @@ export class SessionOrchestrator extends EventEmitter {
       sessionId: string;
       agentId: string;
       title: string;
-      status:
-        | "idle"
-        | "running"
-        | "waiting"
-        | "completed"
-        | "error"
-        | "cancelled";
+      status: SessionStatus;
+      lastTurnOutcome: TurnOutcome | null;
       model?: string;
       mode?: string;
       progress: {
@@ -1931,6 +1939,7 @@ export class SessionOrchestrator extends EventEmitter {
           agentId,
           title: info.title,
           status: info.status,
+          lastTurnOutcome: info.lastTurnOutcome,
           model: info.model,
           mode: info.mode,
           progress: {

@@ -1,5 +1,6 @@
 import React from "react";
 import type { SessionOverviewItem, ToolbarMeta, ResponsePreview } from "../../types";
+import type { TurnOutcome } from "../StatusIcon";
 import { Chip } from "../ui/Chip";
 import { AgentBadge } from "../ui/AgentBadge";
 import { StatusIcon } from "../StatusIcon";
@@ -46,6 +47,21 @@ export function elapsedTier(elapsedMs: number): ElapsedTier {
   if (elapsedMs >= ELAPSED_CRITICAL_MS) return "critical";
   if (elapsedMs >= ELAPSED_WARNING_MS) return "warning";
   return "normal";
+}
+
+/**
+ * Resolve the effective icon status for a session overview item.
+ * When idle with a lastTurnOutcome, show the turn outcome icon
+ * so the user can see what happened in the most recent turn.
+ */
+export function effectiveStatus(
+  status: string,
+  lastTurnOutcome: TurnOutcome | null,
+): StatusIconType {
+  if (status === "running") return "running";
+  if (lastTurnOutcome) return lastTurnOutcome;
+  if (status === "idle" || status === "waiting" || status === "waiting_for_input") return status;
+  return "idle";
 }
 
 export const STATUS_STYLE_MAP: Record<
@@ -153,13 +169,13 @@ export function SessionOverviewHeader({
   /** Optional agent color for the badge dot */
   agentColor?: string;
 }): React.ReactElement {
-  const styleInfo =
-    STATUS_STYLE_MAP[session.status] ?? STATUS_STYLE_MAP.idle;
+  const iconStatus = effectiveStatus(session.status, session.lastTurnOutcome);
+  const styleInfo = STATUS_STYLE_MAP[session.status] ?? STATUS_STYLE_MAP.idle;
   const elapsedMs = session.progress.elapsedMs;
 
   return (
     <div className={`soc-title-row ${className}`.trim()}>
-      <StatusIcon status={styleInfo.iconStatus} elapsedMs={elapsedMs} colorGroup={styleInfo.colorGroup} />
+      <StatusIcon status={iconStatus} elapsedMs={elapsedMs} colorGroup={styleInfo.colorGroup} />
       <AgentBadge agentId={session.agentId} agentColor={agentColor} className="soc-agent" />
       <span className="soc-title">{session.title}</span>
       {session.model && <span className="soc-model">{session.model}</span>}
