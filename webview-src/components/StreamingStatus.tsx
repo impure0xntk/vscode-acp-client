@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../lib/icons";
 import { elapsedColor } from "../shared/elapsedColor";
 import { useSessionStore } from "../store/sessionStore";
@@ -35,22 +35,27 @@ export function StreamingStatus({
   lastResponseAt,
   sessionKey,
 }: StreamingStatusProps): React.ReactElement | null {
-  // Read streaming state from sessionInfoMap (no Zustand subscription —
-  // read imperatively to avoid re-render loops).
-  const sessionInfo = sessionKey
-    ? useSessionStore.getState().sessionInfoMap[sessionKey]
-    : null;
+  // Subscribe to sessionInfoMap so that lastResponseAt / isTurnActive updates
+  // from the extension host trigger a re-render immediately.
+  const sessionInfo = useSessionStore((s) =>
+    sessionKey ? s.sessionInfoMap[sessionKey] : undefined,
+  );
 
   const storedActive = sessionInfo?.isTurnActive ?? false;
-  const storedStartedAt = sessionInfo?.lastResponseAt ?? null;
+  const storedLastResponseAt = sessionInfo?.lastResponseAt ?? null;
 
   const effectiveActive = active || (sessionKey ? storedActive : false);
-  const effectiveAction = action || (sessionKey && storedActive ? `Waiting for ${sessionKey.split(":")[0]}…` : null);
-  const anchorMs = lastResponseAt
-    ? new Date(lastResponseAt).getTime()
-    : storedStartedAt
-      ? new Date(storedStartedAt).getTime()
-      : Date.now();
+  const effectiveAction =
+    action || (sessionKey && storedActive
+      ? `Waiting for ${sessionKey.split(":")[0]}…`
+      : null);
+
+  // Explicit lastResponseAt prop takes precedence, then store, then "now".
+  const anchorRaw = lastResponseAt ?? storedLastResponseAt ?? null;
+  const anchorMs = useMemo(
+    () => (anchorRaw ? new Date(anchorRaw).getTime() : Date.now()),
+    [anchorRaw],
+  );
 
   const [elapsedSec, setElapsedSec] = useState(0);
   const rafRef = useRef<number | null>(null);
@@ -72,14 +77,12 @@ export function StreamingStatus({
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     };
-  }, [effectiveActive, effectiveAction]);
+  }, [effectiveActive, effectiveAction, anchorMs]);
 
   if (!effectiveActive || !effectiveAction) return null;
 
   const tier = elapsedColor(elapsedSec * 1000);
-  const label = elapsedSec > 0
-    ? `${effectiveAction}  ${elapsedSec.toFixed(1)}s`
-    : effectiveAction;
+  const label = effectiveAction;
 
   return (
     <div

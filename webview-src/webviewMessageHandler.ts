@@ -7,6 +7,21 @@ import { getLogger } from "./lib/logger";
 import { syncMessageCount } from "./store/sync";
 
 const log = getLogger("webview.messageHandler");
+
+// Guard key: set to the session key the webview just requested to switch to.
+// When a session/switch response arrives, the key is compared:
+// - if null → no pending switch (e.g. direct extension call), apply normally
+// - if matching → apply and clear
+// - if mismatched → stale echo from a previous switch, discard
+let pendingSwitchGuard: string | null = null;
+
+/**
+ * Call this right before sending a switchSession message to the extension.
+ * The guard key is stored and checked in handleSessionSwitch.
+ */
+export function setPendingSwitch(agentId: string, sessionId: string): void {
+  pendingSwitchGuard = sessionKeyOf(agentId, sessionId);
+}
 import type {
   SessionTabState,
   SessionInfoSnapshot,
@@ -28,6 +43,8 @@ import type {
 interface SetTabsMessage {
   type: "setTabs";
   tabs: SessionTabState[];
+  /** Authoritative active session key ("agentId:sessionId") from the extension. */
+  activeSessionKey: string | null;
   workspaceRoot?: string;
   agents?: ConnectedAgentInfo[];
   workspaceFolders?: WorkspaceFolder[];
@@ -242,9 +259,25 @@ function handleSetTabs(data: SetTabsMessage): void {
   log.info("handleSetTabs", {
     tabCount: data.tabs.length,
     tabs: data.tabs.map((t) => sessionKeyOf(t.agentId, t.sessionId)),
+    activeSessionKey: data.activeSessionKey,
     hasWorkspaceRoot: !!data.workspaceRoot,
     hasAgentInfo: !!data.agentInfoMap ? Object.keys(data.agentInfoMap).length : 0,
   });
+
+  const newKeys = data.tabs.map((t) => sessionKeyOf(t.agentId, t.sessionId));
+
+  // Determine the authoritative active session key.
+  // The extension sends the correct activeSessionKey in the setTabs message.
+  // Only use a local fallback when the extension does not provide one (legacy).
+  const storeBefore = useSessionStore.getState();
+  const existingKey = storeBefore.activeSessionKey;
+  const authoritativeKey =
+    data.activeSessionKey && newKeys.includes(data.activeSessionKey)
+      ? data.activeSessionKey
+      : (existingKey && newKeys.includes(existingKey)
+        ? existingKey
+        : (newKeys[0] ?? null));
+
   useSessionStore.getState().bulkSetTabs({
     tabs: data.tabs,
     workspaceRoot: data.workspaceRoot,
@@ -254,17 +287,17 @@ function handleSetTabs(data: SetTabsMessage): void {
     sessionInfoMap: data.sessionInfoMap,
   });
 
-  // Set activeSessionKey if not already set or if the current key is no
-  // longer in the tab list.  Without this, a race between setTabs and
-  // session/switch messages leaves activeSessionKey null, causing the
-  // first user message to be silently dropped (no resolved targets).
-  const store = useSessionStore.getState();
-  const currentKey = store.activeSessionKey;
-  const newKeys = data.tabs.map((t) => sessionKeyOf(t.agentId, t.sessionId));
-  if (!currentKey || !newKeys.includes(currentKey)) {
-    const fallback = newKeys[0] ?? null;
-    log.info("handleSetTabs: setting activeSessionKey", { from: currentKey, to: fallback });
-    store.setActiveSession(fallback);
+  // Set the authoritative active session key only when it differs.
+  // This prevents overwriting user-initiated tab switches that happened
+  // since the last setTabs message was sent.
+  const storeAfter = useSessionStore.getState();
+  if (storeAfter.activeSessionKey !== authoritativeKey) {
+    log.info("handleSetTabs: applying authoritative activeSessionKey", {
+      from: storeAfter.activeSessionKey,
+      to: authoritativeKey,
+      source: data.activeSessionKey ? "extension" : "local-fallback",
+    });
+    storeAfter.setActiveSession(authoritativeKey);
   }
 }
 
@@ -282,10 +315,12 @@ function handleSessionStream(data: SessionStream): void {
     data.sessionId,
     data.chunk,
   );
-  // Update lastResponseAt so the session is considered "alive"
+  // Update lastResponseAt so the session is considered "alive" — but only
+  // if the session is currently running.  Overwriting lastResponseAt during
+  // idle/completed state can cause stale "elapsedMs" display in the overview.
   const store = useSessionStore.getState();
   const existing = store.sessionInfoMap[msgKey];
-  if (existing) {
+  if (existing && existing.status === "running") {
     store.setSessionInfo(data.agentId, data.sessionId, {
       ...existing,
       lastResponseAt: new Date().toISOString(),
@@ -313,13 +348,26 @@ function handleSessionStreamEnd(data: SessionStreamEnd): void {
 
 function handleSessionSwitch(data: SessionSwitch): void {
   const key = sessionKeyOf(data.agentId, data.sessionId);
-  const prevKey = useSessionStore.getState().activeSessionKey;
+  const currentKey = useSessionStore.getState().activeSessionKey;
   log.info("handleSessionSwitch", {
-    from: prevKey,
+    from: currentKey,
     to: key,
     hasTokenUsage: !!data.tokenUsage,
     model: data.model,
   });
+
+  // Guard: if the webview has since switched to a different session,
+  // this is a stale echo from the extension — discard it.
+  if (pendingSwitchGuard !== null && pendingSwitchGuard !== key) {
+    log.info("handleSessionSwitch: stale echo discarded", {
+      expected: pendingSwitchGuard,
+      received: key,
+    });
+    return;
+  }
+
+  // Clear the guard after processing a matching response.
+  pendingSwitchGuard = null;
 
   const sessionStore = useSessionStore.getState();
 
@@ -332,29 +380,12 @@ function handleSessionSwitch(data: SessionSwitch): void {
     sessionStore.addTab(data.agentId, data.sessionId, data.sessionId.slice(0, 8));
   }
 
-  // Single atomic update: build new sessionInfo.
-  const msgStore = useMessageStore.getState();
-  const cachedMsgs = msgStore.perSession[key] ?? [];
-  const existing = sessionStore.sessionInfoMap[key];
-
-  const newInfo: SessionInfoSnapshot = {
-    sessionId: data.sessionId,
-    agentId: data.agentId,
-    status: "idle",
-    isTurnActive: data.isTurnActive ?? false,
-    isStreaming: data.isStreaming ?? false,
-    tokenUsage: data.tokenUsage,
-    contextWindowMax: data.contextWindowMax,
-    model: data.model,
-    mode: data.mode,
-    cwd: data.cwd,
-    messageCount: cachedMsgs.length,
-    createdAt: data.createdAt,
-    lastResponseAt: existing?.lastResponseAt ?? null,
-  };
-
+  // Only set activeSessionKey. Do NOT call setSessionInfo here — the
+  // extension will send session/info separately with the full state.
+  // Calling setSessionInfo here creates a duplicate update that races
+  // with the subsequent session/info message, causing the UI to flash
+  // back to an intermediate state.
   sessionStore.setActiveSession(key);
-  sessionStore.setSessionInfo(data.agentId, data.sessionId, newInfo);
 }
 
 function handleSessionTurnActive(data: SessionTurnActive): void {
@@ -428,17 +459,13 @@ function handleSessionInfo(data: SessionInfo): void {
   const existing = useSessionStore.getState().sessionInfoMap[sessionKeyOf(aId, sId)];
   const snapshot = data as unknown as SessionInfoSnapshot;
 
-  // Preserve existing messageCount if not incoming
-  if (existing && snapshot.messageCount === undefined) {
-    snapshot.messageCount = existing.messageCount;
-  }
-
-  // Always sync from message store
+  // Always sync messageCount from the authoritative source (messageStore).
+  // The session/info message may carry a stale messageCount from the
+  // orchestrator's in-memory state which can lag behind the actual messages
+  // already pushed to the webview via session/message events.
   const msgStore = useMessageStore.getState();
   const msgs = msgStore.perSession[sessionKeyOf(aId, sId)];
-  if (msgs && msgs.length > 0) {
-    snapshot.messageCount = msgs.length;
-  }
+  snapshot.messageCount = msgs?.length ?? existing?.messageCount ?? 0;
 
   useSessionStore.getState().setSessionInfo(aId, sId, snapshot);
 }

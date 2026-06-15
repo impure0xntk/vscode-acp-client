@@ -22,6 +22,7 @@ import { useMessageStore } from "../store/messageStore";
 import { useUiStateStore } from "../store/uiStateStore";
 import { useMeshStore } from "../store/meshStore";
 import { getVsCodeApi } from "../lib/vscodeApi";
+import { setPendingSwitch } from "../webviewMessageHandler";
 import { useShallow } from "zustand/shallow";
 import { useChatHandlers } from "./hooks/useChatHandlers";
 import { useOverviewHandlers } from "./hooks/useOverviewHandlers";
@@ -182,6 +183,9 @@ export function AppContainer(): React.ReactElement {
     log.info("session switch", { from: prevKey, to: key });
     useSessionStore.getState().setActiveSession(key);
     scrollToMessageRef.current = undefined;
+    // Set the guard so that a stale session/switch echo from the extension
+    // (arriving after a subsequent switch) is discarded.
+    setPendingSwitch(agentId, sessionId);
     getVsCodeApi().postMessage({ type: "switchSession", sessionId, agentId });
   }, []);
 

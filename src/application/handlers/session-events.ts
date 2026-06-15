@@ -145,6 +145,14 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
 
   // -----------------------------------------------------------------------
   // Session active changed
+  // NOTE: Do NOT call sendTabs() here. sendTabs() triggers handleSetTabs in
+  // the webview which calls setActiveSession(), which emits
+  // sessionActiveChanged again — creating an infinite loop:
+  //   sessionActiveChanged → sendTabs → handleSetTabs → setActiveSession
+  //     → sessionActiveChanged → ...
+  // Instead, sendTabs() is called explicitly at the sites that need it
+  // (agentConnected, sessionCreated, etc.).  The session/switch message
+  // sent below already carries the activeSessionKey info the webview needs.
   // -----------------------------------------------------------------------
   orchestrator.on(
     "sessionActiveChanged",
@@ -154,11 +162,8 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
       if (info) {
         getChatPanel()?.setActiveSession(agentId, sessionId, info);
       }
-      // Sync full tab list before session switch so the webview has the
-      // complete tabOrder. Without this, session/switch may arrive before
-      // setTabs, leaving the webview with no tab to activate.
-      sendTabs();
       treeProvider.refresh();
+      updateContext();
 
       // Push session overview so non-active sessions show updated state
       const cp = getChatPanel();
@@ -176,7 +181,10 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
   // Session turn active changed — push updated SessionInfo so UI derives state
   // Push for ALL sessions (not just active) so multi-@ and background turns
   // are reflected in tabs, overview, and streaming status.
+  // Uses a debounced overview update to prevent flooding the webview with
+  // rapid state changes during a turn.
   // -----------------------------------------------------------------------
+  let turnActiveOverviewTimer: ReturnType<typeof setTimeout> | null = null;
   orchestrator.on(
     "sessionTurnActiveChanged",
     ({ agentId, sessionId }: { agentId: string; sessionId: string }) => {
@@ -184,18 +192,22 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
       const info = orchestrator.getSessionInfo(agentId, sessionId);
       if (info) {
         cp?.pushSessionInfo(agentId, sessionId, info);
-        // Also push explicit turnActive so the active session UI updates
-        // even when session/info mutation is a no-op (same snapshot).
         cp?.pushTurnActive(agentId, sessionId, info.isTurnActive);
       }
-      // Push session overview so status/token changes reflect in the overview
-      if (cp) {
-        const overview = orchestrator.getSessionOverview();
-        cp.postMessage({
-          type: "sessionOverview:state",
-          payload: overview,
-        });
-      }
+      // Debounce overview updates — rapid turnActive changes during a turn
+      // can flood the webview with sessionOverview:state messages.
+      if (turnActiveOverviewTimer) clearTimeout(turnActiveOverviewTimer);
+      turnActiveOverviewTimer = setTimeout(() => {
+        turnActiveOverviewTimer = null;
+        const cp2 = getChatPanel();
+        if (cp2) {
+          const overview = orchestrator.getSessionOverview();
+          cp2.postMessage({
+            type: "sessionOverview:state",
+            payload: overview,
+          });
+        }
+      }, 200);
     }
   );
 

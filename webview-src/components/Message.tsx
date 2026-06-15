@@ -160,6 +160,7 @@ export const Message = React.memo(function Message({
     <div
       className={`message ${isSystem ? "message-system" : isUser ? "message-user" : "message-agent"}`}
       data-role={role}
+      data-message-id={item.key}
     >
       {hasAttachments && (
         <div className="user-attach-row">

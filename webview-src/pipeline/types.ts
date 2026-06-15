@@ -78,6 +78,10 @@ export interface ChatDisplayItem {
   renderContext: RenderContext | undefined;
   /** Thinking content if present */
   thinking: { content: string; isStreaming: boolean } | undefined;
+  /** True when this message is consecutive from the same source — header should be hidden */
+  isConsecutive: boolean;
+  /** Effective source key for grouping (e.g. "agent:claude", "system", "user") */
+  groupKey: string;
 }
 
 /** Session compression notice rendered by <ContextCompressionNotice /> */

@@ -30,6 +30,11 @@ export class MessagePipeline {
 
   /**
    * Process only new messages and append to cache (incremental).
+   *
+   * The cache already contains fully-merged PipelineItems, so we must NOT
+   * re-merge them — doing so would duplicate toolCalls across items.
+   * Instead we merge only the new messages, using the last cached item
+   * as context for cross-boundary tool merging.
    */
   processIncremental(
     newMessages: RawMessage[],
@@ -43,37 +48,60 @@ export class MessagePipeline {
     // Filter
     const filtered = filterMessages(classifiedNew, this.config.filter);
 
-    // Merge — combine cached (as classified) with new filtered items
-    const cachedClassified: ClassifiedMessage[] = this.cache.map((item) => {
-      // Reconstruct minimal ClassifiedMessage from cached PipelineItem
-      // Only "chat" items participate in merge; others pass through
-      if (item.type === "chat") {
-        return {
-          id: item.key,
-          role: item.role,
-          content: item.content,
-          timestamp: item.timestamp ?? 0,
-          systemKind: "info" as const,
-          toolCalls: item.resolvedToolCalls,
-        } satisfies ClassifiedMessage;
-      }
-      // Non-chat items (compression, etc.) — not subject to merge
-      return {
-        id: item.key,
-        role: "system" as const,
-        content: "",
-        timestamp: item.timestamp ?? 0,
-        systemKind: item.type,
-      } satisfies ClassifiedMessage;
-    });
+    // Merge only the new messages.
+    // If merge is enabled, we need to consider the last cached item as
+    // context so that a tool message following a cached agent message
+    // is correctly merged across the boundary.
+    let mergedNew: ClassifiedMessage[];
+    if (this.config.merge.enabled) {
+      // Build a minimal context from the last cached item (if any)
+      // so mergeToolBatches can see the preceding agent/tool state.
+      const lastCached = this.cache.length > 0 ? this.cache[this.cache.length - 1] : null;
+      const contextPrefix: ClassifiedMessage[] = lastCached
+        ? [
+            {
+              id: lastCached.key,
+              role:
+                lastCached.type === "chat"
+                  ? lastCached.role
+                  : ("system" as const),
+              content:
+                lastCached.type === "chat" ? lastCached.content : "",
+              timestamp: lastCached.timestamp ?? 0,
+              systemKind:
+                lastCached.type === "chat"
+                  ? ("info" as const)
+                  : (lastCached.type as ClassifiedMessage["systemKind"]),
+              toolCalls:
+                lastCached.type === "chat"
+                  ? lastCached.resolvedToolCalls
+                  : undefined,
+            } satisfies ClassifiedMessage,
+          ]
+        : [];
 
-    const merged = this.config.merge.enabled
-      ? mergeToolBatches([...cachedClassified, ...filtered], this.config.merge)
-      : [...cachedClassified, ...filtered];
+      const merged = mergeToolBatches(
+        [...contextPrefix, ...filtered],
+        this.config.merge,
+      );
+      // Drop the context prefix — it was only needed for merge context
+      mergedNew = merged.slice(contextPrefix.length);
+    } else {
+      mergedNew = filtered;
+    }
 
-    // Annotate only the new tail (items beyond cache length)
-    const newTail = merged.slice(this.cache.length);
-    const annotated = annotateMessages(newTail, this.config.annotate);
+    // Annotate the merged new items, carrying over group-key context
+    // from the last cached item so isConsecutive is computed correctly
+    // across the cache boundary.
+    const lastCached =
+      this.cache.length > 0 ? this.cache[this.cache.length - 1] : null;
+    const lastGroupKey =
+      lastCached && lastCached.type === "chat" ? lastCached.groupKey : "";
+    const annotated = annotateMessages(
+      mergedNew,
+      this.config.annotate,
+      lastGroupKey,
+    );
 
     this.cache = [...this.cache, ...annotated];
     return this.cache;

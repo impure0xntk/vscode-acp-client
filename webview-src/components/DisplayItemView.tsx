@@ -19,22 +19,14 @@ export interface DisplayItemViewProps {
   sessionId?: string;
 }
 
-// ── Chat item: resolve consecutiveness ──────────────────────────────────────
+// ── Chat item ───────────────────────────────────────────────────────────────
 
-function RenderChat(item: ChatDisplayItem, idx: number, items: PipelineItem[], sessionId?: string) {
-  const prev = items[idx - 1];
-  const isConsecutive =
-    prev?.type === "chat" &&
-    prev.role === "agent" &&
-    item.role === "agent" &&
-    prev.key.split("-").slice(1).join("-") ===
-      item.key.split("-").slice(1).join("-");
-
+function RenderChat(item: ChatDisplayItem, sessionId?: string) {
   return (
     <Message
       key={item.key}
       item={item}
-      isConsecutive={isConsecutive}
+      isConsecutive={item.isConsecutive}
       sessionId={sessionId}
     />
   );
@@ -95,13 +87,13 @@ function RenderCustom(item: CustomSystemDisplayItem) {
  */
 export function DisplayItemView({
   item,
-  idx,
-  items,
+  idx: _idx,
+  items: _items,
   sessionId,
 }: DisplayItemViewProps): React.ReactElement {
   switch (item.type) {
     case "chat":
-      return RenderChat(item, idx, items, sessionId);
+      return RenderChat(item, sessionId);
     case "compression":
       return RenderCompression(item);
     case "mode_change":

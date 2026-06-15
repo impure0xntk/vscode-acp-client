@@ -5,6 +5,8 @@ import { createDefaultPipeline } from "../pipeline";
 interface PipelineCache {
   pipeline: import("../pipeline").MessagePipeline;
   sessionKey: string | null;
+  /** Number of raw messages already processed into the pipeline */
+  processedRawCount: number;
 }
 
 /**
@@ -19,17 +21,21 @@ export function useMessagePipeline(
   const cacheRef = useRef<PipelineCache>({
     pipeline: createDefaultPipeline(),
     sessionKey: null,
+    processedRawCount: 0,
   });
 
   const sessionKey = `${agentId}:${sessionId}`;
+
+  // Session switch: always reset when sessionKey changes
   if (cacheRef.current.sessionKey !== sessionKey) {
     cacheRef.current = {
       pipeline: createDefaultPipeline(),
       sessionKey,
+      processedRawCount: 0,
     };
   }
 
-  const { pipeline } = cacheRef.current;
+  const { pipeline, processedRawCount } = cacheRef.current;
 
   return useMemo(() => {
     const ctx: PipelineContext = {
@@ -39,15 +45,23 @@ export function useMessagePipeline(
       existingItems: pipeline.cached,
     };
 
-    if (pipeline.cached.length === 0) {
-      return pipeline.process(rawMessages, ctx);
+    // First render for this session or empty pipeline
+    if (pipeline.cached.length === 0 || rawMessages.length < processedRawCount) {
+      // Reset if we have fewer messages than processed (e.g. session reset)
+      const result = pipeline.process(rawMessages, ctx);
+      cacheRef.current.processedRawCount = rawMessages.length;
+      return result;
     }
 
-    const newMessages = rawMessages.slice(
-      // Count only "chat" items for raw message indexing
-      // Non-chat items (compression, etc.) don't correspond 1:1 with raw messages
-      pipeline.cached.filter((i) => i.type === "chat").length,
-    );
-    return pipeline.processIncremental(newMessages, ctx);
-  }, [rawMessages, pipeline, sessionId, agentId]);
+    // All messages already processed
+    if (rawMessages.length === processedRawCount) {
+      return pipeline.cached;
+    }
+
+    // Process only new messages
+    const newMessages = rawMessages.slice(processedRawCount);
+    const result = pipeline.processIncremental(newMessages, ctx);
+    cacheRef.current.processedRawCount = rawMessages.length;
+    return result;
+  }, [rawMessages, pipeline, sessionId, agentId, processedRawCount]);
 }

@@ -1525,7 +1525,7 @@ export class SessionOrchestrator extends EventEmitter {
         const text = content?.type === "text" ? content.text : undefined;
         if (text) {
           const streamingMsg: ChatMessage = {
-            id: `stream-${sessionId}-${Date.now()}`,
+            id: `stream-${sessionId}-${crypto.randomUUID()}`,
             role: "agent",
             content: text,
             timestamp: Date.now(),

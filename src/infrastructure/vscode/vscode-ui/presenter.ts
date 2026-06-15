@@ -55,6 +55,8 @@ export interface SetTabsMessage {
   tabs: TabData[];
   activeSessionId: string | null;
   activeAgentId: string | null;
+  /** Authoritative active session key (format: "agentId:sessionId") — set by extension, not to be overridden by webview heuristics. */
+  activeSessionKey: string | null;
   workspaceRoot: string | null;
   agents: AgentTabInfo[];
   workspaceFolders: Array<{ name: string; path: string }>;
@@ -187,11 +189,15 @@ export class ChatPresenter {
   // -----------------------------------------------------------------------
 
   buildSetTabsMessage(): SetTabsMessage {
+    const activeSessionKey = this.activeAgentId && this.activeSessionId
+      ? `${this.activeAgentId}:${this.activeSessionId}`
+      : null;
     return {
       type: "setTabs",
       tabs: Array.from(this.tabs.values()),
       activeSessionId: this.activeSessionId,
       activeAgentId: this.activeAgentId,
+      activeSessionKey,
       workspaceRoot: this.workspaceRoot,
       agents: Array.from(this.agents.values()),
       workspaceFolders: this.workspaceFolders,
