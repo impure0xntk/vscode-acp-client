@@ -80,23 +80,31 @@ export function SessionOverviewCard({
 
   const tier = elapsedTier(liveItem.progress.elapsedMs);
 
-  const prevStatusRef = useRef(liveItem.status);
+  const prevStatusRef = useRef<string | undefined>(undefined);
   const [isFlashing, setIsFlashing] = useState(false);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didLongPressRef = useRef(false);
 
   useEffect(() => {
     const prev = prevStatusRef.current;
+    const current = liveItem.status;
+
+    // Skip on first render (prev is undefined) to avoid false flash
+    if (prev === undefined) {
+      prevStatusRef.current = current;
+      return;
+    }
+
     const wasActive =
       prev === "running" || prev === "waiting" || prev === "waiting_for_input";
     const isTerminal =
-      liveItem.status === "completed" || liveItem.status === "error";
+      current === "completed" || current === "error";
 
     if (wasActive && isTerminal) {
       setIsFlashing(true);
     }
 
-    prevStatusRef.current = liveItem.status;
+    prevStatusRef.current = current;
   }, [liveItem.status]);
 
   const handleAnimationEnd = useCallback(() => {

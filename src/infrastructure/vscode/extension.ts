@@ -296,14 +296,13 @@ function sendTabsToChatPanel(): void {
   let activeSessionId = activeAgentId
     ? (orchestrator.getActiveSessionId(activeAgentId) ?? null)
     : null;
-  if (!activeSessionId && allTabs.length === 1) {
-    activeSessionId = allTabs[0].sessionId;
-    activeAgentId = allTabs[0].agentId;
-    orchestrator.setActiveSession(activeAgentId, activeSessionId);
-  }
-
   if (activeSessionId && activeAgentId) {
     presenter.setActiveSession(activeAgentId, activeSessionId);
+  } else if (!activeSessionId && allTabs.length === 1) {
+    // Only update the presenter tracking — do NOT call
+    // orchestrator.setActiveSession() which would emit sessionActiveChanged
+    // and force-focus the session, stealing focus from the user.
+    presenter.setActiveSession(allTabs[0].agentId, allTabs[0].sessionId);
   }
 
   chatPanel.postMessage(presenter.buildSetTabsMessage());

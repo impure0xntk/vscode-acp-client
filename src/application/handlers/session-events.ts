@@ -154,6 +154,10 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
       if (info) {
         getChatPanel()?.setActiveSession(agentId, sessionId, info);
       }
+      // Sync full tab list before session switch so the webview has the
+      // complete tabOrder. Without this, session/switch may arrive before
+      // setTabs, leaving the webview with no tab to activate.
+      sendTabs();
       treeProvider.refresh();
 
       // Push session overview so non-active sessions show updated state

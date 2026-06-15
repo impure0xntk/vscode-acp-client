@@ -143,11 +143,10 @@ export function wireChatPanelEvents(
       case "switchSession": {
         const agentId = data.agentId as string;
         const sessionId = data.sessionId as string;
-        orchestrator.setActiveSession(agentId, sessionId);
         const info = orchestrator.getSessionInfo(agentId, sessionId);
-        if (info) {
-          chatPanel?.setActiveSession(agentId, sessionId, info);
-        }
+        if (!info) break;
+        orchestrator.setActiveSession(agentId, sessionId);
+        chatPanel?.setActiveSession(agentId, sessionId, info);
         break;
       }
       case "newSession": {
@@ -280,7 +279,7 @@ export function wireChatPanelEvents(
       case "selectSession": {
         const sessionId = data.sessionId as string;
         for (const agent of orchestrator.getAllAgents()) {
-          if (agent.sessions.some((s) => s.sessionId === sessionId)) {
+          if (orchestrator.getSessionInfo(agent.agentId, sessionId)) {
             orchestrator.setActiveSession(agent.agentId, sessionId);
             break;
           }
@@ -402,7 +401,9 @@ export function wireChatPanelEvents(
           sessionId: string;
           agentId: string;
         };
-        orchestrator.setActiveSession(agentId, sessionId);
+        if (orchestrator.getSessionInfo(agentId, sessionId)) {
+          orchestrator.setActiveSession(agentId, sessionId);
+        }
         break;
       }
       case "sessionOverview:cancel": {

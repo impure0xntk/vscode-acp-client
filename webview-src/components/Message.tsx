@@ -138,9 +138,14 @@ export const Message = React.memo(function Message({
   const isSystem = role === "system";
   const isUser = role === "user";
   const isTool = role === "tool";
+  const isAgent = role === "agent";
   const isCompression = isSystem && compressionInfo !== undefined;
   const hasToolCalls = toolCalls !== undefined && toolCalls.length > 0;
   const hasAttachments = isUser && attachments !== undefined && attachments.length > 0;
+  const hasContent = content.trim().length > 0;
+  // Agent messages with tool calls but no text content (e.g. tool-only turns)
+  // should skip the markdown body to avoid empty whitespace.
+  const isToolOnlyAgent = isAgent && hasToolCalls && !hasContent;
 
   const renderCtx: RenderContext | undefined = inlineFilePaths?.length
     ? { filePaths: new Set(inlineFilePaths) }
@@ -198,22 +203,24 @@ export const Message = React.memo(function Message({
             <MessageActions messageId={id} content={content} isUserMessage={isUser} sessionId={sessionId ?? ""} />
           </div>
         )}
-        <div className="message-body">
-          {isUser ? (
-            <div className="message-text">{content}</div>
-          ) : (
-            <div className="message-markdown-wrap">
-              <div
-                className={`message-markdown${isSystem ? " message-system-markdown" : ""}`}
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(content, renderCtx) }}
-                onClick={handleMarkdownClick}
-              />
-              {!isSystem && !isTool && (
-                <MessageActions messageId={id} content={content} isUserMessage={isUser} sessionId={sessionId ?? ""} />
-              )}
-            </div>
-          )}
-        </div>
+        {!isToolOnlyAgent && (
+          <div className="message-body">
+            {isUser ? (
+              <div className="message-text">{content}</div>
+            ) : (
+              <div className="message-markdown-wrap">
+                <div
+                  className={`message-markdown${isSystem ? " message-system-markdown" : ""}`}
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(content, renderCtx) }}
+                  onClick={handleMarkdownClick}
+                />
+                {!isSystem && !isTool && (
+                  <MessageActions messageId={id} content={content} isUserMessage={isUser} sessionId={sessionId ?? ""} />
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
       {isCompression && compressionInfo && (
         <div className="message-compression">

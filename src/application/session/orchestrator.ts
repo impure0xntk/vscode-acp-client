@@ -1286,7 +1286,11 @@ export class SessionOrchestrator extends EventEmitter {
   setActiveSession(agentId: string, sessionId: string): void {
     const agentSessions = this.sessions.get(agentId);
     if (!agentSessions?.has(sessionId)) {
-      throw new Error(`Session ${sessionId} not found for agent ${agentId}`);
+      log.warn("setActiveSession: session not found, skipping", {
+        agentId,
+        sessionId,
+      });
+      return;
     }
 
     this.activeSessions.set(agentId, sessionId);

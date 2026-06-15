@@ -1,11 +1,11 @@
-import { useSyncExternalStore, useCallback } from "react";
+import { useSyncExternalStore, useCallback, useRef } from "react";
 import { useSessionStore } from "../store/sessionStore";
 import type { SessionInfoSnapshot } from "../store/sessionStore";
 
 /**
  * Subscribe to a single session's info from sessionInfoMap via
  * `useSyncExternalStore`.  Only re-renders when the specific key's
- * value changes (structural equality is handled by Zustand's immer).
+ * value actually changes (referential equality on the snapshot).
  *
  * @param sessionKey - `"agentId:sessionId"` key, or `null` to skip.
  * @returns The current `SessionInfoSnapshot`, or `undefined` if not found.
@@ -13,16 +13,15 @@ import type { SessionInfoSnapshot } from "../store/sessionStore";
 export function useSessionInfo(
   sessionKey: string | null,
 ): SessionInfoSnapshot | undefined {
-  const cacheRef = useRef<{ key: string | null; snapshot: SessionInfoSnapshot | undefined }>({
-    key: null,
-    snapshot: undefined,
-  });
+  const cacheRef = useRef<SessionInfoSnapshot | undefined>(undefined);
 
   const subscribe = useCallback(
     (onStoreChange: () => void) => {
       if (!sessionKey) return () => {};
-      return useSessionStore.subscribe((state, prevState) => {
-        if (state.sessionInfoMap[sessionKey] !== prevState.sessionInfoMap[sessionKey]) {
+      return useSessionStore.subscribe((state) => {
+        const next = state.sessionInfoMap[sessionKey];
+        if (next !== cacheRef.current) {
+          cacheRef.current = next;
           onStoreChange();
         }
       });
@@ -32,14 +31,7 @@ export function useSessionInfo(
 
   const getSnapshot = useCallback((): SessionInfoSnapshot | undefined => {
     if (!sessionKey) return undefined;
-    const current = useSessionStore.getState().sessionInfoMap[sessionKey];
-    const cache = cacheRef.current;
-    if (cache.key === sessionKey && cache.snapshot === current) {
-      return cache.snapshot;
-    }
-    cache.key = sessionKey;
-    cache.snapshot = current;
-    return current;
+    return useSessionStore.getState().sessionInfoMap[sessionKey];
   }, [sessionKey]);
 
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);

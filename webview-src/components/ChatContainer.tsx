@@ -1,6 +1,6 @@
 import React, { useRef, memo, useMemo, useCallback, useEffect } from "react";
 import { Message } from "./Message";
-import type { ChatMessage, ToolCall } from "../types";
+import type { ChatMessage } from "../types";
 import { useMessages } from "../hooks/useMessages";
 import { useScrollController } from "../hooks/useScrollController";
 
@@ -38,41 +38,38 @@ function sessionIdFrom(msg: ChatMessage): string {
 
 function mergeToolBatches(messages: ChatMessage[]): ChatMessage[] {
   const result: ChatMessage[] = [];
-  let pendingCalls: ToolCall[] = [];
-  let lastAgentIdx = -1;
 
   for (const msg of messages) {
     if (msg.role === "tool") {
-      const calls = msg.toolCalls ?? [];
-      const existingIds = new Set(pendingCalls.map((c) => c.id));
-      const newCalls = calls.filter((c) => !existingIds.has(c.id));
-      pendingCalls = [...pendingCalls, ...newCalls];
-      continue;
-    }
-
-    if (msg.role === "agent" || msg.role === "user" || msg.role === "system") {
-      if (pendingCalls.length > 0 && lastAgentIdx >= 0) {
-        const prev = result[lastAgentIdx];
-        result[lastAgentIdx] = {
-          ...prev,
-          toolCalls: [...(prev.toolCalls ?? []), ...pendingCalls],
+      // Look back at the last non-tool message in result to decide behavior.
+      const lastNonTool = findLastNonTool(result);
+      if (lastNonTool && lastNonTool.role === "agent") {
+        // Agent → Tool → … : merge tool calls into the preceding agent message.
+        const merged: ChatMessage = {
+          ...lastNonTool,
+          toolCalls: [
+            ...(lastNonTool.toolCalls ?? []),
+            ...(msg.toolCalls ?? []),
+          ],
         };
-        pendingCalls = [];
+        result[result.indexOf(lastNonTool)] = merged;
+      } else {
+        // User → Tool → … (no preceding agent): treat as new agent message.
+        result.push({ ...msg, role: "agent" });
       }
-      if (msg.role === "agent") lastAgentIdx = result.length;
+    } else {
       result.push(msg);
     }
   }
 
-  if (pendingCalls.length > 0 && lastAgentIdx >= 0) {
-    const prev = result[lastAgentIdx];
-    result[lastAgentIdx] = {
-      ...prev,
-      toolCalls: [...(prev.toolCalls ?? []), ...pendingCalls],
-    };
-  }
-
   return result;
+}
+
+function findLastNonTool(messages: ChatMessage[]): ChatMessage | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role !== "tool") return messages[i];
+  }
+  return null;
 }
 
 function buildRunKeys(messages: ChatMessage[]): (string | undefined)[] {

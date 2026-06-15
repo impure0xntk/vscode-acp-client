@@ -308,12 +308,21 @@ function handleSessionSwitch(data: SessionSwitch): void {
     model: data.model,
   });
 
+  const sessionStore = useSessionStore.getState();
+
+  // Ensure the tab exists in tabOrder — if the extension activates a
+  // session before bulkSetTabs delivers the full tab list (race between
+  // session/switch and setTabs messages), addTab creates the tab so the
+  // UI can render it. Without this, activeSessionKey is set but no tab
+  // exists, resulting in a blank panel with no messages.
+  if (!sessionStore.tabOrder.includes(key)) {
+    sessionStore.addTab(data.agentId, data.sessionId, data.sessionId.slice(0, 8));
+  }
+
   // Single atomic update: build new sessionInfo.
-  // setActiveSession is optimistic in AppContainer.switchTab() (Webview side)
-  // but here we also set it for consistency with handleSessionSwitch flow.
   const msgStore = useMessageStore.getState();
   const cachedMsgs = msgStore.perSession[key] ?? [];
-  const existing = useSessionStore.getState().sessionInfoMap[key];
+  const existing = sessionStore.sessionInfoMap[key];
 
   const newInfo: SessionInfoSnapshot = {
     sessionId: data.sessionId,
@@ -331,8 +340,8 @@ function handleSessionSwitch(data: SessionSwitch): void {
     lastResponseAt: existing?.lastResponseAt ?? null,
   };
 
-  useSessionStore.getState().setActiveSession(key);
-  useSessionStore.getState().setSessionInfo(data.agentId, data.sessionId, newInfo);
+  sessionStore.setActiveSession(key);
+  sessionStore.setSessionInfo(data.agentId, data.sessionId, newInfo);
 }
 
 function handleSessionTurnActive(data: SessionTurnActive): void {
