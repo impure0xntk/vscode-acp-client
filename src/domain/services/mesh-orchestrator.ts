@@ -385,16 +385,21 @@ export class MeshOrchestrator {
   // -----------------------------------------------------------------------
 
   /**
-   * Send a message to multiple targets in parallel (multi-@ direct mode).
+   * Send a message to one or more targets in parallel (mesh:send).
    * Each target is a (agentId, sessionId) pair.
+   * Single target = direct 1:1, multiple targets = fanout.
    * Returns results for each target without waiting for agent responses.
    */
-  async directMultiSend(
+  async meshSend(
     targets: SendTarget[],
     text: string,
     attachments?: unknown[]
   ): Promise<MultiSendResult> {
-    log.info("directMultiSend", { targetCount: targets.length });
+    const targetDesc = targets.map((t) => `${t.agentId}:${t.sessionId}`).join(", ");
+    log.info("mesh:send", {
+      targetCount: targets.length,
+      targets: targetDesc,
+    });
     const payload: UserMessagePayload = {
       text,
       attachments: attachments ?? [],

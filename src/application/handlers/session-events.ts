@@ -153,6 +153,11 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
   // Instead, sendTabs() is called explicitly at the sites that need it
   // (agentConnected, sessionCreated, etc.).  The session/switch message
   // sent below already carries the activeSessionKey info the webview needs.
+  //
+  // NOTE: Do NOT call getSessionOverview() here either. setActiveSession()
+  // already calls emitOverviewUpdate() which is debounced (100ms). Calling
+  // getSessionOverview() synchronously here blocks the extension host and
+  // duplicates the work — the debounced emission covers the overview update.
   // -----------------------------------------------------------------------
   orchestrator.on(
     "sessionActiveChanged",
@@ -164,16 +169,6 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
       }
       treeProvider.refresh();
       updateContext();
-
-      // Push session overview so non-active sessions show updated state
-      const cp = getChatPanel();
-      if (cp) {
-        const overview = orchestrator.getSessionOverview();
-        cp.postMessage({
-          type: "sessionOverview:state",
-          payload: overview,
-        });
-      }
     }
   );
 

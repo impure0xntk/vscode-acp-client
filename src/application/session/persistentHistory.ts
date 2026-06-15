@@ -164,8 +164,17 @@ export class PersistentHistoryStore {
     this.dbPath = getDbPath(storageUri);
 
     if (fs.existsSync(this.dbPath)) {
-      const buffer = fs.readFileSync(this.dbPath);
-      this.db = new SQL.Database(buffer);
+      try {
+        const buffer = fs.readFileSync(this.dbPath);
+        this.db = new SQL.Database(buffer);
+        // Verify the DB is usable by running a simple query
+        this.db.exec("SELECT 1");
+      } catch {
+        // Database is corrupted — back up and start fresh
+        const backupPath = `${this.dbPath}.corrupted.${Date.now()}`;
+        fs.renameSync(this.dbPath, backupPath);
+        this.db = new SQL.Database();
+      }
     } else {
       this.db = new SQL.Database();
     }

@@ -20,7 +20,7 @@ import type { SendTarget } from "../../../domain/models/mesh";
 import type { MeshOrchestrator } from "../../../domain/services/mesh-orchestrator";
 
 // -----------------------------------------------------------------------
-// Internal state — captured via closure so handleDirectMulti can access
+// Internal state — captured via closure so meshSend can access
 // without threading through every call site.
 // -----------------------------------------------------------------------
 let _chatPanel: ChatPanel | null = null;
@@ -28,11 +28,10 @@ let _orchestrator: SessionOrchestrator | null = null;
 let _meshOrchestrator: MeshOrchestrator | null = null;
 
 /**
- * Handle direct multi-send for both single-session (onSendMessage) and
- * multi-target (mesh:directMulti) paths.  This is the single code path
- * for sending user messages to agent sessions (DRY).
+ * Multi-send for multi-target (mesh:send) paths.
+ * This is the single code path for sending user messages to agent sessions (DRY).
  */
-function handleDirectMulti(
+function meshSend(
   text: string,
   attachments: ContextAttachmentDTO[],
   targets: SendTarget[]
@@ -57,7 +56,7 @@ function handleDirectMulti(
     // FanoutExecutor handles pushUserMessage + prompt for each target.
     // Turn lifecycle (isTurnActive) is managed entirely by prompt() → _executePrompt(),
     // so we must NOT touch setIsTurnActive here.
-    void meshOrchestrator.directMultiSend(targets, text, attachments);
+    void meshOrchestrator.meshSend(targets, text, attachments);
   } else {
     // Fallback: direct per-target send (degraded, no marker routing)
     // Turn lifecycle is managed entirely by prompt() → _executePrompt(),
@@ -89,7 +88,7 @@ export function wireChatPanelEvents(
   persistentHistory?: PersistentHistoryStore,
   meshOrchestrator?: MeshOrchestrator
 ): void {
-  // Capture into closure-scoped vars so handleDirectMulti can access
+  // Capture into closure-scoped vars so meshSend can access
   // without threading through every call site.
   _chatPanel = chatPanel;
   _orchestrator = orchestrator;
@@ -98,11 +97,11 @@ export function wireChatPanelEvents(
   if (!chatPanel) return;
 
   chatPanel.onSendMessage(({ agentId, sessionId, text, attachments }) => {
-    // Single code path: always route through handleDirectMulti (DRY).
+    // Single code path: always route through meshSend (DRY).
     const targets: SendTarget[] = [
       { agentId, sessionId, label: agentId, status: "idle" },
     ];
-    handleDirectMulti(text, attachments, targets);
+    meshSend(text, attachments, targets);
   });
 
   chatPanel.onCancelTurn(({ agentId, sessionId }) => {
@@ -420,15 +419,15 @@ export function wireChatPanelEvents(
         break;
 
       // ==================================================================
-      // Multi-@ direct send (mesh:directMulti)
+      // Mesh send — single or multi-target (mesh:send)
       // ==================================================================
-      case "mesh:directMulti": {
+      case "mesh:send": {
         const { text, attachments, targets } = data as {
           text: string;
           attachments: ContextAttachmentDTO[];
           targets: SendTarget[];
         };
-        handleDirectMulti(text, attachments, targets);
+        meshSend(text, attachments, targets);
         break;
       }
 

@@ -1294,8 +1294,11 @@ export class SessionOrchestrator extends EventEmitter {
     }
 
     this.activeSessions.set(agentId, sessionId);
-    this.emit("sessionActiveChanged", { agentId, sessionId });
+    // Emit overview update BEFORE sessionActiveChanged so the debounced
+    // timer is already running when the handler fires. The handler then
+    // skips its own getSessionOverview() call (see session-events.ts).
     this.emitOverviewUpdate();
+    this.emit("sessionActiveChanged", { agentId, sessionId });
   }
 
   getActiveSessionInfo(agentId: string): SessionInfo | undefined {

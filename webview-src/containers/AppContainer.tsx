@@ -168,7 +168,7 @@ export function AppContainer(): React.ReactElement {
         return;
       }
 
-      getVsCodeApi().postMessage({ type: "mesh:directMulti", text, attachments, targets: resolvedTargets });
+      getVsCodeApi().postMessage({ type: "mesh:send", text, attachments, targets: resolvedTargets });
     },
     [activeAgentId, activeSessionId, displayModel, displayStatus]
   );

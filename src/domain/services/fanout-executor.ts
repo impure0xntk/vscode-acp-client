@@ -68,7 +68,11 @@ export class FanoutExecutor {
     targets: SendTarget[],
     payload: UserMessagePayload
   ): Promise<MultiSendResult> {
-    log.info("fanout execute start", { targetCount: targets.length });
+    const targetDesc = targets.map((t) => `${t.agentId}:${t.sessionId}`).join(", ");
+    log.info("fanout execute start", {
+      targetCount: targets.length,
+      targets: targetDesc,
+    });
 
     const results = await Promise.all(
       targets.map((target) => this.sendToTarget(target, payload))
@@ -76,7 +80,7 @@ export class FanoutExecutor {
 
     const sent = results.filter((r) => r.status === "sent").length;
     const failed = results.filter((r) => r.status === "failed").length;
-    log.info("fanout execute complete", { sent, failed });
+    log.info("fanout execute complete", { sent, failed, targets: targetDesc });
 
     return { results };
   }
@@ -89,7 +93,7 @@ export class FanoutExecutor {
     target: SendTarget,
     payload: UserMessagePayload
   ): Promise<FanoutResult> {
-    log.debug("sending to target", { agentId: target.agentId, sessionId: target.sessionId });
+    log.info("sending to target", { agentId: target.agentId, sessionId: target.sessionId });
 
     try {
       const userMessage: ChatMessage = {
@@ -122,7 +126,11 @@ export class FanoutExecutor {
       );
       return { target, status: "sent" };
     } catch (e) {
-      log.error("fanout target failed", { agentId: target.agentId, sessionId: target.sessionId }, e as Error);
+      log.error("fanout target failed", {
+        agentId: target.agentId,
+        sessionId: target.sessionId,
+        error: e instanceof Error ? e.message : String(e),
+      }, e as Error);
       return {
         target,
         status: "failed",

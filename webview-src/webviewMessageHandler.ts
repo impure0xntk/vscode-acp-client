@@ -380,12 +380,15 @@ function handleSessionSwitch(data: SessionSwitch): void {
     sessionStore.addTab(data.agentId, data.sessionId, data.sessionId.slice(0, 8));
   }
 
-  // Only set activeSessionKey. Do NOT call setSessionInfo here — the
-  // extension will send session/info separately with the full state.
-  // Calling setSessionInfo here creates a duplicate update that races
-  // with the subsequent session/info message, causing the UI to flash
-  // back to an intermediate state.
-  sessionStore.setActiveSession(key);
+  // Only set activeSessionKey if it differs from the current key.
+  // The webview already updated activeSessionKey in switchTab() before
+  // sending the postMessage. Calling setActiveSession here would trigger
+  // a redundant re-render and, in race conditions with other extension-
+  // initiated session/switch messages (e.g. from sessionCreated or
+  // setActiveSession), can cause the UI to switch to an unintended session.
+  if (currentKey !== key) {
+    sessionStore.setActiveSession(key);
+  }
 }
 
 function handleSessionTurnActive(data: SessionTurnActive): void {
