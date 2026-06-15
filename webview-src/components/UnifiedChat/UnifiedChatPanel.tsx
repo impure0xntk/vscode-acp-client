@@ -50,7 +50,8 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
     activeSessionKey,
     pinnedSessionKeys,
     layoutMode,
-    splitRatio,
+    splitDirection,
+    splitRatios,
     connectedAgents,
     sessionCommands,
     tabOrder,
@@ -59,14 +60,16 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
     pinSession,
     unpinSession,
     setLayoutMode,
-    setSplitRatio,
+    setSplitDirection,
+    setSplitRatios,
     setFocusSession,
   } = useSessionStore(
     useShallow((s: SessionStoreState) => ({
       activeSessionKey: s.activeSessionKey,
       pinnedSessionKeys: s.pinnedSessionKeys,
       layoutMode: s.layoutMode,
-      splitRatio: s.splitRatio,
+      splitDirection: s.splitDirection,
+      splitRatios: s.splitRatios,
       connectedAgents: s.connectedAgents,
       sessionCommands: s.sessionCommands,
       tabOrder: s.tabOrder,
@@ -75,7 +78,8 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
       pinSession: s.pinSession,
       unpinSession: s.unpinSession,
       setLayoutMode: s.setLayoutMode,
-      setSplitRatio: s.setSplitRatio,
+      setSplitDirection: s.setSplitDirection,
+      setSplitRatios: s.setSplitRatios,
       setFocusSession: s.setFocusSession,
     }))
   );
@@ -84,6 +88,7 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
     disabled,
     status,
     layoutMode,
+    splitDirection,
   });
 
   // Derive tabs locally from already-subscribed fields instead of calling
@@ -119,7 +124,7 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
           unreadCount: 0,
         };
       }),
-    [tabs, connectedAgents]
+    [tabs, connectedAgents],
   );
 
   const handleFocusChange = useCallback(
@@ -129,7 +134,7 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
       log.info("session focus change", { key, agentId, sessionId });
       onSwitchSession(agentId, sessionId);
     },
-    [setFocusSession, onSwitchSession, log]
+    [setFocusSession, onSwitchSession, log],
   );
 
   const handlePin = useCallback(
@@ -137,7 +142,7 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
       log.debug("pin session", { key });
       pinSession(key);
     },
-    [pinSession, log]
+    [pinSession, log],
   );
 
   const handleUnpin = useCallback(
@@ -145,7 +150,17 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
       log.debug("unpin session", { key });
       unpinSession(key);
     },
-    [unpinSession, log]
+    [unpinSession, log],
+  );
+
+  const handleClose = useCallback(
+    (key: string) => {
+      log.info("close section", { key });
+      // Unpin first, then remove tab
+      unpinSession(key);
+      useSessionStore.getState().removeTab(key);
+    },
+    [unpinSession, log],
   );
 
   const handleLayoutChange = useCallback(
@@ -153,7 +168,16 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
       log.info("layout mode change", { mode });
       setLayoutMode(mode);
     },
-    [setLayoutMode, log]
+    [setLayoutMode, log],
+  );
+
+  const handleAddSession = useCallback(
+    (key: string) => {
+      log.info("add session to view", { key });
+      pinSession(key);
+      setFocusSession(key);
+    },
+    [pinSession, setFocusSession, log],
   );
 
   const focusKey = activeSessionKey;
@@ -165,9 +189,7 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
         sessions={sessionChips}
         activeSessionKey={activeSessionKey}
         onSelect={handleFocusChange}
-        onAdd={() => {
-          /* new session picker — delegate to parent */
-        }}
+        onAdd={handleAddSession}
       />
 
       {/* Layout mode toggle */}
@@ -203,11 +225,14 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
         focusKey={focusKey}
         pinnedKeys={pinnedSessionKeys}
         layoutMode={layoutMode}
-        splitRatio={splitRatio}
+        splitDirection={splitDirection}
+        splitRatios={splitRatios}
         onFocusChange={handleFocusChange}
         onPin={handlePin}
         onUnpin={handleUnpin}
-        onSplitRatioChange={setSplitRatio}
+        onClose={handleClose}
+        onSplitRatiosChange={setSplitRatios}
+        onSplitDirectionChange={setSplitDirection}
       />
 
       {/* Composer */}

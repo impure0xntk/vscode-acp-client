@@ -231,8 +231,10 @@ export interface SessionStoreState {
   pinnedSessionKeys: string[];
   /** Layout mode for the unified chat panel */
   layoutMode: "single" | "split" | "grid";
-  /** Split mode divider ratio (0.0 = top 100%, 1.0 = bottom 100%) */
-  splitRatio: number;
+  /** Split direction: vertical = stacked, horizontal = side-by-side */
+  splitDirection: "vertical" | "horizontal";
+  /** Split mode divider ratios — one per section, normalized to sum to 1 */
+  splitRatios: number[];
 
   // ── Actions ───────────────────────────────────────────────────────────
   setSessionInfoMap: (map: Record<string, SessionInfoDTO>) => void;
@@ -273,6 +275,7 @@ export interface SessionStoreState {
   unpinSession: (sessionKey: string) => void;
   togglePin: (sessionKey: string) => void;
   setLayoutMode: (mode: "single" | "split" | "grid") => void;
+  setSplitDirection: (dir: "vertical" | "horizontal") => void;
   setSplitRatio: (ratio: number) => void;
   setFocusSession: (sessionKey: string | null) => void;
 }
@@ -294,7 +297,8 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
   // ── UnifiedChatPanel ─────────────────────────────────────────────────
   pinnedSessionKeys: [],
   layoutMode: "single",
-  splitRatio: 0.6,
+  splitDirection: "vertical",
+  splitRatios: [0.6, 0.4],
 
   // ── Session info ─────────────────────────────────────────────────────────
 
@@ -539,8 +543,16 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
   setLayoutMode: (mode) =>
     set((s) => s.layoutMode === mode ? s : { layoutMode: mode }),
 
-  setSplitRatio: (ratio) =>
-    set((s) => s.splitRatio === ratio ? s : { splitRatio: Math.max(0, Math.min(1, ratio)) }),
+  setSplitDirection: (dir) =>
+    set((s) => s.splitDirection === dir ? s : { splitDirection: dir }),
+
+  setSplitRatios: (ratios) =>
+    set((s) => {
+      if (s.splitRatios.length === ratios.length && s.splitRatios.every((v, i) => v === ratios[i])) {
+        return s;
+      }
+      return { splitRatios: [...ratios] };
+    }),
 
   setFocusSession: (sessionKey) => set((s) => s.activeSessionKey === sessionKey ? s : { activeSessionKey: sessionKey }),
 }));

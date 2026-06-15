@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import { useLogger } from "../../hooks/useLogger";
 import { StatusIcon } from "../StatusIcon";
 
@@ -15,6 +15,7 @@ export interface SectionHeaderProps {
   isPinned: boolean;
   onClick: () => void;
   onTogglePin: () => void;
+  onClose: () => void;
 }
 
 export const SectionHeader = React.memo(function SectionHeader({
@@ -30,8 +31,11 @@ export const SectionHeader = React.memo(function SectionHeader({
   isPinned,
   onClick,
   onTogglePin,
+  onClose,
 }: SectionHeaderProps): React.ReactElement {
   const log = useLogger("SectionHeader");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const handleClick = useCallback(() => {
     log.debug("header click", { sessionKey, agentId, isActive });
@@ -46,6 +50,39 @@ export const SectionHeader = React.memo(function SectionHeader({
     },
     [onTogglePin, log, sessionKey, isPinned],
   );
+
+  const handleClose = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      log.info("close section", { sessionKey });
+      onClose();
+    },
+    [onClose, log, sessionKey],
+  );
+
+  const handleMenuToggle = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setMenuOpen((prev) => !prev);
+    },
+    [],
+  );
+
+  const handleMenuClose = useCallback(() => {
+    setMenuOpen(false);
+  }, []);
+
+  // Close menu on outside click
+  React.useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
 
   log.debug("render", { sessionKey, agentId, status, isActive, isPinned, messageCount });
 
@@ -73,14 +110,50 @@ export const SectionHeader = React.memo(function SectionHeader({
         )}
         <span className="unified-section-header-count">({messageCount})</span>
       </button>
-      <button
-        className={`unified-section-header-pin${isPinned ? " unified-section-header-pin--active" : ""}`}
-        onClick={handleTogglePin}
-        type="button"
-        title={isPinned ? "Unpin session" : "Pin session"}
-      >
-        {isPinned ? "📌" : "📍"}
-      </button>
+      <div className="unified-section-header-actions">
+        <button
+          className={`unified-section-header-pin${isPinned ? " unified-section-header-pin--active" : ""}`}
+          onClick={handleTogglePin}
+          type="button"
+          title={isPinned ? "Unpin session" : "Pin session"}
+        >
+          {isPinned ? "📌" : "📍"}
+        </button>
+        <div className="unified-section-header-menu" ref={menuRef}>
+          <button
+            className="unified-section-header-menu-btn"
+            onClick={handleMenuToggle}
+            type="button"
+            title="Section options"
+          >
+            ⋮
+          </button>
+          {menuOpen && (
+            <div className="unified-section-header-menu-dropdown">
+              <button
+                className="unified-section-header-menu-item"
+                onClick={(e) => {
+                  handleTogglePin(e);
+                  handleMenuClose();
+                }}
+                type="button"
+              >
+                {isPinned ? "Unpin" : "Pin"}
+              </button>
+              <button
+                className="unified-section-header-menu-item unified-section-header-menu-item--danger"
+                onClick={(e) => {
+                  handleClose(e);
+                  handleMenuClose();
+                }}
+                type="button"
+              >
+                Close
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 });

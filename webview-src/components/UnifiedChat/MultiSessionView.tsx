@@ -1,8 +1,7 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useRef } from "react";
 import { useShallow } from "zustand/shallow";
 import {
   useSessionStore,
-  sessionKeyOf,
 } from "../../store/sessionStore";
 import type { SessionStoreState } from "../../store/sessionStore";
 import { useMessageStore } from "../../store/messageStore";
@@ -31,19 +30,23 @@ function getSessionColor(state: SessionStoreState, sessionKey: string): string {
   return AGENT_COLOR_PALETTE[idx % AGENT_COLOR_PALETTE.length];
 }
 
-// ── Single section component (uses useSessionInfo hook) ────────────────────
+// ── Single section component ───────────────────────────────────────────────
 
 interface SessionSectionProps {
   sessionKey: string;
   isFocus: boolean;
   isPinned: boolean;
   layoutMode: "single" | "split" | "grid";
-  splitRatio: number;
-  gridFlexBasis: string | undefined;
+  splitDirection: "vertical" | "horizontal";
+  /** Index among visible sections (for split ratio calculation) */
+  splitIndex: number;
+  /** Total number of visible sections in split mode */
+  splitTotal: number;
   pinnedKeys: string[];
   onFocusChange: (key: string) => void;
   onPin: (key: string) => void;
   onUnpin: (key: string) => void;
+  onClose: (key: string) => void;
 }
 
 const SessionSection = React.memo(function SessionSection({
@@ -51,11 +54,13 @@ const SessionSection = React.memo(function SessionSection({
   isFocus,
   isPinned,
   layoutMode,
-  splitRatio,
-  gridFlexBasis,
+  splitDirection,
+  splitIndex,
+  splitTotal,
   onFocusChange,
   onPin,
   onUnpin,
+  onClose,
 }: SessionSectionProps): React.ReactElement {
   const log = useLogger("SessionSection");
   const info = useSessionInfo(sessionKey);
@@ -102,13 +107,25 @@ const SessionSection = React.memo(function SessionSection({
     info.isStreaming ? "unified-session-section--streaming" : "",
   ].filter(Boolean).join(" ");
 
-  const sectionStyle: React.CSSProperties | undefined = layoutMode === "split"
-    ? isFocus
-      ? { flex: `0 0 ${splitRatio * 100}%` }
-      : { flex: `0 0 ${(1 - splitRatio) * 100}%` }
-    : layoutMode === "grid"
-      ? { flex: `0 0 ${gridFlexBasis}`, maxWidth: gridFlexBasis }
-      : undefined;
+  // ── Split flex sizing ────────────────────────────────────────────────
+  // Each section gets equal share. Divider drag adjusts via CSS custom
+  // property set on the container, but for simplicity we use equal flex
+  // and rely on the container's --split-ratios custom property.
+  const sectionStyle: React.CSSProperties | undefined = (() => {
+    if (layoutMode === "split") {
+      // Equal distribution; divider drag adjusts container-level ratios
+      const pct = 100 / splitTotal;
+      return splitDirection === "horizontal"
+        ? { flex: `1 1 ${pct}%`, maxWidth: `${pct}%` }
+        : { flex: `1 1 ${pct}%`, maxHeight: `${pct}%` };
+    }
+    if (layoutMode === "grid") {
+      const cols = splitTotal <= 1 ? 1 : splitTotal <= 2 ? 2 : splitTotal <= 4 ? 3 : 4;
+      const pct = 100 / cols;
+      return { flex: `0 0 ${pct}%`, maxWidth: `${pct}%` };
+    }
+    return undefined;
+  })();
 
   return (
     <div
@@ -128,6 +145,7 @@ const SessionSection = React.memo(function SessionSection({
         isPinned={isPinned}
         onClick={() => onFocusChange(sessionKey)}
         onTogglePin={() => (isPinned ? onUnpin(sessionKey) : onPin(sessionKey))}
+        onClose={() => onClose(sessionKey)}
       />
       {lastAgentMsg && (
         <AgentChip
@@ -154,11 +172,14 @@ export interface MultiSessionViewProps {
   focusKey: string | null;
   pinnedKeys: string[];
   layoutMode: "single" | "split" | "grid";
-  splitRatio: number;
+  splitDirection: "vertical" | "horizontal";
+  splitRatios: number[];
   onFocusChange: (key: string) => void;
   onPin: (key: string) => void;
   onUnpin: (key: string) => void;
-  onSplitRatioChange: (ratio: number) => void;
+  onClose: (key: string) => void;
+  onSplitRatiosChange: (ratios: number[]) => void;
+  onSplitDirectionChange: (dir: "vertical" | "horizontal") => void;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -167,11 +188,14 @@ export const MultiSessionView = React.memo(function MultiSessionView({
   focusKey,
   pinnedKeys,
   layoutMode,
-  splitRatio,
+  splitDirection,
+  splitRatios,
   onFocusChange,
   onPin,
   onUnpin,
-  onSplitRatioChange,
+  onClose,
+  onSplitRatiosChange,
+  onSplitDirectionChange,
 }: MultiSessionViewProps): React.ReactElement | null {
   const log = useLogger("MultiSessionView");
 
@@ -186,33 +210,61 @@ export const MultiSessionView = React.memo(function MultiSessionView({
     focusKey,
     pinnedCount: pinnedKeys.length,
     layoutMode,
-    splitRatio,
+    splitDirection,
     tabCount: tabOrder.length,
   });
 
-  // ── Divider drag (split mode) ──────────────────────────────────────────
+  // ── Divider drag state ────────────────────────────────────────────────
+  const containerRef = useRef<HTMLDivElement>(null);
+  const dragStateRef = useRef<{
+    dividerIndex: number;
+    startPos: number;
+    startRatios: number[];
+  } | null>(null);
 
-  const dividerRef = React.useRef<HTMLDivElement>(null);
-  const isDraggingRef = React.useRef(false);
-
-  const handleDividerMouseDown = useCallback(() => {
-    isDraggingRef.current = true;
-    document.body.style.cursor = "row-resize";
-    document.body.style.userSelect = "none";
-    log.debug("divider drag start");
-  }, [log]);
+  const handleDividerMouseDown = useCallback(
+    (dividerIndex: number) => (e: React.MouseEvent) => {
+      e.preventDefault();
+      const container = containerRef.current;
+      if (!container) return;
+      dragStateRef.current = {
+        dividerIndex,
+        startPos: splitDirection === "horizontal" ? e.clientX : e.clientY,
+        startRatios: [...splitRatios],
+      };
+      document.body.style.cursor = splitDirection === "horizontal" ? "col-resize" : "row-resize";
+      document.body.style.userSelect = "none";
+      log.debug("divider drag start", { dividerIndex });
+    },
+    [splitDirection, splitRatios, log],
+  );
 
   React.useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isDraggingRef.current) return;
-      const container = dividerRef.current?.parentElement;
+      const drag = dragStateRef.current;
+      if (!drag) return;
+      const container = containerRef.current;
       if (!container) return;
       const rect = container.getBoundingClientRect();
-      const ratio = (e.clientY - rect.top) / rect.height;
-      onSplitRatioChange(Math.max(0.2, Math.min(0.8, ratio)));
+      const pos = splitDirection === "horizontal" ? e.clientX : e.clientY;
+      const startPos = drag.startPos;
+      const totalSize = splitDirection === "horizontal" ? rect.width : rect.height;
+      const delta = (pos - startPos) / totalSize;
+
+      const newRatios = [...drag.startRatios];
+      // Adjust the two ratios adjacent to the divider
+      const i = drag.dividerIndex;
+      const minRatio = 0.1;
+      const newUpper = Math.max(minRatio, Math.min(1 - minRatio, newRatios[i] + delta));
+      const deltaUpper = newUpper - newRatios[i];
+      newRatios[i] = newUpper;
+      if (i + 1 < newRatios.length) {
+        newRatios[i + 1] = Math.max(minRatio, newRatios[i + 1] - deltaUpper);
+      }
+      onSplitRatiosChange(newRatios);
     };
     const handleMouseUp = () => {
-      isDraggingRef.current = false;
+      dragStateRef.current = null;
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
     };
@@ -222,19 +274,15 @@ export const MultiSessionView = React.memo(function MultiSessionView({
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [onSplitRatioChange]);
+  }, [splitDirection, onSplitRatiosChange]);
 
   // ── Determine visible sections ────────────────────────────────────────
 
   const visibleKeys: string[] = [];
   if (layoutMode === "single") {
     if (focusKey) visibleKeys.push(focusKey);
-  } else if (layoutMode === "split") {
-    if (focusKey) visibleKeys.push(focusKey);
-    const firstPinned = pinnedKeys.find((k) => k !== focusKey);
-    if (firstPinned) visibleKeys.push(firstPinned);
   } else {
-    // grid
+    // split / grid: show focus + all pinned (excluding focus duplicate)
     if (focusKey) visibleKeys.push(focusKey);
     for (const k of pinnedKeys) {
       if (k !== focusKey) visibleKeys.push(k);
@@ -251,14 +299,11 @@ export const MultiSessionView = React.memo(function MultiSessionView({
   }
 
   // ── Grid column count ──────────────────────────────────────────────
-  // Auto-adjust columns based on visible section count:
-  // 1 → 1 col (100%), 2 → 2 col (50%), 3-4 → 3 col (33%), 5+ → 4 col (25%)
   const gridCols = layoutMode === "grid"
     ? visibleKeys.length <= 1 ? 1 : visibleKeys.length <= 2 ? 2 : visibleKeys.length <= 4 ? 3 : 4
     : 1;
-  const gridFlexBasis = layoutMode === "grid" ? `${100 / gridCols}%` : undefined;
 
-  log.debug("visible sections", { keys: visibleKeys, gridCols, gridFlexBasis });
+  log.debug("visible sections", { keys: visibleKeys, gridCols });
 
   // ── Render sections ──────────────────────────────────────────────────
 
@@ -271,42 +316,79 @@ export const MultiSessionView = React.memo(function MultiSessionView({
         isFocus={isFocus}
         isPinned={isPinned}
         layoutMode={layoutMode}
-        splitRatio={splitRatio}
-        gridFlexBasis={gridFlexBasis}
+        splitDirection={splitDirection}
+        splitIndex={visibleKeys.indexOf(sessionKey)}
+        splitTotal={visibleKeys.length}
         pinnedKeys={pinnedKeys}
         onFocusChange={onFocusChange}
         onPin={onPin}
         onUnpin={onUnpin}
+        onClose={onClose}
       />
     );
   };
 
-  const className = `multi-session-view multi-session-view--${layoutMode}`;
+  const containerClassName = [
+    "multi-session-view",
+    `multi-session-view--${layoutMode}`,
+    layoutMode === "split" && splitDirection === "horizontal"
+      ? "multi-session-view--split-horizontal"
+      : layoutMode === "split"
+        ? "multi-session-view--split-vertical"
+        : "",
+  ].filter(Boolean).join(" ");
+
+  // ── Split direction toggle ──────────────────────────────────────────
+
+  const directionToggle = layoutMode === "split" && (
+    <div className="unified-split-direction-toggle">
+      <button
+        className={`unified-split-dir-btn${splitDirection === "vertical" ? " unified-split-dir-btn--active" : ""}`}
+        onClick={() => onSplitDirectionChange("vertical")}
+        type="button"
+        title="Vertical split (stacked)"
+      >
+        ↕
+      </button>
+      <button
+        className={`unified-split-dir-btn${splitDirection === "horizontal" ? " unified-split-dir-btn--active" : ""}`}
+        onClick={() => onSplitDirectionChange("horizontal")}
+        type="button"
+        title="Horizontal split (side by side)"
+      >
+        ↔
+      </button>
+    </div>
+  );
+
+  // ── Render with dividers for split mode ─────────────────────────────
 
   if (layoutMode === "split") {
     return (
-      <div className={className}>
-        {visibleKeys.map((key, i) => {
-          const isFocus = key === focusKey;
-          const section = renderSection(key, isFocus);
-          if (i === visibleKeys.length - 1) return section;
-          return (
-            <React.Fragment key={key}>
-              {section}
-              <div
-                ref={dividerRef}
-                className="unified-split-divider"
-                onMouseDown={handleDividerMouseDown}
-              />
-            </React.Fragment>
-          );
-        })}
+      <div className="multi-session-view-wrapper">
+        {directionToggle}
+        <div className={containerClassName} ref={containerRef}>
+          {visibleKeys.map((key, i) => {
+            const isFocus = key === focusKey;
+            const section = renderSection(key, isFocus);
+            if (i === visibleKeys.length - 1) return section;
+            return (
+              <React.Fragment key={key}>
+                {section}
+                <div
+                  className={`unified-split-divider unified-split-divider--${splitDirection}`}
+                  onMouseDown={handleDividerMouseDown(i)}
+                />
+              </React.Fragment>
+            );
+          })}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className={className}>
+    <div className={containerClassName} ref={containerRef}>
       {visibleKeys.map((key) => renderSection(key, key === focusKey))}
     </div>
   );
