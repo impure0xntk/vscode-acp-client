@@ -235,6 +235,10 @@ export interface SessionStoreState {
   splitDirection: "vertical" | "horizontal";
   /** Split mode divider ratios — one per section, normalized to sum to 1 */
   splitRatios: number[];
+  /** Command Center panel expanded state */
+  commandCenterExpanded: boolean;
+  /** Command Center selected session key (agentId:sessionId) */
+  commandCenterSelectedKey: string | null;
 
   // ── Actions ───────────────────────────────────────────────────────────
   setSessionInfoMap: (map: Record<string, SessionInfoDTO>) => void;
@@ -280,6 +284,9 @@ export interface SessionStoreState {
   /** Ensure splitRatios matches the current number of visible sections */
   ensureSplitRatios: (count: number) => void;
   setFocusSession: (sessionKey: string | null) => void;
+  toggleCommandCenter: () => void;
+  setCommandCenterExpanded: (expanded: boolean) => void;
+  setCommandCenterSelectedKey: (key: string | null) => void;
 }
 
 export const useSessionStore = create<SessionStoreState>((set, get) => ({
@@ -301,6 +308,8 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
   layoutMode: "single",
   splitDirection: "vertical",
   splitRatios: [],
+  commandCenterExpanded: false,
+  commandCenterSelectedKey: null,
 
   // ── Session info ─────────────────────────────────────────────────────────
 
@@ -579,4 +588,15 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
     }),
 
   setFocusSession: (sessionKey) => set((s) => s.activeSessionKey === sessionKey ? s : { activeSessionKey: sessionKey }),
+
+  // ── Command Center ─────────────────────────────────────────────────
+
+  toggleCommandCenter: () =>
+    set((s) => ({ commandCenterExpanded: !s.commandCenterExpanded })),
+
+  setCommandCenterExpanded: (expanded) =>
+    set((s) => s.commandCenterExpanded === expanded ? s : { commandCenterExpanded: expanded }),
+
+  setCommandCenterSelectedKey: (key) =>
+    set((s) => s.commandCenterSelectedKey === key ? s : { commandCenterSelectedKey: key }),
 }));

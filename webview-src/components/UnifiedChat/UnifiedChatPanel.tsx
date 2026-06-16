@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useMemo, useRef } from "react";
 import { useShallow } from "zustand/shallow";
 import {
   useSessionStore,
@@ -9,6 +9,7 @@ import { useLogger } from "../../hooks/useLogger";
 import { getVsCodeApi } from "../../lib/vscodeApi";
 import { UnifiedSessionBar } from "./UnifiedSessionBar";
 import { MultiSessionView } from "./MultiSessionView";
+import { CommandCenter } from "../CommandCenter/CommandCenter";
 import { Composer } from "../Composer";
 
 
@@ -70,6 +71,9 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
     setSplitRatios,
     setFocusSession,
     removeTab,
+    commandCenterExpanded,
+    commandCenterSelectedKey,
+    setCommandCenterSelectedKey,
   } = useSessionStore(
     useShallow((s: SessionStoreState) => ({
       activeSessionKey: s.activeSessionKey,
@@ -89,6 +93,9 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
       setSplitRatios: s.setSplitRatios,
       setFocusSession: s.setFocusSession,
       removeTab: s.removeTab,
+      commandCenterExpanded: s.commandCenterExpanded,
+      commandCenterSelectedKey: s.commandCenterSelectedKey,
+      setCommandCenterSelectedKey: s.setCommandCenterSelectedKey,
     }))
   );
 
@@ -163,9 +170,14 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
 
   const focusKey = activeSessionKey;
 
+  // ── Scroll refs — shared across all sections ───────────────────────
+  const scrollToMessageRef = useRef<((id: string) => void) | undefined>(undefined);
+  const forceScrollToBottomRef = useRef<(() => void) | undefined>(undefined);
+  const scrollToUnreadRef = useRef<(() => void) | undefined>(undefined);
+
   return (
     <div className={`unified-chat-panel unified-chat-panel--${layoutMode}`}>
-      {/* Session bar */}
+      {/* Session bar (includes layout toggle + new session button) */}
       <UnifiedSessionBar
         tabs={tabs}
         activeSessionKey={activeSessionKey}
@@ -174,43 +186,11 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
         onFocusChange={handleFocusChange}
         onClose={handleClose}
         onNewSession={onNewSession}
+        layoutMode={layoutMode}
+        splitDirection={splitDirection}
+        onLayoutChange={handleLayoutChange}
+        onSplitDirectionChange={setSplitDirection}
       />
-
-      {/* Layout mode toggle — H-Split / V-Split buttons */}
-      <div className="unified-layout-toggle">
-        <button
-          className={`unified-layout-btn${layoutMode === "single" ? " unified-layout-btn--active" : ""}`}
-          onClick={() => handleLayoutChange("single")}
-          type="button"
-          title="Single view"
-        >
-          Single
-        </button>
-        <button
-          className={`unified-layout-btn${layoutMode === "split" && splitDirection === "horizontal" ? " unified-layout-btn--active" : ""}`}
-          onClick={() => { handleLayoutChange("split"); setSplitDirection("horizontal"); }}
-          type="button"
-          title="Side by side"
-        >
-          H-Split
-        </button>
-        <button
-          className={`unified-layout-btn${layoutMode === "split" && splitDirection === "vertical" ? " unified-layout-btn--active" : ""}`}
-          onClick={() => { handleLayoutChange("split"); setSplitDirection("vertical"); }}
-          type="button"
-          title="Stacked"
-        >
-          V-Split
-        </button>
-        <button
-          className={`unified-layout-btn${layoutMode === "grid" ? " unified-layout-btn--active" : ""}`}
-          onClick={() => handleLayoutChange("grid")}
-          type="button"
-          title="Grid view"
-        >
-          Grid
-        </button>
-      </div>
 
       {/* Multi-session view */}
       <MultiSessionView
@@ -224,6 +204,19 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
         onUnpin={handleUnpin}
         onClose={handleClose}
         onSplitRatiosChange={setSplitRatios}
+        scrollToMessageRef={scrollToMessageRef}
+        forceScrollToBottomRef={forceScrollToBottomRef}
+        scrollToUnreadRef={scrollToUnreadRef}
+      />
+
+      {/* Command Center — between chat view and Composer */}
+      <CommandCenter
+        selectedSessionKey={commandCenterSelectedKey}
+        onSelectSession={(agentId, sessionId) => {
+          const key = sessionKeyOf(agentId, sessionId);
+          setCommandCenterSelectedKey(key);
+          handleFocusChange(key);
+        }}
       />
 
       {/* Composer */}

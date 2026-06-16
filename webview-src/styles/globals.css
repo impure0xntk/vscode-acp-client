@@ -5054,50 +5054,6 @@ body {
   border-color: var(--border);
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   Layout toggle bar — text buttons (Single / H-Split / V-Split / Grid)
-   ═══════════════════════════════════════════════════════════════════ */
-
-.unified-layout-toggle {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 4px 8px;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.unified-layout-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 3px 10px;
-  border: 1px solid transparent;
-  border-radius: 3px;
-  background: transparent;
-  color: var(--fg-muted);
-  font-size: 11px;
-  font-family: var(--font-ui);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.unified-layout-btn:hover {
-  background: var(--accent-hover);
-  color: var(--fg-secondary);
-}
-
-.unified-layout-btn--active {
-  color: var(--fg-primary);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 20%, transparent);
-}
-
-.unified-layout-btn--active:hover {
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-}
-
 /* ── Multi-session view container ── */
 .multi-session-view {
   flex: 1;
@@ -5459,12 +5415,12 @@ body {
 }
 
 @keyframes usec-flash-border {
-  0%   { outline: 2px solid var(--usec-flash-color); outline-offset: 0; }
-  15%  { outline: 2px solid transparent; outline-offset: 0; }
-  30%  { outline: 2px solid var(--usec-flash-color); outline-offset: 0; }
-  45%  { outline: 2px solid transparent; outline-offset: 0; }
-  60%  { outline: 2px solid var(--usec-flash-color); outline-offset: 0; }
-  100% { outline: 2px solid transparent; outline-offset: 0; }
+  0%   { box-shadow: inset 0 0 0 2px var(--usec-flash-color); }
+  15%  { box-shadow: inset 0 0 0 2px transparent; }
+  30%  { box-shadow: inset 0 0 0 2px var(--usec-flash-color); }
+  45%  { box-shadow: inset 0 0 0 2px transparent; }
+  60%  { box-shadow: inset 0 0 0 2px var(--usec-flash-color); }
+  100% { box-shadow: inset 0 0 0 2px transparent; }
 }
 
 /* ── Disconnected session section ── */
@@ -5694,6 +5650,59 @@ body {
   color: var(--fg-primary);
 }
 
+/* ── Layout toggle buttons (in session bar) ─────────────────────── */
+.unified-session-bar-layout {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+  margin-left: 4px;
+  border-left: 1px solid var(--border);
+  padding-left: 4px;
+}
+
+/* ── Separator between layout toggle and session action buttons ─── */
+.unified-session-bar-sep {
+  width: 1px;
+  height: 16px;
+  flex-shrink: 0;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+.unified-session-bar-layout-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.unified-session-bar-layout-btn:hover {
+  background: var(--accent-hover);
+  color: var(--fg-secondary);
+}
+
+.unified-session-bar-layout-btn--active {
+  color: var(--fg-primary);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.unified-session-bar-layout-btn--active:hover {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    Tab mode — compact horizontal tabs
    ═══════════════════════════════════════════════════════════════════ */
@@ -5761,7 +5770,16 @@ body {
 
 .unified-session-bar-tab-pin {
   flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   opacity: 0.7;
+}
+
+.unified-session-bar-tab-pin--empty {
+  opacity: 0.25;
 }
 
 .unified-session-bar-tab-badge {
@@ -5782,6 +5800,13 @@ body {
   cursor: pointer;
   flex-shrink: 0;
   transition: background 0.15s ease, color 0.15s ease;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.unified-session-bar-tab-close--visible {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .unified-session-bar-tab-close:hover {
@@ -6011,4 +6036,306 @@ body {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+}
+
+/* ============================================================================
+   Command Center — collapsible panel above Composer
+   ============================================================================ */
+
+.command-center {
+  flex-shrink: 0;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+}
+
+/* ── Toggle bar ────────────────────────────────────────────────────── */
+
+.command-center-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 14px;
+  border: none;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 11px;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.command-center-toggle:hover {
+  background: var(--accent-hover);
+  color: var(--fg-primary);
+}
+
+.command-center-toggle:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.command-center-toggle-label {
+  flex: 1;
+  font-weight: 500;
+}
+
+.command-center-toggle-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--bg-input);
+  color: var(--fg-secondary);
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+.command-center-toggle-chevron {
+  transition: transform 0.15s ease;
+}
+
+.command-center-toggle-chevron--open {
+  transform: rotate(180deg);
+}
+
+/* ── Body (expanded) ──────────────────────────────────────────────── */
+
+.command-center-body {
+  padding: 0 8px 4px;
+  animation: command-center-expand 0.15s ease-out;
+}
+
+@keyframes command-center-expand {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 300px;
+  }
+}
+
+/* ── Card grid — horizontal scroll ─────────────────────────────────── */
+
+.command-center-cards {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 4px 0;
+  scrollbar-width: none;
+}
+
+.command-center-cards::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Summary row ───────────────────────────────────────────────────── */
+
+.command-center-summary {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 2px 4px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+}
+
+.command-center-summary-tokens {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+}
+
+/* ============================================================================
+   Agent Card — compact horizontal card in Command Center
+   ============================================================================ */
+
+.agent-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 140px;
+  max-width: 200px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-left: 2px solid transparent;
+  border-radius: 4px;
+  background: var(--bg-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.agent-card:hover {
+  background: var(--accent-hover);
+}
+
+.agent-card:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.agent-card--selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.agent-card--selected:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+/* Status-based left border accent */
+.agent-card[data-status="running"] {
+  border-left-color: #4fc3f7;
+}
+.agent-card[data-status="completed"] {
+  border-left-color: var(--success);
+}
+.agent-card[data-status="error"] {
+  border-left-color: var(--error);
+}
+.agent-card[data-status="cancelled"] {
+  border-left-color: var(--fg-muted);
+}
+.agent-card[data-status="waiting"],
+.agent-card[data-status="waiting_for_input"] {
+  border-left-color: #ffd54f;
+}
+
+/* ── Header row ────────────────────────────────────────────────────── */
+
+.agent-card-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.agent-card-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--fg-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-card-status {
+  flex-shrink: 0;
+  font-size: 9px;
+  color: var(--fg-muted);
+}
+
+/* ── Task label ────────────────────────────────────────────────────── */
+
+.agent-card-task {
+  font-size: 10px;
+  color: var(--fg-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+/* ── Progress bar ─────────────────────────────────────────────────── */
+
+.agent-card-progress {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.agent-card-progress-track {
+  flex: 1;
+  height: 3px;
+  border-radius: 1.5px;
+  background: color-mix(in srgb, var(--fg-muted) 15%, transparent);
+  overflow: hidden;
+}
+
+.agent-card-progress-fill {
+  height: 100%;
+  border-radius: 1.5px;
+  transition: width 0.3s ease, background 0.3s ease;
+}
+
+.agent-card-elapsed {
+  flex-shrink: 0;
+  font-size: 9px;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+}
+
+/* ── Token usage ───────────────────────────────────────────────────── */
+
+.agent-card-tokens {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+}
+
+.agent-card-ctx-pct {
+  margin-left: auto;
+  font-size: 9px;
+  font-family: var(--font-mono);
+  color: var(--fg-muted);
+}
+
+.agent-card-ctx-pct--warning {
+  color: #ffd54f;
+}
+
+.agent-card-ctx-pct--critical {
+  color: #ef5350;
+}
+
+/* ── Quick actions ────────────────────────────────────────────────── */
+
+.agent-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 1px;
+}
+
+.agent-card-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.agent-card-action-btn:hover {
+  background: var(--accent-hover);
+  color: var(--fg-primary);
+}
+
+.agent-card-action-btn:first-child:hover {
+  background: var(--error);
+  color: var(--user-fg);
 }

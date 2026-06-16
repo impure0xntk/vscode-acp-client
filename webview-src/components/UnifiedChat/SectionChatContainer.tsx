@@ -35,6 +35,7 @@ export const SectionChatContainer = React.memo(function SectionChatContainer({
   const unreadCount = useSessionUnreadCount(sessionKey);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const isAtBottomRef = useRef(true);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     log.trace("mount", { sessionKey, sessionId, agentId });
@@ -60,13 +61,21 @@ export const SectionChatContainer = React.memo(function SectionChatContainer({
   );
 
   const handleScrollToBottom = useCallback(() => {
-    forceScrollToBottomRef?.current?.();
+    // Direct DOM scroll — bypasses the ref chain which can be stale
+    // when ChatContainer is memoized and its useEffect hasn't fired yet.
+    const wrapper = containerRef.current?.querySelector(".chat-container") as HTMLDivElement | null;
+    if (wrapper) {
+      wrapper.scrollTop = wrapper.scrollHeight;
+    } else {
+      // Fallback to ref chain
+      forceScrollToBottomRef?.current?.();
+    }
   }, [forceScrollToBottomRef]);
 
   const showScrollButton = !isAtBottom;
 
   return (
-    <div className="section-chat-container-wrapper">
+    <div className="section-chat-container-wrapper" ref={containerRef}>
       <ChatContainer
         sessionId={sessionId}
         sessionKey={sessionKey}

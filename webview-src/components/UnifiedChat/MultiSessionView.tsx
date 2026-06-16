@@ -61,6 +61,9 @@ interface SessionSectionProps {
   onPin: (key: string) => void;
   onUnpin: (key: string) => void;
   onClose: (key: string) => void;
+  scrollToMessageRef?: React.MutableRefObject<((id: string) => void) | undefined>;
+  forceScrollToBottomRef?: React.MutableRefObject<(() => void) | undefined>;
+  scrollToUnreadRef?: React.MutableRefObject<(() => void) | undefined>;
 }
 
 const SessionSection = React.memo(function SessionSection({
@@ -78,6 +81,9 @@ const SessionSection = React.memo(function SessionSection({
   onPin,
   onUnpin,
   onClose,
+  scrollToMessageRef,
+  forceScrollToBottomRef,
+  scrollToUnreadRef,
 }: SessionSectionProps): React.ReactElement | null {
   const log = useLogger("SessionSection");
   const info = useSessionInfo(sessionKey);
@@ -183,6 +189,9 @@ const SessionSection = React.memo(function SessionSection({
           status={info.status}
           isActive={isFocus}
           color={color}
+          scrollToMessageRef={scrollToMessageRef}
+          forceScrollToBottomRef={forceScrollToBottomRef}
+          scrollToUnreadRef={scrollToUnreadRef}
         />
       </div>
       <StreamingStatus
@@ -205,6 +214,9 @@ export interface MultiSessionViewProps {
   onUnpin: (key: string) => void;
   onClose: (key: string) => void;
   onSplitRatiosChange: (ratios: number[]) => void;
+  scrollToMessageRef?: React.MutableRefObject<((id: string) => void) | undefined>;
+  forceScrollToBottomRef?: React.MutableRefObject<(() => void) | undefined>;
+  scrollToUnreadRef?: React.MutableRefObject<(() => void) | undefined>;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -220,6 +232,9 @@ export const MultiSessionView = React.memo(function MultiSessionView({
   onUnpin,
   onClose,
   onSplitRatiosChange,
+  scrollToMessageRef,
+  forceScrollToBottomRef,
+  scrollToUnreadRef,
 }: MultiSessionViewProps): React.ReactElement | null {
   const log = useLogger("MultiSessionView");
 
@@ -366,6 +381,9 @@ export const MultiSessionView = React.memo(function MultiSessionView({
         onPin={onPin}
         onUnpin={onUnpin}
         onClose={onClose}
+        scrollToMessageRef={scrollToMessageRef}
+        forceScrollToBottomRef={forceScrollToBottomRef}
+        scrollToUnreadRef={scrollToUnreadRef}
       />
     );
   };

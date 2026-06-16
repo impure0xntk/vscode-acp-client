@@ -1,7 +1,7 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback } from "react";
 import { useLogger } from "../../hooks/useLogger";
 import type { SessionInfoDTO } from "../../store/sessionStore";
-import { IconPin, IconPinFilled, IconMoreVertical, IconCross } from "../../lib/icons";
+import { IconPin, IconPinFilled } from "../../lib/icons";
 import { Chip } from "../ui/Chip";
 import type { ToolbarMeta } from "../ui/Chip";
 import { fmt, visualBar, contextColor } from "../toolbar/formatting";
@@ -40,8 +40,6 @@ export const SectionHeader = React.memo(function SectionHeader({
   info,
 }: SectionHeaderProps): React.ReactElement {
   const log = useLogger("SectionHeader");
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   const handleClick = useCallback(() => {
     log.debug("header click", { sessionKey, agentId, isActive });
@@ -66,29 +64,7 @@ export const SectionHeader = React.memo(function SectionHeader({
     [onClose, log, sessionKey],
   );
 
-  const handleMenuToggle = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      setMenuOpen((prev) => !prev);
-    },
-    [],
-  );
 
-  const handleMenuClose = useCallback(() => {
-    setMenuOpen(false);
-  }, []);
-
-  // Close menu on outside click
-  React.useEffect(() => {
-    if (!menuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [menuOpen]);
 
   // Token usage percentage
   const tokenPercentage =
@@ -241,41 +217,7 @@ export const SectionHeader = React.memo(function SectionHeader({
         >
           {isPinned ? <IconPinFilled size={14} /> : <IconPin size={14} />}
         </button>
-        <div className="unified-section-header-menu" ref={menuRef}>
-          <button
-            className="unified-section-header-menu-btn"
-            onClick={handleMenuToggle}
-            type="button"
-            title="Section options"
-          >
-            <IconMoreVertical size={14} />
-          </button>
-          {menuOpen && (
-            <div className="unified-section-header-menu-dropdown">
-              <button
-                className="unified-section-header-menu-item"
-                onClick={(e) => {
-                  handleTogglePin(e);
-                  handleMenuClose();
-                }}
-                type="button"
-              >
-                {isPinned ? "Unpin" : "Pin"}
-              </button>
-              <button
-                className="unified-section-header-menu-item unified-section-header-menu-item--danger"
-                onClick={(e) => {
-                  handleClose(e);
-                  handleMenuClose();
-                }}
-                type="button"
-              >
-                <IconCross size={12} style={{ marginRight: 6, display: "inline-block", verticalAlign: "middle" }} />
-                Close
-              </button>
-            </div>
-          )}
-        </div>
+
       </div>
     </div>
   );

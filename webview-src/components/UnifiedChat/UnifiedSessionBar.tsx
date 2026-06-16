@@ -5,7 +5,9 @@ import type { SessionTabState } from "../../store/sessionStore";
 import { StatusIcon } from "../StatusIcon";
 import type { StatusIconType, TurnOutcome } from "../StatusIcon";
 import { UnreadBadge } from "../ui/UnreadBadge";
-import { IconClose } from "../../lib/icons";
+import { IconClose, IconPin, IconPinFilled } from "../../lib/icons";
+
+export type LayoutMode = "single" | "split" | "grid";
 
 // ============================================================================
 // UnifiedSessionBar — session tab bar for UnifiedChatPanel
@@ -23,6 +25,14 @@ interface UnifiedSessionBarProps {
   onClose: (key: string) => void;
   /** Create a new session (opens picker) */
   onNewSession: () => void;
+  /** Current layout mode */
+  layoutMode: LayoutMode;
+  /** Current split direction */
+  splitDirection: "vertical" | "horizontal";
+  /** Layout mode change handler */
+  onLayoutChange: (mode: LayoutMode) => void;
+  /** Split direction change handler */
+  onSplitDirectionChange: (dir: "vertical" | "horizontal") => void;
 }
 
 // ── Single tab component (compact, Classic SessionTab style) ────────────────
@@ -75,8 +85,6 @@ const UnifiedTab = React.memo(function UnifiedTab({
       ? Date.now() - new Date(info.lastResponseAt).getTime()
       : undefined;
 
-  const showClose = isActive || isHovered;
-
   return (
     <div
       className={`unified-session-bar-tab${isActive ? " unified-session-bar-tab--active" : ""}${isHovered ? " unified-session-bar-tab--hovered" : ""}`}
@@ -99,18 +107,20 @@ const UnifiedTab = React.memo(function UnifiedTab({
       <span className="unified-session-bar-tab-title" title={tab.title}>
         {tab.title.length > 12 ? `${tab.title.slice(0, 12)}…` : tab.title}
       </span>
-      {isPinned && <span className="unified-session-bar-tab-pin" title="Pinned">📌</span>}
+      {/* Pin icon — always reserves space; shows filled/outline SVG */}
+      <span className="unified-session-bar-tab-pin" title={isPinned ? "Pinned" : ""}>
+        {isPinned ? <IconPinFilled size={12} /> : <IconPin size={12} className="unified-session-bar-tab-pin--empty" />}
+      </span>
       <UnreadBadge count={unreadCount} hidden={isActive} className="unified-session-bar-tab-badge" />
-      {showClose && (
-        <button
-          className="unified-session-bar-tab-close"
-          onClick={(e) => { e.stopPropagation(); onClose(); }}
-          title="Close"
-          type="button"
-        >
-          <IconClose size={12} />
-        </button>
-      )}
+      {/* Close button — always reserves space; visibility toggled via CSS */}
+      <button
+        className={`unified-session-bar-tab-close${isActive || isHovered ? " unified-session-bar-tab-close--visible" : ""}`}
+        onClick={(e) => { e.stopPropagation(); onClose(); }}
+        title="Close"
+        type="button"
+      >
+        <IconClose size={12} />
+      </button>
     </div>
   );
 });
@@ -125,6 +135,10 @@ export const UnifiedSessionBar = React.memo(function UnifiedSessionBar({
   onFocusChange,
   onClose,
   onNewSession,
+  layoutMode,
+  splitDirection,
+  onLayoutChange,
+  onSplitDirectionChange,
 }: UnifiedSessionBarProps): React.ReactElement {
   return (
     <div className="unified-session-bar">
@@ -149,6 +163,45 @@ export const UnifiedSessionBar = React.memo(function UnifiedSessionBar({
           );
         })}
       </div>
+
+      {/* Layout mode toggle — right edge of session bar */}
+      <div className="unified-session-bar-layout" role="group" aria-label="Layout mode">
+        <button
+          className={`unified-session-bar-layout-btn${layoutMode === "single" ? " unified-session-bar-layout-btn--active" : ""}`}
+          onClick={() => onLayoutChange("single")}
+          type="button"
+          title="Single view"
+        >
+          1
+        </button>
+        <button
+          className={`unified-session-bar-layout-btn${layoutMode === "split" && splitDirection === "horizontal" ? " unified-session-bar-layout-btn--active" : ""}`}
+          onClick={() => { onLayoutChange("split"); onSplitDirectionChange("horizontal"); }}
+          type="button"
+          title="Side by side"
+        >
+          ║
+        </button>
+        <button
+          className={`unified-session-bar-layout-btn${layoutMode === "split" && splitDirection === "vertical" ? " unified-session-bar-layout-btn--active" : ""}`}
+          onClick={() => { onLayoutChange("split"); onSplitDirectionChange("vertical"); }}
+          type="button"
+          title="Stacked"
+        >
+          ═
+        </button>
+        <button
+          className={`unified-session-bar-layout-btn${layoutMode === "grid" ? " unified-session-bar-layout-btn--active" : ""}`}
+          onClick={() => onLayoutChange("grid")}
+          type="button"
+          title="Grid view"
+        >
+          ▦
+        </button>
+      </div>
+
+      {/* Separator between layout toggle and session actions */}
+      <div className="unified-session-bar-sep" aria-hidden="true" />
 
       {/* New session button */}
       <button
