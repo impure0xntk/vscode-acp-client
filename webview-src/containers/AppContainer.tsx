@@ -303,6 +303,15 @@ export function AppContainer(): React.ReactElement {
     closeSession(agentId, sessionId);
   };
 
+  const handleRenameSession = useCallback((agentId: string, sessionId: string, title: string) => {
+    // If title is empty (triggered from #rename command), prompt inline via SessionTab double-click
+    // If title is provided, send directly
+    if (title) {
+      getVsCodeApi().postMessage({ type: "renameSession", agentId, sessionId, title });
+    }
+    // For empty title, the SessionTab inline editor handles the UX
+  }, []);
+
   const handleNewSession = () => {
     newSessionWithPicker();
   };
@@ -508,6 +517,7 @@ export function AppContainer(): React.ReactElement {
             onSendMessage={handleMeshSend}
             onCancel={handleCancel}
             onSwitchSession={switchTab}
+            onRenameSession={handleRenameSession}
             onNewSession={handleNewSession}
             disabled={!activeSessionId}
             status={displayStatus}
@@ -535,6 +545,7 @@ export function AppContainer(): React.ReactElement {
                   useSessionStore.getState().setTabOrder(order);
                 }}
                 onNewSession={handleNewSession}
+                onRenameSession={handleRenameSession}
               />
             )}
             {validNotifications.length > 0 && (
@@ -573,6 +584,7 @@ export function AppContainer(): React.ReactElement {
               onSend={handleMeshSend}
               onCancel={handleCancel}
               onSwitchSession={switchTab}
+              onRenameSession={handleRenameSession}
               fetchFiles={fetchFiles}
               resolveFile={resolveFile}
               resolveSelection={resolveSelection}

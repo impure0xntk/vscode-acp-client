@@ -5,6 +5,8 @@ import type {
   PipelineItem,
   RawMessage,
 } from "./types";
+import type { ResolvedToolCall } from "./types";
+import type { ToolCall } from "../types";
 import { classifyMessage } from "./stages/classify";
 import { filterMessages } from "./stages/filter";
 import { mergeToolBatches } from "./stages/merge";
@@ -84,7 +86,7 @@ export class MessagePipeline {
                   : (lastCached.type as ClassifiedMessage["systemKind"]),
               toolCalls:
                 lastCached.type === "chat"
-                  ? lastCached.resolvedToolCalls
+                  ? (lastCached.resolvedToolCalls as unknown as ToolCall[])
                   : undefined,
             } satisfies ClassifiedMessage,
           ]
@@ -107,10 +109,12 @@ export class MessagePipeline {
         // always returns a new array when new calls are added).
         if (mergedTCs !== originalTCs && mergedTCs != null) {
           // Re-annotate the merged first element and update cache's last item.
+          // Carry over lastGroupKey so that isConsecutive is computed correctly
+          // for the updated cache item.
           const reannotated = annotateMessages(
             [merged[0]],
             this.config.annotate,
-            "", // groupKey reset — this is a standalone update
+            this.lastGroupKey,
           );
           if (reannotated.length > 0) {
             this.cache[this.cache.length - 1] = reannotated[0];

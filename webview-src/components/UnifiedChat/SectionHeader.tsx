@@ -1,7 +1,5 @@
-import React, { useCallback, useRef, useState, useEffect } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import { useLogger } from "../../hooks/useLogger";
-import { StatusIcon } from "../StatusIcon";
-import type { StatusIconType, TurnOutcome } from "../StatusIcon";
 import type { SessionInfoDTO } from "../../store/sessionStore";
 import { IconPin, IconPinFilled, IconMoreVertical, IconCross } from "../../lib/icons";
 import { Chip } from "../ui/Chip";
@@ -44,14 +42,6 @@ export const SectionHeader = React.memo(function SectionHeader({
   const log = useLogger("SectionHeader");
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-
-  // Local tick for elapsedMs — recompute every second while running.
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    if (info?.status !== "running" || !info?.lastResponseAt) return;
-    const id = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(id);
-  }, [info?.status, info?.lastResponseAt]);
 
   const handleClick = useCallback(() => {
     log.debug("header click", { sessionKey, agentId, isActive });
@@ -99,23 +89,6 @@ export const SectionHeader = React.memo(function SectionHeader({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [menuOpen]);
-
-  // Compute effective status from info
-  const rawStatus = info?.status ?? status;
-  const lastOutcome: TurnOutcome | null = info?.lastTurnOutcome ?? null;
-  const effectiveStatus: StatusIconType =
-    rawStatus === "running"
-      ? "running"
-      : rawStatus === "idle" && lastOutcome
-        ? lastOutcome
-        : rawStatus === "idle"
-          ? "idle"
-          : rawStatus;
-
-  const elapsedMs =
-    effectiveStatus === "running" && info?.lastResponseAt
-      ? Date.now() - new Date(info.lastResponseAt).getTime()
-      : undefined;
 
   // Token usage percentage
   const tokenPercentage =
@@ -249,10 +222,7 @@ export const SectionHeader = React.memo(function SectionHeader({
           backgroundColor: activeBg,
         }}
       >
-        <StatusIcon status={effectiveStatus} elapsedMs={elapsedMs} size="sm" />
         <span className="unified-section-header-label">{agentId}: {title}</span>
-        <span className="unified-section-header-count">({messageCount})</span>
-
         {/* Inline chips — BottomToolbar style */}
         <span className="section-header-chips">
           {turnChip && <Chip meta={turnChip} />}

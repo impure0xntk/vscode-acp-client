@@ -6,7 +6,7 @@ import { describe, it, beforeEach } from "mocha";
 import * as assert from "assert";
 import { FanoutExecutor } from "../../domain/services/fanout-executor";
 import type { SessionOrchestrator } from "../../application/session/orchestrator";
-import type { SendTarget, UserMessagePayload } from "../../domain/models/mesh";
+import type { SendTarget } from "../../domain/models/mesh";
 import type { PromptContext } from "../../application/session/orchestrator";
 import type { QueuedPrompt } from "../../application/session/types";
 import type { ChatMessage } from "../../domain/models/chat";
@@ -73,9 +73,8 @@ describe("FanoutExecutor", () => {
       { agentId: "agent-b", sessionId: "s2", label: "Agent B" },
       { agentId: "agent-c", sessionId: "s3", label: "Agent C" },
     ];
-    const payload: UserMessagePayload = { text: "Hello all" };
 
-    const result = await executor.execute(targets, payload);
+    const result = await executor.execute(targets, { text: "Hello all", context: [] });
 
     assert.strictEqual(result.results.length, 3);
     assert.strictEqual(result.results[0].status, "sent");
@@ -89,7 +88,7 @@ describe("FanoutExecutor", () => {
   });
 
   it("returns empty results for empty targets", async () => {
-    const result = await executor.execute([], { text: "test" });
+    const result = await executor.execute([], { text: "test", context: [] });
     assert.strictEqual(result.results.length, 0);
   });
 
@@ -97,7 +96,7 @@ describe("FanoutExecutor", () => {
     const targets: SendTarget[] = [
       { agentId: "solo", sessionId: "s1", label: "Solo" },
     ];
-    const result = await executor.execute(targets, { text: "Just you" });
+    const result = await executor.execute(targets, { text: "Just you", context: [] });
 
     assert.strictEqual(result.results.length, 1);
     assert.strictEqual(result.results[0].status, "sent");
@@ -109,9 +108,8 @@ describe("FanoutExecutor", () => {
       { agentId: "agent-a", sessionId: "s1", label: "A" },
       { agentId: "agent-b", sessionId: "s2", label: "B" },
     ];
-    const payload: UserMessagePayload = { text: "Hello" };
 
-    await executor.execute(targets, payload);
+    await executor.execute(targets, { text: "Hello", context: [] });
 
     assert.strictEqual(pushCalls.length, 2);
     assert.strictEqual(pushCalls[0].agentId, "agent-a");
@@ -134,7 +132,7 @@ describe("FanoutExecutor", () => {
       { agentId: "agent-a", sessionId: "s1", label: "A" },
       { agentId: "agent-b", sessionId: "s2", label: "B" },
     ];
-    const result = await executor.execute(targets, { text: "test" });
+    const result = await executor.execute(targets, { text: "test", context: [] });
 
     assert.strictEqual(result.results.length, 2);
     assert.strictEqual(result.results[0].status, "sent");
@@ -143,28 +141,25 @@ describe("FanoutExecutor", () => {
   });
 
   // --------------------------------------------------------------------------
-  // Attachment tests
+  // Context (pre-built ContentBlock[]) tests
   // --------------------------------------------------------------------------
 
-  it("passes file attachments as resource ContentBlocks in context", async () => {
+  it("passes pre-built context to prompt", async () => {
     const targets: SendTarget[] = [
       { agentId: "agent-a", sessionId: "s1", label: "A" },
     ];
-    const payload: UserMessagePayload = {
-      text: "Review this file",
-      attachments: [
-        {
-          id: "att-1",
-          type: "file",
-          path: "/workspace/src/foo.ts",
-          label: "foo.ts",
-          tokenCount: 100,
-          content: "const x = 1;",
+    const context: PromptContext = [
+      {
+        type: "resource",
+        resource: {
+          uri: "file:///workspace/src/foo.ts",
+          mimeType: "text/plain",
+          text: "const x = 1;",
         },
-      ],
-    };
+      },
+    ];
 
-    await executor.execute(targets, payload);
+    await executor.execute(targets, { text: "Review this file", context });
 
     assert.strictEqual(orchestrator.promptCalls.length, 1);
     const ctx = orchestrator.promptCalls[0].context;
@@ -176,91 +171,35 @@ describe("FanoutExecutor", () => {
     assert.strictEqual(resource.text, "const x = 1;");
   });
 
-  it("passes multiple attachments as multiple resource blocks", async () => {
+  it("passes empty context when no context provided", async () => {
     const targets: SendTarget[] = [
       { agentId: "agent-a", sessionId: "s1", label: "A" },
     ];
-    const payload: UserMessagePayload = {
-      text: "Review these",
-      attachments: [
-        {
-          id: "att-1",
-          type: "file",
-          path: "/workspace/a.ts",
-          label: "a.ts",
-          tokenCount: 50,
-          content: "file A",
-        },
-        {
-          id: "att-2",
-          type: "selection",
-          path: "/workspace/b.ts",
-          label: "b.ts:10-20",
-          lineRange: [10, 20],
-          tokenCount: 30,
-          content: "selected text",
-        },
-      ],
-    };
 
-    await executor.execute(targets, payload);
-
-    const ctx = orchestrator.promptCalls[0].context;
-    assert.strictEqual(ctx!.length, 2);
-    const r0 = (ctx![0] as { resource: { uri: string; text: string } }).resource;
-    const r1 = (ctx![1] as { resource: { uri: string; text: string } }).resource;
-    assert.strictEqual(r0.uri, "file:///workspace/a.ts");
-    assert.strictEqual(r0.text, "file A");
-    assert.strictEqual(r1.uri, "file:///workspace/b.ts");
-    assert.strictEqual(r1.text, "selected text");
-  });
-
-  it("passes empty context when no attachments", async () => {
-    const targets: SendTarget[] = [
-      { agentId: "agent-a", sessionId: "s1", label: "A" },
-    ];
-    const payload: UserMessagePayload = { text: "Hello" };
-
-    await executor.execute(targets, payload);
+    await executor.execute(targets, { text: "Hello", context: [] });
 
     const ctx = orchestrator.promptCalls[0].context;
     assert.ok(ctx);
     assert.strictEqual(ctx!.length, 0);
   });
 
-  it("passes empty context when attachments is empty array", async () => {
-    const targets: SendTarget[] = [
-      { agentId: "agent-a", sessionId: "s1", label: "A" },
-    ];
-    const payload: UserMessagePayload = { text: "Hello", attachments: [] };
-
-    await executor.execute(targets, payload);
-
-    const ctx = orchestrator.promptCalls[0].context;
-    assert.ok(ctx);
-    assert.strictEqual(ctx!.length, 0);
-  });
-
-  it("propagates attachments to all targets in multi-target send", async () => {
+  it("propagates context to all targets in multi-target send", async () => {
     const targets: SendTarget[] = [
       { agentId: "agent-a", sessionId: "s1", label: "A" },
       { agentId: "agent-b", sessionId: "s2", label: "B" },
     ];
-    const payload: UserMessagePayload = {
-      text: "Review this",
-      attachments: [
-        {
-          id: "att-1",
-          type: "file",
-          path: "/workspace/shared.ts",
-          label: "shared.ts",
-          tokenCount: 80,
-          content: "shared content",
+    const context: PromptContext = [
+      {
+        type: "resource",
+        resource: {
+          uri: "file:///workspace/shared.ts",
+          mimeType: "text/plain",
+          text: "shared content",
         },
-      ],
-    };
+      },
+    ];
 
-    await executor.execute(targets, payload);
+    await executor.execute(targets, { text: "Review this", context });
 
     assert.strictEqual(orchestrator.promptCalls.length, 2);
     for (let i = 0; i < 2; i++) {
@@ -271,39 +210,5 @@ describe("FanoutExecutor", () => {
       assert.strictEqual(resource.uri, "file:///workspace/shared.ts");
       assert.strictEqual(resource.text, "shared content");
     }
-  });
-
-  it("skips attachments with empty path", async () => {
-    const targets: SendTarget[] = [
-      { agentId: "agent-a", sessionId: "s1", label: "A" },
-    ];
-    const payload: UserMessagePayload = {
-      text: "Review",
-      attachments: [
-        {
-          id: "att-1",
-          type: "file",
-          path: "",
-          label: "empty-path",
-          tokenCount: 0,
-          content: "no path",
-        },
-        {
-          id: "att-2",
-          type: "file",
-          path: "/workspace/valid.ts",
-          label: "valid.ts",
-          tokenCount: 40,
-          content: "valid content",
-        },
-      ],
-    };
-
-    await executor.execute(targets, payload);
-
-    const ctx = orchestrator.promptCalls[0].context;
-    assert.strictEqual(ctx!.length, 1);
-    const resource = (ctx![0] as { resource: { uri: string; text: string } }).resource;
-    assert.strictEqual(resource.uri, "file:///workspace/valid.ts");
   });
 });

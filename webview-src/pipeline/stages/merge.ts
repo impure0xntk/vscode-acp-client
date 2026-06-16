@@ -88,7 +88,12 @@ export function mergeToolBatches(
           // Already holding a pending tool — flush the old one first.
           result.push({ ...pendingTool, role: "agent" as const });
         }
-        pendingTool = { ...msg, role: "agent" as const };
+        // Inherit agentId from the nearest preceding non-tool message so
+        // that the annotate stage produces the same groupKey as subsequent
+        // agent messages from the same agent.
+        const lastNonTool = findLastNonTool(result);
+        const inheritedAgentId = lastNonTool?.agentId ?? msg.agentId;
+        pendingTool = { ...msg, role: "agent" as const, agentId: inheritedAgentId };
       }
     } else if (msg.role === "agent" && pendingTool) {
       // Case 3: agent after a promoted tool — flush the pending tool as its

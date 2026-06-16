@@ -2,9 +2,15 @@
 // MeshOrchestrator — P2P mesh team lifecycle and message routing
 //
 // refs: docs/p2p-mesh-design.md Section 9
+//
+// Design notes:
+//   - Owns attachment → ContentBlock conversion (single source of truth).
+//   - FanoutExecutor / PipelineExecutor / SupervisorManager receive
+//     pre-built PromptContext, no SDK imports in domain layer.
 // ============================================================================
 
 import type { SessionOrchestrator } from "../../application/session/orchestrator";
+import type { PromptContext } from "../../application/session/orchestrator";
 import type {
   MeshTeam,
   P2PMessage,
@@ -14,9 +20,10 @@ import type {
   MeshErrorType,
   SendTarget,
   MultiSendResult,
-  UserMessagePayload,
   MeshAgentStatus,
 } from "../models/mesh";
+import type { ContextAttachmentDTO } from "../models/chat";
+import { attachmentsToContentBlocks } from "../../adapter/context/prompt-context";
 import { MessageBus } from "./message-bus";
 import { FileLockManager } from "./file-lock-manager";
 import { TaskBoardStore } from "./task-board-store";
@@ -166,7 +173,7 @@ export class MeshOrchestrator {
 
   private async forwardToAgent(
     targetAgentId: string,
-    message: P2PMessage
+    message: P2PMessage,
   ): Promise<void> {
     const sessionId =
       this.sessionOrchestrator.getActiveSessionId(targetAgentId);
@@ -180,7 +187,7 @@ export class MeshOrchestrator {
       await this.sessionOrchestrator.prompt(
         targetAgentId,
         sessionId,
-        markerMessage
+        markerMessage,
       );
     } catch (e) {
       log.error("failed to forward P2P message to agent", {
@@ -194,13 +201,9 @@ export class MeshOrchestrator {
   // Agent Output Processing
   // -----------------------------------------------------------------------
 
-  /**
-   * Process raw agent output: extract P2P messages from markers and
-   * route them through the message bus.
-   */
   async processAgentOutput(
     agentId: string,
-    rawOutput: string
+    rawOutput: string,
   ): Promise<string> {
     const { messages, sanitized } = parseMeshMarkers(rawOutput, agentId);
 
@@ -232,7 +235,7 @@ export class MeshOrchestrator {
 
   addTask(
     teamId: string,
-    task: Omit<TaskEntry, "createdAt" | "updatedAt">
+    task: Omit<TaskEntry, "createdAt" | "updatedAt">,
   ): TaskEntry {
     const team = this.teams.get(teamId);
     if (!team) throw new Error(`Team ${teamId} not found`);
@@ -250,7 +253,7 @@ export class MeshOrchestrator {
     taskId: string,
     updates: Partial<
       Pick<TaskEntry, "status" | "assignedTo" | "result" | "metadata">
-    >
+    >,
   ): TaskEntry | undefined {
     const team = this.teams.get(teamId);
     if (!team) return undefined;
@@ -281,7 +284,7 @@ export class MeshOrchestrator {
 
       const tasks = this.taskBoardStore.getTasksByAgent(
         team.taskBoardPath,
-        agentId
+        agentId,
       );
       for (const task of tasks) {
         if (task.status === "in_progress" || task.status === "assigned") {
@@ -322,7 +325,7 @@ export class MeshOrchestrator {
     type: MeshErrorType,
     description: string,
     agentId?: string,
-    messageId?: string
+    messageId?: string,
   ): MeshError {
     return {
       type,
@@ -342,7 +345,7 @@ export class MeshOrchestrator {
     toAgentId: string,
     task: string,
     context?: string,
-    _timeoutSec?: number
+    _timeoutSec?: number,
   ): Promise<void> {
     log.info("handoff", { from: fromAgentId, to: toAgentId });
     const message: P2PMessage = {
@@ -365,7 +368,7 @@ export class MeshOrchestrator {
     fromAgentId: string,
     toAgentId: string,
     content: string,
-    priority: "low" | "normal" | "high" | "urgent" = "normal"
+    priority: "low" | "normal" | "high" | "urgent" = "normal",
   ): Promise<void> {
     log.info("sendMessage", { from: fromAgentId, to: toAgentId, priority });
     const message: P2PMessage = {
@@ -381,41 +384,35 @@ export class MeshOrchestrator {
   }
 
   // -----------------------------------------------------------------------
-  // Multi-Agent Communication (Phase 1 — Foundation)
+  // Multi-Agent Communication
   // -----------------------------------------------------------------------
 
   /**
    * Send a message to one or more targets in parallel (mesh:send).
-   * Each target is a (agentId, sessionId) pair.
    * Single target = direct 1:1, multiple targets = fanout.
-   * Returns results for each target without waiting for agent responses.
+   * Attachments are converted to ACP ContentBlock[] here (single source of truth).
    */
   async meshSend(
     targets: SendTarget[],
     text: string,
-    attachments?: unknown[]
+    attachments?: ContextAttachmentDTO[],
   ): Promise<MultiSendResult> {
     const targetDesc = targets.map((t) => `${t.agentId}:${t.sessionId}`).join(", ");
     log.info("mesh:send", {
       targetCount: targets.length,
       targets: targetDesc,
     });
-    const payload: UserMessagePayload = {
-      text,
-      attachments: attachments ?? [],
-      priority: "normal",
-    };
-    return this.fanoutExecutor.execute(targets, payload);
+    const context = this.buildContext(attachments);
+    return this.fanoutExecutor.execute(targets, { text, context });
   }
 
   /**
    * Fanout: send a message to all active sessions of the given agent IDs.
-   * Resolves agentId → active session, then sends in parallel.
    */
   async fanout(
     agentIds: string[],
     text: string,
-    attachments?: unknown[]
+    attachments?: ContextAttachmentDTO[],
   ): Promise<MultiSendResult> {
     const targets: SendTarget[] = [];
     for (const agentId of agentIds) {
@@ -435,25 +432,25 @@ export class MeshOrchestrator {
       return { results: [] };
     }
 
-    log.info("fanout", { agentCount: agentIds.length, resolvedTargetCount: targets.length });
-    const payload: UserMessagePayload = {
-      text,
-      attachments: attachments ?? [],
-      priority: "normal",
-    };
-    return this.fanoutExecutor.execute(targets, payload);
+    log.info("fanout", {
+      agentCount: agentIds.length,
+      resolvedTargetCount: targets.length,
+    });
+    const context = this.buildContext(attachments);
+    return this.fanoutExecutor.execute(targets, { text, context });
   }
 
   /**
    * Pipeline: send a message sequentially through a chain of targets.
-   * Each agent receives the same text. Future: transform output between stages.
    */
   async pipelineSend(
     targets: SendTarget[],
-    text: string
+    text: string,
+    attachments?: ContextAttachmentDTO[],
   ): Promise<{ success: boolean; steps: Array<{ target: SendTarget; status: string; error?: string }> }> {
     log.info("pipelineSend", { targetCount: targets.length });
-    return this.pipelineExecutor.execute(targets, text);
+    const context = this.buildContext(attachments);
+    return this.pipelineExecutor.execute(targets, { text, context });
   }
 
   /**
@@ -467,7 +464,7 @@ export class MeshOrchestrator {
     waitForAll = false,
     leadOutput?: string,
     maxRetries?: number,
-    lockFiles?: string[]
+    lockFiles?: string[],
   ): Promise<{
     assignments: Array<{ workerTarget: SendTarget; status: string }>;
     completedCount: number;
@@ -492,13 +489,23 @@ export class MeshOrchestrator {
         maxRetries,
         lockFiles,
       },
-      leadOutput
+      leadOutput,
     );
   }
 
-  /**
-   * Get agent statuses for MeshPanel display.
-   */
+  // -----------------------------------------------------------------------
+  // Context builder (single source of truth for attachment → ContentBlock)
+  // -----------------------------------------------------------------------
+
+  private buildContext(attachments?: ContextAttachmentDTO[]): PromptContext {
+    if (!attachments || attachments.length === 0) return [];
+    return attachmentsToContentBlocks(attachments);
+  }
+
+  // -----------------------------------------------------------------------
+  // Agent Status
+  // -----------------------------------------------------------------------
+
   getAgentStatuses(): MeshAgentStatus[] {
     const statuses: MeshAgentStatus[] = [];
     const agentIds = new Set<string>();

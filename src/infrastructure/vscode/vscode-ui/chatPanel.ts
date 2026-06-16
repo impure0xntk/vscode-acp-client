@@ -387,6 +387,33 @@ export class ChatPanel {
     });
   }
 
+  /** Push a full session snapshot (messages + info) to the webview — used on session restore */
+  pushSessionSnapshot(
+    agentId: string,
+    sessionId: string,
+    info: import("../../../application/session/types").SessionInfo
+  ): void {
+    this.postMessage({
+      type: "session/snapshot",
+      agentId,
+      sessionId,
+      messages: info.messages,
+      tokenUsage: {
+        inputTokens: info.tokenUsage.input,
+        outputTokens: info.tokenUsage.output,
+        totalTokens: info.tokenUsage.total,
+      },
+      contextWindowMax: info.contextWindowMax,
+      model: info.model,
+      mode: info.mode,
+      cwd: info.cwd,
+      status: info.status,
+      isStreaming: info.isStreaming,
+      createdAt: info.createdAt.toISOString(),
+      lastResponseAt: info.lastResponseAt,
+    });
+  }
+
   /** Push SessionInfo for ALL sessions (used by sendTabsToChatPanel to sync non-active sessions) */
   pushAllSessionInfos(
     agentId: string,

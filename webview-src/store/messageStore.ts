@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { ChatMessage } from "../types";
+import type { ChatMessage, QueuedPrompt } from "../types";
 import { getLogger } from "../lib/logger";
 
 const log = getLogger("webview.store.message");
@@ -11,17 +11,22 @@ export interface MessageState {
   perSession: Record<string, ChatMessage[]>;
   /** sessionKey → streaming flag */
   streaming: Record<string, boolean>;
+  /** sessionKey → queued prompts */
+  promptQueue: Record<string, QueuedPrompt[]>;
   setMessages: (key: string, msgs: ChatMessage[]) => void;
   appendMessage: (key: string, msg: ChatMessage) => void;
   setStreaming: (key: string, v: boolean) => void;
   /** Append a streaming chunk to the last agent message, or create one */
   appendStreamChunk: (key: string, agentId: string, sessionId: string, chunk: string) => void;
   clearSession: (key: string) => void;
+  /** Add a queued prompt entry */
+  addQueuedPrompt: (key: string, entry: QueuedPrompt) => void;
 }
 
 export const useMessageStore = create<MessageState>((set) => ({
   perSession: {},
   streaming: {},
+  promptQueue: {},
 
   setMessages: (key, msgs) =>
     set((state) => {
@@ -105,5 +110,15 @@ export const useMessageStore = create<MessageState>((set) => ({
       const next = { ...state.perSession };
       delete next[key];
       return { ...state, perSession: next };
+    }),
+
+  addQueuedPrompt: (key, entry) =>
+    set((state) => {
+      const existing = state.promptQueue[key] ?? [];
+      log.trace("addQueuedPrompt", { key, entryId: entry.id, len: existing.length + 1 });
+      return {
+        ...state,
+        promptQueue: { ...state.promptQueue, [key]: [...existing, entry] },
+      };
     }),
 }));

@@ -35,6 +35,7 @@ export interface ComposerProps {
   onCancel: () => void;
   onNewSession?: () => void;
   onSwitchSession?: (agentId: string, sessionId: string) => void;
+  onRenameSession?: (agentId: string, sessionId: string, title: string) => void;
   disabled?: boolean;
   status?: "idle" | "running" | "completed" | "error" | "cancelled";
   fetchFiles: (query: string) => Promise<FileCandidate[]>;
@@ -87,6 +88,7 @@ export function Composer({
   onCancel,
   onNewSession,
   onSwitchSession,
+  onRenameSession,
   disabled = false,
   status = "idle",
   fetchFiles,
@@ -289,6 +291,14 @@ export function Composer({
           detail: "Switch to another session",
           icon: "arrow-right-left",
         },
+        {
+          id: "action:rename",
+          kind: "action",
+          label: "rename",
+          value: "rename",
+          detail: "Rename current session",
+          icon: "pencil",
+        },
       ];
       if (query) {
         const q = query.toLowerCase();
@@ -357,6 +367,15 @@ export function Composer({
       } else if (item.kind === "action") {
         if (item.value === "new") {
           onNewSession?.();
+        } else if (item.value === "rename") {
+          // Trigger rename for the active session
+          const activeKey = useSessionStore.getState().activeSessionKey;
+          if (activeKey && onRenameSession) {
+            const [agentId, sessionId] = activeKey.split(":");
+            // We need to get the current title and prompt for a new one
+            // For now, send a signal; the actual rename dialog is handled by the parent
+            onRenameSession(agentId, sessionId, "");
+          }
         }
         newText = before + after;
         setText(newText);

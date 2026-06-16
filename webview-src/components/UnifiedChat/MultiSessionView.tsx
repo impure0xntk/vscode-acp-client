@@ -9,6 +9,7 @@ import { useSessionInfo } from "../../hooks/useSessionInfo";
 import { useLogger } from "../../hooks/useLogger";
 import { SectionHeader } from "./SectionHeader";
 import { SectionChatContainer } from "./SectionChatContainer";
+import { StreamingStatus } from "../StreamingStatus";
 
 import type { ChatMessage } from "../../types";
 import type { TurnOutcome } from "../StatusIcon";
@@ -184,6 +185,9 @@ const SessionSection = React.memo(function SessionSection({
           color={color}
         />
       </div>
+      <StreamingStatus
+        sessionKey={sessionKey}
+      />
     </div>
   );
 });
@@ -336,6 +340,12 @@ export const MultiSessionView = React.memo(function MultiSessionView({
   // that create new references on every parent re-render.
   const allMessages = useMessageStore.getState().perSession;
 
+  /** Effective ratios: use stored ratios if they match visible count,
+   *  otherwise fall back to equal distribution. */
+  const effectiveRatios = splitRatios.length >= visibleKeys.length
+    ? splitRatios
+    : Array(visibleKeys.length).fill(1 / visibleKeys.length);
+
   const renderSection = (sessionKey: string, isFocus: boolean) => {
     const isPinned = pinnedKeys.includes(sessionKey);
     const idx = visibleKeys.indexOf(sessionKey);
@@ -349,7 +359,7 @@ export const MultiSessionView = React.memo(function MultiSessionView({
         splitDirection={splitDirection}
         splitIndex={idx}
         splitTotal={visibleKeys.length}
-        splitRatios={splitRatios.length >= visibleKeys.length ? splitRatios : Array(visibleKeys.length).fill(1 / visibleKeys.length)}
+        splitRatios={effectiveRatios}
         messages={allMessages[sessionKey] ?? []}
         tabTitles={tabTitles}
         onFocusChange={onFocusChange}

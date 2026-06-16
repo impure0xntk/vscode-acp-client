@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef } from "react";
+import React, { useCallback, useMemo } from "react";
 import { renderMarkdown } from "../lib/markdown";
 import { getVsCodeApi } from "../lib/vscodeApi";
 import { Icon } from "../lib/icons";
@@ -133,20 +133,15 @@ export const Message = React.memo(function Message({
     thinking,
   } = item;
 
-  const resolvedPathsRef = useRef<Set<string> | undefined>(undefined);
   const rawResolved = usePathResolutionStore(
     (state) => state.resolvedPaths[sessionId ?? ""],
   );
-  if (rawResolved !== resolvedPathsRef.current) {
-    resolvedPathsRef.current = rawResolved;
-  }
-  const resolvedPaths = resolvedPathsRef.current;
 
   const mergedContext = useMemo(
     () => ({
-      filePaths: resolvedPaths ? new Set(resolvedPaths) : new Set(),
+      filePaths: new Set<string>(rawResolved ?? []),
     }),
-    [resolvedPaths],
+    [rawResolved],
   );
 
   const time = new Date(timestamp ?? 0).toLocaleTimeString();
@@ -176,13 +171,6 @@ export const Message = React.memo(function Message({
       data-role={role}
       data-message-id={item.key}
     >
-      {hasAttachments && (
-        <div className="user-attach-row">
-          {attachments.map((a) => (
-            <AttachmentChip key={a.id} attachment={a} />
-          ))}
-        </div>
-      )}
       {!isConsecutive && (
         <div className="message-header">
           <span className="message-role">
@@ -225,6 +213,13 @@ export const Message = React.memo(function Message({
                 )}
               </div>
             )}
+          </div>
+        )}
+        {hasAttachments && (
+          <div className="user-attach-row">
+            {attachments.map((a) => (
+              <AttachmentChip key={a.id} attachment={a} />
+            ))}
           </div>
         )}
       </div>

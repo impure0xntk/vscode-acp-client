@@ -7,6 +7,20 @@ import { getVsCodeApi } from "./lib/vscodeApi";
 import { getLogger } from "./lib/logger";
 import { toSessionInfoDTO } from "./store/mappers";
 import type { SessionInfoDTO } from "./store/sessionStore";
+import type {
+  SessionTabState,
+  ConnectedAgentInfo,
+  AgentInfo,
+  WorkspaceFolder,
+  SlashCommand,
+  SessionTabStatus,
+} from "./store/sessionStore";
+import type {
+  QueuedPrompt,
+  ChatMessage,
+  TokenUsage,
+  SessionOverviewState,
+} from "./types";
 
 const log = getLogger("webview.messageHandler");
 
@@ -24,20 +38,6 @@ let pendingSwitchGuard: string | null = null;
 export function setPendingSwitch(agentId: string, sessionId: string): void {
   pendingSwitchGuard = sessionKeyOf(agentId, sessionId);
 }
-import type {
-  SessionTabState,
-  ConnectedAgentInfo,
-  AgentInfo,
-  WorkspaceFolder,
-  SlashCommand,
-  SessionTabStatus,
-} from "./store/sessionStore";
-import type {
-  QueuedPrompt,
-  ChatMessage,
-  TokenUsage,
-  SessionOverviewState,
-} from "./types";
 
 // ── Message handler types ───────────────────────────────────────────────────
 
@@ -116,6 +116,22 @@ interface SessionCompleted {
   agentId: string;
   sessionId: string;
   title: string;
+}
+
+interface SessionSnapshot {
+  type: "session/snapshot";
+  agentId: string;
+  sessionId: string;
+  messages: ChatMessage[];
+  tokenUsage: TokenUsage;
+  contextWindowMax?: number;
+  model?: string;
+  mode?: string;
+  cwd?: string;
+  status: string;
+  isStreaming: boolean;
+  createdAt: string;
+  lastResponseAt: string | null;
 }
 
 interface SessionInfo {
@@ -235,6 +251,13 @@ interface MeshPanelToggleMessage {
 
 // ── Session pin/unpin messages ─────────────────────────────────────────────
 
+interface SessionTitleMessage {
+  type: "session/title";
+  agentId: string;
+  sessionId: string;
+  title: string;
+}
+
 interface SessionPinnedNotification {
   type: "session.pinned";
   agentId: string;
@@ -253,7 +276,16 @@ interface PathsResolvedMessage {
   paths: string[];
 }
 
+// ── UnifiedChat layout message ──────────────────────────────────────────────
+
+interface UnifiedChatSetLayoutMessage {
+  type: "unifiedChat:setLayout";
+  layout: "single" | "split" | "grid";
+  splitRatio?: number;
+}
+
 type WebviewMessage =
+  | SessionTitleMessage
   | SetTabsMessage
   | SessionMessage
   | SessionStream
@@ -263,6 +295,7 @@ type WebviewMessage =
   | SessionUsage
   | SessionCompression
   | SessionCompleted
+  | SessionSnapshot
   | SessionInfo
   | AgentInfoMessage
   | StatuslineMessage
@@ -283,7 +316,8 @@ type WebviewMessage =
   | MeshPanelToggleMessage
   | SessionPinnedNotification
   | SessionUnpinnedNotification
-  | PathsResolvedMessage;
+  | PathsResolvedMessage
+  | UnifiedChatSetLayoutMessage;
 
 // ── Handler functions ───────────────────────────────────────────────────────
 
@@ -365,7 +399,6 @@ function handleSessionStream(data: SessionStream): void {
     });
   }
 }
-
 
 function handleSessionStreamEnd(data: SessionStreamEnd): void {
   const msgKey = sessionKeyOf(data.agentId, data.sessionId);
@@ -490,6 +523,48 @@ function handleSessionCompleted(data: SessionCompleted): void {
   }
 }
 
+function handleSessionSnapshot(data: SessionSnapshot): void {
+  const key = sessionKeyOf(data.agentId, data.sessionId);
+  log.info("handleSessionSnapshot", {
+    agentId: data.agentId,
+    sessionId: data.sessionId,
+    messageCount: data.messages.length,
+  });
+
+  // Deserialize attachmentsJson for each message
+  const messages = data.messages.map((msg) => {
+    if (msg.attachmentsJson && !msg.attachments) {
+      try {
+        const attachments = JSON.parse(msg.attachmentsJson) as import("./types").ContextAttachment[];
+        return { ...msg, attachments };
+      } catch {
+        return msg;
+      }
+    }
+    return msg;
+  });
+
+  // Populate message store so the chat UI renders the restored conversation
+  useMessageStore.getState().setMessages(key, messages);
+
+  // Update session info in session store
+  const dto = toSessionInfoDTO({
+    sessionId: data.sessionId,
+    agentId: data.agentId,
+    status: data.status,
+    lastTurnOutcome: null,
+    isStreaming: data.isStreaming,
+    tokenUsage: { input: data.tokenUsage.inputTokens, output: data.tokenUsage.outputTokens, total: data.tokenUsage.totalTokens },
+    contextWindowMax: data.contextWindowMax,
+    model: data.model,
+    mode: data.mode,
+    cwd: data.cwd,
+    createdAt: data.createdAt,
+    lastResponseAt: data.lastResponseAt,
+  });
+  useSessionStore.getState().setSessionInfo(data.agentId, data.sessionId, dto);
+}
+
 function handleSessionInfo(data: SessionInfo): void {
   const dto = toSessionInfoDTO({
     sessionId: data.sessionId,
@@ -543,7 +618,7 @@ function handleSessionCommands(data: SessionCommandsMessage): void {
 
 function handleQueueAdded(data: QueueAddedMessage): void {
   const key = sessionKeyOf(data.agentId, data.sessionId);
-  useSessionStore.getState().addQueuedPrompt(key, data.entry);
+  useMessageStore.getState().addQueuedPrompt(key, data.entry);
 }
 
 function handleQueueUpdated(data: QueueUpdatedMessage): void {
@@ -599,6 +674,12 @@ function handlePathsResolved(data: PathsResolvedMessage): void {
 
 // ── Session pin/unpin handlers ─────────────────────────────────────────────
 
+function handleSessionTitle(data: SessionTitleMessage): void {
+  const key = sessionKeyOf(data.agentId, data.sessionId);
+  log.info("session title changed", { agentId: data.agentId, sessionId: data.sessionId, title: data.title });
+  useSessionStore.getState().setTabTitle(key, data.title);
+}
+
 function handleSessionPinned(data: SessionPinnedNotification): void {
   const key = sessionKeyOf(data.agentId, data.sessionId);
   log.info("session pinned", { agentId: data.agentId, sessionId: data.sessionId });
@@ -611,11 +692,34 @@ function handleSessionUnpinned(data: SessionUnpinnedNotification): void {
   useSessionStore.getState().unpinSession(key);
 }
 
+// ── UnifiedChat layout handler ──────────────────────────────────────────────
+
+function handleUnifiedChatSetLayout(data: UnifiedChatSetLayoutMessage): void {
+  log.info("handleUnifiedChatSetLayout", { layout: data.layout, splitRatio: data.splitRatio });
+  const store = useSessionStore.getState();
+  store.setLayoutMode(data.layout);
+  if (data.splitRatio !== undefined) {
+    // When split ratio is provided, update the first split ratio
+    const ratios = [...store.splitRatios];
+    if (ratios.length > 0) {
+      ratios[0] = data.splitRatio;
+      // Normalize: ensure sum = 1
+      const sum = ratios.reduce((a, b) => a + b, 0);
+      if (sum > 0) {
+        for (let i = 0; i < ratios.length; i++) {
+          ratios[i] = ratios[i] / sum;
+        }
+      }
+      store.setSplitRatios(ratios);
+    }
+  }
+}
+
 // ── Setup function ──────────────────────────────────────────────────────────
 
 /**
  * Configures the webview message handler.
- * Distributes messages from the extended host to each store.
+ * Distributes messages from the extension host to each store.
  */
 export function setupMessageHandlers(): void {
   window.addEventListener("message", (event: MessageEvent) => {
@@ -651,6 +755,9 @@ export function setupMessageHandlers(): void {
         break;
       case "session/completed":
         handleSessionCompleted(data);
+        break;
+      case "session/snapshot":
+        handleSessionSnapshot(data);
         break;
       case "session/info":
         handleSessionInfo(data);
@@ -709,11 +816,17 @@ export function setupMessageHandlers(): void {
       case "pathsResolved":
         handlePathsResolved(data);
         break;
+      case "session/title":
+        handleSessionTitle(data);
+        break;
       case "session.pinned":
         handleSessionPinned(data);
         break;
       case "session.unpinned":
         handleSessionUnpinned(data);
+        break;
+      case "unifiedChat:setLayout":
+        handleUnifiedChatSetLayout(data);
         break;
     }
   });

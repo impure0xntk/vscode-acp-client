@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { getLogger } from "../../platform/backends";
+import type { PresetConfig } from "../../domain/models/agent";
 
 const log = getLogger("extension");
 import {
@@ -467,11 +468,19 @@ export async function activate(
     })
   );
 
-  const autoConnectAgents = registry.getAutoConnectAgents();
-  log.info("auto-connect agents", { count: autoConnectAgents.length });
-  for (const agent of autoConnectAgents) {
-    for (const entry of agent.autoConnect ?? []) {
-      await cmdConnect(agent, entry, agent.openChat !== false);
+  // Apply preset if configured (takes priority over individual autoConnect)
+  const preset = registry.loadPreset(platform);
+  if (preset) {
+    log.info("applying preset", { label: preset.label, sessions: preset.sessions.length });
+    await applyPreset(preset);
+  } else {
+    // Fall back to per-agent autoConnect
+    const autoConnectAgents = registry.getAutoConnectAgents();
+    log.info("auto-connect agents", { count: autoConnectAgents.length });
+    for (const agent of autoConnectAgents) {
+      for (const entry of agent.autoConnect ?? []) {
+        await cmdConnect(agent, entry, agent.openChat !== false);
+      }
     }
   }
 
@@ -553,6 +562,14 @@ function wireOrchestratorEvents(meshOrch: MeshOrchestrator): void {
       sessionId,
       queue,
     });
+  });
+
+  // Session title changed: forward to webview
+  orchestrator.on("sessionTitleChanged", ({ agentId, sessionId, title }) => {
+    if (!chatPanel) return;
+    chatPanel.postMessage({ type: "session/title", agentId, sessionId, title });
+    // Refresh tabs so the new title propagates to the tab bar
+    sendTabsToChatPanel();
   });
 
   // Session pin/unpin: forward to webview
@@ -696,6 +713,110 @@ function registerCommands(context: vscode.ExtensionContext): void {
 // ============================================================================
 // cmdConnect — connect + optional auto-open chat
 // ============================================================================
+
+// ============================================================================
+// Preset Application
+// ============================================================================
+
+async function applyPreset(preset: PresetConfig): Promise<void> {
+  // Determine the target panel mode
+  const panelMode = preset.layout === "grid" || preset.layout === "split"
+    ? "unified"
+    : vscode.workspace.getConfiguration("acp").get<string>("defaultChatPanel", "classic");
+
+  // Collect all workspace folders for relative path resolution
+  const wsFolders = (vscode.workspace.workspaceFolders ?? []).map((f) => f.uri.fsPath);
+  const fallbackWs = wsFolders[0] ?? process.cwd();
+
+  // Track connected agent IDs and their session info
+  const connectedSessions: Array<{ agentId: string; sessionId: string; title: string }> = [];
+
+  for (const entry of preset.sessions) {
+    const agentConfig = registry.getAgent(entry.agent);
+    if (!agentConfig) {
+      log.warn("preset: agent not found, skipping", { agent: entry.agent });
+      continue;
+    }
+
+    // Skip if already connected (multiple sessions for same agent)
+    try {
+      await orchestrator.connectAgent(agentConfig.id, agentConfig);
+    } catch (err) {
+      log.error("preset: failed to connect agent", { agent: entry.agent, error: err });
+      continue;
+    }
+
+    // Resolve workspace path
+    let ws: string;
+    if (entry.workspace) {
+      const p = entry.workspace;
+      ws = path.isAbsolute(p) ? p : path.resolve(fallbackWs, p);
+    } else {
+      ws = fallbackWs;
+    }
+
+    try {
+      const sessionId = await orchestrator.createSession(agentConfig.id, ws);
+
+      // Apply session title
+      const title = entry.sessionName;
+      if (title) {
+        const info = orchestrator.getSessionInfo(agentConfig.id, sessionId);
+        if (info) info.title = title;
+      }
+
+      connectedSessions.push({
+        agentId: agentConfig.id,
+        sessionId,
+        title: title ?? agentConfig.id,
+      });
+
+      log.info("preset: session created", {
+        agent: entry.agent,
+        sessionId,
+        workspace: ws,
+        title,
+      });
+    } catch (err) {
+      log.error("preset: failed to create session", {
+        agent: entry.agent,
+        workspace: ws,
+        error: err,
+      });
+    }
+  }
+
+  if (connectedSessions.length === 0) {
+    log.warn("preset: no sessions created");
+    return;
+  }
+
+  // Open the unified chat panel
+  ensureChatPanel(
+    getChatPanel,
+    setChatPanel,
+    extensionContext.extensionUri,
+    sendTabsToChatPanel,
+    wireChatPanelEventsLocal,
+    orchestrator
+  );
+
+  // Apply layout settings to webview if preset specifies them
+  const panel = getChatPanel();
+  if (panel) {
+    if (preset.layout) {
+      panel.postMessage({
+        type: "unifiedChat:setLayout",
+        layout: preset.layout,
+        splitRatio: preset.splitRatio,
+      });
+    }
+  }
+
+  void vscode.window.showInformationMessage(
+    `ACP: Preset "${preset.label}" applied — ${connectedSessions.length} session(s)`
+  );
+}
 
 async function cmdConnect(
   agentConfig?: AgentConfig | string,

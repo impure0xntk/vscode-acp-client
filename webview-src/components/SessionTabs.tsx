@@ -44,6 +44,7 @@ interface SessionTabsProps {
   onTabClose: (sessionId: string, agentId: string) => void;
   onTabReorder: (tabs: SessionTabState[]) => void;
   onNewSession: () => void;
+  onRenameSession?: (agentId: string, sessionId: string, title: string) => void;
 }
 
 export function SessionTabs({
@@ -56,6 +57,7 @@ export function SessionTabs({
   onTabClose,
   onTabReorder,
   onNewSession,
+  onRenameSession,
 }: SessionTabsProps): React.ReactElement {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
@@ -247,6 +249,7 @@ export function SessionTabs({
                 }}
                 onMouseEnter={(e) => handleTabMouseEnter(e, tab)}
                 onMouseLeave={handleTabMouseLeave}
+                onRename={onRenameSession}
               />
             </div>
           );

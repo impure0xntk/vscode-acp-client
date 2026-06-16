@@ -445,12 +445,12 @@ export function registerSessionCommands(
           agentId,
           restoreResult.sessionId
         );
-        if (newInfo) {
-          getChatPanel()?.setActiveSession(
-            agentId,
-            restoreResult.sessionId,
-            newInfo
-          );
+        const cp = getChatPanel();
+        if (cp && newInfo) {
+          // Push the full message history to the webview so the
+          // restored conversation is visible immediately.
+          cp.pushSessionSnapshot(agentId, restoreResult.sessionId, newInfo);
+          cp.setActiveSession(agentId, restoreResult.sessionId, newInfo);
         }
 
         const methodLabel = restoreResult.nativeRestore
@@ -595,6 +595,48 @@ export function registerSessionCommands(
     }
   );
 
+  // acp.renameSession
+  const renameSessionCmd = vscode.commands.registerCommand(
+    "acp.renameSession",
+    async () => {
+      const agentId = await pickConnectedAgent("Select agent");
+      if (!agentId) return;
+      const sessions = orchestrator.getSessionsForAgent(agentId);
+      if (sessions.length === 0) {
+        void vscode.window.showWarningMessage(
+          "ACP: No sessions for this agent"
+        );
+        return;
+      }
+      const pick = await vscode.window.showQuickPick(
+        sessions.map((s) => ({
+          label: `$(circle-${s.status === "running" ? "filled" : "outline"}) ${s.title}`,
+          description: `${s.sessionId.slice(0, 8)} · ${s.status}`,
+          sessionId: s.sessionId,
+        })),
+        { placeHolder: "Select session to rename" }
+      );
+      if (!pick) return;
+      const newName = await vscode.window.showInputBox({
+        prompt: "New session name",
+        value: sessions.find((s) => s.sessionId === pick.sessionId)?.title ?? "",
+        validateInput: (v) => (v.trim().length === 0 ? "Name cannot be empty" : undefined),
+      });
+      if (!newName) return;
+      try {
+        orchestrator.renameSession(agentId, pick.sessionId, newName);
+        sendTabsToChatPanel();
+        void vscode.window.showInformationMessage(
+          `ACP: Session renamed to "${newName.trim()}"`
+        );
+      } catch (err) {
+        void vscode.window.showErrorMessage(
+          `ACP: Rename failed — ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
+    }
+  );
+
   // acp.showAgentMenu
   const showAgentMenuCmd = vscode.commands.registerCommand(
     "acp.showAgentMenu",
@@ -684,6 +726,7 @@ export function registerSessionCommands(
     attachDiffCmd,
     forkSessionCmd,
     restoreSessionCmd,
+    renameSessionCmd,
     clearHistoryCmd,
     closeAllCmd,
     showAgentMenuCmd,

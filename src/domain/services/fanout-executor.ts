@@ -2,22 +2,27 @@
 // FanoutExecutor — parallel message delivery to multiple agents
 //
 // refs: docs/mesh-orchestrator-integration-design.md Section 4
+//
+// Design notes:
+//   - No dependency on @agentclientprotocol/sdk. All ACP ContentBlock
+//     conversion happens in the caller (MeshOrchestrator).
+//   - Depends only on SessionOrchestrator (prompt + pushUserMessage).
+//   - Pure parallel sender: fire-and-forget per target, no response waiting.
 // ============================================================================
 
-import type { ContentBlock } from "@agentclientprotocol/sdk";
 import type { SessionOrchestrator } from "../../application/session/orchestrator";
+import type { PromptContext } from "../../application/session/orchestrator";
 import type {
   SendTarget,
   MultiSendResult,
-  UserMessagePayload,
 } from "../models/mesh";
-import type { ChatMessage, ContextAttachmentDTO } from "../../domain/models/chat";
+import type { ChatMessage } from "../../domain/models/chat";
 import { getLogger } from "../../platform/backends";
 
 const log = getLogger("mesh.fanout");
 
 // ----------------------------------------------------------------------------
-// PushUserMessage — callback to display user message in target chat
+// Dependencies
 // ----------------------------------------------------------------------------
 
 export type PushUserMessageFn = (
@@ -26,14 +31,20 @@ export type PushUserMessageFn = (
   message: ChatMessage,
 ) => void;
 
-// ----------------------------------------------------------------------------
-// Dependencies
-// ----------------------------------------------------------------------------
-
 export interface FanoutExecutorDeps {
   sessionOrchestrator: SessionOrchestrator;
   /** Callback to push user message into the target session chat UI */
   pushUserMessage: PushUserMessageFn;
+}
+
+// ----------------------------------------------------------------------------
+// Input — what the caller provides per fanout request
+// ----------------------------------------------------------------------------
+
+export interface FanoutRequest {
+  text: string;
+  /** Pre-built ACP context blocks (attachments already converted) */
+  context: PromptContext;
 }
 
 // ----------------------------------------------------------------------------
@@ -66,7 +77,7 @@ export class FanoutExecutor {
    */
   async execute(
     targets: SendTarget[],
-    payload: UserMessagePayload
+    request: FanoutRequest,
   ): Promise<MultiSendResult> {
     const targetDesc = targets.map((t) => `${t.agentId}:${t.sessionId}`).join(", ");
     log.info("fanout execute start", {
@@ -75,7 +86,7 @@ export class FanoutExecutor {
     });
 
     const results = await Promise.all(
-      targets.map((target) => this.sendToTarget(target, payload))
+      targets.map((target) => this.sendToTarget(target, request)),
     );
 
     const sent = results.filter((r) => r.status === "sent").length;
@@ -91,43 +102,26 @@ export class FanoutExecutor {
    */
   private async sendToTarget(
     target: SendTarget,
-    payload: UserMessagePayload
+    request: FanoutRequest,
   ): Promise<FanoutResult> {
-    log.info("sending to target", { agentId: target.agentId, sessionId: target.sessionId });
+    log.info("sending to target", {
+      agentId: target.agentId,
+      sessionId: target.sessionId,
+    });
 
     try {
-      const rawAttachments = payload.attachments ?? [];
-      const userMessage: ChatMessage = {
+      this.pushUserMessage(target.agentId, target.sessionId, {
         id: crypto.randomUUID(),
         role: "user",
-        content: payload.text,
+        content: request.text,
         timestamp: Date.now(),
-        attachmentsJson:
-          rawAttachments.length > 0
-            ? JSON.stringify(rawAttachments)
-            : undefined,
-      };
-      this.pushUserMessage(target.agentId, target.sessionId, userMessage);
-
-      // Convert attachments to ACP ContentBlock[] for the agent prompt
-      const context: ContentBlock[] = [];
-      for (const att of (payload.attachments ?? []) as ContextAttachmentDTO[]) {
-        if (!att.path) continue;
-        context.push({
-          type: "resource",
-          resource: {
-            uri: `file://${att.path}`,
-            mimeType: "text/plain",
-            text: att.content,
-          },
-        });
-      }
+      });
 
       await this.sessionOrchestrator.prompt(
         target.agentId,
         target.sessionId,
-        payload.text,
-        context
+        request.text,
+        request.context,
       );
       return { target, status: "sent" };
     } catch (e) {

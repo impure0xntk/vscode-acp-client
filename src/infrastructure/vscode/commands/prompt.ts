@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import type { ContentBlock } from "@agentclientprotocol/sdk";
+import { attachmentsToContentBlocks } from "../../../adapter/context/prompt-context";
 import type { SessionOrchestrator } from "../../../application/orchestrator";
 import type { ChatPanel } from "../vscode-ui/chatPanel";
 import type {
@@ -49,7 +49,7 @@ function meshSend(
     attachmentsJson:
       attachments.length > 0 ? JSON.stringify(attachments) : undefined,
   };
-  const context = buildPromptContext(attachments);
+  const context = attachmentsToContentBlocks(attachments);
 
   if (meshOrchestrator) {
     // Route through MeshOrchestrator → FanoutExecutor for parallel delivery.
@@ -57,8 +57,10 @@ function meshSend(
     void meshOrchestrator.meshSend(targets, text, attachments);
   } else {
     // Fallback: direct per-target send (degraded, no marker routing)
+    // Note: intentionally NOT calling chatPanel.pushMessage here.
+    // The webview performs its own local echo in ChatArea.handleSend,
+    // so pushing here would cause a duplicate message.
     for (const target of targets) {
-      chatPanel.pushMessage(target.agentId, target.sessionId, userMessage);
       void orchestrator.prompt(target.agentId, target.sessionId, text, context);
     }
   }
@@ -452,6 +454,19 @@ export function wireChatPanelEvents(
       }
 
       // ==================================================================
+      // Session Rename messages
+      // ==================================================================
+      case "renameSession": {
+        const { agentId, sessionId, title } = data as {
+          agentId: string;
+          sessionId: string;
+          title: string;
+        };
+        orchestrator.renameSession(agentId, sessionId, title);
+        break;
+      }
+
+      // ==================================================================
       // Prompt Queue messages
       // ==================================================================
       case "queue:cancel": {
@@ -493,46 +508,6 @@ function resolveSessionCwd(
     }
   }
   return undefined;
-}
-
-function buildPromptContext(attachments: ContextAttachmentDTO[]): ContentBlock[] {
-  const blocks: ContentBlock[] = [];
-  for (const a of attachments) {
-    switch (a.type) {
-      case "file":
-      case "symbol":
-        blocks.push({
-          type: "resource",
-          resource: {
-            uri: `file://${a.path}`,
-            mimeType: "text/plain",
-            text: a.content,
-          },
-        });
-        break;
-      case "selection":
-        blocks.push({
-          type: "resource",
-          resource: {
-            uri: `file://${a.path}`,
-            mimeType: "text/plain",
-            text: a.content,
-          },
-        });
-        break;
-      case "diff":
-        blocks.push({
-          type: "resource",
-          resource: {
-            uri: `file://${a.path}`,
-            mimeType: "text/plain",
-            text: a.content,
-          },
-        });
-        break;
-    }
-  }
-  return blocks;
 }
 
 function addContextToChat(

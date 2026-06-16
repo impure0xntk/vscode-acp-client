@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import type { SessionTabState } from "../store/sessionStore";
 import { useSessionInfo } from "../hooks/useSessionInfo";
 import { StatusIcon } from "./StatusIcon";
 import type { StatusIconType, TurnOutcome } from "./StatusIcon";
 import { UnreadBadge } from "./ui/UnreadBadge";
+import { getLogger } from "../lib/logger";
+
+const log = getLogger("webview.SessionTab");
 
 // ============================================================================
 // SessionTab — compact horizontal tab for the tab bar
@@ -31,6 +34,7 @@ interface SessionTabProps {
   onClose: () => void;
   onMouseEnter: (e: React.MouseEvent) => void;
   onMouseLeave: () => void;
+  onRename?: (agentId: string, sessionId: string, title: string) => void;
 }
 
 export function SessionTab({
@@ -43,6 +47,7 @@ export function SessionTab({
   onClose,
   onMouseEnter,
   onMouseLeave,
+  onRename,
 }: SessionTabProps): React.ReactElement {
   const sessionKey = `${tab.agentId}:${tab.sessionId}`;
   const info = useSessionInfo(sessionKey);
@@ -76,6 +81,43 @@ export function SessionTab({
 
   const showCloseButton = isActive || isHovered;
 
+  // Inline rename state
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(tab.title);
+  const renameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isRenaming && renameInputRef.current) {
+      renameInputRef.current.focus();
+      renameInputRef.current.select();
+    }
+  }, [isRenaming]);
+
+  // Sync rename value when tab.title changes externally
+  useEffect(() => {
+    if (!isRenaming) {
+      setRenameValue(tab.title);
+    }
+  }, [tab.title, isRenaming]);
+
+  const handleRenameSubmit = useCallback(() => {
+    const trimmed = renameValue.trim();
+    if (trimmed && trimmed !== tab.title && onRename) {
+      onRename(tab.agentId, tab.sessionId, trimmed);
+    }
+    setIsRenaming(false);
+  }, [renameValue, tab.title, tab.agentId, tab.sessionId, onRename]);
+
+  const handleRenameKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleRenameSubmit();
+    } else if (e.key === "Escape") {
+      setRenameValue(tab.title);
+      setIsRenaming(false);
+    }
+  }, [handleRenameSubmit, tab.title]);
+
   return (
     <div
       className={`session-tab${isActive ? " session-tab-active" : ""}${isHovered ? " session-tab-hovered" : ""}`}
@@ -97,10 +139,32 @@ export function SessionTab({
       </div>
 
       {/* Row 2: Session title — compact, no chips/preview/footer */}
-      <div className="session-tab-row session-tab-row-session">
-        <span className="session-tab-title" title={tab.title}>
-          {tab.title}
-        </span>
+      <div
+        className="session-tab-row session-tab-row-session"
+        onDoubleClick={(e) => {
+          if (onRename && !isRenaming) {
+            e.stopPropagation();
+            setIsRenaming(true);
+            setRenameValue(tab.title);
+          }
+        }}
+        title={isRenaming ? "" : `${tab.title} (double-click to rename)`}
+      >
+        {isRenaming ? (
+          <input
+            ref={renameInputRef}
+            className="session-tab-rename-input"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onBlur={handleRenameSubmit}
+            onKeyDown={handleRenameKeyDown}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <span className="session-tab-title">
+            {tab.title}
+          </span>
+        )}
       </div>
 
       {/* Unread badge — absolute top-right, shared UnreadBadge */}

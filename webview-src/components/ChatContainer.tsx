@@ -19,6 +19,7 @@ export interface ChatContainerProps {
   isActive?: boolean;
   /** Whether the user's viewport is at the bottom (used for auto-scroll). */
   isAtBottom?: boolean;
+
   scrollToMessageRef?: React.MutableRefObject<
     ((id: string) => void) | undefined
   >;

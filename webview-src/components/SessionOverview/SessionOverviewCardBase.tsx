@@ -158,7 +158,7 @@ export interface CardProps {
 // Shared sub-components
 // ============================================================================
 
-/** Header: spinner → agent name → title — shared between card and popup */
+/** Header: agent name → title — shared between card and popup */
 export function SessionOverviewHeader({
   session,
   className = "",
@@ -169,13 +169,8 @@ export function SessionOverviewHeader({
   /** Optional agent color for the badge dot */
   agentColor?: string;
 }): React.ReactElement {
-  const iconStatus = effectiveStatus(session.status, session.lastTurnOutcome);
-  const styleInfo = STATUS_STYLE_MAP[session.status] ?? STATUS_STYLE_MAP.idle;
-  const elapsedMs = session.progress.elapsedMs;
-
   return (
     <div className={`soc-title-row ${className}`.trim()}>
-      <StatusIcon status={iconStatus} elapsedMs={elapsedMs} colorGroup={styleInfo.colorGroup} />
       <AgentBadge agentId={session.agentId} agentColor={agentColor} className="soc-agent" />
       <span className="soc-title">{session.title}</span>
       {session.model && <span className="soc-model">{session.model}</span>}

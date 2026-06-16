@@ -23,6 +23,7 @@ interface ChatAreaProps {
   ) => void;
   onCancel: () => void;
   onSwitchSession: (agentId: string, sessionId: string) => void;
+  onRenameSession?: (agentId: string, sessionId: string, title: string) => void;
   fetchFiles: (query: string) => Promise<import("../types").FileCandidate[]>;
   resolveFile: (path: string) => Promise<import("../types").ContextAttachment>;
   resolveSelection: () => Promise<import("../types").ContextAttachment | null>;
@@ -103,6 +104,7 @@ export const ChatArea = memo(function ChatArea({
   onSend,
   onCancel,
   onSwitchSession,
+  onRenameSession,
   fetchFiles,
   resolveFile,
   resolveSelection,
@@ -155,17 +157,22 @@ export const ChatArea = memo(function ChatArea({
   );
 
   // ── Auto-scroll when new messages arrive AND user is at bottom ─────────
+  // Read isAtBottom from the store at effect time to avoid stale prop values
+  // during streaming, where the scroll handler may not have fired yet.
   const msgLen = activeMessages.length;
   const prevLenRef = useRef(msgLen);
   useEffect(() => {
     if (!activeKey) return;
     const isNewMessage = msgLen > prevLenRef.current;
     prevLenRef.current = msgLen;
-    // Auto-scroll when at bottom and new messages arrive (including first)
-    if (isNewMessage && isAtBottom) {
-      forceScrollToBottomRef.current?.();
+    if (isNewMessage) {
+      const freshIsAtBottom =
+        useScrollStateStore.getState().perSession[activeKey]?.isAtBottom ?? true;
+      if (freshIsAtBottom) {
+        forceScrollToBottomRef.current?.();
+      }
     }
-  }, [activeKey, msgLen, isAtBottom]);
+  }, [activeKey, msgLen]);
 
   // ── When messages arrive and isAtBottom is true, advance readUpTo ────
   const prevMsgCountForReadRef = useRef(0);
@@ -194,10 +201,29 @@ export const ChatArea = memo(function ChatArea({
       attachments: import("../types").ContextAttachment[],
       targets?: SendTarget[]
     ) => {
+      // Local echo: immediately append the user message to the store
+      // so the attachment chips appear without waiting for the round-trip
+      // through the extension host.
+      if (activeKey) {
+        const [agentId, sessionId] = activeKey.split(":");
+        useMessageStore.getState().appendMessage(activeKey, {
+          id: crypto.randomUUID(),
+          role: "user",
+          content: text,
+          timestamp: Date.now(),
+          agentId,
+          sessionId,
+          attachments: attachments.length > 0 ? attachments : undefined,
+          attachmentsJson:
+            attachments.length > 0
+              ? JSON.stringify(attachments)
+              : undefined,
+        });
+      }
       onSend(text, attachments, targets);
       forceScrollToBottomRef.current?.();
     },
-    [onSend],
+    [onSend, activeKey],
   );
 
   const handleScrollToBottomClick = useCallback(() => {
@@ -276,6 +302,7 @@ export const ChatArea = memo(function ChatArea({
         onSend={handleSend}
         onCancel={onCancel}
         onSwitchSession={onSwitchSession}
+        onRenameSession={onRenameSession}
         status={status}
         disabled={disabled}
         fetchFiles={fetchFiles}

@@ -364,6 +364,78 @@
           "minimum": 0.2,
           "maximum": 0.8,
           "description": "Default split ratio for the unified chat panel split mode (0.0 = top 100%, 1.0 = bottom 100%)"
+        },
+        "acp.presets": {
+          "type": "object",
+          "default": {},
+          "description": "Named preset configurations for unified chat auto-launch on startup",
+          "properties": {
+            "default": {
+              "type": "string",
+              "default": "",
+              "description": "Name of the preset to apply on startup (empty = no preset auto-launch)"
+            },
+            "configs": {
+              "type": "object",
+              "default": {},
+              "description": "Named preset configurations keyed by name",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "description": "Human-readable label for this preset"
+                  },
+                  "layout": {
+                    "type": "string",
+                    "enum": [
+                      "single",
+                      "split",
+                      "grid"
+                    ],
+                    "description": "Layout mode for the unified chat panel"
+                  },
+                  "splitRatio": {
+                    "type": "number",
+                    "minimum": 0.2,
+                    "maximum": 0.8,
+                    "description": "Split ratio for split layout (0.0 = top 100%, 1.0 = bottom 100%)"
+                  },
+                  "sessions": {
+                    "type": "array",
+                    "description": "Sessions to create on startup",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "agent": {
+                          "type": "string",
+                          "description": "Agent id (must match a key in acp.agents)"
+                        },
+                        "workspace": {
+                          "type": "string",
+                          "description": "Workspace folder path (absolute or relative to workspace root)"
+                        },
+                        "sessionName": {
+                          "type": "string",
+                          "description": "Human-readable title for this session tab"
+                        },
+                        "mode": {
+                          "type": "string",
+                          "description": "Agent mode to set after connection"
+                        }
+                      },
+                      "required": [
+                        "agent"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "sessions"
+                ]
+              }
+            }
+          }
         }
       }
     }

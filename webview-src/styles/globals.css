@@ -49,6 +49,15 @@
 .toolbar-chip svg,
 .context-chip svg,
 .user-attach-chip svg,
+
+/* ── User message attachment chips row ── */
+.user-attach-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+  padding: 2px 0 0;
+}
 .file-chip svg {
   flex-shrink: 0;
 }
@@ -717,20 +726,34 @@ body {
 }
 
 /* ============================================================================
+   Section Chat Container Wrapper — relative positioning context for
+   the scroll-to-bottom button overlay in UnifiedChat sections.
+   ============================================================================ */
+
+.section-chat-container-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* ============================================================================
    Scroll-to-Bottom Button
    ============================================================================ */
 
 .scroll-to-bottom-button {
   position: absolute;
-  bottom: 80px;
-  right: 24px;
+  bottom: 16px;
+  right: 16px;
   z-index: 10;
   pointer-events: auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: 1px solid var(--border);
   border-radius: 50%;
@@ -741,7 +764,8 @@ body {
   transition:
     background 0.15s ease,
     border-color 0.15s ease,
-    transform 0.15s ease;
+    transform 0.15s ease,
+    opacity 0.15s ease;
 }
 
 .scroll-to-bottom-button:hover {
@@ -755,7 +779,7 @@ body {
 }
 
 .scroll-to-bottom-icon {
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1;
 }
 
@@ -766,13 +790,13 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 4px;
-  border-radius: 9px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 8px;
   background: var(--accent);
   color: var(--user-fg);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
   line-height: 1;
 }
@@ -837,6 +861,11 @@ body {
     box-shadow: none;
   }
 }
+
+/* ============================================================================
+   ChatContainer turn-completion flash — intentionally removed.
+   Only UnifiedSessionSection (SessionChatContainer) flashes on completion.
+   ============================================================================ */
 
 /* ============================================================================
    Messages — Codex-style minimal, no bubbles

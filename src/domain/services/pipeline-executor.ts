@@ -2,9 +2,14 @@
 // PipelineExecutor — sequential message delivery across agents
 //
 // refs: docs/mesh-orchestrator-integration-design.md Section 4
+//
+// Design notes:
+//   - No dependency on @agentclientprotocol/sdk.
+//   - Receives pre-built PromptContext from the caller.
 // ============================================================================
 
 import type { SessionOrchestrator } from "../../application/session/orchestrator";
+import type { PromptContext } from "../../application/session/orchestrator";
 import type { SendTarget } from "../models/mesh";
 import { getLogger } from "../../platform/backends";
 
@@ -19,6 +24,16 @@ export interface PipelineExecutorDeps {
 }
 
 // ----------------------------------------------------------------------------
+// Input
+// ----------------------------------------------------------------------------
+
+export interface PipelineRequest {
+  text: string;
+  /** Pre-built ACP context blocks (attachments already converted) */
+  context: PromptContext;
+}
+
+// ----------------------------------------------------------------------------
 // Result types
 // ----------------------------------------------------------------------------
 
@@ -30,7 +45,6 @@ export interface PipelineStepResult {
 
 export interface PipelineResult {
   steps: PipelineStepResult[];
-  /** Overall pipeline succeeded (all steps at least sent) */
   success: boolean;
 }
 
@@ -46,20 +60,16 @@ export class PipelineExecutor {
   }
 
   /**
-   * Execute a pipeline: send initial prompt to first agent, wait for
-   * completion, then forward the response to the next agent, etc.
-   *
-   * Note: This is a simplified version. Full implementation would
-   * intercept responses between stages. Current implementation sends
-   * sequentially and returns send confirmation (not full responses).
+   * Execute a pipeline: send sequentially through a chain of targets.
+   * Each agent receives the same text + context.
    */
   async execute(
     targets: SendTarget[],
-    initialText: string,
-    transformFn?: (lastResponse: string, nextTarget: SendTarget) => string
+    request: PipelineRequest,
+    transformFn?: (lastResponse: string, nextTarget: SendTarget) => string,
   ): Promise<PipelineResult> {
     const steps: PipelineStepResult[] = [];
-    let lastResponse = initialText;
+    let lastResponse = request.text;
 
     log.info("pipeline execute start", { targetCount: targets.length });
 
@@ -68,24 +78,34 @@ export class PipelineExecutor {
         ? transformFn(lastResponse, target)
         : lastResponse;
 
-      log.debug("pipeline step", { agentId: target.agentId, sessionId: target.sessionId });
+      log.debug("pipeline step", {
+        agentId: target.agentId,
+        sessionId: target.sessionId,
+      });
 
       try {
         await this.sessionOrchestrator.prompt(
           target.agentId,
           target.sessionId,
-          text
+          text,
+          request.context,
         );
         steps.push({ target, status: "sent" });
         lastResponse = text;
       } catch (e) {
-        log.error("pipeline step failed", { agentId: target.agentId, sessionId: target.sessionId }, e as Error);
+        log.error("pipeline step failed", {
+          agentId: target.agentId,
+          sessionId: target.sessionId,
+        }, e as Error);
         steps.push({
           target,
           status: "failed",
           error: e instanceof Error ? e.message : String(e),
         });
-        log.warn("pipeline execute aborted", { completedSteps: steps.length - 1, totalTargets: targets.length });
+        log.warn("pipeline execute aborted", {
+          completedSteps: steps.length - 1,
+          totalTargets: targets.length,
+        });
         return { steps, success: false };
       }
     }

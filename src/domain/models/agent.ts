@@ -1,6 +1,33 @@
 import type { SessionStatus, TurnOutcome } from "./session";
 
 // ============================================================================
+// Preset — startup configuration for unified chat auto-launch
+// ============================================================================
+
+/** A single session entry within a preset */
+export interface PresetSessionEntry {
+  /** Agent id (must match a key in acp.agents) */
+  agent: string;
+  /** Workspace folder path (absolute or relative to workspace root) */
+  workspace?: string;
+  /** Human-readable title for the session tab */
+  sessionName?: string;
+  /** Agent mode to set after connection */
+  mode?: string;
+}
+
+/** A named preset configuration */
+export interface PresetConfig {
+  label: string;
+  /** Layout mode for the unified chat panel */
+  layout?: "single" | "split" | "grid";
+  /** Split ratio for split layout (0.0 = top 100%, 1.0 = bottom 100%) */
+  splitRatio?: number;
+  /** Sessions to create on startup */
+  sessions: PresetSessionEntry[];
+}
+
+// ============================================================================
 // Agent Definition — static configuration for an agent
 // ============================================================================
 

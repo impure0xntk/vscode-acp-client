@@ -505,6 +505,49 @@ export class SessionOrchestrator extends EventEmitter {
   }
 
   // ========================================================================
+  // Session Rename
+  // ========================================================================
+
+  renameSession(agentId: string, sessionId: string, title: string): void {
+    const sessionInfo = this.getSessionInfo(agentId, sessionId);
+    if (!sessionInfo) {
+      throw new Error(`Session ${sessionId} not found for agent ${agentId}`);
+    }
+    const trimmed = title.trim();
+    if (!trimmed) {
+      throw new Error("Session title cannot be empty");
+    }
+    sessionInfo.title = trimmed;
+    sessionInfo.updatedAt = new Date();
+
+    // Persist updated title
+    this.persistSession(sessionId, agentId);
+
+    // Sync history store entry
+    if (this.sessionHistoryStore) {
+      const entry: HistoryEntry = {
+        sessionId,
+        agentId,
+        title: trimmed,
+        cwd: sessionInfo.cwd,
+        status: sessionInfo.status,
+        createdAt: sessionInfo.createdAt.toISOString(),
+        messageCount: sessionInfo.messages.length,
+        tokenUsage: {
+          input: sessionInfo.tokenUsage.input,
+          output: sessionInfo.tokenUsage.output,
+          total: sessionInfo.tokenUsage.total,
+        },
+      };
+      void this.sessionHistoryStore.upsertEntry(entry);
+    }
+
+    log.info("session renamed", { agentId, sessionId, title: trimmed });
+    this.emit("sessionTitleChanged", { agentId, sessionId, title: trimmed });
+    this.emitOverviewUpdate();
+  }
+
+  // ========================================================================
   // Session Fork
   // ========================================================================
 

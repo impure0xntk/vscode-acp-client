@@ -12,5 +12,36 @@
       ],
       "openChat": true
     }
+  },
+  "acp.presets": {
+    "default": "dev",
+    "configs": {
+      "dev": {
+        "label": "dev",
+        "layout": "split",
+        "sessions": [
+          {
+            "agent": "Goose CLI",
+            "workspace": "../../",
+            "sessionName": "Backend 1"
+          },
+          {
+            "agent": "Goose CLI",
+            "workspace": "../../",
+            "sessionName": "Backend 2"
+          },
+          {
+            "agent": "Goose CLI",
+            "workspace": "../../",
+            "sessionName": "Frontend 1"
+          },
+          {
+            "agent": "Goose CLI",
+            "workspace": "../../",
+            "sessionName": "Frontend 2"
+          }
+        ]
+      }
+    }
   }
 }

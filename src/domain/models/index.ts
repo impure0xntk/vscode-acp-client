@@ -3,6 +3,7 @@
 // ============================================================================
 
 export * from "./agent";
+export type { PresetConfig, PresetSessionEntry } from "./agent";
 export * from "./session";
 export * from "./message";
 export * from "./task";

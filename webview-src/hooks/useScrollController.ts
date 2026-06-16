@@ -53,19 +53,26 @@ export function useScrollController(
   }, [isAtBottom, containerRef]);
 
   // ── Auto-scroll on new messages when already at bottom ──────────────
-  // The ChatArea-level effect only fires when isAtBottom transitions,
-  // so we also watch messageCount here to catch the case where the user
-  // is already at the bottom and new content streams in.
+  // Read isAtBottom from the store at the moment new messages arrive,
+  // rather than relying on the prop (which may be stale within the same
+  // render cycle).  This fixes the race where streaming messages arrive
+  // before the scroll handler has a chance to update isAtBottom.
   const prevMessageCount = useRef(messageCount ?? 0);
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const count = messageCount ?? 0;
-    if (count > prevMessageCount.current && isAtBottom) {
-      el.scrollTop = el.scrollHeight;
+    if (count > prevMessageCount.current) {
+      // Read fresh value from store instead of using potentially stale prop
+      const currentKey = sessionKey ?? "__nosession__";
+      const freshIsAtBottom =
+        useScrollStateStore.getState().perSession[currentKey]?.isAtBottom ?? true;
+      if (freshIsAtBottom) {
+        el.scrollTop = el.scrollHeight;
+      }
     }
     prevMessageCount.current = count;
-  }, [messageCount, isAtBottom, containerRef]);
+  }, [messageCount, sessionKey, containerRef]);
 
   // ── Scroll-to-message (for message links) ───────────────────────────
   const scrollToMessage = useCallback(

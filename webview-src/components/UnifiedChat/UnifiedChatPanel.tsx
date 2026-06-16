@@ -6,6 +6,7 @@ import {
 } from "../../store/sessionStore";
 import type { SessionStoreState, SessionTabState } from "../../store/sessionStore";
 import { useLogger } from "../../hooks/useLogger";
+import { getVsCodeApi } from "../../lib/vscodeApi";
 import { UnifiedSessionBar } from "./UnifiedSessionBar";
 import { MultiSessionView } from "./MultiSessionView";
 import { Composer } from "../Composer";
@@ -19,6 +20,7 @@ export interface UnifiedChatPanelProps {
   ) => void;
   onCancel: () => void;
   onSwitchSession: (agentId: string, sessionId: string) => void;
+  onRenameSession?: (agentId: string, sessionId: string, title: string) => void;
   onNewSession: () => void;
   disabled?: boolean;
   status?: "idle" | "running" | "completed" | "error" | "cancelled";
@@ -36,6 +38,7 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
   onSendMessage,
   onCancel,
   onSwitchSession,
+  onRenameSession,
   onNewSession,
   disabled = false,
   status = "idle",
@@ -138,9 +141,14 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
   const handleClose = useCallback(
     (key: string) => {
       log.info("close section", { key });
-      // Unpin first, then remove tab
+      const [agentId, sessionId] = key.split(":");
+      // Unpin first, then remove tab from local state
       unpinSession(key);
       removeTab(key);
+      // Notify extension to actually close the session and release resources.
+      // Without this, the session lingers in the extension host and gets
+      // re-added to tabOrder on the next sessionInfoMap / tab sync.
+      getVsCodeApi().postMessage({ type: "closeSession", sessionId, agentId });
     },
     [unpinSession, removeTab, log],
   );
@@ -151,19 +159,6 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
       setLayoutMode(mode);
     },
     [setLayoutMode, log],
-  );
-
-  const handleAddSession = useCallback(
-    (key: string) => {
-      log.info("add session to view", { key });
-      pinSession(key);
-      setFocusSession(key);
-      // Ensure we leave single mode so the pinned session becomes visible
-      if (useSessionStore.getState().layoutMode === "single") {
-        setLayoutMode("split");
-      }
-    },
-    [pinSession, setFocusSession, setLayoutMode, log],
   );
 
   const focusKey = activeSessionKey;
@@ -178,7 +173,6 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
         connectedAgents={connectedAgents}
         onFocusChange={handleFocusChange}
         onClose={handleClose}
-        onAdd={handleAddSession}
         onNewSession={onNewSession}
       />
 
@@ -237,6 +231,7 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
         onSend={onSendMessage}
         onCancel={onCancel}
         onSwitchSession={onSwitchSession}
+        onRenameSession={onRenameSession}
         disabled={disabled}
         status={status}
         fetchFiles={fetchFiles}

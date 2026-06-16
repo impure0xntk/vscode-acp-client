@@ -5,6 +5,24 @@ import type { Memento } from "../../platform/context";
 export type { AgentConfig };
 
 // ============================================================================
+// Preset types (mirrors acp.presets configuration schema)
+// ============================================================================
+
+export interface PresetSessionEntry {
+  agent: string;
+  workspace?: string;
+  sessionName?: string;
+  mode?: string;
+}
+
+export interface PresetConfig {
+  label: string;
+  layout?: "single" | "split" | "grid";
+  splitRatio?: number;
+  sessions: PresetSessionEntry[];
+}
+
+// ============================================================================
 // Agent Registry
 // ============================================================================
 
@@ -76,6 +94,39 @@ export class AgentRegistry {
 
   getAutoConnectAgents(): AgentConfig[] {
     return this.getAgents().filter((a) => (a.autoConnect?.length ?? 0) > 0);
+  }
+
+  /**
+   * Load the active preset configuration from settings.
+   * Returns the resolved PresetConfig if `acp.presets.default` is set
+   * and the named config exists, otherwise undefined.
+   */
+  loadPreset(platform: PlatformAPI): PresetConfig | undefined {
+    const presetsCfg = platform.fs.getConfiguration("acp.presets");
+    const defaultName = presetsCfg.get<string>("default", "");
+    if (!defaultName) return undefined;
+
+    const configs =
+      presetsCfg.get<Record<string, PresetConfig>>("configs", {}) ?? {};
+    const preset = configs[defaultName];
+    if (!preset || !Array.isArray(preset.sessions)) return undefined;
+
+    // VS Code returns plain objects from getConfiguration; cast each session
+    // entry to the expected shape via unknown first to satisfy TypeScript.
+    return {
+      label: preset.label ?? defaultName,
+      layout: preset.layout,
+      splitRatio: preset.splitRatio,
+      sessions: preset.sessions.map((raw) => {
+        const s = raw as unknown as Record<string, unknown>;
+        return {
+          agent: String(s.agent ?? ""),
+          workspace: typeof s.workspace === "string" ? s.workspace : undefined,
+          sessionName: typeof s.sessionName === "string" ? s.sessionName : undefined,
+          mode: typeof s.mode === "string" ? s.mode : undefined,
+        };
+      }),
+    };
   }
 
   // ========================================================================

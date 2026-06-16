@@ -277,6 +277,8 @@ export interface SessionStoreState {
   setLayoutMode: (mode: "single" | "split" | "grid") => void;
   setSplitDirection: (dir: "vertical" | "horizontal") => void;
   setSplitRatios: (ratios: number[]) => void;
+  /** Ensure splitRatios matches the current number of visible sections */
+  ensureSplitRatios: (count: number) => void;
   setFocusSession: (sessionKey: string | null) => void;
 }
 
@@ -298,7 +300,7 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
   pinnedSessionKeys: [],
   layoutMode: "single",
   splitDirection: "vertical",
-  splitRatios: [0.6, 0.4],
+  splitRatios: [],
 
   // ── Session info ─────────────────────────────────────────────────────────
 
@@ -520,28 +522,40 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
   pinSession: (sessionKey) =>
     set((state) => {
       if (state.pinnedSessionKeys.includes(sessionKey)) return state;
-      return { ...state, pinnedSessionKeys: [...state.pinnedSessionKeys, sessionKey] };
+      const next = [...state.pinnedSessionKeys, sessionKey];
+      const ratios = next.length > 0 ? Array(next.length).fill(1 / next.length) : [];
+      return { ...state, pinnedSessionKeys: next, splitRatios: ratios };
     }),
 
   unpinSession: (sessionKey) =>
     set((state) => {
       if (!state.pinnedSessionKeys.includes(sessionKey)) return state;
-      return {
-        ...state,
-        pinnedSessionKeys: state.pinnedSessionKeys.filter((k) => k !== sessionKey),
-      };
+      const next = state.pinnedSessionKeys.filter((k) => k !== sessionKey);
+      const ratios = next.length > 0 ? Array(next.length).fill(1 / next.length) : [];
+      return { ...state, pinnedSessionKeys: next, splitRatios: ratios };
     }),
 
   togglePin: (sessionKey) =>
     set((state) => {
-      const pinned = state.pinnedSessionKeys.includes(sessionKey)
+      const isPinned = state.pinnedSessionKeys.includes(sessionKey);
+      const next = isPinned
         ? state.pinnedSessionKeys.filter((k) => k !== sessionKey)
         : [...state.pinnedSessionKeys, sessionKey];
-      return { ...state, pinnedSessionKeys: pinned };
+      const ratios = next.length > 0 ? Array(next.length).fill(1 / next.length) : [];
+      return { ...state, pinnedSessionKeys: next, splitRatios: ratios };
     }),
 
   setLayoutMode: (mode) =>
-    set((s) => s.layoutMode === mode ? s : { layoutMode: mode }),
+    set((s) => {
+      if (s.layoutMode === mode) return s;
+      // When entering split/grid mode, generate equal ratios for all pinned sessions
+      if (mode === "split" || mode === "grid") {
+        const count = s.pinnedSessionKeys.length;
+        const ratios = count > 0 ? Array(count).fill(1 / count) : [];
+        return { layoutMode: mode, splitRatios: ratios };
+      }
+      return { layoutMode: mode };
+    }),
 
   setSplitDirection: (dir) =>
     set((s) => s.splitDirection === dir ? s : { splitDirection: dir }),
@@ -552,6 +566,16 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
         return s;
       }
       return { splitRatios: [...ratios] };
+    }),
+
+  ensureSplitRatios: (count) =>
+    set((s) => {
+      if (count <= 0) return { splitRatios: [] };
+      const equal = Array(count).fill(1 / count);
+      if (s.splitRatios.length === count && s.splitRatios.every((v, i) => v === equal[i])) {
+        return s;
+      }
+      return { splitRatios: equal };
     }),
 
   setFocusSession: (sessionKey) => set((s) => s.activeSessionKey === sessionKey ? s : { activeSessionKey: sessionKey }),
