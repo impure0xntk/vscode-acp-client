@@ -4,62 +4,52 @@ import { useScrollStateStore } from "../store/scrollStateStore";
 /**
  * Scroll controller hook — provides imperative scroll helpers.
  *
- * Scroll position persistence on unmount is handled by ChatContainer's
- * cleanup effect. This hook only handles:
+ * Handles:
  * - scroll-to-message (for links)
  * - force scroll-to-bottom (on send)
  * - scroll-to-first-unread (on badge click)
- * - session-switch scroll restore
+ * - session-switch scroll restore (via sessionKey change)
+ * - auto-scroll on new messages when isAtBottom is true
  */
 export function useScrollController(
   sessionKey: string | null,
   containerRef: React.RefObject<HTMLDivElement | null>,
   bottomRef: React.RefObject<HTMLDivElement | null>,
+  isAtBottom?: boolean,
 ) {
   const key = sessionKey ?? "__nosession__";
 
   // ── Scroll restore on session key change ──────────────────────────────
-  // ChatContainer unmounts on key change and saves scroll position in its
-  // cleanup effect. When the new ChatContainer mounts, this effect runs
-  // to restore the saved position.
-  const prevKeyRef = useRef(key);
-  const isFirstRenderRef = useRef(true);
-
+  // ChatContainer is remounted on key change (key={activeKey} in ChatArea),
+  // so this effect runs on every session switch.
   useEffect(() => {
-    const isKeyChange = prevKeyRef.current !== key;
-    prevKeyRef.current = key;
-
-    // Skip restore on initial mount — content hasn't been rendered yet
-    if (isFirstRenderRef.current) {
-      isFirstRenderRef.current = false;
-      // Still scroll to bottom on first mount
+    // Double rAF: wait for React paint + layout
+    requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         const el = containerRef.current;
-        if (el) {
+        if (!el) return;
+
+        const state = useScrollStateStore.getState().perSession[key];
+        if (state && !state.isAtBottom && state.scrollTop > 0) {
+          el.scrollTop = state.scrollTop;
+        } else {
           el.scrollTop = el.scrollHeight;
         }
       });
-      return;
-    }
-
-    if (!isKeyChange) return;
-
-    // Restore scroll position for the new session.
-    // Use rAF to ensure the DOM has been painted with new session content.
-    requestAnimationFrame(() => {
-      const el = containerRef.current;
-      if (!el) return;
-
-      const state = useScrollStateStore.getState().perSession[key];
-      if (state && !state.isAtBottom && state.scrollTop > 0) {
-        // Restore saved scroll position
-        el.scrollTop = state.scrollTop;
-      } else {
-        // No saved state or was at bottom → scroll to bottom
-        el.scrollTop = el.scrollHeight;
-      }
     });
   }, [key, containerRef]);
+
+  // ── Auto-scroll when isAtBottom changes to true ──────────────────────
+  const prevIsAtBottom = useRef(isAtBottom);
+  useEffect(() => {
+    if (isAtBottom && !prevIsAtBottom.current) {
+      const el = containerRef.current;
+      if (el) {
+        el.scrollTop = el.scrollHeight;
+      }
+    }
+    prevIsAtBottom.current = isAtBottom;
+  }, [isAtBottom, containerRef]);
 
   // ── Scroll-to-message (for message links) ───────────────────────────
   const scrollToMessage = useCallback(

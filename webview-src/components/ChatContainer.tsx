@@ -17,6 +17,8 @@ export interface ChatContainerProps {
   agentId?: string;
   status?: "idle" | "running" | "completed" | "error" | "cancelled" | "warning";
   isActive?: boolean;
+  /** Whether the user's viewport is at the bottom (used for auto-scroll). */
+  isAtBottom?: boolean;
   scrollToMessageRef?: React.MutableRefObject<
     ((id: string) => void) | undefined
   >;
@@ -40,6 +42,7 @@ export const ChatContainer = memo(function ChatContainer({
   sessionKey,
   agentId,
   status,
+  isAtBottom,
   scrollToMessageRef,
   onScroll,
   forceScrollToBottomRef,
@@ -66,6 +69,7 @@ export const ChatContainer = memo(function ChatContainer({
     sessionKey ?? null,
     containerRef,
     bottomRef,
+    isAtBottom,
   );
 
   // ── Expose imperative refs ─────────────────────────────────────────

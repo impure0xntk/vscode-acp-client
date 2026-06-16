@@ -7,7 +7,7 @@ import { useSessionInfo } from "../../hooks/useSessionInfo";
 import { StatusIcon } from "../StatusIcon";
 import type { StatusIconType, TurnOutcome } from "../StatusIcon";
 import { UnreadBadge } from "../ui/UnreadBadge";
-import { IconPinFilled, IconClose, IconLayoutGrid, IconLayoutList } from "../../lib/icons";
+import { IconPinFilled, IconPin, IconClose, IconLayoutGrid, IconLayoutList } from "../../lib/icons";
 import { UnifiedSessionOverviewCard } from "./UnifiedSessionOverviewCard";
 
 // ============================================================================
@@ -28,6 +28,8 @@ interface UnifiedSessionBarProps {
   onFocusChange: (key: string) => void;
   onClose: (key: string) => void;
   onAdd: (key: string) => void;
+  /** Create a new session (opens picker) */
+  onNewSession: () => void;
 }
 
 // ── Display mode type ──────────────────────────────────────────────────────
@@ -125,6 +127,7 @@ export const UnifiedSessionBar = React.memo(function UnifiedSessionBar({
   onFocusChange,
   onClose,
   onAdd,
+  onNewSession,
 }: UnifiedSessionBarProps): React.ReactElement {
   const log = useLogger("UnifiedSessionBar");
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -239,15 +242,25 @@ export const UnifiedSessionBar = React.memo(function UnifiedSessionBar({
         {displayMode === "tabs" ? <IconLayoutGrid size={14} /> : <IconLayoutList size={14} />}
       </button>
 
+      {/* New session button — plus icon, not rotated close */}
+      <button
+        className="unified-session-bar-new-btn"
+        onClick={onNewSession}
+        type="button"
+        title="New session"
+      >
+        <span style={{ fontSize: 16, lineHeight: 1, fontWeight: 500 }}>+</span>
+      </button>
+
       {/* Add session button + picker */}
       <div className="unified-session-bar-add" ref={pickerRef}>
         <button
           className="unified-session-bar-add-btn"
           onClick={handleAddClick}
           type="button"
-          title="Add session"
+          title="Pin existing session to view"
         >
-          +
+          <IconPin size={14} />
         </button>
         {pickerOpen && (
           <div className="session-chips-picker">

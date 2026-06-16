@@ -54,6 +54,7 @@ interface SessionSectionProps {
   /** Per-section split ratios (normalized) */
   splitRatios: number[];
   messages: Message[];
+  tabTitles: Record<string, string>;
   onFocusChange: (key: string) => void;
   onPin: (key: string) => void;
   onUnpin: (key: string) => void;
@@ -70,6 +71,7 @@ const SessionSection = React.memo(function SessionSection({
   splitTotal,
   splitRatios,
   messages,
+  tabTitles,
   onFocusChange,
   onPin,
   onUnpin,
@@ -125,18 +127,22 @@ const SessionSection = React.memo(function SessionSection({
       <SectionHeader
         sessionKey={sessionKey}
         agentId={info.agentId}
-        title={info.sessionId.slice(0, 8)}
+        title={tabTitles[sessionKey] ?? info.sessionId.slice(0, 8)}
         status={info.status}
         color={color}
         messageCount={messages.length}
         isActive={isFocus}
         isPinned={isPinned}
+        splitDirection={splitDirection}
         onClick={() => onFocusChange(sessionKey)}
         onTogglePin={() => (isPinned ? onUnpin(sessionKey) : onPin(sessionKey))}
         onClose={() => onClose(sessionKey)}
         info={info}
       />
-      <div onClick={() => onFocusChange(sessionKey)} style={{ flex: 1, minHeight: 0 }}>
+      <div
+        className="unified-section-chat-wrapper"
+        onClick={() => onFocusChange(sessionKey)}
+      >
         <SectionChatContainer
           sessionKey={sessionKey}
           agentId={info.agentId}
@@ -183,21 +189,27 @@ export const MultiSessionView = React.memo(function MultiSessionView({
 }: MultiSessionViewProps): React.ReactElement | null {
   const log = useLogger("MultiSessionView");
 
-  const { tabOrder, connectedAgents } = useSessionStore(
+  const { tabOrder, connectedAgents, tabTitles } = useSessionStore(
     useShallow((s: SessionStoreState) => ({
       tabOrder: s.tabOrder,
       connectedAgents: s.connectedAgents,
+      tabTitles: s.tabTitles,
     }))
   );
 
   // ── Determine visible sections ────────────────────────────────────────
+  // Preserve pinnedKeys order so that clicking a session to focus it
+  // does NOT change its visual position in the split layout.
   const visibleKeys: string[] = [];
   if (layoutMode === "single") {
     if (focusKey) visibleKeys.push(focusKey);
   } else {
-    if (focusKey) visibleKeys.push(focusKey);
     for (const k of pinnedKeys) {
-      if (k !== focusKey) visibleKeys.push(k);
+      visibleKeys.push(k);
+    }
+    // If focusKey is not yet in pinnedKeys (e.g. just connected), append it
+    if (focusKey && !pinnedKeys.includes(focusKey)) {
+      visibleKeys.push(focusKey);
     }
   }
 
@@ -309,6 +321,7 @@ export const MultiSessionView = React.memo(function MultiSessionView({
         splitTotal={visibleKeys.length}
         splitRatios={splitRatios.length >= visibleKeys.length ? splitRatios : Array(visibleKeys.length).fill(1 / visibleKeys.length)}
         messages={allMessages[sessionKey] ?? []}
+        tabTitles={tabTitles}
         onFocusChange={onFocusChange}
         onPin={onPin}
         onUnpin={onUnpin}

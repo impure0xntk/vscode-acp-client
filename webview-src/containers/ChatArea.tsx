@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect } from "react";
+import React, { useRef, useCallback, useEffect, memo } from "react";
 import { useSyncExternalStore, useCallback as useCallbackReact } from "react";
 import { ChatContainer } from "../components/ChatContainer";
 import { Composer } from "../components/Composer";
@@ -97,7 +97,7 @@ function useMessageIdArray(activeKey: string | null) {
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export function ChatArea({
+export const ChatArea = memo(function ChatArea({
   activeKey,
   disabled,
   onSend,
@@ -154,18 +154,18 @@ export function ChatArea({
     [activeKey],
   );
 
-  // ── Auto-advance readUpTo when new messages arrive AND user is at bottom ─
-  // This runs as an effect (not in render body), with stable deps.
+  // ── Auto-scroll when new messages arrive AND user is at bottom ─────────
   const msgLen = activeMessages.length;
   const prevLenRef = useRef(msgLen);
   useEffect(() => {
     if (!activeKey) return;
-    const wasEmpty = prevLenRef.current === 0 && msgLen > 0;
+    const isNewMessage = msgLen > prevLenRef.current;
     prevLenRef.current = msgLen;
-    if (wasEmpty) {
+    // Auto-scroll when at bottom and new messages arrive (including first)
+    if (isNewMessage && isAtBottom) {
       forceScrollToBottomRef.current?.();
     }
-  }, [activeKey, msgLen]);
+  }, [activeKey, msgLen, isAtBottom]);
 
   // ── When messages arrive and isAtBottom is true, advance readUpTo ────
   const prevMsgCountForReadRef = useRef(0);
@@ -225,6 +225,7 @@ export function ChatArea({
           sessionKey={activeKey ?? undefined}
           agentId={activeKey?.split(":")[0]}
           status={status}
+          isAtBottom={isAtBottom}
           scrollToMessageRef={externalScrollToMessageRef}
           onScroll={handleScroll}
           forceScrollToBottomRef={forceScrollToBottomRef}
@@ -287,7 +288,7 @@ export function ChatArea({
       />
     </>
   );
-}
+});
 
 // ── Pure derivation (no side effects, no hooks) ────────────────────────────
 

@@ -173,10 +173,10 @@ export const UnifiedSessionOverviewCard = React.memo(
             />
           </div>
           <div className="unified-session-overview-card-actions">
-            {isPinned && (
-              <IconPinFilled size={10} className="unified-session-overview-card-pin" title="Pinned" />
+            {(isPinned || isHovered) && (
+              <IconPinFilled size={12} className="unified-session-overview-card-pin" title="Pinned" />
             )}
-            {!isActive && isHovered && (
+            {isHovered && (
               <button
                 className="unified-session-overview-card-close"
                 onClick={handleClose}

@@ -5102,6 +5102,14 @@ body {
   overflow: hidden;
 }
 
+.unified-section-chat-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 .unified-session-section--focus {
   flex: 1;
 }
@@ -5134,7 +5142,7 @@ body {
 }
 
 .unified-section-header--active {
-  background: color-mix(in srgb, var(--accent) 6%, var(--bg-secondary));
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-secondary));
 }
 
 .unified-section-header-bar {
@@ -5158,22 +5166,15 @@ body {
   background: var(--accent-hover);
 }
 
-.unified-section-header-agent {
-  font-weight: 600;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--fg-secondary);
-  flex-shrink: 0;
-}
-
-.unified-section-header-title {
+.unified-section-header-label {
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--fg-primary);
   font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--fg-primary);
 }
 
 .unified-section-header-count {
@@ -5468,6 +5469,42 @@ body {
   cursor: col-resize;
 }
 
+/* ── New session button (in UnifiedSessionBar) ── */
+.unified-session-bar-new-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.unified-session-bar-new-btn:hover {
+  background: var(--accent-hover);
+  color: var(--fg-primary);
+}
+
+/* ── Section header: horizontal split (side-by-side) → top border accent ── */
+.unified-section-header--active-h .unified-section-header-bar {
+  border-left-color: transparent;
+  border-top: 3px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-secondary));
+}
+
+/* ── Section header: vertical split (stacked) → left border accent ── */
+.unified-section-header--active-v .unified-section-header-bar {
+  border-left: 3px solid var(--accent);
+  border-top-color: transparent;
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-secondary));
+}
+
 /* ── Section header actions (menu) ── */
 .unified-section-header-actions {
   display: flex;
@@ -5640,6 +5677,18 @@ body {
   background: color-mix(in srgb, var(--accent) 10%, transparent);
   color: var(--fg-primary);
   border-color: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+/* Active tab: stronger accent — left border + brighter background */
+.unified-session-bar-tab--active {
+  border-left: 3px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--fg-primary);
+}
+
+.unified-session-bar-tab--active .unified-session-bar-tab-title {
+  color: var(--fg-primary);
+  font-weight: 500;
 }
 
 .unified-session-bar-tab--hovered {

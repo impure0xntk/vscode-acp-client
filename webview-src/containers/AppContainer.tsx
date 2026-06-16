@@ -508,6 +508,7 @@ export function AppContainer(): React.ReactElement {
             onSendMessage={handleMeshSend}
             onCancel={handleCancel}
             onSwitchSession={switchTab}
+            onNewSession={handleNewSession}
             disabled={!activeSessionId}
             status={displayStatus}
             fetchFiles={fetchFiles}

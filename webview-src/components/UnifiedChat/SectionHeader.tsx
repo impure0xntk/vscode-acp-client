@@ -14,6 +14,8 @@ export interface SectionHeaderProps {
   messageCount: number;
   isActive: boolean;
   isPinned: boolean;
+  /** Split direction controls which edge gets the color accent */
+  splitDirection?: "vertical" | "horizontal";
   onClick: () => void;
   onTogglePin: () => void;
   onClose: () => void;
@@ -30,6 +32,7 @@ export const SectionHeader = React.memo(function SectionHeader({
   messageCount,
   isActive,
   isPinned,
+  splitDirection = "vertical",
   onClick,
   onTogglePin,
   onClose,
@@ -117,22 +120,26 @@ export const SectionHeader = React.memo(function SectionHeader({
       ? Math.round((info.tokenUsage.totalTokens / info.contextWindowMax) * 100)
       : null;
 
+  // Accent edge: horizontal split (side-by-side) → top border on header,
+  //              vertical split (stacked) → left border on header
+  const isHorizontal = splitDirection === "horizontal";
+
   return (
     <div
-      className={`unified-section-header${isActive ? " unified-section-header--active" : ""}`}
+      className={`unified-section-header${isActive ? " unified-section-header--active" : ""}${isActive && isHorizontal ? " unified-section-header--active-h" : ""}${isActive && !isHorizontal ? " unified-section-header--active-v" : ""}`}
     >
       <button
         className="unified-section-header-bar"
         onClick={handleClick}
         type="button"
         style={{
-          borderLeftColor: color,
-          backgroundColor: `${color}14`,
+          borderLeftColor: !isHorizontal ? color : "transparent",
+          borderTopColor: isHorizontal ? color : "transparent",
+          backgroundColor: isActive ? `${color}20` : `${color}14`,
         }}
       >
-        <span className="unified-section-header-agent">{agentId}</span>
         <StatusIcon status={effectiveStatus} elapsedMs={elapsedMs} size="sm" />
-        <span className="unified-section-header-title">{title}</span>
+        <span className="unified-section-header-label">{agentId}: {title}</span>
         <span className="unified-section-header-count">({messageCount})</span>
       </button>
 

@@ -5,6 +5,49 @@ import type { SuggestionItem, TriggerType } from "../types";
 
 const TRIGGER_CHARS: TriggerType[] = ["/", "#", "@"];
 
+// ── Character classification (no regex) ────────────────────────────
+
+/** Check if code point is ASCII word character [a-zA-Z0-9_] */
+function isWordChar(code: number): boolean {
+  return (
+    (code >= 48 && code <= 57) ||  // 0-9
+    (code >= 65 && code <= 90) ||  // A-Z
+    (code >= 97 && code <= 122) || // a-z
+    code === 95                     // _
+  );
+}
+
+/** Check if code point is whitespace (space, newline, tab) */
+function isWhitespace(code: number): boolean {
+  return code === 32 || code === 10 || code === 13 || code === 9;
+}
+
+/**
+ * Split `s` by whitespace without regex.
+ * Returns tokens and the whitespace that follows each token.
+ */
+function splitByWhitespace(s: string): string[] {
+  const tokens: string[] = [];
+  let i = 0;
+  const len = s.length;
+  while (i < len) {
+    // skip leading whitespace
+    while (i < len && isWhitespace(s.charCodeAt(i))) i++;
+    if (i >= len) break;
+    const start = i;
+    while (i < len && !isWhitespace(s.charCodeAt(i))) i++;
+    tokens.push(s.slice(start, i));
+  }
+  return tokens;
+}
+
+/** Trim leading whitespace without regex */
+function trimLeft(s: string): string {
+  let i = 0;
+  while (i < s.length && isWhitespace(s.charCodeAt(i))) i++;
+  return s.slice(i);
+}
+
 // ── Types ──────────────────────────────────────────────────────────
 
 export interface TriggerState {
@@ -87,17 +130,14 @@ export function useTriggerPicker(
     return 1 + ts.query.length;
   }, []);
 
-  // ── Trigger detection ────────────────────────────────────────────
+  // ── Trigger detection (no regex) ─────────────────────────────────
 
   const detectTrigger = useCallback(
     (value: string, caretPos: number): TriggerState => {
-      const charTyped = caretPos > 0 ? value[caretPos - 1] : undefined;
+      const charTyped = caretPos > 0 ? value.charCodeAt(caretPos - 1) : 0;
 
       if (dismissedRef.current) {
-        if (
-          charTyped !== undefined &&
-          (TRIGGER_CHARS as string[]).includes(charTyped)
-        ) {
+        if (charTyped !== 0 && (TRIGGER_CHARS as string[]).includes(value[caretPos - 1])) {
           dismissedRef.current = false;
         } else {
           return NO_TRIGGER;
@@ -116,10 +156,19 @@ export function useTriggerPicker(
         const idx = beforeCaret.lastIndexOf(ch);
         if (idx < 0) continue;
         const afterTrigger = beforeCaret.slice(idx + 1);
+        const afterTriggerCodePoints = afterTrigger.length;
+
+        // Check if afterTrigger contains whitespace (space=32, newline=10/13, tab=9)
+        let hasWhitespace = false;
+        for (let i = 0; i < afterTriggerCodePoints; i++) {
+          if (isWhitespace(afterTrigger.charCodeAt(i))) {
+            hasWhitespace = true;
+            break;
+          }
+        }
 
         if (ch === "/") {
-          if (afterTrigger.includes(" ") || afterTrigger.includes("\n"))
-            continue;
+          if (hasWhitespace) continue;
           return {
             active: true,
             trigger: ch,
@@ -129,9 +178,9 @@ export function useTriggerPicker(
         }
 
         if (ch === "@") {
-          if (idx > 0 && /\w/.test(beforeCaret[idx - 1])) continue;
-          if (afterTrigger.includes(" ") || afterTrigger.includes("\n"))
-            continue;
+          // PrecededBy word char → not a trigger (e.g. "user@host")
+          if (idx > 0 && isWordChar(beforeCaret.charCodeAt(idx - 1))) continue;
+          if (hasWhitespace) continue;
           return {
             active: true,
             trigger: "@",
@@ -142,7 +191,7 @@ export function useTriggerPicker(
         }
 
         // ch === "#"
-        const tokens = afterTrigger.split(/\s+/).filter(Boolean);
+        const tokens = splitByWhitespace(afterTrigger);
 
         if (tokens.length === 0) {
           return {
@@ -166,7 +215,7 @@ export function useTriggerPicker(
               caretOffset: idx,
             };
           }
-          const rest = afterTrigger.slice(first.length).trimStart();
+          const rest = trimLeft(afterTrigger.slice(first.length));
           return {
             active: true,
             trigger: "#",
@@ -186,7 +235,7 @@ export function useTriggerPicker(
               caretOffset: idx,
             };
           }
-          const rest = afterTrigger.slice("switch".length).trimStart();
+          const rest = trimLeft(afterTrigger.slice("switch".length));
           return {
             active: true,
             trigger: "#",

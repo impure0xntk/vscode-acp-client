@@ -18,6 +18,7 @@ export interface UnifiedChatPanelProps {
   ) => void;
   onCancel: () => void;
   onSwitchSession: (agentId: string, sessionId: string) => void;
+  onNewSession: () => void;
   disabled?: boolean;
   status?: "idle" | "running" | "completed" | "error" | "cancelled";
   // For Composer
@@ -34,6 +35,7 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
   onSendMessage,
   onCancel,
   onSwitchSession,
+  onNewSession,
   disabled = false,
   status = "idle",
   fetchFiles,
@@ -155,8 +157,12 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
       log.info("add session to view", { key });
       pinSession(key);
       setFocusSession(key);
+      // Ensure we leave single mode so the pinned session becomes visible
+      if (useSessionStore.getState().layoutMode === "single") {
+        setLayoutMode("split");
+      }
     },
-    [pinSession, setFocusSession, log],
+    [pinSession, setFocusSession, setLayoutMode, log],
   );
 
   const focusKey = activeSessionKey;
@@ -172,6 +178,7 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
         onFocusChange={handleFocusChange}
         onClose={handleClose}
         onAdd={handleAddSession}
+        onNewSession={onNewSession}
       />
 
       {/* Layout mode toggle */}
