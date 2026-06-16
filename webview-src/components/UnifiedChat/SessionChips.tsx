@@ -85,8 +85,6 @@ export const SessionChips = React.memo(function SessionChips({
     return () => document.removeEventListener("mousedown", handler);
   }, [pickerOpen]);
 
-  log.debug("render", { count: sessions.length, activeSessionKey, pickerOpen });
-
   return (
     <div className="session-chips-bar">
       {sessions.map((session) => {

@@ -28,9 +28,9 @@ export const SectionChatContainer = React.memo(function SectionChatContainer({
   const log = useLogger("SectionChatContainer");
 
   useEffect(() => {
-    log.debug("mount", { sessionKey, sessionId, agentId });
+    log.trace("mount", { sessionKey, sessionId, agentId });
     return () => {
-      log.debug("unmount", { sessionKey });
+      log.trace("unmount", { sessionKey });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionKey, sessionId, agentId]);

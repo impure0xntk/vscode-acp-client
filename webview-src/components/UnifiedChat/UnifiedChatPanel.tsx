@@ -86,13 +86,6 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
     }))
   );
 
-  log.debug("render", {
-    disabled,
-    status,
-    layoutMode,
-    splitDirection,
-  });
-
   // Derive tabs locally from already-subscribed fields instead of calling
   // selectTabs (which returns a new array on every store change, triggering
   // re-renders of the entire UnifiedChatPanel subtree).
@@ -112,6 +105,9 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
 
   const handleFocusChange = useCallback(
     (key: string) => {
+      // Skip if already focused — prevents infinite re-render loop
+      const current = useSessionStore.getState().activeSessionKey;
+      if (current === key) return;
       setFocusSession(key);
       const [agentId, sessionId] = key.split(":");
       log.info("session focus change", { key, agentId, sessionId });

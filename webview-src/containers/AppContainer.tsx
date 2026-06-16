@@ -188,6 +188,8 @@ export function AppContainer(): React.ReactElement {
   const switchTab = useCallback((agentId: string, sessionId: string) => {
     const key = sessionKeyOf(agentId, sessionId);
     const prevKey = useSessionStore.getState().activeSessionKey;
+    // Skip if already on this session — prevents message flood
+    if (prevKey === key) return;
     log.info("session switch", { from: prevKey, to: key });
     useSessionStore.getState().setActiveSession(key);
     scrollToMessageRef.current = undefined;

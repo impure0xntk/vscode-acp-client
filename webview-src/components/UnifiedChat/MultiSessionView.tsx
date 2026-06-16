@@ -10,6 +10,7 @@ import { useLogger } from "../../hooks/useLogger";
 import { SectionHeader } from "./SectionHeader";
 import { SectionChatContainer } from "./SectionChatContainer";
 import { IconRows, IconColumns } from "../../lib/icons";
+import type { Message } from "../../types";
 
 // ── Color palette ──────────────────────────────────────────────────────────
 // WCAG AA compliant on dark bg (#1e1e1e) — contrast ratio ≥ 4.5:1
@@ -34,7 +35,7 @@ function hashKey(key: string): number {
   return Math.abs(h);
 }
 
-function getSessionColor(_state: SessionStoreState, sessionKey: string): string {
+function getSessionColor(sessionKey: string): string {
   return AGENT_COLOR_PALETTE[hashKey(sessionKey) % AGENT_COLOR_PALETTE.length];
 }
 
@@ -52,7 +53,7 @@ interface SessionSectionProps {
   splitTotal: number;
   /** Per-section split ratios (normalized) */
   splitRatios: number[];
-  pinnedKeys: string[];
+  messages: Message[];
   onFocusChange: (key: string) => void;
   onPin: (key: string) => void;
   onUnpin: (key: string) => void;
@@ -68,6 +69,7 @@ const SessionSection = React.memo(function SessionSection({
   splitIndex,
   splitTotal,
   splitRatios,
+  messages,
   onFocusChange,
   onPin,
   onUnpin,
@@ -75,8 +77,7 @@ const SessionSection = React.memo(function SessionSection({
 }: SessionSectionProps): React.ReactElement | null {
   const log = useLogger("SessionSection");
   const info = useSessionInfo(sessionKey);
-  const color = getSessionColor(useSessionStore.getState(), sessionKey);
-  const messages = useMessageStore.getState().perSession[sessionKey] ?? [];
+  const color = getSessionColor(sessionKey);
   const lastAgentMsg = [...messages].reverse().find((m) => m.role === "agent");
 
   // Auto-remove disconnected sessions
@@ -86,15 +87,6 @@ const SessionSection = React.memo(function SessionSection({
       onClose(sessionKey);
     }
   }, [info, onClose, log, sessionKey]);
-
-  log.debug("render", {
-    sessionKey,
-    isFocus,
-    isPinned,
-    layoutMode,
-    hasInfo: !!info,
-    messageCount: messages.length,
-  });
 
   // Don't render anything for disconnected sessions
   if (!info) {
@@ -198,14 +190,6 @@ export const MultiSessionView = React.memo(function MultiSessionView({
     }))
   );
 
-  log.debug("render", {
-    focusKey,
-    pinnedCount: pinnedKeys.length,
-    layoutMode,
-    splitDirection,
-    tabCount: tabOrder.length,
-  });
-
   // ── Determine visible sections ────────────────────────────────────────
   const visibleKeys: string[] = [];
   if (layoutMode === "single") {
@@ -304,9 +288,11 @@ export const MultiSessionView = React.memo(function MultiSessionView({
     ? visibleKeys.length <= 1 ? 1 : visibleKeys.length <= 2 ? 2 : visibleKeys.length <= 4 ? 3 : 4
     : 1;
 
-  log.debug("visible sections", { keys: visibleKeys, gridCols });
-
   // ── Render sections ──────────────────────────────────────────────────
+
+  // Read messages once per render cycle — avoids per-section getState() calls
+  // that create new references on every parent re-render.
+  const allMessages = useMessageStore.getState().perSession;
 
   const renderSection = (sessionKey: string, isFocus: boolean) => {
     const isPinned = pinnedKeys.includes(sessionKey);
@@ -322,7 +308,7 @@ export const MultiSessionView = React.memo(function MultiSessionView({
         splitIndex={idx}
         splitTotal={visibleKeys.length}
         splitRatios={splitRatios.length >= visibleKeys.length ? splitRatios : Array(visibleKeys.length).fill(1 / visibleKeys.length)}
-        pinnedKeys={pinnedKeys}
+        messages={allMessages[sessionKey] ?? []}
         onFocusChange={onFocusChange}
         onPin={onPin}
         onUnpin={onUnpin}

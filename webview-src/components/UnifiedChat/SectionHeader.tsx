@@ -117,8 +117,6 @@ export const SectionHeader = React.memo(function SectionHeader({
       ? Math.round((info.tokenUsage.totalTokens / info.contextWindowMax) * 100)
       : null;
 
-  log.debug("render", { sessionKey, agentId, status, isActive, isPinned, messageCount });
-
   return (
     <div
       className={`unified-section-header${isActive ? " unified-section-header--active" : ""}`}
