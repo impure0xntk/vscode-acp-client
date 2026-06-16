@@ -401,19 +401,6 @@ export class ChatPanel {
     switch (data.type as string) {
       case "ready":
         break;
-      case "sendMessage": {
-        const agentId = data.agentId as string;
-        const sessionId = data.sessionId as string;
-        if (agentId && sessionId) {
-          this.handleSendMessage(
-            agentId,
-            sessionId,
-            data.text as string,
-            (data.attachments as ContextAttachmentDTO[]) ?? []
-          );
-        }
-        break;
-      }
       case "cancelTurn": {
         const agentId = data.agentId as string;
         const sessionId = data.sessionId as string;
@@ -500,24 +487,6 @@ export class ChatPanel {
         context,
       });
     }
-  }
-
-  private handleSendMessage(
-    agentId: string,
-    sessionId: string,
-    text: string,
-    attachments: ContextAttachmentDTO[]
-  ): void {
-    const userMessage: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: text,
-      timestamp: Date.now(),
-      attachmentsJson:
-        attachments.length > 0 ? JSON.stringify(attachments) : undefined,
-    };
-    this.pushMessage(agentId, sessionId, userMessage);
-    this._onSendMessage.fire({ agentId, sessionId, text, attachments });
   }
 
   postMessage(message: unknown): void {

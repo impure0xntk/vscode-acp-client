@@ -118,6 +118,8 @@ export interface ChatMessage {
   inlineFilePaths?: string[];
   /** Context attachments (files, selections, symbols, diffs) */
   attachments?: ContextAttachment[];
+  /** Serialized JSON string for SQLite round-trip — parsed into `attachments` at runtime */
+  attachmentsJson?: string;
   /** Context compression info — present when role="system" and compression was detected */
   compressionInfo?: SessionCompressionInfo;
 }

@@ -10,6 +10,7 @@ import { UnifiedSessionBar } from "./UnifiedSessionBar";
 import { MultiSessionView } from "./MultiSessionView";
 import { Composer } from "../Composer";
 
+
 export interface UnifiedChatPanelProps {
   onSendMessage: (
     text: string,
@@ -181,29 +182,37 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
         onNewSession={onNewSession}
       />
 
-      {/* Layout mode toggle */}
+      {/* Layout mode toggle — H-Split / V-Split buttons */}
       <div className="unified-layout-toggle">
         <button
           className={`unified-layout-btn${layoutMode === "single" ? " unified-layout-btn--active" : ""}`}
           onClick={() => handleLayoutChange("single")}
-          title="Single view"
           type="button"
+          title="Single view"
         >
           Single
         </button>
         <button
-          className={`unified-layout-btn${layoutMode === "split" ? " unified-layout-btn--active" : ""}`}
-          onClick={() => handleLayoutChange("split")}
-          title="Split view"
+          className={`unified-layout-btn${layoutMode === "split" && splitDirection === "horizontal" ? " unified-layout-btn--active" : ""}`}
+          onClick={() => { handleLayoutChange("split"); setSplitDirection("horizontal"); }}
           type="button"
+          title="Side by side"
         >
-          Split
+          H-Split
+        </button>
+        <button
+          className={`unified-layout-btn${layoutMode === "split" && splitDirection === "vertical" ? " unified-layout-btn--active" : ""}`}
+          onClick={() => { handleLayoutChange("split"); setSplitDirection("vertical"); }}
+          type="button"
+          title="Stacked"
+        >
+          V-Split
         </button>
         <button
           className={`unified-layout-btn${layoutMode === "grid" ? " unified-layout-btn--active" : ""}`}
           onClick={() => handleLayoutChange("grid")}
-          title="Grid view"
           type="button"
+          title="Grid view"
         >
           Grid
         </button>
@@ -221,7 +230,6 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
         onUnpin={handleUnpin}
         onClose={handleClose}
         onSplitRatiosChange={setSplitRatios}
-        onSplitDirectionChange={setSplitDirection}
       />
 
       {/* Composer */}

@@ -82,6 +82,7 @@ export function SessionTab({
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      style={{ borderTop: `2px solid ${agentColor ?? "transparent"}` }}
     >
       {/* Row 1: Status + Agent name — mirrors SessionOverviewCard header */}
       <div className="session-tab-row session-tab-row-agent">

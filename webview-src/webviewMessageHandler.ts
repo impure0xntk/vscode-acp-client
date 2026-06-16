@@ -335,7 +335,14 @@ function handleSetTabs(data: SetTabsMessage): void {
 
 function handleSessionMessage(data: SessionMessage): void {
   const msgKey = sessionKeyOf(data.agentId, data.sessionId);
-  useMessageStore.getState().appendMessage(msgKey, data.message);
+  // Deserialize attachmentsJson into attachments array so the pipeline
+  // and <Message /> component can render attachment chips.
+  const msg = data.message;
+  const attachments = msg.attachments
+    ?? (msg.attachmentsJson
+      ? (JSON.parse(msg.attachmentsJson) as import("./types").ContextAttachment[])
+      : undefined);
+  useMessageStore.getState().appendMessage(msgKey, { ...msg, attachments });
 }
 
 function handleSessionStream(data: SessionStream): void {

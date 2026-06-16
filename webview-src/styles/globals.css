@@ -2176,15 +2176,8 @@ body {
   background: var(--bg-primary);
 }
 
-.session-tab-active::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--accent);
-}
+/* Agent color top border is always shown via inline style (borderTop).
+   ::before is no longer needed — removed. */
 
 .session-tab-row {
   display: flex;
@@ -5033,13 +5026,13 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   Layout toggle bar — 8px grid
+   Layout toggle bar — text buttons (Single / H-Split / V-Split / Grid)
    ═══════════════════════════════════════════════════════════════════ */
 
 .unified-layout-toggle {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   padding: 4px 8px;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
@@ -5047,12 +5040,16 @@ body {
 }
 
 .unified-layout-btn {
-  padding: 4px 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 10px;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: 3px;
   background: transparent;
   color: var(--fg-muted);
   font-size: 11px;
+  font-family: var(--font-ui);
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
@@ -5063,9 +5060,13 @@ body {
 }
 
 .unified-layout-btn--active {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--fg-primary);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.unified-layout-btn--active:hover {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 /* ── Multi-session view container ── */
@@ -5139,6 +5140,30 @@ body {
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
   min-height: 32px;
+  position: relative;
+}
+
+/* ── Accent bar — full-height color strip via ::before pseudo-element.
+   Uses --section-accent-color set from inline style via data-color attr. ── */
+.unified-section-header-accent {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  background: var(--section-accent-color, var(--accent));
+  flex-shrink: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Horizontal split: top bar instead of left bar */
+.unified-section-header[data-is-horizontal="true"] .unified-section-header-accent {
+  left: 0;
+  right: 0;
+  bottom: auto;
+  width: auto;
+  height: 3px;
 }
 
 .unified-section-header--active {
@@ -5152,7 +5177,6 @@ body {
   gap: 8px;
   padding: 4px 8px;
   border: none;
-  border-left: 3px solid var(--accent);
   background: transparent;
   color: var(--fg-primary);
   font-size: 11px;
@@ -5181,6 +5205,21 @@ body {
   color: var(--fg-muted);
   font-size: 10px;
   flex-shrink: 0;
+}
+
+/* ── Inline chips row inside section header bar ── */
+.section-header-chips {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.section-header-chips .toolbar-chip {
+  font-size: 10px;
+  padding: 1px 4px;
 }
 
 /* ── Token usage bar (in section header) ── */
@@ -5379,6 +5418,26 @@ body {
   background: color-mix(in srgb, #4fc3f7 8%, var(--bg-secondary));
 }
 
+/* ── Turn completion flash (mirrors SessionOverviewCard soc-flash-border) ── */
+.unified-session-section[data-flashing="completed"] {
+  --usec-flash-color: var(--success);
+  animation: usec-flash-border 2.5s ease-out forwards;
+}
+
+.unified-session-section[data-flashing="error"] {
+  --usec-flash-color: var(--error);
+  animation: usec-flash-border 2.5s ease-out forwards;
+}
+
+@keyframes usec-flash-border {
+  0%   { outline: 2px solid var(--usec-flash-color); outline-offset: 0; }
+  15%  { outline: 2px solid transparent; outline-offset: 0; }
+  30%  { outline: 2px solid var(--usec-flash-color); outline-offset: 0; }
+  45%  { outline: 2px solid transparent; outline-offset: 0; }
+  60%  { outline: 2px solid var(--usec-flash-color); outline-offset: 0; }
+  100% { outline: 2px solid transparent; outline-offset: 0; }
+}
+
 /* ── Disconnected session section ── */
 .unified-session-section--disconnected {
   opacity: 0.6;
@@ -5419,41 +5478,6 @@ body {
   color: var(--fg-secondary);
 }
 
-/* ── Split direction toggle ── */
-.unified-split-direction-toggle {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.unified-split-dir-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 8px;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--fg-muted);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.unified-split-dir-btn:hover {
-  background: var(--accent-hover);
-  color: var(--fg-secondary);
-}
-
-.unified-split-dir-btn--active {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-}
-
 /* ── Horizontal split ── */
 .multi-session-view--split-horizontal {
   flex-direction: row;
@@ -5491,18 +5515,11 @@ body {
   color: var(--fg-primary);
 }
 
-/* ── Section header: horizontal split (side-by-side) → top border accent ── */
-.unified-section-header--active-h .unified-section-header-bar {
-  border-left-color: transparent;
-  border-top: 3px solid var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, var(--bg-secondary));
-}
-
-/* ── Section header: vertical split (stacked) → left border accent ── */
-.unified-section-header--active-v .unified-section-header-bar {
-  border-left: 3px solid var(--accent);
-  border-top-color: transparent;
-  background: color-mix(in srgb, var(--accent) 10%, var(--bg-secondary));
+/* ── Section header: active state — background tint only.
+   Border colors are now handled via inline style from SectionHeader.tsx
+   (agent color is always shown on the accent edge, not just when active). ── */
+.unified-section-header--active .unified-section-header-bar {
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-secondary));
 }
 
 /* ── Section header actions (menu) ── */
@@ -5679,9 +5696,9 @@ body {
   border-color: color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
-/* Active tab: stronger accent — left border + brighter background */
+/* Active tab: brighter background + font emphasis.
+   Border-left (agent color) is now always shown via inline style. */
 .unified-session-bar-tab--active {
-  border-left: 3px solid var(--accent);
   background: color-mix(in srgb, var(--accent) 14%, transparent);
   color: var(--fg-primary);
 }

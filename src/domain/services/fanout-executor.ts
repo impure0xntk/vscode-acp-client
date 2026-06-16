@@ -96,11 +96,16 @@ export class FanoutExecutor {
     log.info("sending to target", { agentId: target.agentId, sessionId: target.sessionId });
 
     try {
+      const rawAttachments = payload.attachments ?? [];
       const userMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: "user",
         content: payload.text,
         timestamp: Date.now(),
+        attachmentsJson:
+          rawAttachments.length > 0
+            ? JSON.stringify(rawAttachments)
+            : undefined,
       };
       this.pushUserMessage(target.agentId, target.sessionId, userMessage);
 

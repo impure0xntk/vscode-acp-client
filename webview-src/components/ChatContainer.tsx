@@ -70,6 +70,7 @@ export const ChatContainer = memo(function ChatContainer({
     containerRef,
     bottomRef,
     isAtBottom,
+    items.length,
   );
 
   // ── Expose imperative refs ─────────────────────────────────────────

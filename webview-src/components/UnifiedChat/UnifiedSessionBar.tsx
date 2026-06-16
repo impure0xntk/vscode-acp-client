@@ -89,6 +89,7 @@ const UnifiedTab = React.memo(function UnifiedTab({
       role="button"
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onClick(); }}
+      style={{ borderLeft: `3px solid ${agentColor ?? "transparent"}` }}
     >
       <StatusIcon status={effectiveStatus} elapsedMs={elapsedMs} size="sm" />
       <span

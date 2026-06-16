@@ -4,6 +4,9 @@ import { StatusIcon } from "../StatusIcon";
 import type { StatusIconType, TurnOutcome } from "../StatusIcon";
 import type { SessionInfoDTO } from "../../store/sessionStore";
 import { IconPin, IconPinFilled, IconMoreVertical, IconCross } from "../../lib/icons";
+import { Chip } from "../ui/Chip";
+import type { ToolbarMeta } from "../ui/Chip";
+import { fmt, visualBar, contextColor } from "../toolbar/formatting";
 
 export interface SectionHeaderProps {
   sessionKey: string;
@@ -124,34 +127,140 @@ export const SectionHeader = React.memo(function SectionHeader({
   //              vertical split (stacked) → left border on header
   const isHorizontal = splitDirection === "horizontal";
 
+  const activeBg = isActive ? `${color}20` : `${color}14`;
+
+  // ── Build chips (mirrors BottomToolbar chip-building logic) ──────────
+  const total = info
+    ? info.tokenUsage.inputTokens + info.tokenUsage.outputTokens
+    : 0;
+  const ratio =
+    info?.contextWindowMax && total > 0
+      ? Math.min(total / info.contextWindowMax, 1)
+      : 0;
+
+  const chips: ToolbarMeta[] = [];
+
+  if (info?.mode && info.status === "running") {
+    chips.push({
+      key: "mode",
+      label: "Mode",
+      value: info.mode,
+      category: "runtime",
+      modeIcon: info.mode,
+    });
+  }
+  if (info?.model && info.status === "running") {
+    chips.push({
+      key: "model",
+      label: "Model",
+      value: info.model,
+      category: "runtime",
+    });
+  }
+  if (messageCount > 0) {
+    chips.push({
+      key: "msgs",
+      label: "Messages",
+      value: `msg:${messageCount}`,
+      category: "metrics",
+    });
+  }
+
+  chips.push({
+    key: "tokens",
+    label: "Tokens",
+    value: `↑${fmt(info?.tokenUsage.inputTokens ?? 0)} ↓${fmt(info?.tokenUsage.outputTokens ?? 0)}`,
+    category: "metrics",
+  });
+
+  if (info?.contextWindowMax && total > 0) {
+    const pct = visualBar(ratio);
+    const contextChip: ToolbarMeta = {
+      key: "context",
+      label: "Context",
+      value: `${pct}%`,
+      category: "metrics",
+      contextColor: contextColor(ratio),
+      barPct: Number(pct),
+    };
+    const tokenIdx = chips.findIndex((c) => c.key === "tokens");
+    if (tokenIdx >= 0) {
+      chips.splice(tokenIdx, 0, contextChip);
+    } else {
+      chips.push(contextChip);
+    }
+  }
+
+  // Turn outcome chip
+  const turnChip: ToolbarMeta | null = (() => {
+    if (info?.status === "running") {
+      return {
+        key: "turn",
+        label: "Turn",
+        value: "Active",
+        category: "session" as const,
+        turnStatus: "running" as const,
+      };
+    }
+    if (info?.lastTurnOutcome === "completed") {
+      return {
+        key: "turn",
+        label: "Turn",
+        value: "Done",
+        category: "session" as const,
+        turnStatus: "completed" as const,
+      };
+    }
+    if (info?.lastTurnOutcome === "error") {
+      return {
+        key: "turn",
+        label: "Turn",
+        value: "Error",
+        category: "session" as const,
+        turnStatus: "error" as const,
+      };
+    }
+    if (info?.lastTurnOutcome === "cancelled") {
+      return {
+        key: "turn",
+        label: "Turn",
+        value: "Cancelled",
+        category: "session" as const,
+        turnStatus: "cancelled" as const,
+      };
+    }
+    return null;
+  })();
+
   return (
     <div
-      className={`unified-section-header${isActive ? " unified-section-header--active" : ""}${isActive && isHorizontal ? " unified-section-header--active-h" : ""}${isActive && !isHorizontal ? " unified-section-header--active-v" : ""}`}
+      className={`unified-section-header${isActive ? " unified-section-header--active" : ""}`}
+      data-color={color}
+      data-is-horizontal={isHorizontal ? "true" : undefined}
+      style={{ "--section-accent-color": color } as React.CSSProperties}
     >
+      {/* Accent bar — ::before pseudo-element ensures full-height coverage */}
+      <div className="unified-section-header-accent" aria-hidden="true" />
       <button
         className="unified-section-header-bar"
         onClick={handleClick}
         type="button"
         style={{
-          borderLeftColor: !isHorizontal ? color : "transparent",
-          borderTopColor: isHorizontal ? color : "transparent",
-          backgroundColor: isActive ? `${color}20` : `${color}14`,
+          backgroundColor: activeBg,
         }}
       >
         <StatusIcon status={effectiveStatus} elapsedMs={elapsedMs} size="sm" />
         <span className="unified-section-header-label">{agentId}: {title}</span>
         <span className="unified-section-header-count">({messageCount})</span>
-      </button>
 
-      {/* Token usage mini bar */}
-      {tokenPercentage !== null && (
-        <div className="section-header-token-bar" title={`${tokenPercentage}% context used`}>
-          <div
-            className={`section-header-token-bar-fill${tokenPercentage >= 90 ? " section-header-token-bar-fill--critical" : tokenPercentage >= 70 ? " section-header-token-bar-fill--warning" : ""}`}
-            style={{ width: `${Math.min(tokenPercentage, 100)}%` }}
-          />
-        </div>
-      )}
+        {/* Inline chips — BottomToolbar style */}
+        <span className="section-header-chips">
+          {turnChip && <Chip meta={turnChip} />}
+          {chips.map((c) => (
+            <Chip key={c.key} meta={c} />
+          ))}
+        </span>
+      </button>
 
       <div className="unified-section-header-actions">
         <button

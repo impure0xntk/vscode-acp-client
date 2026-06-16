@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/shallow";
 import {
   useSessionStore,
@@ -9,8 +9,9 @@ import { useSessionInfo } from "../../hooks/useSessionInfo";
 import { useLogger } from "../../hooks/useLogger";
 import { SectionHeader } from "./SectionHeader";
 import { SectionChatContainer } from "./SectionChatContainer";
-import { IconRows, IconColumns } from "../../lib/icons";
-import type { Message } from "../../types";
+
+import type { ChatMessage } from "../../types";
+import type { TurnOutcome } from "../StatusIcon";
 
 // ── Color palette ──────────────────────────────────────────────────────────
 // WCAG AA compliant on dark bg (#1e1e1e) — contrast ratio ≥ 4.5:1
@@ -53,7 +54,7 @@ interface SessionSectionProps {
   splitTotal: number;
   /** Per-section split ratios (normalized) */
   splitRatios: number[];
-  messages: Message[];
+  messages: ChatMessage[];
   tabTitles: Record<string, string>;
   onFocusChange: (key: string) => void;
   onPin: (key: string) => void;
@@ -81,6 +82,35 @@ const SessionSection = React.memo(function SessionSection({
   const info = useSessionInfo(sessionKey);
   const color = getSessionColor(sessionKey);
   const lastAgentMsg = [...messages].reverse().find((m) => m.role === "agent");
+
+  // ── Flash on turn completion (mirrors SessionOverviewCard) ─────────
+  const prevOutcomeRef = useRef<TurnOutcome | null | undefined>(undefined);
+  const [isFlashing, setIsFlashing] = useState(false);
+
+  useEffect(() => {
+    const prev = prevOutcomeRef.current;
+    const current = info?.lastTurnOutcome ?? null;
+
+    if (prev === undefined) {
+      prevOutcomeRef.current = current;
+      return;
+    }
+
+    const isTerminal = current === "completed" || current === "error" || current === "cancelled";
+    const isNew = current !== prev;
+
+    if (isTerminal && isNew) {
+      setIsFlashing(true);
+    }
+
+    prevOutcomeRef.current = current;
+  }, [info?.lastTurnOutcome]);
+
+  const handleAnimationEnd = useCallback(() => {
+    setIsFlashing(false);
+  }, []);
+
+  const flashingStatus = isFlashing ? (info?.lastTurnOutcome ?? info?.status) : undefined;
 
   // Auto-remove disconnected sessions
   useEffect(() => {
@@ -122,6 +152,8 @@ const SessionSection = React.memo(function SessionSection({
   return (
     <div
       className={sectionClassName}
+      data-flashing={flashingStatus}
+      onAnimationEnd={handleAnimationEnd}
       style={sectionStyle}
     >
       <SectionHeader
@@ -169,7 +201,6 @@ export interface MultiSessionViewProps {
   onUnpin: (key: string) => void;
   onClose: (key: string) => void;
   onSplitRatiosChange: (ratios: number[]) => void;
-  onSplitDirectionChange: (dir: "vertical" | "horizontal") => void;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -185,7 +216,6 @@ export const MultiSessionView = React.memo(function MultiSessionView({
   onUnpin,
   onClose,
   onSplitRatiosChange,
-  onSplitDirectionChange,
 }: MultiSessionViewProps): React.ReactElement | null {
   const log = useLogger("MultiSessionView");
 
@@ -340,35 +370,11 @@ export const MultiSessionView = React.memo(function MultiSessionView({
         : "",
   ].filter(Boolean).join(" ");
 
-  // ── Split direction toggle ──────────────────────────────────────────
-
-  const directionToggle = layoutMode === "split" && (
-    <div className="unified-split-direction-toggle">
-      <button
-        className={`unified-split-dir-btn${splitDirection === "vertical" ? " unified-split-dir-btn--active" : ""}`}
-        onClick={() => onSplitDirectionChange("vertical")}
-        type="button"
-        title="Vertical split (stacked)"
-      >
-        <IconRows size={12} />
-      </button>
-      <button
-        className={`unified-split-dir-btn${splitDirection === "horizontal" ? " unified-split-dir-btn--active" : ""}`}
-        onClick={() => onSplitDirectionChange("horizontal")}
-        type="button"
-        title="Horizontal split (side by side)"
-      >
-        <IconColumns size={12} />
-      </button>
-    </div>
-  );
-
   // ── Render with dividers for split mode ─────────────────────────────
 
   if (layoutMode === "split") {
     return (
       <div className="multi-session-view-wrapper">
-        {directionToggle}
         <div className={containerClassName} ref={containerRef}>
           {visibleKeys.map((key, i) => {
             const isFocus = key === focusKey;
