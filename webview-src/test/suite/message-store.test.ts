@@ -1,0 +1,361 @@
+import * as assert from "assert";
+import { describe, it, beforeEach } from "mocha";
+import { useMessageStore } from "../../store/messageStore";
+import type { ChatMessage } from "../../types";
+
+function makeMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
+  return {
+    id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    role: "agent",
+    content: "test content",
+    timestamp: Date.now(),
+    ...overrides,
+  };
+}
+
+describe("messageStore", () => {
+  beforeEach(() => {
+    useMessageStore.setState({
+      perSession: {},
+      streaming: {},
+      promptQueue: {},
+    });
+  });
+
+  // ── setMessages ────────────────────────────────────────────────────
+
+  describe("setMessages", () => {
+    it("stores messages under perSession[key]", () => {
+      const msgs = [makeMessage(), makeMessage()];
+      useMessageStore.getState().setMessages("session-1", msgs);
+      const state = useMessageStore.getState();
+      assert.deepStrictEqual(state.perSession["session-1"], msgs);
+    });
+
+    it("is a no-op when called with same reference", () => {
+      const msgs = [makeMessage()];
+      useMessageStore.getState().setMessages("session-1", msgs);
+      const stateBefore = useMessageStore.getState();
+      useMessageStore.getState().setMessages("session-1", msgs);
+      const stateAfter = useMessageStore.getState();
+      assert.strictEqual(stateAfter, stateBefore);
+    });
+
+    it("replaces existing messages", () => {
+      const msgs1 = [makeMessage({ content: "old" })];
+      useMessageStore.getState().setMessages("session-1", msgs1);
+      const msgs2 = [makeMessage({ content: "new" }), makeMessage()];
+      useMessageStore.getState().setMessages("session-1", msgs2);
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.perSession["session-1"].length, 2);
+      assert.strictEqual(state.perSession["session-1"][0].content, "new");
+    });
+  });
+
+  // ── appendMessage ─────────────────────────────────────────────────
+
+  describe("appendMessage", () => {
+    it("appends to existing array", () => {
+      const msg1 = makeMessage();
+      useMessageStore.getState().appendMessage("session-1", msg1);
+      const msg2 = makeMessage();
+      useMessageStore.getState().appendMessage("session-1", msg2);
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.perSession["session-1"].length, 2);
+      assert.strictEqual(state.perSession["session-1"][0], msg1);
+      assert.strictEqual(state.perSession["session-1"][1], msg2);
+    });
+
+    it("creates new array if key doesn't exist", () => {
+      const msg = makeMessage();
+      useMessageStore.getState().appendMessage("new-key", msg);
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.perSession["new-key"].length, 1);
+      assert.strictEqual(state.perSession["new-key"][0], msg);
+    });
+
+    it("maintains order across multiple appends", () => {
+      const msgs = [makeMessage(), makeMessage(), makeMessage(), makeMessage()];
+      for (const m of msgs) {
+        useMessageStore.getState().appendMessage("session-1", m);
+      }
+      const state = useMessageStore.getState();
+      for (let i = 0; i < msgs.length; i++) {
+        assert.strictEqual(state.perSession["session-1"][i], msgs[i]);
+      }
+    });
+  });
+
+  // ── setStreaming ──────────────────────────────────────────────────
+
+  describe("setStreaming", () => {
+    it("sets streaming flag to true", () => {
+      useMessageStore.getState().setStreaming("session-1", true);
+      assert.strictEqual(
+        useMessageStore.getState().streaming["session-1"],
+        true
+      );
+    });
+
+    it("clears streaming flag when set to false", () => {
+      useMessageStore.getState().setStreaming("session-1", true);
+      useMessageStore.getState().setStreaming("session-1", false);
+      // setStreaming(false) sets the value to false (does not delete the key)
+      assert.strictEqual(
+        useMessageStore.getState().streaming["session-1"],
+        false
+      );
+    });
+
+    it("is a no-op when called with same value", () => {
+      useMessageStore.getState().setStreaming("session-1", false);
+      const stateBefore = useMessageStore.getState();
+      useMessageStore.getState().setStreaming("session-1", false);
+      const stateAfter = useMessageStore.getState();
+      assert.strictEqual(stateAfter, stateBefore);
+    });
+  });
+
+  // ── appendStreamChunk ─────────────────────────────────────────────
+
+  describe("appendStreamChunk", () => {
+    it("creates new agent message if no messages exist", () => {
+      useMessageStore
+        .getState()
+        .appendStreamChunk("session-1", "agent-1", "sess-A", "Hello");
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.perSession["session-1"].length, 1);
+      assert.strictEqual(state.perSession["session-1"][0].role, "agent");
+      assert.strictEqual(state.perSession["session-1"][0].content, "Hello");
+      assert.strictEqual(state.perSession["session-1"][0].agentId, "agent-1");
+      assert.strictEqual(state.perSession["session-1"][0].sessionId, "sess-A");
+    });
+
+    it("appends to last agent message if it matches agentId", () => {
+      const msg = makeMessage({
+        role: "agent",
+        agentId: "agent-1",
+        content: "Hello",
+      });
+      useMessageStore.getState().setMessages("session-1", [msg]);
+      useMessageStore
+        .getState()
+        .appendStreamChunk("session-1", "agent-1", "sess-A", " World");
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.perSession["session-1"].length, 1);
+      assert.strictEqual(
+        state.perSession["session-1"][0].content,
+        "Hello World"
+      );
+    });
+
+    it("creates new agent message if last message is from different agent", () => {
+      const msg = makeMessage({
+        role: "agent",
+        agentId: "agent-1",
+        content: "Hello",
+      });
+      useMessageStore.getState().setMessages("session-1", [msg]);
+      useMessageStore
+        .getState()
+        .appendStreamChunk("session-1", "agent-2", "sess-B", "Bye");
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.perSession["session-1"].length, 2);
+      assert.strictEqual(state.perSession["session-1"][0].content, "Hello");
+      assert.strictEqual(state.perSession["session-1"][1].content, "Bye");
+      assert.strictEqual(state.perSession["session-1"][1].agentId, "agent-2");
+    });
+
+    it("creates new agent message if last message is not agent role", () => {
+      const msg = makeMessage({
+        role: "user",
+        agentId: "agent-1",
+        content: "User said",
+      });
+      useMessageStore.getState().setMessages("session-1", [msg]);
+      useMessageStore
+        .getState()
+        .appendStreamChunk("session-1", "agent-1", "sess-A", "Reply");
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.perSession["session-1"].length, 2);
+      assert.strictEqual(state.perSession["session-1"][1].role, "agent");
+      assert.strictEqual(state.perSession["session-1"][1].content, "Reply");
+    });
+
+    it("sets streaming flag to true", () => {
+      useMessageStore
+        .getState()
+        .appendStreamChunk("session-1", "agent-1", "sess-A", "chunk");
+      assert.strictEqual(
+        useMessageStore.getState().streaming["session-1"],
+        true
+      );
+    });
+
+    it("accumulates content correctly across multiple chunks", () => {
+      useMessageStore
+        .getState()
+        .appendStreamChunk("session-1", "agent-1", "sess-A", "Hel");
+      useMessageStore
+        .getState()
+        .appendStreamChunk("session-1", "agent-1", "sess-A", "lo");
+      useMessageStore
+        .getState()
+        .appendStreamChunk("session-1", "agent-1", "sess-A", " W");
+      useMessageStore
+        .getState()
+        .appendStreamChunk("session-1", "agent-1", "sess-A", "orld");
+      const state = useMessageStore.getState();
+      assert.strictEqual(
+        state.perSession["session-1"][0].content,
+        "Hello World"
+      );
+    });
+  });
+
+  // ── clearSession ──────────────────────────────────────────────────
+
+  describe("clearSession", () => {
+    it("removes session from perSession", () => {
+      useMessageStore.getState().setMessages("session-1", [makeMessage()]);
+      useMessageStore.getState().clearSession("session-1");
+      const state = useMessageStore.getState();
+      assert.strictEqual("session-1" in state.perSession, false);
+    });
+
+    it("is a no-op for non-existent key", () => {
+      useMessageStore.getState().setMessages("session-1", [makeMessage()]);
+      const stateBefore = useMessageStore.getState();
+      useMessageStore.getState().clearSession("nonexistent");
+      const stateAfter = useMessageStore.getState();
+      assert.strictEqual(stateAfter, stateBefore);
+      assert.deepStrictEqual(
+        stateAfter.perSession["session-1"],
+        stateBefore.perSession["session-1"]
+      );
+    });
+  });
+
+  // ── addQueuedPrompt ───────────────────────────────────────────────
+
+  describe("addQueuedPrompt", () => {
+    it("appends to promptQueue", () => {
+      const entry1 = {
+        id: "q1",
+        agentId: "agent-1",
+        sessionId: "sess-A",
+        text: "prompt1",
+        enqueuedAt: "2024-01-01",
+        status: "pending" as const,
+      };
+      const entry2 = {
+        id: "q2",
+        agentId: "agent-1",
+        sessionId: "sess-A",
+        text: "prompt2",
+        enqueuedAt: "2024-01-01",
+        status: "pending" as const,
+      };
+      useMessageStore.getState().addQueuedPrompt("session-1", entry1);
+      useMessageStore.getState().addQueuedPrompt("session-1", entry2);
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.promptQueue["session-1"].length, 2);
+      assert.strictEqual(state.promptQueue["session-1"][0], entry1);
+      assert.strictEqual(state.promptQueue["session-1"][1], entry2);
+    });
+
+    it("creates new queue if none exists", () => {
+      const entry = {
+        id: "q1",
+        agentId: "agent-1",
+        sessionId: "sess-A",
+        text: "prompt",
+        enqueuedAt: "2024-01-01",
+        status: "pending" as const,
+      };
+      useMessageStore.getState().addQueuedPrompt("new-key", entry);
+      const state = useMessageStore.getState();
+      assert.deepStrictEqual(state.promptQueue["new-key"], [entry]);
+    });
+  });
+
+  // ── Cross-session isolation ───────────────────────────────────────
+
+  describe("cross-session isolation", () => {
+    it("setMessages does not affect other sessions", () => {
+      useMessageStore
+        .getState()
+        .setMessages("session-1", [makeMessage({ content: "a" })]);
+      useMessageStore
+        .getState()
+        .setMessages("session-2", [makeMessage({ content: "b" })]);
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.perSession["session-1"][0].content, "a");
+      assert.strictEqual(state.perSession["session-2"][0].content, "b");
+    });
+
+    it("appendMessage does not affect other sessions", () => {
+      useMessageStore
+        .getState()
+        .appendMessage("session-1", makeMessage({ content: "x" }));
+      useMessageStore
+        .getState()
+        .appendMessage("session-2", makeMessage({ content: "y" }));
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.perSession["session-1"].length, 1);
+      assert.strictEqual(state.perSession["session-2"].length, 1);
+    });
+
+    it("setStreaming is independent per session", () => {
+      useMessageStore.getState().setStreaming("session-1", true);
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.streaming["session-1"], true);
+      assert.strictEqual(state.streaming["session-2"], undefined);
+    });
+
+    it("appendStreamChunk is isolated per session", () => {
+      useMessageStore
+        .getState()
+        .appendStreamChunk("session-1", "agent-1", "sess-A", "chunk1");
+      useMessageStore
+        .getState()
+        .appendStreamChunk("session-2", "agent-2", "sess-B", "chunk2");
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.perSession["session-1"][0].content, "chunk1");
+      assert.strictEqual(state.perSession["session-2"][0].content, "chunk2");
+    });
+
+    it("promptQueue is isolated per session", () => {
+      const entry1 = {
+        id: "q1",
+        agentId: "a1",
+        sessionId: "s1",
+        text: "t1",
+        enqueuedAt: "2024-01-01",
+        status: "pending" as const,
+      };
+      const entry2 = {
+        id: "q2",
+        agentId: "a2",
+        sessionId: "s2",
+        text: "t2",
+        enqueuedAt: "2024-01-01",
+        status: "pending" as const,
+      };
+      useMessageStore.getState().addQueuedPrompt("session-1", entry1);
+      useMessageStore.getState().addQueuedPrompt("session-2", entry2);
+      const state = useMessageStore.getState();
+      assert.deepStrictEqual(state.promptQueue["session-1"], [entry1]);
+      assert.deepStrictEqual(state.promptQueue["session-2"], [entry2]);
+    });
+
+    it("clearSession does not affect other sessions", () => {
+      useMessageStore.getState().setMessages("session-1", [makeMessage()]);
+      useMessageStore.getState().setMessages("session-2", [makeMessage()]);
+      useMessageStore.getState().clearSession("session-1");
+      const state = useMessageStore.getState();
+      assert.strictEqual("session-1" in state.perSession, false);
+      assert.strictEqual(state.perSession["session-2"].length, 1);
+    });
+  });
+});

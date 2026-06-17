@@ -17,13 +17,17 @@ export interface MessageProps {
 }
 
 function openFileFromLink(e: React.MouseEvent<HTMLElement>): void {
-  const anchor = (e.target as HTMLElement).closest("[data-file-path]") as HTMLElement | null;
+  const anchor = (e.target as HTMLElement).closest(
+    "[data-file-path]"
+  ) as HTMLElement | null;
   if (!anchor) return;
   e.preventDefault();
   e.stopPropagation();
   const filePath = anchor.dataset.filePath;
   if (!filePath) return;
-  const line = anchor.dataset.fileLine ? Number(anchor.dataset.fileLine) : undefined;
+  const line = anchor.dataset.fileLine
+    ? Number(anchor.dataset.fileLine)
+    : undefined;
   try {
     getVsCodeApi().postMessage({ type: "openFile", path: filePath, line });
   } catch {
@@ -62,7 +66,11 @@ function AttachmentChip({
     if (!attachment.path) return;
     const line = attachment.lineRange?.[0];
     try {
-      getVsCodeApi().postMessage({ type: "openFile", path: attachment.path, line });
+      getVsCodeApi().postMessage({
+        type: "openFile",
+        path: attachment.path,
+        line,
+      });
     } catch {
       /* */
     }
@@ -124,31 +132,26 @@ export const Message = React.memo(function Message({
   isConsecutive,
   sessionId,
 }: MessageProps): React.ReactElement {
-  const {
-    role,
-    content,
-    timestamp,
-    resolvedToolCalls,
-    attachments,
-    thinking,
-  } = item;
+  const { role, content, timestamp, resolvedToolCalls, attachments, thinking } =
+    item;
 
   const rawResolved = usePathResolutionStore(
-    (state) => state.resolvedPaths[sessionId ?? ""],
+    (state) => state.resolvedPaths[sessionId ?? ""]
   );
 
   const mergedContext = useMemo(
     () => ({
       filePaths: new Set<string>(rawResolved ?? []),
     }),
-    [rawResolved],
+    [rawResolved]
   );
 
   const time = new Date(timestamp ?? 0).toLocaleTimeString();
   const isSystem = role === "system";
   const isUser = role === "user";
   const isAgent = role === "agent";
-  const hasToolCalls = resolvedToolCalls !== undefined && resolvedToolCalls.length > 0;
+  const hasToolCalls =
+    resolvedToolCalls !== undefined && resolvedToolCalls.length > 0;
   const hasAttachments = isUser && attachments.length > 0;
   const hasContent = content.trim().length > 0;
   const isToolOnlyAgent = isAgent && hasToolCalls && !hasContent;
@@ -162,7 +165,7 @@ export const Message = React.memo(function Message({
       }
       openFileFromLink(e);
     },
-    [],
+    []
   );
 
   return (

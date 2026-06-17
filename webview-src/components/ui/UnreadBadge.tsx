@@ -19,7 +19,5 @@ export function UnreadBadge({
   className = "",
 }: UnreadBadgeProps): React.ReactElement | null {
   if (count <= 0 || hidden) return null;
-  return (
-    <span className={className}>{count > 99 ? "99+" : count}</span>
-  );
+  return <span className={className}>{count > 99 ? "99+" : count}</span>;
 }

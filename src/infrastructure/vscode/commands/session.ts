@@ -97,7 +97,8 @@ export function registerSessionCommands(
           orchestrator.setActiveSession(agentId, result.sessionId);
           ensureChatPanel();
           const info = orchestrator.getSessionInfo(agentId, result.sessionId);
-          if (info) getChatPanel()?.setActiveSession(agentId, result.sessionId, info);
+          if (info)
+            getChatPanel()?.setActiveSession(agentId, result.sessionId, info);
           void vscode.window.showInformationMessage(
             `ACP: Forked session (${result.sessionId.slice(0, 8)}, ${result.replayedMessageCount} msgs replayed)`
           );
@@ -547,7 +548,9 @@ export function registerSessionCommands(
       if (!agentId) return;
       const sessions = orchestrator.getSessionsForAgent(agentId);
       if (sessions.length === 0) {
-        void vscode.window.showWarningMessage("ACP: No sessions for this agent");
+        void vscode.window.showWarningMessage(
+          "ACP: No sessions for this agent"
+        );
         return;
       }
       const pick = await vscode.window.showQuickPick(
@@ -571,12 +574,16 @@ export function registerSessionCommands(
       if (!agentId) return;
       const sessions = orchestrator.getSessionsForAgent(agentId);
       if (sessions.length === 0) {
-        void vscode.window.showWarningMessage("ACP: No sessions for this agent");
+        void vscode.window.showWarningMessage(
+          "ACP: No sessions for this agent"
+        );
         return;
       }
       const pinnedIds = orchestrator.getPinnedSessions(agentId);
       if (pinnedIds.length === 0) {
-        void vscode.window.showWarningMessage("ACP: No pinned sessions for this agent");
+        void vscode.window.showWarningMessage(
+          "ACP: No pinned sessions for this agent"
+        );
         return;
       }
       const pick = await vscode.window.showQuickPick(
@@ -619,8 +626,10 @@ export function registerSessionCommands(
       if (!pick) return;
       const newName = await vscode.window.showInputBox({
         prompt: "New session name",
-        value: sessions.find((s) => s.sessionId === pick.sessionId)?.title ?? "",
-        validateInput: (v) => (v.trim().length === 0 ? "Name cannot be empty" : undefined),
+        value:
+          sessions.find((s) => s.sessionId === pick.sessionId)?.title ?? "",
+        validateInput: (v) =>
+          v.trim().length === 0 ? "Name cannot be empty" : undefined,
       });
       if (!newName) return;
       try {

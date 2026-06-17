@@ -9,6 +9,7 @@ export * from "./message";
 export * from "./task";
 export * from "./orchestration";
 export * from "./mesh";
+export * from "./plan";
 export {
   type TokenUsage,
   type ChatMessage,

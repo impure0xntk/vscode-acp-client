@@ -15,7 +15,9 @@ import type { ContextAttachment } from "../../types";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-function resolveToolCalls(msg: ClassifiedMessage): ResolvedToolCall[] | undefined {
+function resolveToolCalls(
+  msg: ClassifiedMessage
+): ResolvedToolCall[] | undefined {
   const raw = msg.toolCalls as
     | Array<{
         id: string;
@@ -26,7 +28,12 @@ function resolveToolCalls(msg: ClassifiedMessage): ResolvedToolCall[] | undefine
         output?: string;
         durationMs?: number;
         locations?: { path: string; line?: number }[];
-        diffContent?: { type: "diff"; diff: string; oldPath?: string; newPath?: string };
+        diffContent?: {
+          type: "diff";
+          diff: string;
+          oldPath?: string;
+          newPath?: string;
+        };
       }>
     | undefined;
 
@@ -47,7 +54,7 @@ function resolveToolCalls(msg: ClassifiedMessage): ResolvedToolCall[] | undefine
 
 function resolveAttachments(
   msg: ClassifiedMessage,
-  _config: AnnotateConfig,
+  _config: AnnotateConfig
 ): ResolvedAttachment[] {
   const raw = msg.attachments as ContextAttachment[] | undefined;
   if (!raw) return [];
@@ -96,7 +103,7 @@ function groupKeyOf(msg: ClassifiedMessage): string {
 function toPipelineItem(
   msg: ClassifiedMessage,
   _config: AnnotateConfig,
-  prevGroupKey: string,
+  prevGroupKey: string
 ): { item: PipelineItem | null; groupKey: string } {
   const baseKey = `${msg.role}-${msg.id ?? msg.timestamp ?? "unknown"}`;
   const ts = msg.timestamp;
@@ -156,7 +163,10 @@ function toPipelineItem(
     default: {
       const thinking =
         msg.thinking != null
-          ? { content: msg.thinking.content, isStreaming: msg.thinking.isStreaming ?? false }
+          ? {
+              content: msg.thinking.content,
+              isStreaming: msg.thinking.isStreaming ?? false,
+            }
           : undefined;
 
       return {
@@ -188,7 +198,7 @@ function toPipelineItem(
 export function annotateMessages(
   messages: ClassifiedMessage[],
   config: AnnotateConfig,
-  initialGroupKey: string = "",
+  initialGroupKey: string = ""
 ): PipelineItem[] {
   const items: PipelineItem[] = [];
   let prevGroupKey = initialGroupKey;

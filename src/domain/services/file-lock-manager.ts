@@ -45,10 +45,18 @@ export class FileLockManager {
 
       // Expired → steal
       if (existing.expiresAt && existing.expiresAt < new Date()) {
-        log.debug("lock expired, stealing", { filePath, previousAgentId: existing.lockedBy, newAgentId: agentId });
+        log.debug("lock expired, stealing", {
+          filePath,
+          previousAgentId: existing.lockedBy,
+          newAgentId: agentId,
+        });
         this.locks.delete(filePath);
       } else {
-        log.debug("lock denied", { filePath, requestedBy: agentId, lockedBy: existing.lockedBy });
+        log.debug("lock denied", {
+          filePath,
+          requestedBy: agentId,
+          lockedBy: existing.lockedBy,
+        });
         return false;
       }
     }

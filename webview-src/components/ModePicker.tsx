@@ -13,11 +13,36 @@ interface MeshModeCommand {
 }
 
 const MESH_MODES: MeshModeCommand[] = [
-  { mode: "fanout", label: "Fanout", description: "Send to multiple agents", icon: "repo-forked" },
-  { mode: "supervisor", label: "Supervisor", description: "Lead-worker pattern", icon: "brain" },
-  { mode: "pipeline", label: "Pipeline", description: "Sequential chain", icon: "arrow-right-left" },
-  { mode: "status", label: "Status", description: "Show mesh status", icon: "list-tree" },
-  { mode: "task", label: "Task Board", description: "Show task board", icon: "output" },
+  {
+    mode: "fanout",
+    label: "Fanout",
+    description: "Send to multiple agents",
+    icon: "repo-forked",
+  },
+  {
+    mode: "supervisor",
+    label: "Supervisor",
+    description: "Lead-worker pattern",
+    icon: "brain",
+  },
+  {
+    mode: "pipeline",
+    label: "Pipeline",
+    description: "Sequential chain",
+    icon: "arrow-right-left",
+  },
+  {
+    mode: "status",
+    label: "Status",
+    description: "Show mesh status",
+    icon: "list-tree",
+  },
+  {
+    mode: "task",
+    label: "Task Board",
+    description: "Show task board",
+    icon: "output",
+  },
 ];
 
 // ── Props ──────────────────────────────────────────────────────────
@@ -63,7 +88,9 @@ export function ModePicker({
       switch (e.key) {
         case "ArrowDown":
           e.preventDefault();
-          onSelectedIndexChange(Math.min(selectedIndex + 1, filtered.length - 1));
+          onSelectedIndexChange(
+            Math.min(selectedIndex + 1, filtered.length - 1)
+          );
           break;
         case "ArrowUp":
           e.preventDefault();
@@ -90,7 +117,9 @@ export function ModePicker({
   }, [handleKeyDown, registerKeyHandler]);
 
   useEffect(() => {
-    const el = listRef.current?.children[selectedIndex] as HTMLElement | undefined;
+    const el = listRef.current?.children[selectedIndex] as
+      | HTMLElement
+      | undefined;
     el?.scrollIntoView({ block: "nearest" });
   }, [selectedIndex]);
 

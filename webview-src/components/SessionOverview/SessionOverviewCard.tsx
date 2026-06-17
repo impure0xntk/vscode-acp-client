@@ -77,7 +77,9 @@ export function SessionOverviewCard({
     : session;
 
   const isCancelable =
-    liveItem.status === "running" || liveItem.status === "waiting" || liveItem.status === "waiting_for_input";
+    liveItem.status === "running" ||
+    liveItem.status === "waiting" ||
+    liveItem.status === "waiting_for_input";
 
   const tier = elapsedTier(liveItem.progress.elapsedMs);
 
@@ -100,7 +102,8 @@ export function SessionOverviewCard({
     }
 
     // Flash when a new terminal outcome appears
-    const isTerminal = current === "completed" || current === "error" || current === "cancelled";
+    const isTerminal =
+      current === "completed" || current === "error" || current === "cancelled";
     const isNew = current !== prev;
 
     if (isTerminal && isNew) {
@@ -114,7 +117,9 @@ export function SessionOverviewCard({
     setIsFlashing(false);
   }, []);
 
-  const flashingStatus = isFlashing ? (liveItem.lastTurnOutcome ?? liveItem.status) : undefined;
+  const flashingStatus = isFlashing
+    ? (liveItem.lastTurnOutcome ?? liveItem.status)
+    : undefined;
 
   // ── Long-press handling ────────────────────────────────────────────
   const handlePointerDown = useCallback(() => {
@@ -149,7 +154,10 @@ export function SessionOverviewCard({
       log.debug("card click → toggle select", { sessionId: session.sessionId });
       onSelect(session.sessionId);
     } else {
-      log.info("card click → focus", { sessionId: session.sessionId, agentId: session.agentId });
+      log.info("card click → focus", {
+        sessionId: session.sessionId,
+        agentId: session.agentId,
+      });
       onFocus();
     }
   }, [selectionMode, onSelect, session.sessionId, onFocus]);
@@ -157,7 +165,11 @@ export function SessionOverviewCard({
   return (
     <div
       className={`session-overview-card${isExpanded ? " session-overview-card-expanded" : ""}${isActive ? " session-overview-card-active" : ""}${isSelected ? " session-overview-card-selected" : ""}`}
-      data-status={liveItem.status === "idle" && effectiveOutcome ? effectiveOutcome : liveItem.status}
+      data-status={
+        liveItem.status === "idle" && effectiveOutcome
+          ? effectiveOutcome
+          : liveItem.status
+      }
       data-color-group={sessionColorGroup(liveItem.status)}
       data-elapsed-tier={tier}
       data-flashing={flashingStatus}
@@ -208,7 +220,9 @@ export function SessionOverviewCard({
       {/* Footer: timestamp + unread badge (bottom-right) */}
       <div className="session-overview-card-footer">
         <span className="session-overview-card-timestamp">
-          {new Date(liveItem.lastResponseAt ?? liveItem.createdAt).toLocaleTimeString()}
+          {new Date(
+            liveItem.lastResponseAt ?? liveItem.createdAt
+          ).toLocaleTimeString()}
         </span>
 
         <div className="session-overview-card-actions">

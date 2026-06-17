@@ -44,6 +44,12 @@ import { MeshOrchestrator } from "../../domain/services/mesh-orchestrator";
 import { MessageBus } from "../../domain/services/message-bus";
 import { FileLockManager } from "../../domain/services/file-lock-manager";
 import { TaskBoardStore } from "../../domain/services/task-board-store";
+import { SupervisorOrchestrator } from "../../domain/services/supervisor-orchestrator";
+import type { PlanWebviewMessage } from "../../domain/services/supervisor-orchestrator";
+import {
+  MESH_MARKER_V2_OPEN,
+  MESH_MARKER_CLOSE,
+} from "../../domain/models/mesh";
 import { VscodePlatform } from "../../platform/adapters/vscode";
 import type { PlatformAPI } from "../../platform/platform";
 import type { ContextAttachmentDTO } from "../../domain/models/chat";
@@ -70,6 +76,7 @@ let statusBar: AgentStatusBar;
 let treeProvider: ReturnType<typeof createAgentTreeProvider>;
 let chatPanel: ChatPanel | null = null;
 let meshOrchestrator: MeshOrchestrator | null = null;
+let supervisorOrchestrator: SupervisorOrchestrator | null = null;
 const presenter = new ChatPresenter();
 
 // ============================================================================
@@ -411,6 +418,21 @@ export async function activate(
     },
   });
 
+  // SupervisorOrchestrator: plan lifecycle + execution engine
+  supervisorOrchestrator = new SupervisorOrchestrator({
+    meshOrchestrator: meshOrchestrator!,
+    sessionOrchestrator: orchestrator,
+    taskBoardStore,
+    postMessage: (msg) => {
+      if (!chatPanel) return;
+      // PlanOutboundMessage uses type "plan.update" | "plan.stepUpdate" | "plan.executionResult"
+      // Cast to the webview message format
+      chatPanel.postMessage(
+        msg as unknown as { type: string; [key: string]: unknown }
+      );
+    },
+  });
+
   statusTracker = new AgentStatusTracker();
   historyStore = new SessionHistoryStore(platform.context.globalState);
 
@@ -471,7 +493,10 @@ export async function activate(
   // Apply preset if configured (takes priority over individual autoConnect)
   const preset = registry.loadPreset(platform);
   if (preset) {
-    log.info("applying preset", { label: preset.label, sessions: preset.sessions.length });
+    log.info("applying preset", {
+      label: preset.label,
+      sessions: preset.sessions.length,
+    });
     await applyPreset(preset);
   } else {
     // Fall back to per-agent autoConnect
@@ -529,20 +554,59 @@ function wireOrchestratorEvents(meshOrch: MeshOrchestrator): void {
   meshOrch.onExtractedMessage = (msg) => {
     if (!chatPanel) return;
     switch (msg.type) {
+      case "plan_proposal": {
+        // Forward plan proposal to SupervisorOrchestrator for parsing
+        if (supervisorOrchestrator) {
+          const agentId = msg.agentId;
+          const activeSessionId =
+            orchestrator.getActiveSessionId(agentId) ?? "";
+          // Wrap the P2PMessage into a v2 marker envelope for parsePlanFromOutput
+          const envelope = {
+            version: "2.0",
+            type: msg.type,
+            id: msg.id ?? crypto.randomUUID(),
+            from: msg.from,
+            to: msg.to,
+            mode: "p2P",
+            payload: msg.payload,
+            metadata: msg.metadata,
+          };
+          const rawOutput = `${MESH_MARKER_V2_OPEN}${JSON.stringify(envelope)}${MESH_MARKER_CLOSE}`;
+          supervisorOrchestrator.parsePlanFromOutput(
+            agentId,
+            activeSessionId,
+            rawOutput
+          );
+        }
+        break;
+      }
       case "plan_update": {
-        const payload = msg.payload as { steps?: Array<{ id: string; description: string; status: string }>; status?: string } | undefined;
+        const payload = msg.payload as
+          | {
+              steps?: Array<{
+                id: string;
+                description: string;
+                status: string;
+              }>;
+              status?: string;
+            }
+          | undefined;
         chatPanel.postMessage({
           type: "plan.update",
           agentId: msg.agentId,
-          sessionId: "", // filled by agent session context
+          sessionId: "",
           steps: payload?.steps ?? [],
-          status: (payload?.status as "pending" | "approved" | "rejected" | "executing" | "completed") ?? "pending",
+          status:
+            (payload?.status as
+              | "pending"
+              | "approved"
+              | "rejected"
+              | "executing"
+              | "completed") ?? "pending",
         });
         break;
       }
       case "task_delegate": {
-        // Auto-forward to worker agent via the message bus (already handled by MessageBus subscription)
-        // But we also notify the UI about the delegation
         chatPanel.postMessage({
           type: "agent.status",
           agentId: msg.to,
@@ -551,13 +615,33 @@ function wireOrchestratorEvents(meshOrch: MeshOrchestrator): void {
         });
         break;
       }
+      case "task_response": {
+        // Forward task_response to SupervisorOrchestrator
+        if (supervisorOrchestrator) {
+          supervisorOrchestrator.handleTaskResponse(msg);
+        }
+        break;
+      }
       case "status_update": {
-        const payload = msg.payload as { agentId?: string; status?: string; currentTask?: string; progress?: number } | undefined;
+        const payload = msg.payload as
+          | {
+              agentId?: string;
+              status?: string;
+              currentTask?: string;
+              progress?: number;
+            }
+          | undefined;
         if (payload?.agentId) {
           chatPanel.postMessage({
             type: "agent.status",
             agentId: payload.agentId,
-            status: (payload.status as "idle" | "running" | "waiting" | "error" | "completed") ?? "idle",
+            status:
+              (payload.status as
+                | "idle"
+                | "running"
+                | "waiting"
+                | "error"
+                | "completed") ?? "idle",
             currentTask: payload.currentTask,
             progress: payload.progress,
           });
@@ -625,6 +709,20 @@ function wireOrchestratorEvents(meshOrch: MeshOrchestrator): void {
     chatPanel.postMessage({ type: "session.unpinned", agentId, sessionId });
   });
 
+  // Context compression: trigger Mesh Protocol reinjection
+  orchestrator.on(
+    "sessionContextCompressed",
+    ({ agentId, sessionId, contextWindowMax, usedBefore, usedAfter }) => {
+      orchestrator.handleContextCompression(
+        agentId,
+        sessionId,
+        contextWindowMax,
+        usedBefore,
+        usedAfter
+      );
+    }
+  );
+
   // Send overview position setting to webview
   void sendOverviewPosition();
 }
@@ -684,7 +782,11 @@ function registerCommands(context: vscode.ExtensionContext): void {
     async () => {
       const scope = await vscode.window.showQuickPick(
         [
-          { label: "All logs", description: "Delete all persisted log entries", value: "all" as const },
+          {
+            label: "All logs",
+            description: "Delete all persisted log entries",
+            value: "all" as const,
+          },
           { label: "Older than 7 days", value: "7d" as const },
           { label: "Older than 30 days", value: "30d" as const },
         ],
@@ -701,7 +803,9 @@ function registerCommands(context: vscode.ExtensionContext): void {
 
       const count = await platform.logStorage.countLogs(options);
       if (count === 0) {
-        await vscode.window.showInformationMessage("ACP: No log entries to clear.");
+        await vscode.window.showInformationMessage(
+          "ACP: No log entries to clear."
+        );
         return;
       }
 
@@ -762,16 +866,25 @@ function registerCommands(context: vscode.ExtensionContext): void {
 
 async function applyPreset(preset: PresetConfig): Promise<void> {
   // Determine the target panel mode
-  const panelMode = preset.layout === "grid" || preset.layout === "split"
-    ? "unified"
-    : vscode.workspace.getConfiguration("acp").get<string>("defaultChatPanel", "classic");
+  const panelMode =
+    preset.layout === "grid" || preset.layout === "split"
+      ? "unified"
+      : vscode.workspace
+          .getConfiguration("acp")
+          .get<string>("defaultChatPanel", "classic");
 
   // Collect all workspace folders for relative path resolution
-  const wsFolders = (vscode.workspace.workspaceFolders ?? []).map((f) => f.uri.fsPath);
+  const wsFolders = (vscode.workspace.workspaceFolders ?? []).map(
+    (f) => f.uri.fsPath
+  );
   const fallbackWs = wsFolders[0] ?? process.cwd();
 
   // Track connected agent IDs and their session info
-  const connectedSessions: Array<{ agentId: string; sessionId: string; title: string }> = [];
+  const connectedSessions: Array<{
+    agentId: string;
+    sessionId: string;
+    title: string;
+  }> = [];
 
   for (const entry of preset.sessions) {
     const agentConfig = registry.getAgent(entry.agent);
@@ -784,7 +897,10 @@ async function applyPreset(preset: PresetConfig): Promise<void> {
     try {
       await orchestrator.connectAgent(agentConfig.id, agentConfig);
     } catch (err) {
-      log.error("preset: failed to connect agent", { agent: entry.agent, error: err });
+      log.error("preset: failed to connect agent", {
+        agent: entry.agent,
+        error: err,
+      });
       continue;
     }
 

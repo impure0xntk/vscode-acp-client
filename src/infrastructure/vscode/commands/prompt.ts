@@ -201,7 +201,12 @@ export function wireChatPanelEvents(
         const reqId = data.reqId as string;
         const cwd = resolveSessionCwd(orchestrator, data);
         void searchFiles(query, cwd).then((candidates) => {
-          chatPanel?.postMessage({ type: "fileCandidates", query, reqId, candidates });
+          chatPanel?.postMessage({
+            type: "fileCandidates",
+            query,
+            reqId,
+            candidates,
+          });
         });
         break;
       }
@@ -443,7 +448,10 @@ export function wireChatPanelEvents(
           const teamId = data.teamId as string | undefined;
           if (teamId) {
             const board = meshOrchestrator.getTaskBoard(teamId);
-            chatPanel?.postMessage({ type: "mesh:taskBoard", tasks: board?.tasks ?? [] });
+            chatPanel?.postMessage({
+              type: "mesh:taskBoard",
+              tasks: board?.tasks ?? [],
+            });
           }
         }
         break;

@@ -34,7 +34,12 @@ import {
 } from "@agentclientprotocol/sdk";
 import * as child_process from "child_process";
 import { Readable, Writable } from "stream";
-import type { SessionInfo, SessionStatus, TurnOutcome, QueuedPrompt } from "./types";
+import type {
+  AppSessionInfo,
+  SessionStatus,
+  TurnOutcome,
+  QueuedPrompt,
+} from "./types";
 import type {
   ChatMessage,
   TokenUsage,
@@ -60,6 +65,12 @@ export interface SessionCompletedEvent {
 import { PlatformAcpClient } from "../../adapter/acp/client";
 import type { UIAPI } from "../../platform/ui";
 import type { FileSystemAPI } from "../../platform/filesystem";
+import {
+  PromptBuilder,
+  type MeshAgentRole,
+  type MeshProtocolConfig,
+  type InboundMessage,
+} from "../../domain/services/prompt-builder";
 
 // ============================================================================
 // Auto-connect entry (one chat tab)
@@ -92,6 +103,15 @@ export interface AgentConfig {
   icon?: string;
   color?: string;
   maxConcurrentSessions?: number;
+  /** Mesh Protocol role for this agent */
+  meshRole?: MeshAgentRole;
+  /** Mesh Protocol configuration */
+  meshProtocol?: {
+    enabled: boolean;
+    version: "1" | "2";
+    teamId?: string;
+    teamName?: string;
+  };
 }
 
 // ============================================================================
@@ -199,8 +219,8 @@ export class SessionOrchestrator extends EventEmitter {
   private connections: Map<string, ClientSideConnection> = new Map();
   // agentId → child process (for cleanup)
   private processes: Map<string, child_process.ChildProcess> = new Map();
-  // agentId → (sessionId → SessionInfo)
-  private sessions: Map<string, Map<string, SessionInfo>> = new Map();
+  // agentId → (sessionId → AppSessionInfo)
+  private sessions: Map<string, Map<string, AppSessionInfo>> = new Map();
   // agentId → sessionId (active session per agent)
   private activeSessions: Map<string, string> = new Map();
   // agentId → AgentConfig
@@ -223,6 +243,12 @@ export class SessionOrchestrator extends EventEmitter {
     null;
   // Prompt queue: sessionKey(agentId, sessionId) → QueuedPrompt[]
   private promptQueue: Map<string, QueuedPrompt[]> = new Map();
+  // agentId → PromptBuilder (for Mesh Protocol injection)
+  private promptBuilders: Map<string, PromptBuilder> = new Map();
+  // agentId → last inbound message (for reinjection after compression)
+  private lastInboundMessages: Map<string, InboundMessage> = new Map();
+  // agentId → reinjection throttle timestamp
+  private lastReinjectionAt: Map<string, number> = new Map();
 
   constructor(deps: OrchestratorDeps) {
     super();
@@ -251,7 +277,11 @@ export class SessionOrchestrator extends EventEmitter {
       return;
     }
 
-    log.info("connecting agent", { agentId, command: config.command, args: config.args });
+    log.info("connecting agent", {
+      agentId,
+      command: config.command,
+      args: config.args,
+    });
 
     this.agentConfigs.set(agentId, config);
     this.sessions.set(agentId, new Map());
@@ -297,7 +327,10 @@ export class SessionOrchestrator extends EventEmitter {
 
     // Initialize the connection — request embeddedContext so the agent
     // advertises support for ContentBlock::Resource in prompt requests.
-    log.debug("sending initialize", { agentId, protocolVersion: PROTOCOL_VERSION });
+    log.debug("sending initialize", {
+      agentId,
+      protocolVersion: PROTOCOL_VERSION,
+    });
     const initResponse = await connection.initialize({
       protocolVersion: PROTOCOL_VERSION,
       clientCapabilities: {
@@ -355,6 +388,24 @@ export class SessionOrchestrator extends EventEmitter {
       protocolVersion: initResponse.protocolVersion,
       loadSession: initResponse.agentCapabilities?.loadSession ?? false,
     });
+
+    // Initialize PromptBuilder for Mesh Protocol injection
+    if (config.meshRole && config.meshProtocol?.enabled) {
+      const meshConfig: MeshProtocolConfig = {
+        enabled: true,
+        version: config.meshProtocol.version ?? "2",
+        role: config.meshRole,
+        agentId: config.id,
+        teamId: config.meshProtocol.teamId,
+        teamName: config.meshProtocol.teamName,
+      };
+      this.promptBuilders.set(agentId, new PromptBuilder(meshConfig));
+      log.info("Mesh Protocol prompt builder initialized", {
+        agentId,
+        role: config.meshRole,
+        version: config.meshProtocol.version ?? "2",
+      });
+    }
 
     this.emit("agentConnected", agentId);
   }
@@ -425,7 +476,7 @@ export class SessionOrchestrator extends EventEmitter {
     const sessionId = response.sessionId;
     const now = new Date();
 
-    const sessionInfo: SessionInfo = {
+    const sessionInfo: AppSessionInfo = {
       sessionId,
       agentId,
       title: abbreviatePath(effectiveCwd),
@@ -604,11 +655,7 @@ export class SessionOrchestrator extends EventEmitter {
         currentIndex: 0,
       });
 
-      replayed = await this.replayMessages(
-        agentId,
-        newSessionId,
-        replayable
-      );
+      replayed = await this.replayMessages(agentId, newSessionId, replayable);
 
       this.emit("sessionReplayComplete", {
         agentId,
@@ -678,7 +725,7 @@ export class SessionOrchestrator extends EventEmitter {
         id: m.id || crypto.randomUUID(),
       }));
 
-      const sessionInfo: SessionInfo = {
+      const sessionInfo: AppSessionInfo = {
         sessionId: sourceSessionId,
         agentId,
         title: sourceInfo?.title ?? `Restored ${sourceSessionId.slice(0, 8)}`,
@@ -734,11 +781,7 @@ export class SessionOrchestrator extends EventEmitter {
       }));
     }
 
-    const replayed = await this.replayMessages(
-      agentId,
-      newSessionId,
-      messages
-    );
+    const replayed = await this.replayMessages(agentId, newSessionId, messages);
 
     // Update title to indicate restoration
     if (newInfo && sourceInfo) {
@@ -943,11 +986,29 @@ export class SessionOrchestrator extends EventEmitter {
       throw new Error(`Session ${sessionId} not found for agent ${agentId}`);
     }
 
+    // Mesh Protocol: wrap user prompt with protocol header
+    let finalText = text;
+    const builder = this.promptBuilders.get(agentId);
+    if (builder && text.length > 0) {
+      const lastInbound = this.lastInboundMessages.get(agentId);
+      finalText = builder.buildUserPrompt({
+        text,
+        mode: "direct",
+        inboundMessage: lastInbound,
+      });
+      log.debug("Mesh Protocol prompt injected", {
+        agentId,
+        originalLen: text.length,
+        wrappedLen: finalText.length,
+      });
+    }
+
     log.info("sending prompt", {
       agentId,
       sessionId,
-      textLen: text.length,
+      textLen: finalText.length,
       contextBlocks: context?.length ?? 0,
+      meshInjected: builder !== undefined && text.length > 0,
     });
 
     sessionInfo.status = "running";
@@ -958,7 +1019,7 @@ export class SessionOrchestrator extends EventEmitter {
 
     const promptBlocks: ContentBlock[] = [
       ...(context ?? []),
-      { type: "text", text },
+      { type: "text", text: finalText },
     ];
 
     try {
@@ -985,7 +1046,11 @@ export class SessionOrchestrator extends EventEmitter {
       sessionInfo.isStreaming = false;
       sessionInfo.lastResponseAt = new Date().toISOString();
       this.flushPendingToolCalls(agentId, sessionId);
-      log.info("turn completed", { agentId, sessionId, tokens: sessionInfo.tokenUsage });
+      log.info("turn completed", {
+        agentId,
+        sessionId,
+        tokens: sessionInfo.tokenUsage,
+      });
       this.emit("sessionCompleted", {
         agentId,
         sessionId,
@@ -1040,7 +1105,12 @@ export class SessionOrchestrator extends EventEmitter {
     this.emit("promptDequeued", { agentId, sessionId, entry: next });
 
     try {
-      await this._executePrompt(next.agentId, next.sessionId, next.text, next.context);
+      await this._executePrompt(
+        next.agentId,
+        next.sessionId,
+        next.text,
+        next.context
+      );
       next.status = "sent";
     } catch (e) {
       next.status = "cancelled";
@@ -1056,6 +1126,60 @@ export class SessionOrchestrator extends EventEmitter {
         queue: [...(this.promptQueue.get(key) ?? [])],
       });
     }
+  }
+
+  /**
+   * Handle context compression event by scheduling a reinjection prompt.
+   * Called when sessionContextCompressed is emitted.
+   * Throttled: max 1 reinjection per 60 seconds per agent, max 3 consecutive failures.
+   */
+  handleContextCompression(
+    agentId: string,
+    sessionId: string,
+    _contextWindowMax: number,
+    _usedBefore: number,
+    _usedAfter: number
+  ): void {
+    const builder = this.promptBuilders.get(agentId);
+    if (!builder) return;
+
+    // Throttle: 60 seconds between reinjections per agent
+    const now = Date.now();
+    const lastReinjection = this.lastReinjectionAt.get(agentId) ?? 0;
+    if (now - lastReinjection < 60_000) {
+      log.debug("reinjection throttled", { agentId, sessionId });
+      return;
+    }
+
+    this.lastReinjectionAt.set(agentId, now);
+
+    const lastInbound = this.lastInboundMessages.get(agentId);
+    const reinjectionText = builder.buildReinjection(lastInbound);
+
+    if (!reinjectionText) return;
+
+    log.info("scheduling reinjection after context compression", {
+      agentId,
+      sessionId,
+    });
+
+    // Enqueue as a system-level message (will be sent after current turn)
+    const entry: QueuedPrompt = {
+      id: crypto.randomUUID(),
+      agentId,
+      sessionId,
+      text: reinjectionText,
+      context: undefined,
+      enqueuedAt: new Date().toISOString(),
+      status: "pending",
+    };
+
+    const key = sessionKey(agentId, sessionId);
+    const queue = this.promptQueue.get(key) ?? [];
+    queue.unshift(entry); // High priority: insert at front
+    this.promptQueue.set(key, queue);
+
+    this.emit("promptQueued", { agentId, sessionId, entry });
   }
 
   async cancel(agentId: string, sessionId: string): Promise<void> {
@@ -1373,13 +1497,13 @@ export class SessionOrchestrator extends EventEmitter {
     this.emit("sessionActiveChanged", { agentId, sessionId });
   }
 
-  getActiveSessionInfo(agentId: string): SessionInfo | undefined {
+  getActiveSessionInfo(agentId: string): AppSessionInfo | undefined {
     const sessionId = this.activeSessions.get(agentId);
     if (!sessionId) return undefined;
     return this.sessions.get(agentId)?.get(sessionId);
   }
 
-  getSessionInfo(agentId: string, sessionId: string): SessionInfo | undefined {
+  getSessionInfo(agentId: string, sessionId: string): AppSessionInfo | undefined {
     return this.sessions.get(agentId)?.get(sessionId);
   }
 
@@ -1387,14 +1511,14 @@ export class SessionOrchestrator extends EventEmitter {
   // Session Listing
   // ========================================================================
 
-  getSessionsForAgent(agentId: string): SessionInfo[] {
+  getSessionsForAgent(agentId: string): AppSessionInfo[] {
     const agentSessions = this.sessions.get(agentId);
     if (!agentSessions) return [];
     return Array.from(agentSessions.values());
   }
 
-  getAllSessions(): Map<string, SessionInfo[]> {
-    const result = new Map<string, SessionInfo[]>();
+  getAllSessions(): Map<string, AppSessionInfo[]> {
+    const result = new Map<string, AppSessionInfo[]>();
     for (const [agentId, agentSessions] of this.sessions) {
       result.set(agentId, Array.from(agentSessions.values()));
     }
@@ -1411,7 +1535,7 @@ export class SessionOrchestrator extends EventEmitter {
    */
   findSessionGlobally(
     sessionId: string
-  ): { agentId: string; info: SessionInfo } | undefined {
+  ): { agentId: string; info: AppSessionInfo } | undefined {
     for (const [agentId, agentSessions] of this.sessions) {
       const info = agentSessions.get(sessionId);
       if (info) return { agentId, info };
@@ -1478,12 +1602,12 @@ export class SessionOrchestrator extends EventEmitter {
   getAllSessionsFlat(): Array<{
     agentId: string;
     sessionId: string;
-    info: SessionInfo;
+    info: AppSessionInfo;
   }> {
     const result: Array<{
       agentId: string;
       sessionId: string;
-      info: SessionInfo;
+      info: AppSessionInfo;
     }> = [];
     for (const [agentId, agentSessions] of this.sessions) {
       for (const [sessionId, info] of agentSessions) {
@@ -1813,7 +1937,7 @@ export class SessionOrchestrator extends EventEmitter {
         const contextWindowSize =
           update.size !== undefined && update.size !== null && update.size > 0
             ? update.size
-            : sessionInfo.contextWindowMax ?? 0;
+            : (sessionInfo.contextWindowMax ?? 0);
 
         if (
           prevContextUsed !== undefined &&

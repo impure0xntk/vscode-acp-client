@@ -13,7 +13,11 @@ import { FileLockManager } from "../../domain/services/file-lock-manager";
 import { TaskBoardStore } from "../../domain/services/task-board-store";
 import type { SessionOrchestrator } from "../../application/session/orchestrator";
 import type { P2PMessage, MeshTeam, TaskEntry } from "../../domain/models/mesh";
-import { MESH_MARKER_OPEN, MESH_MARKER_CLOSE, MESH_MARKER_V2_OPEN } from "../../domain/models/mesh";
+import {
+  MESH_MARKER_OPEN,
+  MESH_MARKER_CLOSE,
+  MESH_MARKER_V2_OPEN,
+} from "../../domain/models/mesh";
 
 // ----------------------------------------------------------------------------
 // Mock SessionOrchestrator

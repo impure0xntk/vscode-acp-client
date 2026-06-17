@@ -31,7 +31,9 @@ export function ContextCompressionNotice({
   const { contextWindowMax, usedTokens, usedBefore } = compressionInfo;
 
   const percentage =
-    contextWindowMax > 0 ? Math.round((usedTokens / contextWindowMax) * 100) : 0;
+    contextWindowMax > 0
+      ? Math.round((usedTokens / contextWindowMax) * 100)
+      : 0;
   const beforePercentage =
     usedBefore && contextWindowMax > 0
       ? Math.round((usedBefore / contextWindowMax) * 100)
@@ -39,7 +41,11 @@ export function ContextCompressionNotice({
   const saved = usedBefore ? usedBefore - usedTokens : 0;
 
   return (
-    <div className="context-compression-notice" role="status" aria-live="polite">
+    <div
+      className="context-compression-notice"
+      role="status"
+      aria-live="polite"
+    >
       <div className="context-compression-icon-wrap">
         <Icon name="compress" size="sm" className="context-compression-icon" />
       </div>
@@ -47,7 +53,9 @@ export function ContextCompressionNotice({
         <span className="context-compression-label">Context compressed</span>
         <span className="context-compression-detail">
           {beforePercentage !== null && (
-            <span className="context-compression-before">{beforePercentage}%</span>
+            <span className="context-compression-before">
+              {beforePercentage}%
+            </span>
           )}
           {beforePercentage !== null && (
             <span className="context-compression-arrow"> → </span>
@@ -55,7 +63,8 @@ export function ContextCompressionNotice({
           <span className="context-compression-after">{percentage}%</span>
           <span className="context-compression-tokens">
             {" "}
-            ({formatTokens(usedTokens)} / {formatTokens(contextWindowMax)} tokens)
+            ({formatTokens(usedTokens)} / {formatTokens(contextWindowMax)}{" "}
+            tokens)
           </span>
         </span>
         {saved > 0 && (

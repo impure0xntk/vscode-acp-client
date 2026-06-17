@@ -1,4 +1,10 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "react";
 import type { SessionTabState } from "../store/sessionStore";
 import { useMessageStore } from "../store/messageStore";
 import { StatusIcon } from "./StatusIcon";
@@ -112,7 +118,8 @@ export function SessionSwitcher({
                       <span className="switcher-item-title" title={s.title}>
                         {s.title}
                       </span>
-                      {(unreadMap.get(`${s.agentId}:${s.sessionId}`) ?? 0) > 0 && (
+                      {(unreadMap.get(`${s.agentId}:${s.sessionId}`) ?? 0) >
+                        0 && (
                         <span className="switcher-item-badge">
                           {unreadMap.get(`${s.agentId}:${s.sessionId}`) ?? 0}
                         </span>

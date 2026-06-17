@@ -1,3 +1,16 @@
-export { BottomToolbar, DetailsPanel } from "./BottomToolbar";
-export type { BottomToolbarProps, DetailsPanelProps, StatuslineInfo, ToolbarMeta, ContextColor } from "./BottomToolbar";
 export { Chip } from "../ui/Chip";
+export {
+  fmt,
+  fmtDuration,
+  visualBar,
+  contextColor,
+  statuslinePrefix,
+  statuslineChips,
+} from "./formatting";
+export type { StatuslineInfo } from "./formatting";
+export {
+  AgentSection,
+  MetricsSection,
+  SessionIdRow,
+  TurnSection,
+} from "./DetailSections";

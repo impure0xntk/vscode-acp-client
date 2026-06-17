@@ -49,11 +49,21 @@ export interface SessionOverviewItem {
  * "running" filters by session runtime state.
  * "completed"/"error"/"cancelled" filter by lastTurnOutcome.
  */
-export type SessionOverviewFilter = "all" | "running" | "completed" | "error" | "cancelled";
+export type SessionOverviewFilter =
+  | "all"
+  | "running"
+  | "completed"
+  | "error"
+  | "cancelled";
 export type SessionOverviewActiveFilter = SessionOverviewFilter; // alias for clarity
 
 /** Status values that can be used for filtering (session state + turn outcomes) */
-export const FILTERABLE_STATUSES = ["running", "completed", "error", "cancelled"] as const;
+export const FILTERABLE_STATUSES = [
+  "running",
+  "completed",
+  "error",
+  "cancelled",
+] as const;
 export type FilterableStatus = (typeof FILTERABLE_STATUSES)[number];
 
 export interface SessionOverviewState {
@@ -166,7 +176,14 @@ export interface FileCandidate {
  */
 export interface SuggestionItem {
   id: string;
-  kind: "file" | "selection" | "diff" | "command" | "symbol" | "action" | "session";
+  kind:
+    | "file"
+    | "selection"
+    | "diff"
+    | "command"
+    | "symbol"
+    | "action"
+    | "session";
   label: string;
   /** Relative path for files, command id for commands, symbol name for symbols, action id for actions, "agentId:sessionId" for sessions */
   value: string;
@@ -201,11 +218,7 @@ export interface FullState {
 
 // ── Queued Prompt ───────────────────────────────────────────────────
 
-export type QueuedPromptStatus =
-  | "pending"
-  | "sending"
-  | "sent"
-  | "cancelled";
+export type QueuedPromptStatus = "pending" | "sending" | "sent" | "cancelled";
 
 export interface QueuedPrompt {
   id: string;
@@ -288,7 +301,13 @@ export interface MeshTaskEntry {
   id: string;
   title: string;
   description: string;
-  status: "pending" | "assigned" | "in_progress" | "review" | "completed" | "failed";
+  status:
+    | "pending"
+    | "assigned"
+    | "in_progress"
+    | "review"
+    | "completed"
+    | "failed";
   assignedTo?: string;
   progress?: number;
 }
@@ -304,16 +323,58 @@ export interface MeshRecentMessage {
 
 // ── Plan Viewer ──────────────────────────────────────────────────────────────
 
+export type PlanStatus =
+  | "draft"
+  | "pending"
+  | "approved"
+  | "executing"
+  | "completed"
+  | "failed"
+  | "rejected"
+  | "cancelled";
+
+export type PlanStepStatus =
+  | "pending"
+  | "assigned"
+  | "in_progress"
+  | "completed"
+  | "failed"
+  | "skipped";
+
 export interface PlanStep {
   id: string;
+  index: number;
   description: string;
-  status: "pending" | "in_progress" | "completed" | "failed";
+  status: PlanStepStatus;
+  assignedTo?: {
+    agentId: string;
+    sessionId: string;
+  };
+  taskId?: string;
+  result?: string;
+  error?: string;
+  startedAt?: string;
+  completedAt?: string;
+  dependsOn?: string[];
   toolCall?: ToolCallInfo;
 }
 
 export interface Plan {
+  id: string;
+  teamId?: string;
   agentId: string;
   sessionId: string;
   steps: PlanStep[];
-  status: "pending" | "approved" | "rejected" | "executing" | "completed";
+  status: PlanStatus;
+  plannerAgentId?: string;
+  plannerSessionId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  approvedAt?: string;
+  completedAt?: string;
+  metadata?: {
+    userRequest?: string;
+    contextFiles?: string[];
+    tags?: string[];
+  };
 }

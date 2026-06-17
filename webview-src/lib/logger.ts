@@ -23,6 +23,9 @@
 
 import { getVsCodeApi } from "./vscodeApi";
 
+// ── Global dev flag ────────────────────────────────────────────────────────
+declare const __DEV__: boolean;
+
 // ── Log level ──────────────────────────────────────────────────────────────
 
 export const LogLevel = {
@@ -36,6 +39,19 @@ export const LogLevel = {
 
 export type LogLevelName = keyof typeof LogLevel;
 export type LogLevelValue = (typeof LogLevel)[LogLevelName];
+
+const LEVEL_NAMES: Record<LogLevelValue, LogLevelName> = {
+  0: "trace",
+  1: "debug",
+  2: "info",
+  3: "warn",
+  4: "error",
+  5: "silent",
+} as const;
+
+function levelName(level: LogLevelValue): LogLevelName {
+  return LEVEL_NAMES[level];
+}
 
 // ── Log record ──────────────────────────────────────────────────────────────
 
@@ -57,8 +73,7 @@ export interface LoggerBackend {
 // ── Backends ────────────────────────────────────────────────────────────────
 
 const DEV =
-  (typeof __DEV__ !== "undefined" && __DEV__) ||
-  (typeof process !== "undefined" && process.env?.NODE_ENV === "development");
+  (typeof __DEV__ !== "undefined" && __DEV__);
 
 /**
  * PostMessageBackend — sends log records to the extension host via postMessage.
@@ -77,7 +92,7 @@ export class PostMessageBackend implements LoggerBackend {
       getVsCodeApi().postMessage({
         type: "log",
         payload: {
-          level: LogLevel[record.level] as LogLevelName,
+          level: levelName(record.level),
           category: record.category,
           message: record.message,
           context: record.context,
@@ -136,7 +151,9 @@ export class CompositeBackend implements LoggerBackend {
 
   constructor(...backends: LoggerBackend[]) {
     this.backends = backends;
-    this.minLevel = Math.min(...backends.map((b) => b.minLevel));
+    this.minLevel = Math.min(
+      ...backends.map((b) => b.minLevel)
+    ) as LogLevelValue;
   }
 
   emit(record: LogRecord): void {
@@ -207,7 +224,7 @@ class LoggerImpl implements Logger {
   private emit(
     level: LogLevelValue,
     message: string,
-    context?: Record<string, unknown>,
+    context?: Record<string, unknown>
   ): void {
     if (level < this.minLevel) return;
     const record: LogRecord = {

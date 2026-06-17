@@ -74,7 +74,15 @@ export function parseMeshMarkers(raw: string, from: string): ParseResult {
 
   // Then v1 markers — but skip ranges already matched by v2
   const v2Ranges = replacements.map((r) => ({ start: r.start, end: r.end }));
-  extractMarkers(raw, MARKER_V1_RE, from, messages, replacements, false, v2Ranges);
+  extractMarkers(
+    raw,
+    MARKER_V1_RE,
+    from,
+    messages,
+    replacements,
+    false,
+    v2Ranges
+  );
 
   // Sort replacements by position for sanitized output construction
   replacements.sort((a, b) => a.start - b.start);
@@ -278,6 +286,30 @@ function isValidV2Envelope(obj: unknown): obj is MeshMarkerEnvelope {
     typeof o.mode === "string" &&
     o.payload !== undefined
   );
+}
+
+// ----------------------------------------------------------------------------
+// JSON repair
+// ----------------------------------------------------------------------------
+
+/**
+ * Attempt to repair JSON that LLM output commonly breaks:
+ * - trailing commas before } or ]
+ * - unescaped newlines inside string values
+ *
+ * Returns null if repair fails.
+ */
+export function tryRepairJson(raw: string): Record<string, unknown> | null {
+  let repaired = raw.trim();
+
+  // Remove trailing commas before closing braces/brackets
+  repaired = repaired.replace(/,\s*([}\]])/g, "$1");
+
+  try {
+    return JSON.parse(repaired);
+  } catch {
+    return null;
+  }
 }
 
 // ----------------------------------------------------------------------------

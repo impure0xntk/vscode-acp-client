@@ -21,7 +21,12 @@ export type { LogEntrySink } from "./log-entry-sink-backend";
 
 import { ConsoleLoggerBackend } from "./console-backend";
 import { LoggerFactoryImpl } from "./logger-impl";
-import type { Logger, LoggerBackend, LoggerFactory, LogLevelValue } from "./types";
+import type {
+  Logger,
+  LoggerBackend,
+  LoggerFactory,
+  LogLevelValue,
+} from "./types";
 
 // ── Module-level singleton ────────────────────────────────────────────────
 // Initialized by platform adapter (VscodePlatform).

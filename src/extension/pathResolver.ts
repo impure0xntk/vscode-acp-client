@@ -58,12 +58,10 @@ export class BatchedPathResolver {
           this.cache.set(filePath, false);
           return { path: filePath, exists: false };
         }
-      }),
+      })
     );
 
-    const existingPaths = results
-      .filter((r) => r.exists)
-      .map((r) => r.path);
+    const existingPaths = results.filter((r) => r.exists).map((r) => r.path);
 
     for (const p of existingPaths) {
       this.resolved.add(p);

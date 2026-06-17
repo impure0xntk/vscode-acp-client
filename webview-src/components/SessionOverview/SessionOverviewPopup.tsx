@@ -66,7 +66,9 @@ export function SessionOverviewPopup({
       {/* Footer: last-response timestamp */}
       <div className="so-popup-footer">
         <span className="so-popup-timestamp">
-          {new Date(liveItem.lastResponseAt ?? liveItem.createdAt).toLocaleTimeString()}
+          {new Date(
+            liveItem.lastResponseAt ?? liveItem.createdAt
+          ).toLocaleTimeString()}
         </span>
       </div>
     </div>

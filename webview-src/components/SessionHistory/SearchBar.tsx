@@ -53,7 +53,9 @@ export function SearchBar({
         </select>
         <button
           className="history-sort-dir"
-          onClick={() => onSortChange(sortField, sortDir === "asc" ? "desc" : "asc")}
+          onClick={() =>
+            onSortChange(sortField, sortDir === "asc" ? "desc" : "asc")
+          }
           title={sortDir === "asc" ? "Ascending" : "Descending"}
         >
           {sortDir === "asc" ? "↑" : "↓"}

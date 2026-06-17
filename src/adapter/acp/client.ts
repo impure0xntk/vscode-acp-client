@@ -55,7 +55,9 @@ export class PlatformAcpClient implements Client {
   async requestPermission(
     params: RequestPermissionRequest
   ): Promise<RequestPermissionResponse> {
-    const tc = params.toolCall as { kind?: string; rawInput?: unknown } | undefined;
+    const tc = params.toolCall as
+      | { kind?: string; rawInput?: unknown }
+      | undefined;
     log.debug("requestPermission", {
       agentId: this.agentId,
       toolKind: tc?.kind,
@@ -115,7 +117,10 @@ export class PlatformAcpClient implements Client {
   }
 
   async releaseTerminal(params: ReleaseTerminalRequest): Promise<void> {
-    log.debug("releaseTerminal", { agentId: this.agentId, terminalId: params.terminalId });
+    log.debug("releaseTerminal", {
+      agentId: this.agentId,
+      terminalId: params.terminalId,
+    });
   }
 
   async waitForTerminalExit(
@@ -125,7 +130,10 @@ export class PlatformAcpClient implements Client {
   }
 
   async killTerminal(params: KillTerminalRequest): Promise<void> {
-    log.info("killTerminal", { agentId: this.agentId, terminalId: params.terminalId });
+    log.info("killTerminal", {
+      agentId: this.agentId,
+      terminalId: params.terminalId,
+    });
   }
 }
 

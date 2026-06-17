@@ -108,15 +108,18 @@ export function SessionTab({
     setIsRenaming(false);
   }, [renameValue, tab.title, tab.agentId, tab.sessionId, onRename]);
 
-  const handleRenameKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      handleRenameSubmit();
-    } else if (e.key === "Escape") {
-      setRenameValue(tab.title);
-      setIsRenaming(false);
-    }
-  }, [handleRenameSubmit, tab.title]);
+  const handleRenameKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleRenameSubmit();
+      } else if (e.key === "Escape") {
+        setRenameValue(tab.title);
+        setIsRenaming(false);
+      }
+    },
+    [handleRenameSubmit, tab.title]
+  );
 
   return (
     <div
@@ -161,9 +164,7 @@ export function SessionTab({
             onClick={(e) => e.stopPropagation()}
           />
         ) : (
-          <span className="session-tab-title">
-            {tab.title}
-          </span>
+          <span className="session-tab-title">{tab.title}</span>
         )}
       </div>
 

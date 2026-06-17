@@ -9,6 +9,7 @@ import type { SlashCommand, SessionTabState } from "../store/sessionStore";
 import type { SendTarget } from "../types";
 import { useSessionStore } from "../store/sessionStore";
 import { useMeshStore } from "../store/meshStore";
+import { getVsCodeApi } from "../lib/vscodeApi";
 import { getLogger } from "../lib/logger";
 
 const log = getLogger("webview.Composer");
@@ -119,7 +120,9 @@ export function Composer({
 
   // ── Reset picker (ref-wired; useTriggerPicker.reset is assigned after init) ──
   const resetPickerImpl = useRef<() => void>(() => {});
-  const resetPicker = useCallback(() => { resetPickerImpl.current(); }, []);
+  const resetPicker = useCallback(() => {
+    resetPickerImpl.current();
+  }, []);
 
   // ── Multi-@ send targets ──────────────────────────────────────────
   const sendTargets = useMeshStore((s) => s.sendTargets);
@@ -149,20 +152,36 @@ export function Composer({
           agentId,
           sessionId,
           label: info?.sessionId?.slice(0, 8) ?? sessionId,
-          status: (info?.status ?? "idle") as "idle" | "running" | "completed" | "error" | "cancelled",
+          status: (info?.status ?? "idle") as
+            | "idle"
+            | "running"
+            | "completed"
+            | "error"
+            | "cancelled",
         };
       });
 
     if (pinnedTargets.length === 0) return;
 
-    log.info("sendToAllPinned", { textLen: trimmed.length, targetCount: pinnedTargets.length });
+    log.info("sendToAllPinned", {
+      textLen: trimmed.length,
+      targetCount: pinnedTargets.length,
+    });
     onSend(trimmed, attachments, pinnedTargets);
 
     resetPicker();
     setText("");
     setAttachments([]);
     resetHeight();
-  }, [text, attachments, disabled, pinnedSessionKeys, onSend, resetHeight, resetPicker]);
+  }, [
+    text,
+    attachments,
+    disabled,
+    pinnedSessionKeys,
+    onSend,
+    resetHeight,
+    resetPicker,
+  ]);
 
   // ── Suggestion fetch ─────────────────────────────────────────────
 
@@ -181,15 +200,42 @@ export function Composer({
           detail: cmd.description ?? undefined,
           icon: "zap",
         }));
+        const meshItems: SuggestionItem[] = [
+          {
+            id: "mesh:plan",
+            kind: "action",
+            label: "/mesh plan",
+            value: "meshPlan",
+            detail: "Request a plan from the Planner",
+            icon: "list-tree",
+          },
+          {
+            id: "mesh:status",
+            kind: "action",
+            label: "/mesh status",
+            value: "meshStatus",
+            detail: "Toggle Mesh Panel",
+            icon: "layout-dashboard",
+          },
+          {
+            id: "mesh:cancel",
+            kind: "action",
+            label: "/mesh cancel",
+            value: "meshCancel",
+            detail: "Cancel current plan execution",
+            icon: "circle-slash",
+          },
+        ];
+        const allItems = [...agentItems, ...meshItems];
         if (query) {
           const q = query.toLowerCase();
-          return agentItems.filter(
+          return allItems.filter(
             (c) =>
               c.label.toLowerCase().includes(q) ||
               (c.detail ?? "").toLowerCase().includes(q)
           );
         }
-        return agentItems;
+        return allItems;
       }
 
       if (trigger === "@") {
@@ -316,7 +362,9 @@ export function Composer({
   // ── Item resolution (called by hook's handleSelect) ──────────────
 
   const resolveItem = useCallback(
-    async (input: Parameters<typeof handleSelect>[0]): Promise<SelectOutput> => {
+    async (
+      input: Parameters<typeof handleSelect>[0]
+    ): Promise<SelectOutput> => {
       const { triggerState, item } = input;
       let newText = input.text;
       const consumed =
@@ -376,6 +424,15 @@ export function Composer({
             // For now, send a signal; the actual rename dialog is handled by the parent
             onRenameSession(agentId, sessionId, "");
           }
+        } else if (item.value === "meshPlan") {
+          getVsCodeApi().postMessage({ type: "mesh:plan" });
+        } else if (item.value === "meshStatus") {
+          getVsCodeApi().postMessage({ type: "mesh:togglePanel" });
+        } else if (item.value === "meshCancel") {
+          const currentPlan = useSessionStore.getState().currentPlan;
+          if (currentPlan) {
+            getVsCodeApi().postMessage({ type: "plan.cancel", planId: currentPlan.id });
+          }
         }
         newText = before + after;
         setText(newText);
@@ -426,7 +483,9 @@ export function Composer({
           trigger: "#" as const,
           query: "",
           caretOffset: 0,
-          multiMode: isMultiMode || (item.kind === "session" && triggerState.subTrigger !== "switch"),
+          multiMode:
+            isMultiMode ||
+            (item.kind === "session" && triggerState.subTrigger !== "switch"),
         },
       };
     },
@@ -512,7 +571,11 @@ export function Composer({
 
       // Pass targets if multi-@ mode, otherwise undefined (defaults to active session)
       const targets = sendTargets.length > 0 ? sendTargets : undefined;
-      log.info("send", { textLen: trimmed.length, attachments: attachments.length, targets: targets?.length ?? 0 });
+      log.info("send", {
+        textLen: trimmed.length,
+        attachments: attachments.length,
+        targets: targets?.length ?? 0,
+      });
       onSend(trimmed, attachments, targets);
 
       clearSendTargets();
@@ -521,7 +584,16 @@ export function Composer({
       setAttachments([]);
       resetHeight();
     }
-  }, [text, attachments, disabled, onSend, sendTargets, clearSendTargets, resetHeight, resetPicker]);
+  }, [
+    text,
+    attachments,
+    disabled,
+    onSend,
+    sendTargets,
+    clearSendTargets,
+    resetHeight,
+    resetPicker,
+  ]);
 
   // ── Keyboard navigation (history + picker) ───────────────────────
 
@@ -599,22 +671,24 @@ export function Composer({
       {sendTargets.length > 0 && (
         <div className="send-targets-bar">
           {sendTargets.map((target) => (
-              <span
-                key={`${target.agentId}:${target.sessionId}`}
-                className="context-chip"
-                title={`${target.agentId}:${target.sessionId}`}
+            <span
+              key={`${target.agentId}:${target.sessionId}`}
+              className="context-chip"
+              title={`${target.agentId}:${target.sessionId}`}
+            >
+              <Icon name="chat" className="context-chip-icon" size="sm" />
+              <span className="context-chip-label">{target.label}</span>
+              <button
+                className="context-chip-remove"
+                onClick={() =>
+                  removeSendTarget(target.agentId, target.sessionId)
+                }
+                title="Remove"
               >
-                <Icon name="chat" className="context-chip-icon" size="sm" />
-                <span className="context-chip-label">{target.label}</span>
-                <button
-                  className="context-chip-remove"
-                  onClick={() => removeSendTarget(target.agentId, target.sessionId)}
-                  title="Remove"
-                >
-                  <Icon name="close" size="sm" />
-                </button>
-              </span>
-            ))}
+                <Icon name="close" size="sm" />
+              </button>
+            </span>
+          ))}
         </div>
       )}
 
@@ -623,9 +697,7 @@ export function Composer({
           trigger={triggerState.trigger}
           subTrigger={triggerState.subTrigger}
           query={triggerState.query}
-          onSelect={(item) =>
-            handleSelect({ text, triggerState, item })
-          }
+          onSelect={(item) => handleSelect({ text, triggerState, item })}
           onClose={onClosePicker}
           fetchItems={fetchSuggestions}
           selectedIndex={pickerIndex}
@@ -665,7 +737,9 @@ export function Composer({
               <button
                 className="send-all-button"
                 onClick={handleSendToAllPinned}
-                disabled={disabled || (!text.trim() && attachments.length === 0)}
+                disabled={
+                  disabled || (!text.trim() && attachments.length === 0)
+                }
                 title={`Send to all pinned (${pinnedSessionKeys.length})`}
               >
                 ↑↑

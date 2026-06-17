@@ -36,10 +36,7 @@ function RenderChat(item: ChatDisplayItem, sessionId?: string) {
 
 function RenderCompression(item: CompressionDisplayItem) {
   return (
-    <ContextCompressionNotice
-      key={item.key}
-      compressionInfo={item.info}
-    />
+    <ContextCompressionNotice key={item.key} compressionInfo={item.info} />
   );
 }
 
@@ -47,10 +44,7 @@ function RenderCompression(item: CompressionDisplayItem) {
 
 function RenderModeChange(item: ModeChangeDisplayItem) {
   return (
-    <div
-      key={item.key}
-      className="message message-system message-mode-change"
-    >
+    <div key={item.key} className="message message-system message-mode-change">
       <span className="message-mode-change-label">{item.content}</span>
     </div>
   );
@@ -60,10 +54,7 @@ function RenderModeChange(item: ModeChangeDisplayItem) {
 
 function RenderErrorNotice(item: ErrorNoticeDisplayItem) {
   return (
-    <div
-      key={item.key}
-      className="message message-system message-error-notice"
-    >
+    <div key={item.key} className="message message-system message-error-notice">
       <span className="message-error-notice-label">{item.content}</span>
     </div>
   );

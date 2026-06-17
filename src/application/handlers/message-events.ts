@@ -93,17 +93,20 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
   // -----------------------------------------------------------------------
   orchestrator.on(
     "sessionStreamChunk",
-    async (event: {
-      agentId: string;
-      sessionId: string;
-      chunk: string;
-    }) => {
+    async (event: { agentId: string; sessionId: string; chunk: string }) => {
       const { agentId, sessionId, chunk } = event;
       let displayChunk = chunk;
       try {
-        displayChunk = await meshOrchestrator.processAgentOutput(agentId, chunk);
+        displayChunk = await meshOrchestrator.processAgentOutput(
+          agentId,
+          chunk
+        );
       } catch (e) {
-        log.warn("processAgentOutput failed", { agentId, sessionId, error: (e as Error).message });
+        log.warn("processAgentOutput failed", {
+          agentId,
+          sessionId,
+          error: (e as Error).message,
+        });
       }
       // Push the sanitized chunk (P2P markers removed) to the chat UI
       const cp = getChatPanel();

@@ -1,26 +1,21 @@
-import React, { useMemo, useRef, useState, useEffect, useCallback } from "react";
+import React, {
+  useMemo,
+  useRef,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
 import { useLogger } from "../hooks/useLogger";
-import { BottomToolbar } from "../components/toolbar";
-import { TopToolbar } from "../components/TopToolbar";
-import { SessionTabs } from "../components/SessionTabs";
 import { CompletionNotification } from "../components/CompletionNotification";
 import type { TurnOutcome } from "../components/StatusIcon";
 import {
   SessionHistoryPanel,
   PersistentSessionEntry,
 } from "../components/SessionHistory";
-import {
-  ResizableSessionOverviewPanel,
-} from "../components/SessionOverview/SessionOverviewPanel";
+import { ResizableSessionOverviewPanel } from "../components/SessionOverview/SessionOverviewPanel";
 import { MeshPanel } from "../components/MeshPanel";
-import {
-  useSessionStore,
-  sessionKeyOf,
-  selectTabs,
-} from "../store/sessionStore";
-import type { SessionStoreState, SessionTabState } from "../store/sessionStore";
-import { useMessageStore } from "../store/messageStore";
-import { selectMessageCount } from "../store/selectors";
+import { useSessionStore, sessionKeyOf } from "../store/sessionStore";
+import type { SessionStoreState } from "../store/sessionStore";
 import { useUiStateStore } from "../store/uiStateStore";
 import { useMeshStore } from "../store/meshStore";
 import { getVsCodeApi } from "../lib/vscodeApi";
@@ -28,62 +23,51 @@ import { setPendingSwitch } from "../webviewMessageHandler";
 import { useShallow } from "zustand/shallow";
 import { useChatHandlers } from "./hooks/useChatHandlers";
 import { useOverviewHandlers } from "./hooks/useOverviewHandlers";
-import { ChatArea } from "./ChatArea";
-import { UnifiedChatPanel } from "../components/UnifiedChat/UnifiedChatPanel";
+import { ClassicMode, UnifiedMode } from "../components/modes";
+import { PlanViewerOverlay } from "../components/PlanViewer";
 import type { ContextAttachment, SendTarget } from "../types";
 
 export function AppContainer(): React.ReactElement {
   const log = useLogger("AppContainer");
-  // ── Direct store subscriptions ──────────────────────────────────────
-  // Subscribe only to structural state — NOT sessionInfoMap.
-  // Every streaming field update creates a new immer object, so subscribing to
-  // sessionInfoMap would re-render the entire tree on every token/status change.
-  // Instead, activeSessionInfo is read imperatively when activeSessionKey changes,
-  // and live fields (status, elapsed) are read directly by child components.
+
   const {
     activeSessionKey,
     tabOrder,
     tabTitles,
     tabIcons,
-    workspaceRoot,
     connectedAgents,
     agentInfoMap,
     sessionCommands,
-    statusline,
-  } = useSessionStore(useShallow((s: SessionStoreState) => ({
-    activeSessionKey: s.activeSessionKey,
-    tabOrder: s.tabOrder,
-    tabTitles: s.tabTitles,
-    tabIcons: s.tabIcons,
-    workspaceRoot: s.workspaceRoot,
-    connectedAgents: s.connectedAgents,
-    agentInfoMap: s.agentInfoMap,
-    sessionCommands: s.sessionCommands,
-    statusline: s.statusline,
-  })));
+    currentPlan,
+  } = useSessionStore(
+    useShallow((s: SessionStoreState) => ({
+      activeSessionKey: s.activeSessionKey,
+      tabOrder: s.tabOrder,
+      tabTitles: s.tabTitles,
+      tabIcons: s.tabIcons,
+      connectedAgents: s.connectedAgents,
+      agentInfoMap: s.agentInfoMap,
+      sessionCommands: s.sessionCommands,
+      currentPlan: s.currentPlan,
+    }))
+  );
 
-  // Derive activeSessionInfo imperatively — only re-read when activeSessionKey changes.
   const activeSessionInfo = useMemo(
-    () => (activeSessionKey ? useSessionStore.getState().sessionInfoMap[activeSessionKey] : undefined),
+    () =>
+      activeSessionKey
+        ? useSessionStore.getState().sessionInfoMap[activeSessionKey]
+        : undefined,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activeSessionKey],
+    [activeSessionKey]
   );
 
-  // Derive tabs from tabOrder only — no sessionInfoMap dependency.
-  // tabOrder is the sole source of truth for which tabs exist and their order.
-  const tabs = useMemo<SessionTabState[]>(
-    () =>
-      tabOrder.map((key: string): SessionTabState => {
-        const [agentId, sessionId] = key.split(":");
-        return {
-          sessionId,
-          agentId,
-          title: tabTitles[key] ?? sessionId,
-          agentIcon: tabIcons[key],
-        };
-      }),
-    [tabOrder, tabTitles, tabIcons],
-  );
+  const activeSessionId = activeSessionKey
+    ? activeSessionKey.split(":")[1]
+    : null;
+  const activeAgentId = activeSessionKey
+    ? activeSessionKey.split(":")[0]
+    : null;
+  const displayStatus = activeSessionInfo?.status;
 
   const {
     panelMode,
@@ -94,50 +78,21 @@ export function AppContainer(): React.ReactElement {
     overviewExpandedSessions,
     overviewSelectedSessionIds,
     overviewSelectionMode,
-  } = useUiStateStore(useShallow((s) => ({
-    panelMode: s.panelMode,
-    overviewVisible: s.overviewVisible,
-    overviewWidth: s.overviewWidth,
-    overviewPosition: s.overviewPosition,
-    overviewFilter: s.overviewFilter,
-    overviewExpandedSessions: s.overviewExpandedSessions,
-    overviewSelectedSessionIds: s.overviewSelectedSessionIds,
-    overviewSelectionMode: s.overviewSelectionMode,
-  })));
-
-  // ── Derived values ──────────────────────────────────────────────────
-  const activeSessionId = activeSessionKey ? activeSessionKey.split(":")[1] : null;
-  const activeAgentId = activeSessionKey ? activeSessionKey.split(":")[0] : null;
-
-  const displayModel = activeSessionInfo?.model;
-  const displayMode = activeSessionInfo?.mode;
-  const displayCwd = activeSessionInfo?.cwd;
-  const displayStatus = activeSessionInfo?.status;
-  const displayLastTurnOutcome = activeSessionInfo?.lastTurnOutcome ?? null;
-  const displayLastResponseAt = activeSessionInfo?.lastResponseAt ?? null;
-  const displayTokenUsage = activeSessionInfo?.tokenUsage ?? {
-    inputTokens: 0,
-    outputTokens: 0,
-    totalTokens: 0,
-  };
-  const displayContextWindowMax = activeSessionInfo?.contextWindowMax;
-  const displayMessageCount = activeSessionKey
-    ? selectMessageCount(useMessageStore.getState(), activeSessionKey.split(":")[0], activeSessionKey.split(":")[1])
-    : 0;
-  const displaySessionStartMs = activeSessionInfo?.createdAt
-    ? new Date(activeSessionInfo.createdAt).getTime()
-    : undefined;
-
-  // Read messages/streaming imperatively to avoid subscribing to the
-  // entire perSession/streaming maps. Subscribing causes an infinite loop
-  // because every store write creates new object references, which triggers
-  // re-render → new snapshot → repeat.
-  const activeMessages = activeSessionKey
-    ? useMessageStore.getState().perSession[activeSessionKey] ?? []
-    : [];
+  } = useUiStateStore(
+    useShallow((s) => ({
+      panelMode: s.panelMode,
+      overviewVisible: s.overviewVisible,
+      overviewWidth: s.overviewWidth,
+      overviewPosition: s.overviewPosition,
+      overviewFilter: s.overviewFilter,
+      overviewExpandedSessions: s.overviewExpandedSessions,
+      overviewSelectedSessionIds: s.overviewSelectedSessionIds,
+      overviewSelectionMode: s.overviewSelectionMode,
+    }))
+  );
 
   const availableCommands = activeSessionKey
-    ? sessionCommands[activeSessionKey] ?? []
+    ? (sessionCommands[activeSessionKey] ?? [])
     : [];
 
   const overviewOnLeft = overviewPosition === "left";
@@ -147,7 +102,12 @@ export function AppContainer(): React.ReactElement {
   const [selectedHistorySession, setSelectedHistorySession] =
     useState<PersistentSessionEntry | null>(null);
   const [completedNotifications, setCompletedNotifications] = useState<
-    Array<{ agentId: string; sessionId: string; title: string; outcome: TurnOutcome }>
+    Array<{
+      agentId: string;
+      sessionId: string;
+      title: string;
+      outcome: TurnOutcome;
+    }>
   >([]);
 
   const scrollToMessageRef = useRef<(id: string) => void>();
@@ -156,29 +116,59 @@ export function AppContainer(): React.ReactElement {
   const meshPanelVisible = useMeshStore((s) => s.meshPanelVisible);
   const setMeshPanelVisible = useMeshStore((s) => s.setMeshPanelVisible);
 
+  // ── Auto-show MeshPanel when plan is executing ────────────────────
+  useEffect(() => {
+    if (currentPlan?.status === "executing") {
+      setMeshPanelVisible(true);
+    }
+  }, [currentPlan?.status, setMeshPanelVisible]);
+
   // ── Actions ─────────────────────────────────────────────────────────
   const sendMessage = useCallback(
-    (text: string, attachments: ContextAttachment[] = [], agentId?: string, sessionId?: string, targets?: SendTarget[]) => {
-      // Always route through mesh:directMulti for a single code path (DRY).
-      // Build targets from explicit targets or fall back to the active session.
+    (
+      text: string,
+      attachments: ContextAttachment[] = [],
+      agentId?: string,
+      sessionId?: string,
+      targets?: SendTarget[]
+    ) => {
       const resolvedTargets: SendTarget[] = targets?.length
         ? targets
         : agentId && sessionId
-          ? [{ agentId, sessionId, label: displayModel ?? agentId, status: displayStatus ?? "idle" }]
+          ? [
+              {
+                agentId,
+                sessionId,
+                label: agentId,
+                status: displayStatus ?? "idle",
+              },
+            ]
           : activeAgentId && activeSessionId
-            ? [{ agentId: activeAgentId, sessionId: activeSessionId, label: displayModel ?? activeAgentId, status: displayStatus ?? "idle" }]
+            ? [
+                {
+                  agentId: activeAgentId,
+                  sessionId: activeSessionId,
+                  label: activeAgentId,
+                  status: displayStatus ?? "idle",
+                },
+              ]
             : [];
 
-      // Guard: if no targets resolved, the session is not yet established.
-      // Dropping the message prevents it from being silently lost.
       if (resolvedTargets.length === 0) {
-        log.warn("sendMessage dropped — no active session", { textLen: text.length });
+        log.warn("sendMessage dropped — no active session", {
+          textLen: text.length,
+        });
         return;
       }
 
-      getVsCodeApi().postMessage({ type: "mesh:send", text, attachments, targets: resolvedTargets });
+      getVsCodeApi().postMessage({
+        type: "mesh:send",
+        text,
+        attachments,
+        targets: resolvedTargets,
+      });
     },
-    [activeAgentId, activeSessionId, displayModel, displayStatus]
+    [activeAgentId, activeSessionId, displayStatus]
   );
 
   const cancelTurn = useCallback((agentId?: string, sessionId?: string) => {
@@ -188,13 +178,10 @@ export function AppContainer(): React.ReactElement {
   const switchTab = useCallback((agentId: string, sessionId: string) => {
     const key = sessionKeyOf(agentId, sessionId);
     const prevKey = useSessionStore.getState().activeSessionKey;
-    // Skip if already on this session — prevents message flood
     if (prevKey === key) return;
     log.info("session switch", { from: prevKey, to: key });
     useSessionStore.getState().setActiveSession(key);
     scrollToMessageRef.current = undefined;
-    // Set the guard so that a stale session/switch echo from the extension
-    // (arriving after a subsequent switch) is discarded.
     setPendingSwitch(agentId, sessionId);
     getVsCodeApi().postMessage({ type: "switchSession", sessionId, agentId });
   }, []);
@@ -212,10 +199,6 @@ export function AppContainer(): React.ReactElement {
     getVsCodeApi().postMessage({ type: "closeSession", sessionId, agentId });
   }, []);
 
-  const forkSession = useCallback((sessionId: string) => {
-    getVsCodeApi().postMessage({ type: "forkSession", sessionId });
-  }, []);
-
   const toggleSessionOverview = useCallback(() => {
     const cur = useUiStateStore.getState().overviewVisible;
     useUiStateStore.getState().setOverviewVisible(!cur);
@@ -225,9 +208,12 @@ export function AppContainer(): React.ReactElement {
     setMeshPanelVisible(!meshPanelVisible);
   }, [meshPanelVisible, setMeshPanelVisible]);
 
-  const setSessionOverviewFilter = useCallback((filter: typeof overviewFilter) => {
-    useUiStateStore.getState().setOverviewFilter(filter);
-  }, []);
+  const setSessionOverviewFilter = useCallback(
+    (filter: typeof overviewFilter) => {
+      useUiStateStore.getState().setOverviewFilter(filter);
+    },
+    []
+  );
 
   const toggleSessionOverviewSelection = useCallback((sessionId: string) => {
     useUiStateStore.getState().toggleOverviewSelected(sessionId);
@@ -251,13 +237,21 @@ export function AppContainer(): React.ReactElement {
     forceScrollToBottomRef,
   });
 
-  // Mesh-aware send handler that accepts targets from Composer
   const handleMeshSend = useCallback(
-    (text: string, attachments: ContextAttachment[], targets?: SendTarget[]) => {
+    (
+      text: string,
+      attachments: ContextAttachment[],
+      targets?: SendTarget[]
+    ) => {
       if (targets && targets.length > 0) {
         sendMessage(text, attachments, undefined, undefined, targets);
       } else {
-        sendMessage(text, attachments, activeAgentId ?? undefined, activeSessionId ?? undefined);
+        sendMessage(
+          text,
+          attachments,
+          activeAgentId ?? undefined,
+          activeSessionId ?? undefined
+        );
       }
       forceScrollToBottomRef.current?.();
     },
@@ -271,7 +265,12 @@ export function AppContainer(): React.ReactElement {
       selectedSessionIds: overviewSelectedSessionIds,
       selectionMode: overviewSelectionMode,
     }),
-    [overviewFilter, overviewExpandedSessions, overviewSelectedSessionIds, overviewSelectionMode]
+    [
+      overviewFilter,
+      overviewExpandedSessions,
+      overviewSelectedSessionIds,
+      overviewSelectionMode,
+    ]
   );
 
   const {
@@ -291,26 +290,19 @@ export function AppContainer(): React.ReactElement {
     sessionOverviewState: overviewState,
   });
 
-  const handleJumpToMessage = (messageId: string) => {
-    scrollToMessageRef.current?.(messageId);
-  };
-
-  const handleTabClick = (sessionId: string, agentId: string) => {
-    switchTab(agentId, sessionId);
-  };
-
-  const handleTabClose = (sessionId: string, agentId: string) => {
-    closeSession(agentId, sessionId);
-  };
-
-  const handleRenameSession = useCallback((agentId: string, sessionId: string, title: string) => {
-    // If title is empty (triggered from #rename command), prompt inline via SessionTab double-click
-    // If title is provided, send directly
-    if (title) {
-      getVsCodeApi().postMessage({ type: "renameSession", agentId, sessionId, title });
-    }
-    // For empty title, the SessionTab inline editor handles the UX
-  }, []);
+  const handleRenameSession = useCallback(
+    (agentId: string, sessionId: string, title: string) => {
+      if (title) {
+        getVsCodeApi().postMessage({
+          type: "renameSession",
+          agentId,
+          sessionId,
+          title,
+        });
+      }
+    },
+    []
+  );
 
   const handleNewSession = () => {
     newSessionWithPicker();
@@ -327,63 +319,28 @@ export function AppContainer(): React.ReactElement {
     setShowHistory(false);
   };
 
-  // Listen for history restore message from extension
   useEffect(() => {
     const handler = (e: MessageEvent) => {
       if (e.data?.type === "history:restored") {
-        log.info("restoring session", { sessionId: e.data.sessionId, agentId: e.data.agentId });
+        log.info("restoring session", {
+          sessionId: e.data.sessionId,
+          agentId: e.data.agentId,
+        });
       }
     };
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
   }, [log]);
 
-  // ── Derived data ────────────────────────────────────────────────────
-  const validNotifications = useMemo(
-    () =>
-      completedNotifications.filter((notif) =>
-        tabs.some(
-          (t) =>
-            t.sessionId === notif.sessionId && t.agentId === notif.agentId,
-        ),
-      ),
-    [completedNotifications, tabs],
-  );
-
-  // Derive overview items as a lookup map — structural data only.
-  // Does NOT read sessionInfoMap. Live status/fields are handled by each
-  // SessionOverviewCard via useSessionInfo(sessionKey).
-  const overviewItemsMap = useMemo(() => {
-    const acc: Record<string, import("../types").SessionOverviewItem> = {};
-    for (const key of tabOrder) {
-      const [agentId, sessionId] = key.split(":");
-      acc[key] = {
-        sessionId,
-        agentId,
-        title: tabTitles[key] ?? sessionId,
-        status: "idle",
-        lastTurnOutcome: null,
-        progress: {
-          elapsedMs: 0,
-          tokenUsage: { input: 0, output: 0, total: 0 },
-          messageCount: 0,
-          toolCallCount: 0,
-          toolCallsCompleted: 0,
-        },
-        recentResponses: [],
-        createdAt: new Date().toISOString(),
-        lastResponseAt: null,
-      };
-    }
-    return acc;
-  }, [tabOrder, tabTitles]);
-
-  // ── File/symbol resolution (kept as-is for now) ─────────────────────
+  // ── File/symbol resolution ─────────────────────────────────────────
   const fetchFiles = useCallback((query: string) => {
     return new Promise<import("../types").FileCandidate[]>((resolve) => {
       const reqId = crypto.randomUUID();
       const handler = (event: MessageEvent) => {
-        if (event.data.type === "fileCandidates" && event.data.reqId === reqId) {
+        if (
+          event.data.type === "fileCandidates" &&
+          event.data.reqId === reqId
+        ) {
           window.removeEventListener("message", handler);
           resolve(event.data.candidates ?? []);
         }
@@ -402,7 +359,11 @@ export function AppContainer(): React.ReactElement {
           if (event.data.attachment) {
             resolve(event.data.attachment as ContextAttachment);
           } else {
-            reject(new Error((event.data.error as string) ?? "Failed to resolve file"));
+            reject(
+              new Error(
+                (event.data.error as string) ?? "Failed to resolve file"
+              )
+            );
           }
         }
       };
@@ -440,9 +401,14 @@ export function AppContainer(): React.ReactElement {
   const fetchSymbols = useCallback((query: string) => {
     return new Promise<import("../types").SuggestionItem[]>((resolve) => {
       const handler = (event: MessageEvent) => {
-        if (event.data.type === "symbolCandidates" && event.data.query === query) {
+        if (
+          event.data.type === "symbolCandidates" &&
+          event.data.query === query
+        ) {
           window.removeEventListener("message", handler);
-          resolve((event.data.candidates as import("../types").SuggestionItem[]) ?? []);
+          resolve(
+            (event.data.candidates as import("../types").SuggestionItem[]) ?? []
+          );
         }
       };
       window.addEventListener("message", handler);
@@ -458,7 +424,11 @@ export function AppContainer(): React.ReactElement {
           if (event.data.attachment) {
             resolve(event.data.attachment as ContextAttachment);
           } else {
-            reject(new Error((event.data.error as string) ?? "Failed to resolve symbol"));
+            reject(
+              new Error(
+                (event.data.error as string) ?? "Failed to resolve symbol"
+              )
+            );
           }
         }
       };
@@ -513,7 +483,7 @@ export function AppContainer(): React.ReactElement {
         </div>
 
         {panelMode === "unified" ? (
-          <UnifiedChatPanel
+          <UnifiedMode
             onSendMessage={handleMeshSend}
             onCancel={handleCancel}
             onSwitchSession={switchTab}
@@ -531,60 +501,14 @@ export function AppContainer(): React.ReactElement {
           />
         ) : (
           <>
-            {!overviewVisible && (
-              <SessionTabs
-                tabs={tabs}
-                activeSessionId={activeSessionId}
-                activeAgentId={activeAgentId}
-                connectedAgents={connectedAgents}
-                overviewItems={overviewItemsMap}
-                onTabClick={handleTabClick}
-                onTabClose={handleTabClose}
-                onTabReorder={(tabs) => {
-                  const order = tabs.map((t) => sessionKeyOf(t.agentId, t.sessionId));
-                  useSessionStore.getState().setTabOrder(order);
-                }}
-                onNewSession={handleNewSession}
-                onRenameSession={handleRenameSession}
-              />
-            )}
-            {validNotifications.length > 0 && (
-              <div className="completion-notification-stack">
-                {validNotifications.map((notif, idx) => (
-                  <CompletionNotification
-                    key={`${notif.agentId}:${notif.sessionId}:${idx}`}
-                    agentId={notif.agentId}
-                    sessionId={notif.sessionId}
-                    title={notif.title}
-                    outcome={notif.outcome}
-                    onDismiss={dismissCompletedNotification}
-                    onSwitchTab={handleTabClick}
-                  />
-                ))}
-              </div>
-            )}
-            <TopToolbar
-              messages={activeMessages}
-              agentId={activeAgentId ?? undefined}
-              agentName={activeAgentId ? agentInfoMap[activeAgentId]?.name : undefined}
-              connectedAgents={connectedAgents}
-              model={displayModel}
-              mode={displayMode}
-              cwd={displayCwd}
-              workspaceRoot={workspaceRoot}
-              status={displayStatus}
-              onJumpToMessage={handleJumpToMessage}
-              sessionOverviewVisible={overviewVisible}
-              onToggleSessionOverview={toggleSessionOverview}
-              sessionOverviewPosition={overviewPosition}
-            />
-            <ChatArea
-              activeKey={activeSessionKey}
+            <ClassicMode
+              activeSessionKey={activeSessionKey}
               disabled={!activeSessionId}
               onSend={handleMeshSend}
               onCancel={handleCancel}
               onSwitchSession={switchTab}
               onRenameSession={handleRenameSession}
+              onNewSession={handleNewSession}
               fetchFiles={fetchFiles}
               resolveFile={resolveFile}
               resolveSelection={resolveSelection}
@@ -594,32 +518,23 @@ export function AppContainer(): React.ReactElement {
               availableCommands={availableCommands}
               scrollToMessageRef={scrollToMessageRef}
             />
-            <BottomToolbar
-              model={displayModel}
-              mode={displayMode}
-              tokenUsage={displayTokenUsage}
-              contextWindowMax={displayContextWindowMax}
-              messageCount={displayMessageCount}
-              sessionStatus={displayStatus}
-              agentInfo={activeAgentId ? agentInfoMap[activeAgentId] : undefined}
-              sessionId={activeSessionId ?? undefined}
-              sessionStartMs={displaySessionStartMs}
-              onForkSession={activeSessionId ? () => forkSession(activeSessionId) : undefined}
-              statusline={statusline}
-              cwd={displayCwd}
-              lastTurnOutcome={displayLastTurnOutcome}
-              lastResponseAt={displayLastResponseAt}
-            />
           </>
         )}
       </div>
+
+      {currentPlan && (
+        <PlanViewerOverlay plan={currentPlan} />
+      )}
 
       {meshPanelVisible && (
         <MeshPanel onClose={() => setMeshPanelVisible(false)} />
       )}
 
       {showHistory && (
-        <SessionHistoryPanel onClose={handleCloseHistory} onRestore={handleRestoreSession} />
+        <SessionHistoryPanel
+          onClose={handleCloseHistory}
+          onRestore={handleRestoreSession}
+        />
       )}
 
       {!overviewOnLeft && overviewVisible && (

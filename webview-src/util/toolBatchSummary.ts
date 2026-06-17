@@ -30,23 +30,23 @@ const KNOWN_KINDS = new Set([
 
 /** Single-character abbreviation for known tool kinds */
 const KIND_ABBR: Record<string, string> = {
-  read:        "R",
-  write:       "W",
-  edit:        "E",
-  delete:      "D",
-  bash:        "B",
-  shell:       "B",
-  search:      "S",
-  grep:        "G",
-  list:        "L",
-  fetch:       "F",
-  web_search:  "S",
-  web_fetch:   "F",
+  read: "R",
+  write: "W",
+  edit: "E",
+  delete: "D",
+  bash: "B",
+  shell: "B",
+  search: "S",
+  grep: "G",
+  list: "L",
+  fetch: "F",
+  web_search: "S",
+  web_fetch: "F",
   apply_patch: "P",
-  todo:        "T",
-  task:        "K",
-  mcp:         "M",
-  tool_call:   "T",
+  todo: "T",
+  task: "K",
+  mcp: "M",
+  tool_call: "T",
 };
 
 /** Abbreviation for summary display (1-2 chars) */
@@ -63,7 +63,7 @@ export function kindAbbr(kind: string | undefined): string {
  * Uses single-character abbreviations for compact display.
  */
 export function summarizeKinds(
-  kindCounts: Record<string, number>,
+  kindCounts: Record<string, number>
 ): KindSummaryItem[] {
   const entries = Object.entries(kindCounts).map(([kind, count]) => {
     const k = kind.toLowerCase().trim();
@@ -73,7 +73,9 @@ export function summarizeKinds(
     return { kind, icon, abbr, count, known };
   });
 
-  const known = entries.filter((e) => e.known).sort((a, b) => b.count - a.count);
+  const known = entries
+    .filter((e) => e.known)
+    .sort((a, b) => b.count - a.count);
   const fallback = entries
     .filter((e) => !e.known)
     .sort((a, b) => b.count - a.count);

@@ -11,7 +11,7 @@ import type { SessionInfoDTO } from "../store/sessionStore";
  * @returns The current `SessionInfoDTO`, or `undefined` if not found.
  */
 export function useSessionInfo(
-  sessionKey: string | null,
+  sessionKey: string | null
 ): SessionInfoDTO | undefined {
   const cacheRef = useRef<SessionInfoDTO | undefined>(undefined);
 
@@ -26,7 +26,7 @@ export function useSessionInfo(
         }
       });
     },
-    [sessionKey],
+    [sessionKey]
   );
 
   const getSnapshot = useCallback((): SessionInfoDTO | undefined => {

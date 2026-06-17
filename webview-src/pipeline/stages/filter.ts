@@ -7,7 +7,8 @@ import type { ClassifiedMessage, FilterConfig } from "../types";
 function shouldKeep(msg: ClassifiedMessage, config: FilterConfig): boolean {
   if (config.hideCompression && msg.systemKind === "compression") return false;
   if (config.hideModeChange && msg.systemKind === "mode_change") return false;
-  if (config.hideErrorNotices && msg.systemKind === "error_notice") return false;
+  if (config.hideErrorNotices && msg.systemKind === "error_notice")
+    return false;
   if (config.customPredicate && !config.customPredicate(msg)) return false;
   return true;
 }
@@ -17,7 +18,7 @@ function shouldKeep(msg: ClassifiedMessage, config: FilterConfig): boolean {
  */
 export function filterMessages(
   messages: ClassifiedMessage[],
-  config: FilterConfig,
+  config: FilterConfig
 ): ClassifiedMessage[] {
   return messages.filter((msg) => shouldKeep(msg, config));
 }

@@ -13,7 +13,7 @@ import { sessionKeyOf } from "./sessionStore";
 export function selectMessageCount(
   state: MessageState,
   agentId: string,
-  sessionId: string,
+  sessionId: string
 ): number {
   const key = sessionKeyOf(agentId, sessionId);
   return state.perSession[key]?.length ?? 0;
@@ -25,7 +25,7 @@ export function selectMessageCount(
 export function selectToolCallCount(
   state: MessageState,
   agentId: string,
-  sessionId: string,
+  sessionId: string
 ): number {
   const key = sessionKeyOf(agentId, sessionId);
   const msgs = state.perSession[key];
@@ -39,14 +39,15 @@ export function selectToolCallCount(
 export function selectToolCallsCompleted(
   state: MessageState,
   agentId: string,
-  sessionId: string,
+  sessionId: string
 ): number {
   const key = sessionKeyOf(agentId, sessionId);
   const msgs = state.perSession[key];
   if (!msgs) return 0;
   return msgs.reduce(
     (count, msg) =>
-      count + (msg.toolCalls?.filter((tc) => tc.status === "completed").length ?? 0),
-    0,
+      count +
+      (msg.toolCalls?.filter((tc) => tc.status === "completed").length ?? 0),
+    0
   );
 }

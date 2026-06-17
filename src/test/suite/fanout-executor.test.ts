@@ -24,7 +24,12 @@ interface PromptCall {
 
 interface MockOrchestrator {
   promptCalls: PromptCall[];
-  prompt: (agentId: string, sessionId: string, text: string, context?: PromptContext) => Promise<QueuedPrompt | undefined>;
+  prompt: (
+    agentId: string,
+    sessionId: string,
+    text: string,
+    context?: PromptContext
+  ) => Promise<QueuedPrompt | undefined>;
   getActiveSessionId: (agentId: string) => string | undefined;
   getAgentConfig: (agentId: string) => undefined;
   getSessionsForAgent: (agentId: string) => [];
@@ -35,7 +40,12 @@ function createMockOrchestrator(): MockOrchestrator {
 
   const mock: MockOrchestrator = {
     promptCalls: calls,
-    prompt: async (agentId: string, sessionId: string, text: string, context?: PromptContext) => {
+    prompt: async (
+      agentId: string,
+      sessionId: string,
+      text: string,
+      context?: PromptContext
+    ) => {
       calls.push({ agentId, sessionId, text, context });
       return undefined;
     },
@@ -54,14 +64,22 @@ function createMockOrchestrator(): MockOrchestrator {
 describe("FanoutExecutor", () => {
   let orchestrator: MockOrchestrator;
   let executor: FanoutExecutor;
-  let pushCalls: Array<{ agentId: string; sessionId: string; message: ChatMessage }>;
+  let pushCalls: Array<{
+    agentId: string;
+    sessionId: string;
+    message: ChatMessage;
+  }>;
 
   beforeEach(() => {
     orchestrator = createMockOrchestrator();
     pushCalls = [];
     executor = new FanoutExecutor({
       sessionOrchestrator: orchestrator as unknown as SessionOrchestrator,
-      pushUserMessage: (agentId: string, sessionId: string, message: ChatMessage) => {
+      pushUserMessage: (
+        agentId: string,
+        sessionId: string,
+        message: ChatMessage
+      ) => {
         pushCalls.push({ agentId, sessionId, message });
       },
     });
@@ -74,7 +92,10 @@ describe("FanoutExecutor", () => {
       { agentId: "agent-c", sessionId: "s3", label: "Agent C" },
     ];
 
-    const result = await executor.execute(targets, { text: "Hello all", context: [] });
+    const result = await executor.execute(targets, {
+      text: "Hello all",
+      context: [],
+    });
 
     assert.strictEqual(result.results.length, 3);
     assert.strictEqual(result.results[0].status, "sent");
@@ -96,7 +117,10 @@ describe("FanoutExecutor", () => {
     const targets: SendTarget[] = [
       { agentId: "solo", sessionId: "s1", label: "Solo" },
     ];
-    const result = await executor.execute(targets, { text: "Just you", context: [] });
+    const result = await executor.execute(targets, {
+      text: "Just you",
+      context: [],
+    });
 
     assert.strictEqual(result.results.length, 1);
     assert.strictEqual(result.results[0].status, "sent");
@@ -122,7 +146,12 @@ describe("FanoutExecutor", () => {
   });
 
   it("captures errors per target without failing the batch", async () => {
-    orchestrator.prompt = async (agentId: string, sessionId: string, text: string, context?: PromptContext) => {
+    orchestrator.prompt = async (
+      agentId: string,
+      sessionId: string,
+      text: string,
+      context?: PromptContext
+    ) => {
       orchestrator.promptCalls.push({ agentId, sessionId, text, context });
       if (agentId === "agent-b") throw new Error("Connection refused");
       return undefined;
@@ -132,7 +161,10 @@ describe("FanoutExecutor", () => {
       { agentId: "agent-a", sessionId: "s1", label: "A" },
       { agentId: "agent-b", sessionId: "s2", label: "B" },
     ];
-    const result = await executor.execute(targets, { text: "test", context: [] });
+    const result = await executor.execute(targets, {
+      text: "test",
+      context: [],
+    });
 
     assert.strictEqual(result.results.length, 2);
     assert.strictEqual(result.results[0].status, "sent");
@@ -166,7 +198,8 @@ describe("FanoutExecutor", () => {
     assert.ok(ctx, "context should be present");
     assert.strictEqual(ctx!.length, 1);
     assert.strictEqual(ctx![0].type, "resource");
-    const resource = (ctx![0] as { resource: { uri: string; text: string } }).resource;
+    const resource = (ctx![0] as { resource: { uri: string; text: string } })
+      .resource;
     assert.strictEqual(resource.uri, "file:///workspace/src/foo.ts");
     assert.strictEqual(resource.text, "const x = 1;");
   });
@@ -206,7 +239,8 @@ describe("FanoutExecutor", () => {
       const ctx = orchestrator.promptCalls[i].context;
       assert.ok(ctx, `context for call ${i} should be present`);
       assert.strictEqual(ctx!.length, 1);
-      const resource = (ctx![0] as { resource: { uri: string; text: string } }).resource;
+      const resource = (ctx![0] as { resource: { uri: string; text: string } })
+        .resource;
       assert.strictEqual(resource.uri, "file:///workspace/shared.ts");
       assert.strictEqual(resource.text, "shared content");
     }

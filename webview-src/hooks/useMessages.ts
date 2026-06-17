@@ -56,7 +56,7 @@ export function useMessages(sessionKey: string | null): MessagesSnapshot {
         }
       });
     },
-    [sessionKey],
+    [sessionKey]
   );
 
   const getSnapshot = useCallback((): MessagesSnapshot => {
@@ -67,7 +67,10 @@ export function useMessages(sessionKey: string | null): MessagesSnapshot {
     if (cache.msgs === msgs && cache.streaming === streaming) {
       return cache.snapshot;
     }
-    const snapshot: MessagesSnapshot = { messages: msgs, isStreaming: streaming };
+    const snapshot: MessagesSnapshot = {
+      messages: msgs,
+      isStreaming: streaming,
+    };
     cache.msgs = msgs;
     cache.streaming = streaming;
     cache.snapshot = snapshot;

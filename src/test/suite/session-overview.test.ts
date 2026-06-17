@@ -1,7 +1,7 @@
 import * as assert from "assert";
 import { describe, it, beforeEach } from "mocha";
 import { SessionOrchestrator } from "../../application/session/orchestrator";
-import type { SessionInfo } from "../../application/session/types";
+import type { AppSessionInfo } from "../../application/session/types";
 import type { ChatMessage } from "../../domain/models/chat";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -49,8 +49,8 @@ function makeMessage(overrides: Partial<ChatMessage>): ChatMessage {
 function makeSessionInfo(
   sessionId: string,
   agentId: string,
-  overrides: Partial<SessionInfo> = {}
-): SessionInfo {
+  overrides: Partial<AppSessionInfo> = {}
+): AppSessionInfo {
   const now = new Date();
   return {
     sessionId,
@@ -91,10 +91,10 @@ describe("SessionOrchestrator — getSessionOverview()", () => {
     // Access internal sessions map directly for testing
     const sessions = (orch as any).sessions as Map<
       string,
-      Map<string, SessionInfo>
+      Map<string, AppSessionInfo>
     >;
 
-    const agentSessions = new Map<string, SessionInfo>();
+    const agentSessions = new Map<string, AppSessionInfo>();
     agentSessions.set(
       "sess-1",
       makeSessionInfo("sess-1", "claude", {
@@ -114,10 +114,10 @@ describe("SessionOrchestrator — getSessionOverview()", () => {
   it("aggregates sessions across multiple agents", () => {
     const sessions = (orch as any).sessions as Map<
       string,
-      Map<string, SessionInfo>
+      Map<string, AppSessionInfo>
     >;
 
-    const claudeSessions = new Map<string, SessionInfo>();
+    const claudeSessions = new Map<string, AppSessionInfo>();
     claudeSessions.set(
       "sess-1",
       makeSessionInfo("sess-1", "claude", {
@@ -126,7 +126,7 @@ describe("SessionOrchestrator — getSessionOverview()", () => {
     );
     sessions.set("claude", claudeSessions);
 
-    const gptSessions = new Map<string, SessionInfo>();
+    const gptSessions = new Map<string, AppSessionInfo>();
     gptSessions.set(
       "sess-2",
       makeSessionInfo("sess-2", "gpt4", {
@@ -145,10 +145,10 @@ describe("SessionOrchestrator — getSessionOverview()", () => {
   it("computes progress.messageCount from messages array", () => {
     const sessions = (orch as any).sessions as Map<
       string,
-      Map<string, SessionInfo>
+      Map<string, AppSessionInfo>
     >;
 
-    const agentSessions = new Map<string, SessionInfo>();
+    const agentSessions = new Map<string, AppSessionInfo>();
     agentSessions.set(
       "sess-1",
       makeSessionInfo("sess-1", "claude", {
@@ -168,10 +168,10 @@ describe("SessionOrchestrator — getSessionOverview()", () => {
   it("counts tool calls correctly", () => {
     const sessions = (orch as any).sessions as Map<
       string,
-      Map<string, SessionInfo>
+      Map<string, AppSessionInfo>
     >;
 
-    const agentSessions = new Map<string, SessionInfo>();
+    const agentSessions = new Map<string, AppSessionInfo>();
     agentSessions.set(
       "sess-1",
       makeSessionInfo("sess-1", "claude", {
@@ -225,10 +225,10 @@ describe("SessionOrchestrator — getSessionOverview()", () => {
   it("computes contextWindow percentage when contextWindowMax is set", () => {
     const sessions = (orch as any).sessions as Map<
       string,
-      Map<string, SessionInfo>
+      Map<string, AppSessionInfo>
     >;
 
-    const agentSessions = new Map<string, SessionInfo>();
+    const agentSessions = new Map<string, AppSessionInfo>();
     agentSessions.set(
       "sess-1",
       makeSessionInfo("sess-1", "claude", {
@@ -249,10 +249,10 @@ describe("SessionOrchestrator — getSessionOverview()", () => {
   it("does not include contextWindow when contextWindowMax is not set", () => {
     const sessions = (orch as any).sessions as Map<
       string,
-      Map<string, SessionInfo>
+      Map<string, AppSessionInfo>
     >;
 
-    const agentSessions = new Map<string, SessionInfo>();
+    const agentSessions = new Map<string, AppSessionInfo>();
     agentSessions.set(
       "sess-1",
       makeSessionInfo("sess-1", "claude", {
@@ -268,10 +268,10 @@ describe("SessionOrchestrator — getSessionOverview()", () => {
   it("sets elapsedMs to 0 for non-running sessions", () => {
     const sessions = (orch as any).sessions as Map<
       string,
-      Map<string, SessionInfo>
+      Map<string, AppSessionInfo>
     >;
 
-    const agentSessions = new Map<string, SessionInfo>();
+    const agentSessions = new Map<string, AppSessionInfo>();
     agentSessions.set(
       "sess-1",
       makeSessionInfo("sess-1", "claude", {
@@ -288,10 +288,10 @@ describe("SessionOrchestrator — getSessionOverview()", () => {
   it("includes recentResponses from agent messages (last 3)", () => {
     const sessions = (orch as any).sessions as Map<
       string,
-      Map<string, SessionInfo>
+      Map<string, AppSessionInfo>
     >;
 
-    const agentSessions = new Map<string, SessionInfo>();
+    const agentSessions = new Map<string, AppSessionInfo>();
     const msgs: ChatMessage[] = [];
     for (let i = 0; i < 5; i++) {
       msgs.push(makeMessage({ role: "agent", content: `Response ${i}` }));
@@ -312,10 +312,10 @@ describe("SessionOrchestrator — getSessionOverview()", () => {
   it("extracts ISO date strings for createdAt", () => {
     const sessions = (orch as any).sessions as Map<
       string,
-      Map<string, SessionInfo>
+      Map<string, AppSessionInfo>
     >;
 
-    const agentSessions = new Map<string, SessionInfo>();
+    const agentSessions = new Map<string, AppSessionInfo>();
     agentSessions.set(
       "sess-1",
       makeSessionInfo("sess-1", "claude", {
@@ -334,10 +334,10 @@ describe("SessionOrchestrator — getSessionOverview()", () => {
   it("includes model and mode when set", () => {
     const sessions = (orch as any).sessions as Map<
       string,
-      Map<string, SessionInfo>
+      Map<string, AppSessionInfo>
     >;
 
-    const agentSessions = new Map<string, SessionInfo>();
+    const agentSessions = new Map<string, AppSessionInfo>();
     agentSessions.set(
       "sess-1",
       makeSessionInfo("sess-1", "claude", {
@@ -371,9 +371,9 @@ describe("SessionOrchestrator — extractRecentResponses()", () => {
   ) {
     const sessions = (orch as any).sessions as Map<
       string,
-      Map<string, SessionInfo>
+      Map<string, AppSessionInfo>
     >;
-    const agentSessions = new Map<string, SessionInfo>();
+    const agentSessions = new Map<string, AppSessionInfo>();
     agentSessions.set(
       sessionId,
       makeSessionInfo(sessionId, agentId, { messages })
@@ -448,9 +448,9 @@ describe("SessionOrchestrator — emitOverviewUpdate", () => {
     // Set up a session so the overview has something to emit
     const sessions = (orch as any).sessions as Map<
       string,
-      Map<string, SessionInfo>
+      Map<string, AppSessionInfo>
     >;
-    const agentSessions = new Map<string, SessionInfo>();
+    const agentSessions = new Map<string, AppSessionInfo>();
     agentSessions.set(
       "sess-1",
       makeSessionInfo("sess-1", "claude", { status: "running" })

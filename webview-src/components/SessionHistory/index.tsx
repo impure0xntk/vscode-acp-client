@@ -1,9 +1,4 @@
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-} from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Icon } from "../../lib/icons";
 import { SearchBar, type SortField, type SortDir } from "./SearchBar";
 import { SessionList, type PersistentSessionEntry } from "./SessionList";
@@ -123,7 +118,9 @@ export function SessionHistoryPanel({
   const [selectedAgent, setSelectedAgent] = useState<string>("all");
   const [selectedSession, setSelectedSession] =
     useState<PersistentSessionEntry | null>(null);
-  const [sessionMessages, setSessionMessages] = useState<import("./DetailModal").ChatMessage[]>([]);
+  const [sessionMessages, setSessionMessages] = useState<
+    import("./DetailModal").ChatMessage[]
+  >([]);
   const [isLoading, setIsLoading] = useState(false);
   const [stats, setStats] = useState<{
     totalSessions: number;
@@ -135,9 +132,9 @@ export function SessionHistoryPanel({
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [compareSet, setCompareSet] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
-  const [allMessages, setAllMessages] = useState<Map<string, import("./DetailModal").ChatMessage[]>>(
-    new Map()
-  );
+  const [allMessages, setAllMessages] = useState<
+    Map<string, import("./DetailModal").ChatMessage[]>
+  >(new Map());
 
   // Listen for messages from extension host
   useEffect(() => {

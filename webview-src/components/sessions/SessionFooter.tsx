@@ -1,9 +1,22 @@
 import React from "react";
-import type { AgentInfo, SessionTabStatus, TurnOutcome } from "../../store/sessionStore";
+import type { AgentInfo, SessionTabStatus } from "../../store/sessionStore";
 import type { ToolbarMeta, ContextColor } from "../ui/Chip";
 import { Chip } from "../ui/Chip";
-import { fmt, fmtDuration, visualBar, contextColor, StatuslineInfo, statuslinePrefix, statuslineChips } from "./formatting";
-import { AgentSection, MetricsSection, SessionIdRow, TurnSection } from "./DetailSections";
+import {
+  fmt,
+  fmtDuration,
+  visualBar,
+  contextColor,
+  StatuslineInfo,
+  statuslinePrefix,
+  statuslineChips,
+} from "../toolbar/formatting";
+import {
+  AgentSection,
+  MetricsSection,
+  SessionIdRow,
+  TurnSection,
+} from "../toolbar/DetailSections";
 
 export type { ToolbarMeta, ContextColor };
 export { fmt, visualBar, contextColor };
@@ -42,20 +55,65 @@ const CAT_LABEL: Record<string, string> = {
 export function DetailsPanel(p: DetailsPanelProps): React.ReactElement {
   const builtins: ToolbarMeta[] = [];
   if (p.sessionStatus)
-    builtins.push({ key: "status", label: "Status", value: p.sessionStatus, category: "session" });
+    builtins.push({
+      key: "status",
+      label: "Status",
+      value: p.sessionStatus,
+      category: "session",
+    });
   if (p.sessionId)
-    builtins.push({ key: "sid", label: "Session", value: p.sessionId.slice(0, 8) + "...", category: "session" });
+    builtins.push({
+      key: "sid",
+      label: "Session",
+      value: p.sessionId.slice(0, 8) + "...",
+      category: "session",
+    });
   if (p.sessionStatus === "running")
-    builtins.push({ key: "turn", label: "Turn", value: "Active", category: "session" });
+    builtins.push({
+      key: "turn",
+      label: "Turn",
+      value: "Active",
+      category: "session",
+    });
 
   const runtime: ToolbarMeta[] = [];
-  if (p.mode) runtime.push({ key: "mode", label: "Mode", value: p.mode, category: "runtime" });
-  if (p.model) runtime.push({ key: "model", label: "Model", value: p.model, category: "runtime" });
-  if (p.provider) runtime.push({ key: "provider", label: "Provider", value: p.provider, category: "runtime" });
-  if (p.maxTokens) runtime.push({ key: "maxTok", label: "Max Tokens", value: p.maxTokens.toLocaleString(), category: "runtime" });
+  if (p.mode)
+    runtime.push({
+      key: "mode",
+      label: "Mode",
+      value: p.mode,
+      category: "runtime",
+    });
+  if (p.model)
+    runtime.push({
+      key: "model",
+      label: "Model",
+      value: p.model,
+      category: "runtime",
+    });
+  if (p.provider)
+    runtime.push({
+      key: "provider",
+      label: "Provider",
+      value: p.provider,
+      category: "runtime",
+    });
+  if (p.maxTokens)
+    runtime.push({
+      key: "maxTok",
+      label: "Max Tokens",
+      value: p.maxTokens.toLocaleString(),
+      category: "runtime",
+    });
 
   const workspace: ToolbarMeta[] = [];
-  if (p.cwd) workspace.push({ key: "cwd", label: "CWD", value: p.cwd, category: "workspace" });
+  if (p.cwd)
+    workspace.push({
+      key: "cwd",
+      label: "CWD",
+      value: p.cwd,
+      category: "workspace",
+    });
 
   const all = [...builtins, ...(p.meta ?? [])];
   const grouped = new Map<string, ToolbarMeta[]>();
@@ -78,7 +136,9 @@ export function DetailsPanel(p: DetailsPanelProps): React.ReactElement {
             .map((m) => (
               <Row key={m.key} label={m.label} value={m.value} />
             ))}
-          {p.sessionId && <SessionIdRow sessionId={p.sessionId} onFork={p.onForkSession} />}
+          {p.sessionId && (
+            <SessionIdRow sessionId={p.sessionId} onFork={p.onForkSession} />
+          )}
         </div>
       </section>
 
@@ -134,9 +194,9 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-// ── BottomToolbar props ────────────────────────────────────────────────────
+// ── SessionFooter props ────────────────────────────────────────────────────
 
-export interface BottomToolbarProps {
+export interface SessionFooterProps {
   model?: string;
   mode?: string;
   tokenUsage: { inputTokens: number; outputTokens: number };
@@ -156,9 +216,11 @@ export interface BottomToolbarProps {
   lastResponseAt?: string | null;
 }
 
-// ── BottomToolbar ──────────────────────────────────────────────────────────
+// ── SessionFooter ──────────────────────────────────────────────────────────
 
-export function BottomToolbar(props: BottomToolbarProps): React.ReactElement {
+export const SessionFooter = React.memo(function SessionFooter(
+  props: SessionFooterProps
+): React.ReactElement {
   const {
     model,
     mode,
@@ -181,19 +243,36 @@ export function BottomToolbar(props: BottomToolbarProps): React.ReactElement {
 
   const total = tokenUsage.inputTokens + tokenUsage.outputTokens;
   const [open, setOpen] = React.useState(false);
-  const ratio = contextWindowMax && total > 0 ? Math.min(total / contextWindowMax, 1) : 0;
+  const ratio =
+    contextWindowMax && total > 0 ? Math.min(total / contextWindowMax, 1) : 0;
 
   // Build chips
   const chips: ToolbarMeta[] = [];
 
   if (mode && sessionStatus === "running") {
-    chips.push({ key: "mode", label: "Mode", value: mode, category: "runtime", modeIcon: mode });
+    chips.push({
+      key: "mode",
+      label: "Mode",
+      value: mode,
+      category: "runtime",
+      modeIcon: mode,
+    });
   }
   if (model && sessionStatus === "running") {
-    chips.push({ key: "model", label: "Model", value: model, category: "runtime" });
+    chips.push({
+      key: "model",
+      label: "Model",
+      value: model,
+      category: "runtime",
+    });
   }
   if (messageCount > 0) {
-    chips.push({ key: "msgs", label: "Messages", value: `msg:${messageCount}`, category: "metrics" });
+    chips.push({
+      key: "msgs",
+      label: "Messages",
+      value: `msg:${messageCount}`,
+      category: "metrics",
+    });
   }
 
   chips.push({
@@ -236,7 +315,13 @@ export function BottomToolbar(props: BottomToolbarProps): React.ReactElement {
   const prefix = statusline ? statuslinePrefix(statusline) : null;
   const slChips = statusline ? statuslineChips(statusline, cwd) : [];
   const statusChip: ToolbarMeta | null = sessionStatus
-    ? { key: "sessionStatus", label: "Session Status", value: sessionStatus, category: "session", statusIndicator: sessionStatus }
+    ? {
+        key: "sessionStatus",
+        label: "Session Status",
+        value: sessionStatus,
+        category: "session",
+        statusIndicator: sessionStatus,
+      }
     : null;
 
   // Turn outcome chip — shows the result of the most recent turn
@@ -284,7 +369,9 @@ export function BottomToolbar(props: BottomToolbarProps): React.ReactElement {
     <header className="toolbar">
       <div className="toolbar-main">
         <div className="toolbar-center">
-          {prefix && <span className="toolbar-statusline-prefix">{prefix}</span>}
+          {prefix && (
+            <span className="toolbar-statusline-prefix">{prefix}</span>
+          )}
           <div className="toolbar-chips">
             {slChips.map((c) => (
               <Chip key={c.key} meta={c} />
@@ -339,4 +426,4 @@ export function BottomToolbar(props: BottomToolbarProps): React.ReactElement {
       )}
     </header>
   );
-}
+});

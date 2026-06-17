@@ -190,9 +190,10 @@ export class ChatPresenter {
   // -----------------------------------------------------------------------
 
   buildSetTabsMessage(): SetTabsMessage {
-    const activeSessionKey = this.activeAgentId && this.activeSessionId
-      ? `${this.activeAgentId}:${this.activeSessionId}`
-      : null;
+    const activeSessionKey =
+      this.activeAgentId && this.activeSessionId
+        ? `${this.activeAgentId}:${this.activeSessionId}`
+        : null;
     return {
       type: "setTabs",
       tabs: Array.from(this.tabs.values()),

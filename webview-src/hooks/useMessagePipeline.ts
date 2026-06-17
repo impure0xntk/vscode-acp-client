@@ -104,7 +104,7 @@ export function clearPipelineCache(): void {
 export function useMessagePipeline(
   rawMessages: RawMessage[],
   sessionId: string,
-  agentId: string,
+  agentId: string
 ): PipelineItem[] {
   const sessionKey = `${agentId}:${sessionId}`;
 
@@ -129,7 +129,10 @@ export function useMessagePipeline(
     };
 
     // First render for this session or empty pipeline
-    if (pipeline.cached.length === 0 || rawMessages.length < processedRawCount) {
+    if (
+      pipeline.cached.length === 0 ||
+      rawMessages.length < processedRawCount
+    ) {
       // Reset if we have fewer messages than processed (e.g. session reset)
       const result = pipeline.process(rawMessages, ctx);
       entry.processedRawCount = rawMessages.length;

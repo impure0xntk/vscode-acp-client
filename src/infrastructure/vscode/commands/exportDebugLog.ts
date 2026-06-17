@@ -14,7 +14,10 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import type { PersistentHistoryStore } from "../../../application/session/persistentHistory";
-import type { LogExportFilter, LogExportResult } from "../../../application/session/persistentHistory";
+import type {
+  LogExportFilter,
+  LogExportResult,
+} from "../../../application/session/persistentHistory";
 
 // ── Scope selection ────────────────────────────────────────────────────────
 
@@ -47,7 +50,9 @@ export function registerExportDebugLogCommand(
     // Step 3: pick output file
     const defaultName = `acp-debug-${new Date().toISOString().slice(0, 10)}.json`;
     const saveUri = await vscode.window.showSaveDialog({
-      defaultUri: vscode.Uri.file(path.join(os.homedir(), "Desktop", defaultName)),
+      defaultUri: vscode.Uri.file(
+        path.join(os.homedir(), "Desktop", defaultName)
+      ),
       filters: { "Gzipped JSON": ["json.gz"] },
     });
     if (!saveUri) return;
@@ -80,7 +85,9 @@ export function registerExportDebugLogCommand(
 
 // ── Scope picker ───────────────────────────────────────────────────────────
 
-async function pickScope(store: PersistentHistoryStore): Promise<ExportScope | undefined> {
+async function pickScope(
+  store: PersistentHistoryStore
+): Promise<ExportScope | undefined> {
   const sessions = store.getAllSessions();
 
   const items: (vscode.QuickPickItem & { scope: ExportScope })[] = [

@@ -5,7 +5,6 @@ export type {
   SystemKind,
   ResolvedToolCall,
   ResolvedAttachment,
-  RenderContext,
   ChatDisplayItem,
   CompressionDisplayItem,
   ModeChangeDisplayItem,
@@ -29,4 +28,8 @@ export { annotateMessages } from "./stages/annotate";
 export { MessagePipeline } from "./pipeline";
 
 // Factory
-export { createDefaultPipeline, createPipeline, DEFAULT_CONFIG } from "./factory";
+export {
+  createDefaultPipeline,
+  createPipeline,
+  DEFAULT_CONFIG,
+} from "./factory";

@@ -96,13 +96,11 @@ export class SupervisorManager {
     leadOutput?: string
   ): Promise<SupervisorResult> {
     const maxRetries = config.maxRetries ?? 0;
-    const assignments: WorkerAssignment[] = config.workerTargets.map(
-      (wt) => ({
-        workerTarget: wt,
-        subTask: config.task,
-        status: "pending" as const,
-      })
-    );
+    const assignments: WorkerAssignment[] = config.workerTargets.map((wt) => ({
+      workerTarget: wt,
+      subTask: config.task,
+      status: "pending" as const,
+    }));
 
     log.info("supervise start", {
       leadAgentId: config.leadTarget.agentId,
@@ -113,7 +111,11 @@ export class SupervisorManager {
 
     // Phase 2: Parse lead output for v2 markers to extract sub-tasks
     if (leadOutput) {
-      this.decomposeFromLeadOutput(assignments, leadOutput, config.leadTarget.agentId);
+      this.decomposeFromLeadOutput(
+        assignments,
+        leadOutput,
+        config.leadTarget.agentId
+      );
       log.debug("lead output decomposed", { messageCount: assignments.length });
     }
 
@@ -142,7 +144,10 @@ export class SupervisorManager {
     }
 
     // Send task to lead agent first
-    log.debug("sending task to lead agent", { agentId: config.leadTarget.agentId, sessionId: config.leadTarget.sessionId });
+    log.debug("sending task to lead agent", {
+      agentId: config.leadTarget.agentId,
+      sessionId: config.leadTarget.sessionId,
+    });
     try {
       await this.sessionOrchestrator.prompt(
         config.leadTarget.agentId,
@@ -151,7 +156,11 @@ export class SupervisorManager {
       );
       log.debug("lead agent task sent");
     } catch (e) {
-      log.error("lead agent prompt failed", { agentId: config.leadTarget.agentId }, e as Error);
+      log.error(
+        "lead agent prompt failed",
+        { agentId: config.leadTarget.agentId },
+        e as Error
+      );
       if (config.taskBoardPath && parentTaskId) {
         this.failAllSubTasks(config.taskBoardPath, parentTaskId, assignments);
       }
@@ -172,7 +181,11 @@ export class SupervisorManager {
 
     // Update parent task status
     if (config.taskBoardPath && parentTaskId) {
-      this.updateParentTaskStatus(config.taskBoardPath, parentTaskId, assignments);
+      this.updateParentTaskStatus(
+        config.taskBoardPath,
+        parentTaskId,
+        assignments
+      );
     }
 
     // Release file locks
@@ -181,11 +194,13 @@ export class SupervisorManager {
     const completedCount = assignments.filter(
       (a) => a.status === "completed"
     ).length;
-    const failedCount = assignments.filter(
-      (a) => a.status === "failed"
-    ).length;
+    const failedCount = assignments.filter((a) => a.status === "failed").length;
 
-    log.info("supervise complete", { completedCount, failedCount, hasParentTask: parentTaskId !== undefined });
+    log.info("supervise complete", {
+      completedCount,
+      failedCount,
+      hasParentTask: parentTaskId !== undefined,
+    });
     return { assignments, completedCount, failedCount, parentTaskId };
   }
 
@@ -205,13 +220,35 @@ export class SupervisorManager {
     const { messages } = parseMeshMarkers(leadOutput, leadAgentId);
 
     for (const msg of messages) {
-      if (msg.type !== "task_delegate") continue;
-      const payload = msg.payload as { agentIndex?: number; description?: string } | undefined;
-      if (!payload) continue;
+      if (msg.type === "task_delegate") {
+        const payload = msg.payload as
+          | { agentIndex?: number; description?: string }
+          | undefined;
+        if (!payload) continue;
+        const idx = payload.agentIndex;
+        if (typeof idx === "number" && idx >= 0 && idx < assignments.length) {
+          assignments[idx].subTask =
+            payload.description ?? assignments[idx].subTask;
+        }
+      }
 
-      const idx = payload.agentIndex;
-      if (typeof idx === "number" && idx >= 0 && idx < assignments.length) {
-        assignments[idx].subTask = payload.description ?? assignments[idx].subTask;
+      if (msg.type === "task_plan") {
+        const payload = msg.payload as
+          | {
+              subtasks?: Array<{ index?: number; description?: string }>;
+            }
+          | undefined;
+        if (!payload?.subtasks) continue;
+        for (const sub of payload.subtasks) {
+          if (
+            typeof sub.index === "number" &&
+            sub.index >= 0 &&
+            sub.index < assignments.length
+          ) {
+            assignments[sub.index].subTask =
+              sub.description ?? assignments[sub.index].subTask;
+          }
+        }
       }
     }
   }
@@ -260,7 +297,9 @@ export class SupervisorManager {
   ): void {
     for (const assignment of assignments) {
       if (assignment.taskId) {
-        this.taskBoardStore.updateTask(path, assignment.taskId, { status: "failed" });
+        this.taskBoardStore.updateTask(path, assignment.taskId, {
+          status: "failed",
+        });
       }
     }
     this.taskBoardStore.updateTask(path, parentTaskId, { status: "failed" });
@@ -272,9 +311,18 @@ export class SupervisorManager {
     assignments: WorkerAssignment[]
   ): void {
     const failedCount = assignments.filter((a) => a.status === "failed").length;
-    const completedCount = assignments.filter((a) => a.status === "completed").length;
-    const parentStatus = failedCount === 0 ? "completed" : completedCount === 0 ? "failed" : "completed";
-    this.taskBoardStore.updateTask(path, parentTaskId, { status: parentStatus });
+    const completedCount = assignments.filter(
+      (a) => a.status === "completed"
+    ).length;
+    const parentStatus =
+      failedCount === 0
+        ? "completed"
+        : completedCount === 0
+          ? "failed"
+          : "completed";
+    this.taskBoardStore.updateTask(path, parentTaskId, {
+      status: parentStatus,
+    });
   }
 
   // -----------------------------------------------------------------------
@@ -332,7 +380,9 @@ export class SupervisorManager {
                 { status: "failed" }
               );
             }
-            log.error("worker permanently failed", { agentId: assignment.workerTarget.agentId });
+            log.error("worker permanently failed", {
+              agentId: assignment.workerTarget.agentId,
+            });
           }
         }
       }

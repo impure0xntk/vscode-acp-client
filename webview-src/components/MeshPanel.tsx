@@ -4,7 +4,11 @@ import { useMeshStore } from "../store/meshStore";
 import { useSessionStore } from "../store/sessionStore";
 import { StatusIcon } from "./StatusIcon";
 import { Icon } from "../lib/icons";
-import type { MeshAgentStatus, MeshTaskEntry, MeshRecentMessage } from "../types";
+import type {
+  MeshAgentStatus,
+  MeshTaskEntry,
+  MeshRecentMessage,
+} from "../types";
 
 // ── Props ──────────────────────────────────────────────────────────
 
@@ -24,14 +28,24 @@ function AgentStatusRow({
   onToggle: () => void;
 }): React.ReactElement {
   const stateLabel =
-    agent.state === "working" ? "Working" :
-    agent.state === "waiting" ? "Waiting" :
-    agent.state === "error" ? "Error" :
-    agent.state === "disconnected" ? "Disconnected" : "Idle";
+    agent.state === "working"
+      ? "Working"
+      : agent.state === "waiting"
+        ? "Waiting"
+        : agent.state === "error"
+          ? "Error"
+          : agent.state === "disconnected"
+            ? "Disconnected"
+            : "Idle";
 
   return (
     <div className="mesh-agent-row">
-      <div className="mesh-agent-header" onClick={onToggle} role="button" tabIndex={0}>
+      <div
+        className="mesh-agent-header"
+        onClick={onToggle}
+        role="button"
+        tabIndex={0}
+      >
         <Icon
           name={isExpanded ? "chevron-down" : "chevron-right"}
           size="sm"
@@ -54,7 +68,17 @@ function AgentStatusRow({
         <div className="mesh-agent-sessions">
           {agent.sessions.map((s) => (
             <div key={s.sessionId} className="mesh-session-item">
-              <StatusIcon status={s.status as "idle" | "running" | "completed" | "error" | "cancelled"} size="sm" />
+              <StatusIcon
+                status={
+                  s.status as
+                    | "idle"
+                    | "running"
+                    | "completed"
+                    | "error"
+                    | "cancelled"
+                }
+                size="sm"
+              />
               <span className="mesh-session-title">{s.title}</span>
               <span className="mesh-session-id">{s.sessionId.slice(0, 8)}</span>
             </div>
@@ -76,23 +100,35 @@ function AgentStatusRow({
 function TaskBoard({ tasks }: { tasks: MeshTaskEntry[] }): React.ReactElement {
   const statusIcon = (status: MeshTaskEntry["status"]): string => {
     switch (status) {
-      case "completed": return "pass-filled";
-      case "in_progress": return "loading";
-      case "failed": return "circle-filled";
-      case "review": return "question";
-      case "assigned": return "circle-filled";
-      default: return "circle-outline";
+      case "completed":
+        return "pass-filled";
+      case "in_progress":
+        return "loading";
+      case "failed":
+        return "circle-filled";
+      case "review":
+        return "question";
+      case "assigned":
+        return "circle-filled";
+      default:
+        return "circle-outline";
     }
   };
 
   const statusColor = (status: MeshTaskEntry["status"]): string => {
     switch (status) {
-      case "completed": return "#4ec9b0";
-      case "in_progress": return "#4fc1ff";
-      case "failed": return "#f14c4c";
-      case "review": return "#cca700";
-      case "assigned": return "#cca700";
-      default: return "#666666";
+      case "completed":
+        return "#4ec9b0";
+      case "in_progress":
+        return "#4fc1ff";
+      case "failed":
+        return "#f14c4c";
+      case "review":
+        return "#cca700";
+      case "assigned":
+        return "#cca700";
+      default:
+        return "#666666";
     }
   };
 
@@ -134,7 +170,11 @@ function TaskBoard({ tasks }: { tasks: MeshTaskEntry[] }): React.ReactElement {
 
 // ── Recent Messages ─────────────────────────────────────────────────
 
-function RecentMessages({ messages }: { messages: MeshRecentMessage[] }): React.ReactElement {
+function RecentMessages({
+  messages,
+}: {
+  messages: MeshRecentMessage[];
+}): React.ReactElement {
   if (messages.length === 0) {
     return (
       <div className="mesh-messages-empty">
@@ -148,7 +188,10 @@ function RecentMessages({ messages }: { messages: MeshRecentMessage[] }): React.
       {messages.slice(-20).map((msg) => (
         <div key={msg.messageId} className="mesh-message-item">
           <span className="mesh-message-time">
-            {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            {new Date(msg.timestamp).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
           </span>
           <span className="mesh-message-from">{msg.from}</span>
           <Icon name="chevron-right" size="sm" className="mesh-message-arrow" />
@@ -193,8 +236,12 @@ export function MeshPanel({ onClose }: MeshPanelProps): React.ReactElement {
     }))
   );
 
-  const [expandedAgents, setExpandedAgents] = React.useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = React.useState<"agents" | "tasks" | "messages">("agents");
+  const [expandedAgents, setExpandedAgents] = React.useState<Set<string>>(
+    new Set()
+  );
+  const [activeTab, setActiveTab] = React.useState<
+    "agents" | "tasks" | "messages"
+  >("agents");
 
   const toggleAgent = React.useCallback((agentId: string) => {
     setExpandedAgents((prev) => {
@@ -228,7 +275,11 @@ export function MeshPanel({ onClose }: MeshPanelProps): React.ReactElement {
           <span>Mesh</span>
         </div>
         {onClose && (
-          <button className="mesh-panel-close" onClick={onClose} title="Close Mesh Panel">
+          <button
+            className="mesh-panel-close"
+            onClick={onClose}
+            title="Close Mesh Panel"
+          >
             <Icon name="close" size="sm" />
           </button>
         )}
@@ -259,7 +310,9 @@ export function MeshPanel({ onClose }: MeshPanelProps): React.ReactElement {
         >
           Messages
           {recentMessages.length > 0 && (
-            <span className="mesh-panel-tab-badge">{recentMessages.length}</span>
+            <span className="mesh-panel-tab-badge">
+              {recentMessages.length}
+            </span>
           )}
         </button>
       </div>
@@ -286,7 +339,9 @@ export function MeshPanel({ onClose }: MeshPanelProps): React.ReactElement {
 
         {activeTab === "tasks" && <TaskBoard tasks={tasks} />}
 
-        {activeTab === "messages" && <RecentMessages messages={recentMessages} />}
+        {activeTab === "messages" && (
+          <RecentMessages messages={recentMessages} />
+        )}
       </div>
     </div>
   );

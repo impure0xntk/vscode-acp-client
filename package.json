@@ -441,11 +441,12 @@
     }
   },
   "scripts": {
-    "compile": "tsc -p ./ && npm run build:webview",
+    "compile": "tsc -p ./ && tsc -p tsconfig.webview-test.json && npm run build:webview",
     "build:webview": "node esbuild.js",
     "build:css": "node -e \"require('./esbuild.js')\"",
     "watch": "concurrently \"tsc -watch -p ./\" \"node esbuild.js --watch\"",
-    "test": "mocha out/test/suite --timeout 10000",
+    "test": "mocha out/test/suite --timeout 10000 && mocha out/webview-test/test/suite --timeout 10000",
+    "test:webview": "mocha out/webview-test/test/suite --timeout 10000",
     "lint": "eslint src --ext ts",
     "format": "prettier --write .",
     "package": "vsce package",

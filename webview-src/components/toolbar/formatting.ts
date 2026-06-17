@@ -56,12 +56,40 @@ export function statuslinePrefix(_s: StatuslineInfo): string | null {
   return null;
 }
 
-export function statuslineChips(s: StatuslineInfo, cwd?: string): ToolbarMeta[] {
+export function statuslineChips(
+  s: StatuslineInfo,
+  cwd?: string
+): ToolbarMeta[] {
   const chips: ToolbarMeta[] = [];
-  if (s.hostname) chips.push({ key: "hostname", label: "Host", value: s.hostname, category: "workspace" });
-  if (s.repoName) chips.push({ key: "repo", label: "Repo", value: s.repoName, category: "workspace" });
-  if (cwd) chips.push({ key: "cwd", label: "CWD", value: cwd, category: "workspace" });
-  if (s.branch) chips.push({ key: "branch", label: "Branch", value: s.branch, category: "workspace" });
-  if (s.tag) chips.push({ key: "tag", label: "Tag", value: s.tag, category: "workspace" });
+  if (s.hostname)
+    chips.push({
+      key: "hostname",
+      label: "Host",
+      value: s.hostname,
+      category: "workspace",
+    });
+  if (s.repoName)
+    chips.push({
+      key: "repo",
+      label: "Repo",
+      value: s.repoName,
+      category: "workspace",
+    });
+  if (cwd)
+    chips.push({ key: "cwd", label: "CWD", value: cwd, category: "workspace" });
+  if (s.branch)
+    chips.push({
+      key: "branch",
+      label: "Branch",
+      value: s.branch,
+      category: "workspace",
+    });
+  if (s.tag)
+    chips.push({
+      key: "tag",
+      label: "Tag",
+      value: s.tag,
+      category: "workspace",
+    });
   return chips;
 }

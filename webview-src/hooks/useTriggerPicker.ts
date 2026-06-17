@@ -1,4 +1,9 @@
-import { useState, useRef, useCallback, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import {
+  useState,
+  useRef,
+  useCallback,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import type { SuggestionItem, TriggerType } from "../types";
 
 // ── Trigger characters ─────────────────────────────────────────────
@@ -10,10 +15,10 @@ const TRIGGER_CHARS: TriggerType[] = ["/", "#", "@"];
 /** Check if code point is ASCII word character [a-zA-Z0-9_] */
 function isWordChar(code: number): boolean {
   return (
-    (code >= 48 && code <= 57) ||  // 0-9
-    (code >= 65 && code <= 90) ||  // A-Z
+    (code >= 48 && code <= 57) || // 0-9
+    (code >= 65 && code <= 90) || // A-Z
     (code >= 97 && code <= 122) || // a-z
-    code === 95                     // _
+    code === 95 // _
   );
 }
 
@@ -101,8 +106,12 @@ export interface UseTriggerPickerReturn {
   handleSelect: (input: SelectInput) => Promise<SelectOutput>;
   handleClose: () => void;
   reset: () => void;
-  pickerKeyDownRef: React.MutableRefObject<((e: ReactKeyboardEvent<HTMLTextAreaElement>) => void) | null>;
-  registerKeyHandler: (handler: ((e: ReactKeyboardEvent<HTMLTextAreaElement>) => void) | null) => void;
+  pickerKeyDownRef: React.MutableRefObject<
+    ((e: ReactKeyboardEvent<HTMLTextAreaElement>) => void) | null
+  >;
+  registerKeyHandler: (
+    handler: ((e: ReactKeyboardEvent<HTMLTextAreaElement>) => void) | null
+  ) => void;
 }
 
 // ── Hook ───────────────────────────────────────────────────────────
@@ -117,7 +126,9 @@ export function useTriggerPicker(
 
   const suppressTriggerRef = useRef(false);
   const dismissedRef = useRef(false);
-  const pickerKeyDownRef = useRef<((e: ReactKeyboardEvent<HTMLTextAreaElement>) => void) | null>(null);
+  const pickerKeyDownRef = useRef<
+    ((e: ReactKeyboardEvent<HTMLTextAreaElement>) => void) | null
+  >(null);
 
   // ── Consumed length ──────────────────────────────────────────────
 
@@ -137,7 +148,10 @@ export function useTriggerPicker(
       const charTyped = caretPos > 0 ? value.charCodeAt(caretPos - 1) : 0;
 
       if (dismissedRef.current) {
-        if (charTyped !== 0 && (TRIGGER_CHARS as string[]).includes(value[caretPos - 1])) {
+        if (
+          charTyped !== 0 &&
+          (TRIGGER_CHARS as string[]).includes(value[caretPos - 1])
+        ) {
           dismissedRef.current = false;
         } else {
           return NO_TRIGGER;
@@ -304,7 +318,10 @@ export function useTriggerPicker(
         return { text: newText, triggerState: expandedState };
       }
 
-      if (input.triggerState.subTrigger === undefined && input.item.value === "switch") {
+      if (
+        input.triggerState.subTrigger === undefined &&
+        input.item.value === "switch"
+      ) {
         const before = input.text.slice(0, input.triggerState.caretOffset);
         const consumed = getConsumedLength(input.triggerState);
         const after = input.text.slice(
@@ -373,7 +390,9 @@ export function useTriggerPicker(
   // ── Keyboard handler registration (for ContextPicker) ────────────
 
   const registerKeyHandler = useCallback(
-    (handler: ((e: ReactKeyboardEvent<HTMLTextAreaElement>) => void) | null) => {
+    (
+      handler: ((e: ReactKeyboardEvent<HTMLTextAreaElement>) => void) | null
+    ) => {
       pickerKeyDownRef.current = handler;
     },
     []

@@ -28,7 +28,8 @@ export type StatusIconType =
   | "pending"
   | "waiting"
   | "waiting_for_input"
-  | "disconnected";
+  | "disconnected"
+  | "warning";
 
 const classMap: Record<StatusIconType, string> = {
   idle: "idle",
@@ -46,7 +47,10 @@ const classMap: Record<StatusIconType, string> = {
   disconnected: "cancelled",
 };
 
-const IconComponentMap: Record<string, React.FC<{ className?: string; size?: number }>> = {
+const IconComponentMap: Record<
+  string,
+  React.FC<{ className?: string; size?: number }>
+> = {
   idle: IconCircleOutline,
   running: IconSpinner,
   waiting: IconSpinner,
@@ -92,9 +96,10 @@ export function StatusIcon({
   const variantSuffix = variant === "tool" ? " status-icon-tool" : "";
   const cls =
     `status-icon status-icon-${mapped} status-icon-${size}${variantSuffix}${colorSuffix} ${className}`.trim();
-  const iconCls = mapped === "running" || mapped === "waiting"
-    ? "status-icon-svg status-icon-spinner"
-    : "status-icon-svg";
+  const iconCls =
+    mapped === "running" || mapped === "waiting"
+      ? "status-icon-svg status-icon-spinner"
+      : "status-icon-svg";
   return (
     <span className={cls}>
       <IconEl size={px} className={iconCls} />

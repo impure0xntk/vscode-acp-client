@@ -48,7 +48,7 @@ export class MessagePipeline {
    */
   processIncremental(
     newMessages: RawMessage[],
-    ctx: PipelineContext,
+    ctx: PipelineContext
   ): PipelineItem[] {
     if (newMessages.length === 0) return this.cache;
 
@@ -66,7 +66,8 @@ export class MessagePipeline {
     if (this.config.merge.enabled) {
       // Build a minimal context from the last cached item (if any)
       // so mergeToolBatches can see the preceding agent/tool state.
-      const lastCached = this.cache.length > 0 ? this.cache[this.cache.length - 1] : null;
+      const lastCached =
+        this.cache.length > 0 ? this.cache[this.cache.length - 1] : null;
       const contextPrefix: ClassifiedMessage[] = lastCached
         ? [
             {
@@ -75,8 +76,7 @@ export class MessagePipeline {
                 lastCached.type === "chat"
                   ? lastCached.role
                   : ("system" as const),
-              content:
-                lastCached.type === "chat" ? lastCached.content : "",
+              content: lastCached.type === "chat" ? lastCached.content : "",
               timestamp: lastCached.timestamp ?? 0,
               agentId:
                 lastCached.type === "chat" ? lastCached.agentId : undefined,
@@ -94,7 +94,7 @@ export class MessagePipeline {
 
       const merged = mergeToolBatches(
         [...contextPrefix, ...filtered],
-        this.config.merge,
+        this.config.merge
       );
 
       // Check if the contextPrefix was modified by merge (Case 1: tool after agent).
@@ -114,7 +114,7 @@ export class MessagePipeline {
           const reannotated = annotateMessages(
             [merged[0]],
             this.config.annotate,
-            this.lastGroupKey,
+            this.lastGroupKey
           );
           if (reannotated.length > 0) {
             this.cache[this.cache.length - 1] = reannotated[0];
@@ -142,7 +142,7 @@ export class MessagePipeline {
     const annotated = annotateMessages(
       mergedNew,
       this.config.annotate,
-      lastGroupKey,
+      lastGroupKey
     );
 
     this.cache = [...this.cache, ...annotated];
@@ -150,7 +150,8 @@ export class MessagePipeline {
     // Only update when the last annotated item is a chat message;
     // system messages (compression, mode_change, etc.) don't change
     // the groupKey context for consecutive detection.
-    const lastAnnotated = annotated.length > 0 ? annotated[annotated.length - 1] : null;
+    const lastAnnotated =
+      annotated.length > 0 ? annotated[annotated.length - 1] : null;
     if (lastAnnotated && lastAnnotated.type === "chat") {
       this.lastGroupKey = lastAnnotated.groupKey;
     }
@@ -186,10 +187,12 @@ export class MessagePipeline {
   private runStages(
     messages: RawMessage[],
     ctx: PipelineContext,
-    initialGroupKey: string = "",
+    initialGroupKey: string = ""
   ): PipelineItem[] {
     // 1. Classify
-    const classified: ClassifiedMessage[] = messages.map((msg) => classifyMessage(msg));
+    const classified: ClassifiedMessage[] = messages.map((msg) =>
+      classifyMessage(msg)
+    );
 
     // 2. Filter
     const filtered = filterMessages(classified, this.config.filter);

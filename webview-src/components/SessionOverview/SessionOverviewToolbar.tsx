@@ -73,7 +73,9 @@ export function SessionOverviewToolbar({
             <span className="session-overview-filter-label">
               {isActive ? FILTER_LABELS[filter] : "Filter"}
             </span>
-            <span className={`session-overview-filter-arrow${open ? " open" : ""}`}>
+            <span
+              className={`session-overview-filter-arrow${open ? " open" : ""}`}
+            >
               ▾
             </span>
           </button>

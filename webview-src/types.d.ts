@@ -2,11 +2,7 @@
 // Queued Prompt — message buffered while a turn is active
 // ============================================================================
 
-export type QueuedPromptStatus =
-  | "pending"
-  | "sending"
-  | "sent"
-  | "cancelled";
+export type QueuedPromptStatus = "pending" | "sending" | "sent" | "cancelled";
 
 export interface QueuedPrompt {
   id: string;
@@ -138,8 +134,18 @@ export interface SessionOverviewState {
   selectedSessionIds: string[];
 }
 
-export type SessionOverviewFilter = "all" | "running" | "completed" | "error" | "cancelled";
-export const FILTERABLE_STATUSES = ["running", "completed", "error", "cancelled"] as const;
+export type SessionOverviewFilter =
+  | "all"
+  | "running"
+  | "completed"
+  | "error"
+  | "cancelled";
+export const FILTERABLE_STATUSES = [
+  "running",
+  "completed",
+  "error",
+  "cancelled",
+] as const;
 export type FilterableStatus = (typeof FILTERABLE_STATUSES)[number];
 
 /** Single session summary */

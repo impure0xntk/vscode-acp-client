@@ -122,7 +122,8 @@ export class AgentRegistry {
         return {
           agent: String(s.agent ?? ""),
           workspace: typeof s.workspace === "string" ? s.workspace : undefined,
-          sessionName: typeof s.sessionName === "string" ? s.sessionName : undefined,
+          sessionName:
+            typeof s.sessionName === "string" ? s.sessionName : undefined,
           mode: typeof s.mode === "string" ? s.mode : undefined,
         };
       }),

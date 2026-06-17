@@ -1,10 +1,19 @@
 import React, { useCallback } from "react";
-import type { SessionInfoDTO, ConnectedAgentInfo } from "../../store/sessionStore";
+import type {
+  SessionInfoDTO,
+  ConnectedAgentInfo,
+} from "../../store/sessionStore";
 import { StatusIcon } from "../StatusIcon";
 import { Icon } from "../../lib/icons";
-import { fmtDuration, sessionColorGroup } from "../SessionOverview/SessionOverviewCardBase";
+import {
+  fmtDuration,
+  sessionColorGroup,
+} from "../SessionOverview/SessionOverviewCardBase";
 import { fmt } from "../toolbar/formatting";
-import { ELAPSED_WARNING_MS, ELAPSED_CRITICAL_MS } from "../../shared/constants";
+import {
+  ELAPSED_WARNING_MS,
+  ELAPSED_CRITICAL_MS,
+} from "../../shared/constants";
 
 interface AgentCardProps {
   sessionInfo: SessionInfoDTO;
@@ -46,8 +55,12 @@ export function AgentCard({
   onClose,
 }: AgentCardProps): React.ReactElement {
   const status = sessionInfo.status;
-  const isCancelable = status === "running" || status === "waiting" || status === "waiting_for_input";
-  const isTerminal = status === "completed" || status === "error" || status === "cancelled";
+  const isCancelable =
+    status === "running" ||
+    status === "waiting" ||
+    status === "waiting_for_input";
+  const isTerminal =
+    status === "completed" || status === "error" || status === "cancelled";
   const colorGroup = sessionColorGroup(status);
 
   const elapsedMs =
@@ -88,7 +101,9 @@ export function AgentCard({
       {/* Header: status icon + agent name */}
       <div className="agent-card-header">
         <StatusIcon status={status} size="sm" elapsedMs={elapsedMs} />
-        <span className="agent-card-name">{agent?.name ?? sessionInfo.agentId}</span>
+        <span className="agent-card-name">
+          {agent?.name ?? sessionInfo.agentId}
+        </span>
       </div>
 
       {/* Status label */}
@@ -115,7 +130,9 @@ export function AgentCard({
         <Icon name="brain" size="sm" />
         <span>{fmt(tokenTotal)}</span>
         {ctxPct !== null && (
-          <span className={`agent-card-ctx-pct${ctxPct >= 85 ? " agent-card-ctx-pct--critical" : ctxPct >= 70 ? " agent-card-ctx-pct--warning" : ""}`}>
+          <span
+            className={`agent-card-ctx-pct${ctxPct >= 85 ? " agent-card-ctx-pct--critical" : ctxPct >= 70 ? " agent-card-ctx-pct--warning" : ""}`}
+          >
             {ctxPct}%
           </span>
         )}

@@ -2,7 +2,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { homedir } from "os";
 import initSqlJs, { type Database } from "sql.js";
-import type { SessionInfo, SessionStatus } from "./types";
+import type { AppSessionInfo, SessionStatus } from "./types";
 import type { ChatMessage, TokenUsage } from "../../domain/models/chat";
 import { SCHEMA_SQL } from "./schema";
 
@@ -146,7 +146,7 @@ export class PersistentHistoryStore {
   private db: Database | null = null;
   private config: HistoryConfig;
   private storageUri: string | undefined;
-  private writeQueue: Map<string, SessionInfo> = new Map();
+  private writeQueue: Map<string, AppSessionInfo> = new Map();
   private writeTimeout: ReturnType<typeof setTimeout> | null = null;
   private readonly WRITE_DEBOUNCE_MS = 1000;
   private dbPath: string = "";
@@ -203,7 +203,7 @@ export class PersistentHistoryStore {
   // Session CRUD
   // ========================================================================
 
-  saveSession(session: SessionInfo): void {
+  saveSession(session: AppSessionInfo): void {
     this.writeQueue.set(session.sessionId, session);
     this.scheduleWrite();
   }
@@ -231,7 +231,7 @@ export class PersistentHistoryStore {
     this.persist();
   }
 
-  private upsertSession(info: SessionInfo): void {
+  private upsertSession(info: AppSessionInfo): void {
     if (!this.db) return;
 
     const workspaceName = this.extractWorkspaceName(info.cwd);

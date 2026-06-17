@@ -45,7 +45,11 @@ export type { TerminalAPI, Terminal } from "./terminal";
 export type { OrchestrationStateAPI } from "./orchestration";
 export type { PlatformAPI } from "./platform";
 export { createPlatform } from "./factory";
-export type { LogStorageAPI, ClearLogsOptions, ClearLogsResult } from "./logStorage";
+export type {
+  LogStorageAPI,
+  ClearLogsOptions,
+  ClearLogsResult,
+} from "./logStorage";
 
 // ── Logging ──────────────────────────────────────────────────────────────
 export {

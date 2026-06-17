@@ -7,13 +7,13 @@ import type {
   SessionOverviewFilter,
   SessionOverviewItem,
 } from "../../types";
-import type { ConnectedAgentInfo, SessionInfoDTO } from "../../store/sessionStore";
+import type {
+  ConnectedAgentInfo,
+  SessionInfoDTO,
+} from "../../store/sessionStore";
 import { useScrollStateStore } from "../../store/scrollStateStore";
 import { useMessageStore } from "../../store/messageStore";
-import {
-  useSessionStore,
-  sessionKeyOf,
-} from "../../store/sessionStore";
+import { useSessionStore, sessionKeyOf } from "../../store/sessionStore";
 import { SessionOverviewToolbar } from "./SessionOverviewToolbar";
 import { SessionOverviewCard } from "./SessionOverviewCard";
 import { useResizeHandle } from "../../hooks/useResizeHandle";
@@ -81,36 +81,33 @@ export function SessionOverviewPanel({
   // Build overview items from tabOrder + tabTitles (structural only).
   // Live status/elapsedMs come from each card's own subscription.
   // We also read lastTurnOutcome here for filtering purposes.
-  const overviewItems = useMemo(
-    () => {
-      const sessionInfoMap = useSessionStore.getState().sessionInfoMap;
-      const keys = tabOrder;
-      return keys.map((key): SessionOverviewItem => {
-        const [agentId, sessionId] = key.split(":");
-        const title = tabTitles[key] ?? sessionId;
-        const info: SessionInfoDTO | undefined = sessionInfoMap[key];
-        // Minimal item — live fields will be filled by SessionOverviewCard.
-        return {
-          sessionId,
-          agentId,
-          title,
-          status: info?.status ?? "idle",
-          lastTurnOutcome: info?.lastTurnOutcome ?? null,
-          progress: {
-            elapsedMs: 0,
-            tokenUsage: { input: 0, output: 0, total: 0 },
-            messageCount: 0,
-            toolCallCount: 0,
-            toolCallsCompleted: 0,
-          },
-          recentResponses: [],
-          createdAt: new Date().toISOString(),
-          lastResponseAt: null,
-        };
-      });
-    },
-    [tabOrder, tabTitles],
-  );
+  const overviewItems = useMemo(() => {
+    const sessionInfoMap = useSessionStore.getState().sessionInfoMap;
+    const keys = tabOrder;
+    return keys.map((key): SessionOverviewItem => {
+      const [agentId, sessionId] = key.split(":");
+      const title = tabTitles[key] ?? sessionId;
+      const info: SessionInfoDTO | undefined = sessionInfoMap[key];
+      // Minimal item — live fields will be filled by SessionOverviewCard.
+      return {
+        sessionId,
+        agentId,
+        title,
+        status: info?.status ?? "idle",
+        lastTurnOutcome: info?.lastTurnOutcome ?? null,
+        progress: {
+          elapsedMs: 0,
+          tokenUsage: { input: 0, output: 0, total: 0 },
+          messageCount: 0,
+          toolCallCount: 0,
+          toolCallsCompleted: 0,
+        },
+        recentResponses: [],
+        createdAt: new Date().toISOString(),
+        lastResponseAt: null,
+      };
+    });
+  }, [tabOrder, tabTitles]);
 
   // Filter sessions by session state or turn outcome.
   // "running" matches session status. "completed"/"error"/"cancelled" match lastTurnOutcome.
@@ -120,16 +117,14 @@ export function SessionOverviewPanel({
       return overviewItems.filter((s) => s.status === "running");
     }
     // Turn outcome filters
-    return overviewItems.filter(
-      (s) => s.lastTurnOutcome === state.filter,
-    );
+    return overviewItems.filter((s) => s.lastTurnOutcome === state.filter);
   }, [overviewItems, state.filter]);
 
   // Build unread count map from scrollStateStore + messageStore.
   // Recomputes only when the set of filtered session keys changes.
   const filteredKeys = useMemo(
     () => filteredSessions.map((s) => `${s.agentId}:${s.sessionId}`).join(","),
-    [filteredSessions],
+    [filteredSessions]
   );
   const unreadMap = useMemo(() => {
     const scrollStore = useScrollStateStore.getState();
@@ -173,7 +168,7 @@ export function SessionOverviewPanel({
       log.info("overview focus", { sessionId, agentId });
       onFocus(sessionId, agentId);
     },
-    [onFocus],
+    [onFocus]
   );
 
   const handleCancel = useCallback(
@@ -181,7 +176,7 @@ export function SessionOverviewPanel({
       log.info("overview cancel", { sessionId, agentId });
       onCancel(sessionId, agentId);
     },
-    [onCancel],
+    [onCancel]
   );
 
   const handleClose = useCallback(
@@ -189,7 +184,7 @@ export function SessionOverviewPanel({
       log.info("overview close", { sessionId, agentId });
       onClose(sessionId, agentId);
     },
-    [onClose],
+    [onClose]
   );
 
   const handleToggleSelect = useCallback(
@@ -197,7 +192,7 @@ export function SessionOverviewPanel({
       log.debug("overview toggle select", { sessionId, selectionMode });
       onToggleSelect(sessionId);
     },
-    [onToggleSelect, selectionMode],
+    [onToggleSelect, selectionMode]
   );
 
   const handleLongPress = useCallback(
@@ -205,11 +200,14 @@ export function SessionOverviewPanel({
       log.info("overview long press → enter selection mode", { sessionId });
       onLongPress(sessionId);
     },
-    [onLongPress],
+    [onLongPress]
   );
 
   const handleCloseSelected = useCallback(() => {
-    log.info("overview close selected", { count: selectedCount, sessionIds: selectedIds });
+    log.info("overview close selected", {
+      count: selectedCount,
+      sessionIds: selectedIds,
+    });
     onCloseSelected();
   }, [onCloseSelected, selectedCount, selectedIds]);
 
@@ -223,7 +221,7 @@ export function SessionOverviewPanel({
       log.debug("overview filter change", { from: state.filter, to: f });
       onFilterChange(f);
     },
-    [onFilterChange, state.filter],
+    [onFilterChange, state.filter]
   );
 
   const handleNewSession = useCallback(() => {
@@ -282,7 +280,9 @@ export function SessionOverviewPanel({
               unreadCount={
                 unreadMap.get(`${session.agentId}:${session.sessionId}`) ?? 0
               }
-              isActive={`${session.agentId}:${session.sessionId}` === storeActiveKey}
+              isActive={
+                `${session.agentId}:${session.sessionId}` === storeActiveKey
+              }
               isSelected={selectedIds.includes(session.sessionId)}
               selectionMode={selectionMode}
               onToggle={() => {
@@ -311,7 +311,10 @@ export function SessionOverviewPanel({
 }
 
 function fmtTotal(sessions: SessionOverviewItem[]): string {
-  const total = sessions.reduce((sum, s) => sum + s.progress.tokenUsage.total, 0);
+  const total = sessions.reduce(
+    (sum, s) => sum + s.progress.tokenUsage.total,
+    0
+  );
   if (total >= 1_000_000) return `${(total / 1_000_000).toFixed(1)}m`;
   if (total >= 1000) return `${(total / 1000).toFixed(1)}k`;
   return String(total);

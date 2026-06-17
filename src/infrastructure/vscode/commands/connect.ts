@@ -172,16 +172,19 @@ export function registerConnectCommands(
   );
 
   // acp.openUnifiedChat command — opens the same chat panel (unified view is webview-side)
-  const openUnifiedChatCmd = vscode.commands.registerCommand("acp.openUnifiedChat", () => {
-    ensureChatPanel(
-      getChatPanel,
-      setChatPanel,
-      extensionUri,
-      sendTabs,
-      wireChatPanelEvents,
-      orchestrator
-    );
-  });
+  const openUnifiedChatCmd = vscode.commands.registerCommand(
+    "acp.openUnifiedChat",
+    () => {
+      ensureChatPanel(
+        getChatPanel,
+        setChatPanel,
+        extensionUri,
+        sendTabs,
+        wireChatPanelEvents,
+        orchestrator
+      );
+    }
+  );
 
   return [openChatCmd, connectCmd, disconnectCmd, openUnifiedChatCmd];
 }

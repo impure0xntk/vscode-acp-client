@@ -5,7 +5,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import type { SessionOrchestrator } from "../orchestrator";
-import type { SessionInfo } from "../session/types";
+import type { AppSessionInfo } from "../session/types";
 import type { ChatMessage } from "../../domain/models/chat";
 import { ChatPanel } from "../../infrastructure/vscode/vscode-ui/chatPanel";
 import { ChatPresenter } from "../../infrastructure/vscode/vscode-ui/presenter";

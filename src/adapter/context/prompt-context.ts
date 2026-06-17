@@ -19,7 +19,7 @@ import type { ContextAttachmentDTO } from "../../domain/models/chat";
  * additional text blocks.
  */
 export function attachmentsToContentBlocks(
-  attachments: ContextAttachmentDTO[],
+  attachments: ContextAttachmentDTO[]
 ): ContentBlock[] {
   const blocks: ContentBlock[] = [];
   for (const a of attachments) {

@@ -16,7 +16,7 @@ export function useScrollController(
   containerRef: React.RefObject<HTMLDivElement | null>,
   bottomRef: React.RefObject<HTMLDivElement | null>,
   isAtBottom?: boolean,
-  messageCount?: number,
+  messageCount?: number
 ) {
   const key = sessionKey ?? "__nosession__";
 
@@ -66,7 +66,8 @@ export function useScrollController(
       // Read fresh value from store instead of using potentially stale prop
       const currentKey = sessionKey ?? "__nosession__";
       const freshIsAtBottom =
-        useScrollStateStore.getState().perSession[currentKey]?.isAtBottom ?? true;
+        useScrollStateStore.getState().perSession[currentKey]?.isAtBottom ??
+        true;
       if (freshIsAtBottom) {
         el.scrollTop = el.scrollHeight;
       }
@@ -80,13 +81,13 @@ export function useScrollController(
       const el = containerRef.current;
       if (!el) return;
       const msgEl = el.querySelector(
-        `[data-message-id="${messageId}"]`,
+        `[data-message-id="${messageId}"]`
       ) as HTMLElement | null;
       if (msgEl) {
         msgEl.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     },
-    [containerRef],
+    [containerRef]
   );
 
   // ── Force scroll to bottom (on send) ────────────────────────────────
@@ -103,7 +104,7 @@ export function useScrollController(
       const el = containerRef.current;
       if (!el) return;
       const msgEl = el.querySelector(
-        `[data-message-id="${firstUnreadId}"]`,
+        `[data-message-id="${firstUnreadId}"]`
       ) as HTMLElement | null;
       if (msgEl) {
         msgEl.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -111,7 +112,7 @@ export function useScrollController(
         el.scrollTop = el.scrollHeight;
       }
     },
-    [containerRef],
+    [containerRef]
   );
 
   // ── Scroll-to-bottom on badge click ─────────────────────────────────

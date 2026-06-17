@@ -17,7 +17,12 @@ import type { QueuedPrompt } from "../../application/session/types";
 
 interface MockOrchestrator {
   promptCalls: Array<{ agentId: string; sessionId: string; text: string }>;
-  prompt: (agentId: string, sessionId: string, text: string, context?: PromptContext) => Promise<QueuedPrompt | undefined>;
+  prompt: (
+    agentId: string,
+    sessionId: string,
+    text: string,
+    context?: PromptContext
+  ) => Promise<QueuedPrompt | undefined>;
   getActiveSessionId: (agentId: string) => string | undefined;
   getAgentConfig: (agentId: string) => undefined;
   getSessionsForAgent: (agentId: string) => [];
@@ -28,7 +33,12 @@ function createMockOrchestrator(): MockOrchestrator {
 
   return {
     promptCalls: calls,
-    prompt: async (agentId: string, sessionId: string, text: string, _context?: PromptContext) => {
+    prompt: async (
+      agentId: string,
+      sessionId: string,
+      text: string,
+      _context?: PromptContext
+    ) => {
       calls.push({ agentId, sessionId, text });
       return undefined;
     },
@@ -63,7 +73,11 @@ describe("SupervisorManager with TaskBoardStore", () => {
   });
 
   it("creates parent task when taskBoardPath is provided", async () => {
-    const lead: SendTarget = { agentId: "lead", sessionId: "s1", label: "Lead" };
+    const lead: SendTarget = {
+      agentId: "lead",
+      sessionId: "s1",
+      label: "Lead",
+    };
     const workers: SendTarget[] = [
       { agentId: "worker-a", sessionId: "s2", label: "Worker A" },
     ];
@@ -86,7 +100,11 @@ describe("SupervisorManager with TaskBoardStore", () => {
   });
 
   it("creates sub-tasks for each worker", async () => {
-    const lead: SendTarget = { agentId: "lead", sessionId: "s1", label: "Lead" };
+    const lead: SendTarget = {
+      agentId: "lead",
+      sessionId: "s1",
+      label: "Lead",
+    };
     const workers: SendTarget[] = [
       { agentId: "worker-a", sessionId: "s2", label: "Worker A" },
       { agentId: "worker-b", sessionId: "s3", label: "Worker B" },
@@ -104,8 +122,14 @@ describe("SupervisorManager with TaskBoardStore", () => {
     assert.ok(result.assignments[0].taskId, "assignment should have taskId");
     assert.ok(result.assignments[1].taskId, "assignment should have taskId");
 
-    const subTask1 = taskBoardStore.getTask(boardPath, result.assignments[0].taskId!);
-    const subTask2 = taskBoardStore.getTask(boardPath, result.assignments[1].taskId!);
+    const subTask1 = taskBoardStore.getTask(
+      boardPath,
+      result.assignments[0].taskId!
+    );
+    const subTask2 = taskBoardStore.getTask(
+      boardPath,
+      result.assignments[1].taskId!
+    );
 
     assert.ok(subTask1, "sub-task 1 should exist");
     assert.ok(subTask2, "sub-task 2 should exist");
@@ -116,7 +140,11 @@ describe("SupervisorManager with TaskBoardStore", () => {
   });
 
   it("updates sub-task status to completed on success", async () => {
-    const lead: SendTarget = { agentId: "lead", sessionId: "s1", label: "Lead" };
+    const lead: SendTarget = {
+      agentId: "lead",
+      sessionId: "s1",
+      label: "Lead",
+    };
     const workers: SendTarget[] = [
       { agentId: "worker-a", sessionId: "s2", label: "Worker A" },
     ];
@@ -129,12 +157,20 @@ describe("SupervisorManager with TaskBoardStore", () => {
       taskBoardPath: boardPath,
     });
 
-    const subTask = taskBoardStore.getTask(boardPath, result.assignments[0].taskId!);
+    const subTask = taskBoardStore.getTask(
+      boardPath,
+      result.assignments[0].taskId!
+    );
     assert.strictEqual(subTask!.status, "completed");
   });
 
   it("updates sub-task status to failed on error", async () => {
-    orchestrator.prompt = async (agentId: string, sessionId: string, text: string, _context?: PromptContext) => {
+    orchestrator.prompt = async (
+      agentId: string,
+      sessionId: string,
+      text: string,
+      _context?: PromptContext
+    ) => {
       orchestrator.promptCalls.push({ agentId, sessionId, text });
       if (agentId === "worker-a") throw new Error("Worker failed");
       return undefined;
@@ -145,7 +181,11 @@ describe("SupervisorManager with TaskBoardStore", () => {
       taskBoardStore,
     });
 
-    const lead: SendTarget = { agentId: "lead", sessionId: "s1", label: "Lead" };
+    const lead: SendTarget = {
+      agentId: "lead",
+      sessionId: "s1",
+      label: "Lead",
+    };
     const workers: SendTarget[] = [
       { agentId: "worker-a", sessionId: "s2", label: "Worker A" },
     ];
@@ -158,12 +198,19 @@ describe("SupervisorManager with TaskBoardStore", () => {
       taskBoardPath: boardPath,
     });
 
-    const subTask = taskBoardStore.getTask(boardPath, result.assignments[0].taskId!);
+    const subTask = taskBoardStore.getTask(
+      boardPath,
+      result.assignments[0].taskId!
+    );
     assert.strictEqual(subTask!.status, "failed");
   });
 
   it("updates parent task status when all workers done", async () => {
-    const lead: SendTarget = { agentId: "lead", sessionId: "s1", label: "Lead" };
+    const lead: SendTarget = {
+      agentId: "lead",
+      sessionId: "s1",
+      label: "Lead",
+    };
     const workers: SendTarget[] = [
       { agentId: "worker-a", sessionId: "s2", label: "Worker A" },
       { agentId: "worker-b", sessionId: "s3", label: "Worker B" },
@@ -182,7 +229,12 @@ describe("SupervisorManager with TaskBoardStore", () => {
   });
 
   it("updates parent task status to failed when all workers fail", async () => {
-    orchestrator.prompt = async (agentId: string, sessionId: string, text: string, _context?: PromptContext) => {
+    orchestrator.prompt = async (
+      agentId: string,
+      sessionId: string,
+      text: string,
+      _context?: PromptContext
+    ) => {
       orchestrator.promptCalls.push({ agentId, sessionId, text });
       if (agentId !== "lead") throw new Error("Worker failed");
       return undefined;
@@ -193,7 +245,11 @@ describe("SupervisorManager with TaskBoardStore", () => {
       taskBoardStore,
     });
 
-    const lead: SendTarget = { agentId: "lead", sessionId: "s1", label: "Lead" };
+    const lead: SendTarget = {
+      agentId: "lead",
+      sessionId: "s1",
+      label: "Lead",
+    };
     const workers: SendTarget[] = [
       { agentId: "worker-a", sessionId: "s2", label: "Worker A" },
       { agentId: "worker-b", sessionId: "s3", label: "Worker B" },
@@ -212,7 +268,11 @@ describe("SupervisorManager with TaskBoardStore", () => {
   });
 
   it("works without taskBoardPath (backward compat)", async () => {
-    const lead: SendTarget = { agentId: "lead", sessionId: "s1", label: "Lead" };
+    const lead: SendTarget = {
+      agentId: "lead",
+      sessionId: "s1",
+      label: "Lead",
+    };
     const workers: SendTarget[] = [
       { agentId: "worker-a", sessionId: "s2", label: "Worker A" },
     ];
@@ -236,16 +296,26 @@ describe("SupervisorManager with TaskBoardStore", () => {
   it("marks all sub-tasks as failed when lead fails", async () => {
     // Create a new manager with a failing prompt for all agents
     const failingOrchestrator = createMockOrchestrator();
-    failingOrchestrator.prompt = async (_agentId: string, _sessionId: string, _text: string, _context?: PromptContext) => {
+    failingOrchestrator.prompt = async (
+      _agentId: string,
+      _sessionId: string,
+      _text: string,
+      _context?: PromptContext
+    ) => {
       throw new Error("Agent offline");
     };
 
     const failingManager = new SupervisorManager({
-      sessionOrchestrator: failingOrchestrator as unknown as SessionOrchestrator,
+      sessionOrchestrator:
+        failingOrchestrator as unknown as SessionOrchestrator,
       taskBoardStore,
     });
 
-    const lead: SendTarget = { agentId: "lead", sessionId: "s1", label: "Lead" };
+    const lead: SendTarget = {
+      agentId: "lead",
+      sessionId: "s1",
+      label: "Lead",
+    };
     const workers: SendTarget[] = [
       { agentId: "worker-a", sessionId: "s2", label: "Worker A" },
       { agentId: "worker-b", sessionId: "s3", label: "Worker B" },
@@ -278,7 +348,11 @@ describe("SupervisorManager with TaskBoardStore", () => {
   });
 
   it("updates parent subtasks list with sub-task IDs", async () => {
-    const lead: SendTarget = { agentId: "lead", sessionId: "s1", label: "Lead" };
+    const lead: SendTarget = {
+      agentId: "lead",
+      sessionId: "s1",
+      label: "Lead",
+    };
     const workers: SendTarget[] = [
       { agentId: "worker-a", sessionId: "s2", label: "Worker A" },
       { agentId: "worker-b", sessionId: "s3", label: "Worker B" },

@@ -78,7 +78,12 @@ export class ChatPanel {
   private _onOpenFile: EventEmitter<{ path: string; line?: number }>;
 
   /** Extension-side logger — set by extension.ts after construction. */
-  logger: { debug(msg: string): void; info(msg: string): void; warn(msg: string): void; error(msg: string): void } | null = null;
+  logger: {
+    debug(msg: string): void;
+    info(msg: string): void;
+    warn(msg: string): void;
+    error(msg: string): void;
+  } | null = null;
 
   /** Log entry sink — set by extension.ts to persist webview logs to DB. */
   private static logSink: LogEntrySink | null = null;
@@ -128,7 +133,11 @@ export class ChatPanel {
     this.pathResolver = new BatchedPathResolver(process.cwd(), {
       onResolved: (paths) => {
         if (this.currentSessionKey) {
-          this.postMessage({ type: "pathsResolved", sessionKey: this.currentSessionKey, paths });
+          this.postMessage({
+            type: "pathsResolved",
+            sessionKey: this.currentSessionKey,
+            paths,
+          });
         }
       },
     });
@@ -216,7 +225,7 @@ export class ChatPanel {
   setActiveSession(
     agentId: string,
     sessionId: string,
-    info: import("../../../application/session/types").SessionInfo
+    info: import("../../../application/session/types").AppSessionInfo
   ): void {
     this.currentSessionKey = sessionKey(agentId, sessionId);
     const cwd = info.cwd ?? process.cwd();
@@ -252,9 +261,10 @@ export class ChatPanel {
     // Attach path candidates for session restore (resource_link blocks).
     // Existence is validated asynchronously by BatchedPathResolver separately.
     const candidates = extractCandidatePaths(message.content);
-    const enriched = candidates.length > 0
-      ? { ...message, inlineFilePaths: candidates }
-      : message;
+    const enriched =
+      candidates.length > 0
+        ? { ...message, inlineFilePaths: candidates }
+        : message;
     this.postMessage({
       type: "session/message",
       agentId,
@@ -364,7 +374,7 @@ export class ChatPanel {
   pushSessionInfo(
     agentId: string,
     sessionId: string,
-    info: import("../../../application/session/types").SessionInfo
+    info: import("../../../application/session/types").AppSessionInfo
   ): void {
     this.postMessage({
       type: "session/info",
@@ -391,7 +401,7 @@ export class ChatPanel {
   pushSessionSnapshot(
     agentId: string,
     sessionId: string,
-    info: import("../../../application/session/types").SessionInfo
+    info: import("../../../application/session/types").AppSessionInfo
   ): void {
     this.postMessage({
       type: "session/snapshot",
@@ -417,7 +427,7 @@ export class ChatPanel {
   /** Push SessionInfo for ALL sessions (used by sendTabsToChatPanel to sync non-active sessions) */
   pushAllSessionInfos(
     agentId: string,
-    sessions: import("../../../application/session/types").SessionInfo[]
+    sessions: import("../../../application/session/types").AppSessionInfo[]
   ): void {
     for (const info of sessions) {
       this.pushSessionInfo(agentId, info.sessionId, info);

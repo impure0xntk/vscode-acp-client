@@ -34,14 +34,18 @@ export const useScrollStateStore = create<ScrollStateStore>((set) => ({
     set((s) => {
       const p = s.perSession[key] ?? DEFAULT;
       if (p.readUpToMessageId === id) return s;
-      return { perSession: { ...s.perSession, [key]: { ...p, readUpToMessageId: id } } };
+      return {
+        perSession: { ...s.perSession, [key]: { ...p, readUpToMessageId: id } },
+      };
     }),
 
   setIsAtBottom: (key, v) =>
     set((s) => {
       const p = s.perSession[key] ?? DEFAULT;
       if (p.isAtBottom === v) return s;
-      return { perSession: { ...s.perSession, [key]: { ...p, isAtBottom: v } } };
+      return {
+        perSession: { ...s.perSession, [key]: { ...p, isAtBottom: v } },
+      };
     }),
 
   removeSession: (key) =>

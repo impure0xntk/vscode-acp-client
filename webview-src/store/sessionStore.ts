@@ -21,7 +21,12 @@ export interface SessionTabState {
   status?: "idle" | "running" | "completed" | "error" | "cancelled";
 }
 
-export type SessionState = "idle" | "running" | "completed" | "error" | "cancelled";
+export type SessionState =
+  | "idle"
+  | "running"
+  | "completed"
+  | "error"
+  | "cancelled";
 export type TurnOutcome = "completed" | "error" | "cancelled";
 
 export interface SessionInfoDTO {
@@ -30,7 +35,11 @@ export interface SessionInfoDTO {
   status: SessionState;
   lastTurnOutcome: TurnOutcome | null;
   isStreaming: boolean;
-  tokenUsage: { inputTokens: number; outputTokens: number; totalTokens: number };
+  tokenUsage: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+  };
   contextWindowMax?: number;
   model?: string;
   mode?: string;
@@ -78,7 +87,12 @@ export interface SlashCommand {
   agentId?: string;
 }
 
-export type SessionTabStatus = "idle" | "running" | "completed" | "error" | "cancelled";
+export type SessionTabStatus =
+  | "idle"
+  | "running"
+  | "completed"
+  | "error"
+  | "cancelled";
 // Note: SessionTabStatus includes turn outcome values for backward compatibility
 // with existing UI code. New code should use SessionState + TurnOutcome separately.
 
@@ -91,11 +105,12 @@ export function sessionKeyOf(agentId: string, sessionId: string): string {
 
 // ── Selectors (reactive, for use inside components) ────────────────────────
 
-export function selectOverviewItems(state: SessionStoreState): SessionOverviewItem[] {
+export function selectOverviewItems(
+  state: SessionStoreState
+): SessionOverviewItem[] {
   const { sessionInfoMap, tabOrder, tabTitles } = state;
-  const orderedKeys = tabOrder.length > 0
-    ? tabOrder
-    : Object.keys(sessionInfoMap);
+  const orderedKeys =
+    tabOrder.length > 0 ? tabOrder : Object.keys(sessionInfoMap);
 
   return orderedKeys
     .filter((key) => sessionInfoMap[key])
@@ -106,7 +121,9 @@ export function selectOverviewItems(state: SessionStoreState): SessionOverviewIt
     });
 }
 
-export function selectOverviewItemsMap(state: SessionStoreState): Record<string, SessionOverviewItem> {
+export function selectOverviewItemsMap(
+  state: SessionStoreState
+): Record<string, SessionOverviewItem> {
   const items = selectOverviewItems(state);
   const acc: Record<string, SessionOverviewItem> = {};
   for (const item of items) {
@@ -118,16 +135,15 @@ export function selectOverviewItemsMap(state: SessionStoreState): Record<string,
 export function selectTabs(state: SessionStoreState): SessionTabState[] {
   const { tabOrder, tabTitles, tabIcons } = state;
 
-  return tabOrder
-    .map((key): SessionTabState => {
-      const [agentId, sessionId] = key.split(":");
-      return {
-        sessionId,
-        agentId,
-        title: tabTitles[key] ?? sessionId,
-        agentIcon: tabIcons[key],
-      };
-    });
+  return tabOrder.map((key): SessionTabState => {
+    const [agentId, sessionId] = key.split(":");
+    return {
+      sessionId,
+      agentId,
+      title: tabTitles[key] ?? sessionId,
+      agentIcon: tabIcons[key],
+    };
+  });
 }
 
 /**
@@ -156,13 +172,13 @@ function sessionInfoEquals(a: SessionInfoDTO, b: SessionInfoDTO): boolean {
  */
 export function snapshotToOverviewItem(
   info: SessionInfoDTO,
-  titleHint?: string,
+  titleHint?: string
 ): SessionOverviewItem {
   const status = info.status;
   const createdAt = info.createdAt;
 
   const elapsedMs =
-    (status === "running" && info.lastResponseAt)
+    status === "running" && info.lastResponseAt
       ? Date.now() - new Date(info.lastResponseAt).getTime()
       : 0;
 
@@ -179,7 +195,7 @@ export function snapshotToOverviewItem(
             used: info.tokenUsage.totalTokens,
             max: info.contextWindowMax,
             percentage: Math.round(
-              (info.tokenUsage.totalTokens / info.contextWindowMax) * 100,
+              (info.tokenUsage.totalTokens / info.contextWindowMax) * 100
             ),
           }
         : undefined,
@@ -249,7 +265,11 @@ export interface SessionStoreState {
 
   // ── Actions ───────────────────────────────────────────────────────────
   setSessionInfoMap: (map: Record<string, SessionInfoDTO>) => void;
-  setSessionInfo: (agentId: string, sessionId: string, info: SessionInfoDTO) => void;
+  setSessionInfo: (
+    agentId: string,
+    sessionId: string,
+    info: SessionInfoDTO
+  ) => void;
 
   setTabOrder: (order: string[]) => void;
   setTabTitle: (sessionKey: string, title: string) => void;
@@ -262,7 +282,11 @@ export interface SessionStoreState {
   setAgentInfo: (agentId: string, info: AgentInfo) => void;
   setConnectedAgents: (agents: ConnectedAgentInfo[]) => void;
   setWorkspaceFolders: (folders: WorkspaceFolder[]) => void;
-  setSessionCommands: (agentId: string, sessionId: string, commands: SlashCommand[]) => void;
+  setSessionCommands: (
+    agentId: string,
+    sessionId: string,
+    commands: SlashCommand[]
+  ) => void;
   setStatusline: (statusline: SessionStoreState["statusline"]) => void;
 
   setPromptQueue: (sessionKey: string, queue: QueuedPrompt[]) => void;
@@ -292,9 +316,16 @@ export interface SessionStoreState {
   ensureSplitRatios: (count: number) => void;
   setFocusSession: (sessionKey: string | null) => void;
   setCurrentPlan: (plan: Plan | null) => void;
-  updatePlanStep: (stepId: string, updates: Partial<Plan["steps"][number]>) => void;
+  updatePlanStep: (
+    stepId: string,
+    updates: Partial<Plan["steps"][number]>
+  ) => void;
   approvePlan: () => void;
   rejectPlan: () => void;
+  addPlanStep: (description: string, afterStepId?: string) => void;
+  removePlanStep: (stepId: string) => void;
+  cancelPlan: () => void;
+  replan: (failedStepId: string, reason: string) => void;
   toggleCommandCenter: () => void;
   setCommandCenterExpanded: (expanded: boolean) => void;
   setCommandCenterSelectedKey: (key: string | null) => void;
@@ -362,7 +393,8 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
 
   // ── Tabs ────────────────────────────────────────────────────────────────
 
-  setTabOrder: (order) => set((s) => s.tabOrder === order ? s : { tabOrder: order }),
+  setTabOrder: (order) =>
+    set((s) => (s.tabOrder === order ? s : { tabOrder: order })),
 
   setTabTitle: (key, title) =>
     set((state) => {
@@ -385,7 +417,12 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
       const nextTitles = title
         ? { ...state.tabTitles, [key]: title }
         : state.tabTitles;
-      return { ...state, tabOrder: nextOrder, tabTitles: nextTitles, activeSessionKey: key };
+      return {
+        ...state,
+        tabOrder: nextOrder,
+        tabTitles: nextTitles,
+        activeSessionKey: key,
+      };
     });
   },
 
@@ -398,9 +435,12 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
       delete nextInfoMap[targetKey];
       const nextQueue = { ...state.promptQueue };
       delete nextQueue[targetKey];
-      const nextActive = state.activeSessionKey === targetKey
-        ? (nextOrder.length > 0 ? nextOrder[Math.min(idx, nextOrder.length - 1)] : null)
-        : state.activeSessionKey;
+      const nextActive =
+        state.activeSessionKey === targetKey
+          ? nextOrder.length > 0
+            ? nextOrder[Math.min(idx, nextOrder.length - 1)]
+            : null
+          : state.activeSessionKey;
       // Clean up the pipeline cache for the removed session
       removePipelineCache(targetKey);
       return {
@@ -412,36 +452,56 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
       };
     }),
 
-  setActiveSession: (sessionKey) => set((s) => s.activeSessionKey === sessionKey ? s : { activeSessionKey: sessionKey }),
+  setActiveSession: (sessionKey) =>
+    set((s) =>
+      s.activeSessionKey === sessionKey ? s : { activeSessionKey: sessionKey }
+    ),
 
   // ── Agent / workspace ───────────────────────────────────────────────────
 
-  setWorkspaceRoot: (root) => set((s) => s.workspaceRoot === root ? s : { workspaceRoot: root }),
+  setWorkspaceRoot: (root) =>
+    set((s) => (s.workspaceRoot === root ? s : { workspaceRoot: root })),
 
   setAgentInfo: (agentId, info) =>
     set((state) => {
       if (state.agentInfoMap[agentId] === info) return state;
-      return { ...state, agentInfoMap: { ...state.agentInfoMap, [agentId]: info } };
+      return {
+        ...state,
+        agentInfoMap: { ...state.agentInfoMap, [agentId]: info },
+      };
     }),
 
-  setConnectedAgents: (agents) => set((s) => s.connectedAgents === agents ? s : { connectedAgents: agents }),
-  setWorkspaceFolders: (folders) => set((s) => s.workspaceFolders === folders ? s : { workspaceFolders: folders }),
+  setConnectedAgents: (agents) =>
+    set((s) =>
+      s.connectedAgents === agents ? s : { connectedAgents: agents }
+    ),
+  setWorkspaceFolders: (folders) =>
+    set((s) =>
+      s.workspaceFolders === folders ? s : { workspaceFolders: folders }
+    ),
 
   setSessionCommands: (agentId, sessionId, commands) =>
     set((state) => {
       const key = sessionKeyOf(agentId, sessionId);
       if (state.sessionCommands[key] === commands) return state;
-      return { ...state, sessionCommands: { ...state.sessionCommands, [key]: commands } };
+      return {
+        ...state,
+        sessionCommands: { ...state.sessionCommands, [key]: commands },
+      };
     }),
 
-  setStatusline: (statusline) => set((s) => s.statusline === statusline ? s : { statusline }),
+  setStatusline: (statusline) =>
+    set((s) => (s.statusline === statusline ? s : { statusline })),
 
   // ── Prompt Queue ──────────────────────────────────────────────────────────
 
   setPromptQueue: (sessionKey, queue) =>
     set((state) => {
       if (state.promptQueue[sessionKey] === queue) return state;
-      return { ...state, promptQueue: { ...state.promptQueue, [sessionKey]: queue } };
+      return {
+        ...state,
+        promptQueue: { ...state.promptQueue, [sessionKey]: queue },
+      };
     }),
 
   addQueuedPrompt: (sessionKey, entry) =>
@@ -449,7 +509,10 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
       const existing = state.promptQueue[sessionKey] ?? [];
       return {
         ...state,
-        promptQueue: { ...state.promptQueue, [sessionKey]: [...existing, entry] },
+        promptQueue: {
+          ...state.promptQueue,
+          [sessionKey]: [...existing, entry],
+        },
       };
     }),
 
@@ -459,7 +522,10 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
       if (!q) return state;
       const filtered = q.filter((e) => e.id !== promptId);
       if (filtered.length === q.length) return state;
-      return { ...state, promptQueue: { ...state.promptQueue, [sessionKey]: filtered } };
+      return {
+        ...state,
+        promptQueue: { ...state.promptQueue, [sessionKey]: filtered },
+      };
     }),
 
   reorderQueuedPrompts: (sessionKey, orderedIds) =>
@@ -475,7 +541,10 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
       }
       return {
         ...state,
-        promptQueue: { ...state.promptQueue, [sessionKey]: [...reordered, ...sending] },
+        promptQueue: {
+          ...state.promptQueue,
+          [sessionKey]: [...reordered, ...sending],
+        },
       };
     }),
 
@@ -493,30 +562,51 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
       let changed = false;
       const nextState = { ...state };
 
-      if (state.tabOrder.length !== order.length || state.tabOrder.some((k, i) => k !== order[i])) {
+      if (
+        state.tabOrder.length !== order.length ||
+        state.tabOrder.some((k, i) => k !== order[i])
+      ) {
         nextState.tabOrder = order;
         changed = true;
       }
       if (Object.keys(titles).length > 0) {
         const nextTitles = { ...state.tabTitles };
         for (const [k, v] of Object.entries(titles)) {
-          if (nextTitles[k] !== v) { nextTitles[k] = v; changed = true; }
+          if (nextTitles[k] !== v) {
+            nextTitles[k] = v;
+            changed = true;
+          }
         }
         nextState.tabTitles = nextTitles;
       }
-      if (params.workspaceRoot !== undefined && state.workspaceRoot !== params.workspaceRoot) {
-        nextState.workspaceRoot = params.workspaceRoot; changed = true;
+      if (
+        params.workspaceRoot !== undefined &&
+        state.workspaceRoot !== params.workspaceRoot
+      ) {
+        nextState.workspaceRoot = params.workspaceRoot;
+        changed = true;
       }
-      if (params.connectedAgents && state.connectedAgents !== params.connectedAgents) {
-        nextState.connectedAgents = params.connectedAgents; changed = true;
+      if (
+        params.connectedAgents &&
+        state.connectedAgents !== params.connectedAgents
+      ) {
+        nextState.connectedAgents = params.connectedAgents;
+        changed = true;
       }
-      if (params.workspaceFolders && state.workspaceFolders !== params.workspaceFolders) {
-        nextState.workspaceFolders = params.workspaceFolders; changed = true;
+      if (
+        params.workspaceFolders &&
+        state.workspaceFolders !== params.workspaceFolders
+      ) {
+        nextState.workspaceFolders = params.workspaceFolders;
+        changed = true;
       }
       if (params.agentInfoMap) {
         const nextAgentInfo = { ...state.agentInfoMap };
         for (const [k, v] of Object.entries(params.agentInfoMap)) {
-          if (nextAgentInfo[k] !== v) { nextAgentInfo[k] = v; changed = true; }
+          if (nextAgentInfo[k] !== v) {
+            nextAgentInfo[k] = v;
+            changed = true;
+          }
         }
         nextState.agentInfoMap = nextAgentInfo;
       }
@@ -525,7 +615,8 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
         for (const [k, v] of Object.entries(params.sessionInfoMap)) {
           const prev = state.sessionInfoMap[k];
           if (!prev || !sessionInfoEquals(prev, v)) {
-            nextInfoMap[k] = v; changed = true;
+            nextInfoMap[k] = v;
+            changed = true;
           }
         }
         nextState.sessionInfoMap = nextInfoMap;
@@ -545,7 +636,8 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
     set((state) => {
       if (state.pinnedSessionKeys.includes(sessionKey)) return state;
       const next = [...state.pinnedSessionKeys, sessionKey];
-      const ratios = next.length > 0 ? Array(next.length).fill(1 / next.length) : [];
+      const ratios =
+        next.length > 0 ? Array(next.length).fill(1 / next.length) : [];
       return { ...state, pinnedSessionKeys: next, splitRatios: ratios };
     }),
 
@@ -553,7 +645,8 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
     set((state) => {
       if (!state.pinnedSessionKeys.includes(sessionKey)) return state;
       const next = state.pinnedSessionKeys.filter((k) => k !== sessionKey);
-      const ratios = next.length > 0 ? Array(next.length).fill(1 / next.length) : [];
+      const ratios =
+        next.length > 0 ? Array(next.length).fill(1 / next.length) : [];
       return { ...state, pinnedSessionKeys: next, splitRatios: ratios };
     }),
 
@@ -563,7 +656,8 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
       const next = isPinned
         ? state.pinnedSessionKeys.filter((k) => k !== sessionKey)
         : [...state.pinnedSessionKeys, sessionKey];
-      const ratios = next.length > 0 ? Array(next.length).fill(1 / next.length) : [];
+      const ratios =
+        next.length > 0 ? Array(next.length).fill(1 / next.length) : [];
       return { ...state, pinnedSessionKeys: next, splitRatios: ratios };
     }),
 
@@ -580,11 +674,14 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
     }),
 
   setSplitDirection: (dir) =>
-    set((s) => s.splitDirection === dir ? s : { splitDirection: dir }),
+    set((s) => (s.splitDirection === dir ? s : { splitDirection: dir })),
 
   setSplitRatios: (ratios) =>
     set((s) => {
-      if (s.splitRatios.length === ratios.length && s.splitRatios.every((v, i) => v === ratios[i])) {
+      if (
+        s.splitRatios.length === ratios.length &&
+        s.splitRatios.every((v, i) => v === ratios[i])
+      ) {
         return s;
       }
       return { splitRatios: [...ratios] };
@@ -594,18 +691,23 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
     set((s) => {
       if (count <= 0) return { splitRatios: [] };
       const equal = Array(count).fill(1 / count);
-      if (s.splitRatios.length === count && s.splitRatios.every((v, i) => v === equal[i])) {
+      if (
+        s.splitRatios.length === count &&
+        s.splitRatios.every((v, i) => v === equal[i])
+      ) {
         return s;
       }
       return { splitRatios: equal };
     }),
 
-  setFocusSession: (sessionKey) => set((s) => s.activeSessionKey === sessionKey ? s : { activeSessionKey: sessionKey }),
+  setFocusSession: (sessionKey) =>
+    set((s) =>
+      s.activeSessionKey === sessionKey ? s : { activeSessionKey: sessionKey }
+    ),
 
   // ── Plan Viewer ──────────────────────────────────────────────────────
 
-  setCurrentPlan: (plan) =>
-    set((s) => ({ ...s, currentPlan: plan })),
+  setCurrentPlan: (plan) => set((s) => ({ ...s, currentPlan: plan })),
 
   updatePlanStep: (stepId, updates) =>
     set((s) => {
@@ -622,7 +724,10 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
       return {
         ...s,
         currentPlan: { ...s.currentPlan, status: "approved" },
-        planHistory: [...s.planHistory, { ...s.currentPlan, status: "approved" }],
+        planHistory: [
+          ...s.planHistory,
+          { ...s.currentPlan, status: "approved" },
+        ],
       };
     }),
 
@@ -632,7 +737,68 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
       return {
         ...s,
         currentPlan: null,
-        planHistory: [...s.planHistory, { ...s.currentPlan, status: "rejected" }],
+        planHistory: [
+          ...s.planHistory,
+          { ...s.currentPlan, status: "rejected" },
+        ],
+      };
+    }),
+
+  addPlanStep: (description: string, afterStepId?: string) =>
+    set((s) => {
+      if (!s.currentPlan) return s;
+      const steps = [...s.currentPlan.steps];
+      const newStep: import("../types").PlanStep = {
+        id: `step-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        index: steps.length,
+        description,
+        status: "pending",
+      };
+      if (afterStepId) {
+        const idx = steps.findIndex((st) => st.id === afterStepId);
+        if (idx >= 0) {
+          steps.splice(idx + 1, 0, newStep);
+        } else {
+          steps.push(newStep);
+        }
+      } else {
+        steps.push(newStep);
+      }
+      const reindexed = steps.map((st, i) => ({ ...st, index: i }));
+      return { ...s, currentPlan: { ...s.currentPlan, steps: reindexed } };
+    }),
+
+  removePlanStep: (stepId: string) =>
+    set((s) => {
+      if (!s.currentPlan) return s;
+      const steps = s.currentPlan.steps
+        .filter((st) => st.id !== stepId)
+        .map((st, i) => ({ ...st, index: i }));
+      return { ...s, currentPlan: { ...s.currentPlan, steps } };
+    }),
+
+  cancelPlan: () =>
+    set((s) => {
+      if (!s.currentPlan) return s;
+      return {
+        ...s,
+        currentPlan: { ...s.currentPlan, status: "cancelled" },
+        planHistory: [
+          ...s.planHistory,
+          { ...s.currentPlan, status: "cancelled" },
+        ],
+      };
+    }),
+
+  replan: (failedStepId: string, reason: string) =>
+    set((s) => {
+      if (!s.currentPlan) return s;
+      const steps = s.currentPlan.steps.map((st) =>
+        st.id === failedStepId ? { ...st, status: "pending" as const, error: undefined } : st
+      );
+      return {
+        ...s,
+        currentPlan: { ...s.currentPlan, status: "pending", steps },
       };
     }),
 
@@ -642,8 +808,14 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
     set((s) => ({ commandCenterExpanded: !s.commandCenterExpanded })),
 
   setCommandCenterExpanded: (expanded) =>
-    set((s) => s.commandCenterExpanded === expanded ? s : { commandCenterExpanded: expanded }),
+    set((s) =>
+      s.commandCenterExpanded === expanded
+        ? s
+        : { commandCenterExpanded: expanded }
+    ),
 
   setCommandCenterSelectedKey: (key) =>
-    set((s) => s.commandCenterSelectedKey === key ? s : { commandCenterSelectedKey: key }),
+    set((s) =>
+      s.commandCenterSelectedKey === key ? s : { commandCenterSelectedKey: key }
+    ),
 }));

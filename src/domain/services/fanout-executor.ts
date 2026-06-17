@@ -12,10 +12,7 @@
 
 import type { SessionOrchestrator } from "../../application/session/orchestrator";
 import type { PromptContext } from "../../application/session/orchestrator";
-import type {
-  SendTarget,
-  MultiSendResult,
-} from "../models/mesh";
+import type { SendTarget, MultiSendResult } from "../models/mesh";
 import type { ChatMessage } from "../../domain/models/chat";
 import { getLogger } from "../../platform/backends";
 
@@ -28,7 +25,7 @@ const log = getLogger("mesh.fanout");
 export type PushUserMessageFn = (
   agentId: string,
   sessionId: string,
-  message: ChatMessage,
+  message: ChatMessage
 ) => void;
 
 export interface FanoutExecutorDeps {
@@ -77,16 +74,18 @@ export class FanoutExecutor {
    */
   async execute(
     targets: SendTarget[],
-    request: FanoutRequest,
+    request: FanoutRequest
   ): Promise<MultiSendResult> {
-    const targetDesc = targets.map((t) => `${t.agentId}:${t.sessionId}`).join(", ");
+    const targetDesc = targets
+      .map((t) => `${t.agentId}:${t.sessionId}`)
+      .join(", ");
     log.info("fanout execute start", {
       targetCount: targets.length,
       targets: targetDesc,
     });
 
     const results = await Promise.all(
-      targets.map((target) => this.sendToTarget(target, request)),
+      targets.map((target) => this.sendToTarget(target, request))
     );
 
     const sent = results.filter((r) => r.status === "sent").length;
@@ -102,7 +101,7 @@ export class FanoutExecutor {
    */
   private async sendToTarget(
     target: SendTarget,
-    request: FanoutRequest,
+    request: FanoutRequest
   ): Promise<FanoutResult> {
     log.info("sending to target", {
       agentId: target.agentId,
@@ -121,15 +120,19 @@ export class FanoutExecutor {
         target.agentId,
         target.sessionId,
         request.text,
-        request.context,
+        request.context
       );
       return { target, status: "sent" };
     } catch (e) {
-      log.error("fanout target failed", {
-        agentId: target.agentId,
-        sessionId: target.sessionId,
-        error: e instanceof Error ? e.message : String(e),
-      }, e as Error);
+      log.error(
+        "fanout target failed",
+        {
+          agentId: target.agentId,
+          sessionId: target.sessionId,
+          error: e instanceof Error ? e.message : String(e),
+        },
+        e as Error
+      );
       return {
         target,
         status: "failed",

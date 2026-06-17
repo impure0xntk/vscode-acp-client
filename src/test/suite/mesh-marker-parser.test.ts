@@ -6,6 +6,7 @@ import * as assert from "assert";
 import {
   parseMeshMarkers,
   serializeToMarker,
+  tryRepairJson,
 } from "../../shared/util/mesh-marker-parser";
 import type { P2PMessage } from "../../domain/models/mesh";
 import { MESH_MARKER_OPEN, MESH_MARKER_CLOSE } from "../../domain/models/mesh";
@@ -222,7 +223,11 @@ describe("mesh-marker-parser", () => {
     });
 
     it("should serialize to v1 format when version=1", () => {
-      const msg = makeMessage({ id: "msg-v1", type: "question", to: "agent-b" });
+      const msg = makeMessage({
+        id: "msg-v1",
+        type: "question",
+        to: "agent-b",
+      });
       const serialized = serializeToMarker(msg, "1");
 
       assert.ok(serialized.startsWith(MESH_MARKER_OPEN));
@@ -237,6 +242,72 @@ describe("mesh-marker-parser", () => {
       assert.strictEqual(parsed.version, "1.0");
       assert.strictEqual(parsed.type, "question");
       assert.strictEqual(parsed.id, "msg-v1");
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // tryRepairJson
+  // -----------------------------------------------------------------------
+
+  describe("tryRepairJson", () => {
+    it("should return null for completely invalid input", () => {
+      assert.strictEqual(tryRepairJson("not json at all"), null);
+    });
+
+    it("should return null for empty string", () => {
+      assert.strictEqual(tryRepairJson(""), null);
+    });
+
+    it("should parse valid JSON as-is", () => {
+      const result = tryRepairJson('{"type": "task_request", "id": "1"}');
+      assert.ok(result !== null);
+      assert.strictEqual(result.type, "task_request");
+      assert.strictEqual(result.id, "1");
+    });
+
+    it("should repair trailing comma before closing brace", () => {
+      const result = tryRepairJson('{"type": "task_request", "id": "1",}');
+      assert.ok(result !== null);
+      assert.strictEqual(result.type, "task_request");
+      assert.strictEqual(result.id, "1");
+    });
+
+    it("should repair trailing comma before closing bracket", () => {
+      const result = tryRepairJson('{"steps": ["a", "b",],}');
+      assert.ok(result !== null);
+      assert.deepStrictEqual(result.steps, ["a", "b"]);
+    });
+
+    it("should repair multiple trailing commas", () => {
+      const result = tryRepairJson('{"a": 1, "b": "hello", "c": [1, 2,],}');
+      assert.ok(result !== null);
+      assert.strictEqual(result.a, 1);
+      assert.strictEqual(result.b, "hello");
+      assert.deepStrictEqual(result.c, [1, 2]);
+    });
+
+    it("should handle whitespace around input", () => {
+      const result = tryRepairJson('  {"type": "ping",}  ');
+      assert.ok(result !== null);
+      assert.strictEqual(result.type, "ping");
+    });
+
+    it("should not alter already valid JSON", () => {
+      const valid =
+        '{"version":"2.0","type":"task_response","from":"a","to":"b"}';
+      const result = tryRepairJson(valid);
+      assert.ok(result !== null);
+      assert.strictEqual(result.version, "2.0");
+      assert.strictEqual(result.type, "task_response");
+    });
+
+    it("should return null for unclosed braces", () => {
+      assert.strictEqual(tryRepairJson('{"type": "task_request"'), null);
+    });
+
+    it("should return null for single quotes (not repaired)", () => {
+      // tryRepairJson does not handle single quotes
+      assert.strictEqual(tryRepairJson("{'type': 'task_request'}"), null);
     });
   });
 });

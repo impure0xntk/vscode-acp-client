@@ -173,7 +173,7 @@ export class MeshOrchestrator {
 
   private async forwardToAgent(
     targetAgentId: string,
-    message: P2PMessage,
+    message: P2PMessage
   ): Promise<void> {
     const sessionId =
       this.sessionOrchestrator.getActiveSessionId(targetAgentId);
@@ -187,13 +187,17 @@ export class MeshOrchestrator {
       await this.sessionOrchestrator.prompt(
         targetAgentId,
         sessionId,
-        markerMessage,
+        markerMessage
       );
     } catch (e) {
-      log.error("failed to forward P2P message to agent", {
-        targetAgentId,
-        sessionId,
-      }, e as Error);
+      log.error(
+        "failed to forward P2P message to agent",
+        {
+          targetAgentId,
+          sessionId,
+        },
+        e as Error
+      );
     }
   }
 
@@ -209,7 +213,7 @@ export class MeshOrchestrator {
 
   async processAgentOutput(
     agentId: string,
-    rawOutput: string,
+    rawOutput: string
   ): Promise<string> {
     const { messages, sanitized } = parseMeshMarkers(rawOutput, agentId);
 
@@ -224,11 +228,15 @@ export class MeshOrchestrator {
       try {
         await this.messageBus.send(msg);
       } catch (e) {
-        log.error("failed to route P2P message", {
-          messageId: msg.id,
-          from: msg.from,
-          to: msg.to,
-        }, e as Error);
+        log.error(
+          "failed to route P2P message",
+          {
+            messageId: msg.id,
+            from: msg.from,
+            to: msg.to,
+          },
+          e as Error
+        );
       }
 
       // Notify extension host for plan_update / task_delegate side effects
@@ -246,7 +254,7 @@ export class MeshOrchestrator {
 
   addTask(
     teamId: string,
-    task: Omit<TaskEntry, "createdAt" | "updatedAt">,
+    task: Omit<TaskEntry, "createdAt" | "updatedAt">
   ): TaskEntry {
     const team = this.teams.get(teamId);
     if (!team) throw new Error(`Team ${teamId} not found`);
@@ -264,7 +272,7 @@ export class MeshOrchestrator {
     taskId: string,
     updates: Partial<
       Pick<TaskEntry, "status" | "assignedTo" | "result" | "metadata">
-    >,
+    >
   ): TaskEntry | undefined {
     const team = this.teams.get(teamId);
     if (!team) return undefined;
@@ -295,7 +303,7 @@ export class MeshOrchestrator {
 
       const tasks = this.taskBoardStore.getTasksByAgent(
         team.taskBoardPath,
-        agentId,
+        agentId
       );
       for (const task of tasks) {
         if (task.status === "in_progress" || task.status === "assigned") {
@@ -336,7 +344,7 @@ export class MeshOrchestrator {
     type: MeshErrorType,
     description: string,
     agentId?: string,
-    messageId?: string,
+    messageId?: string
   ): MeshError {
     return {
       type,
@@ -356,7 +364,7 @@ export class MeshOrchestrator {
     toAgentId: string,
     task: string,
     context?: string,
-    _timeoutSec?: number,
+    _timeoutSec?: number
   ): Promise<void> {
     log.info("handoff", { from: fromAgentId, to: toAgentId });
     const message: P2PMessage = {
@@ -379,7 +387,7 @@ export class MeshOrchestrator {
     fromAgentId: string,
     toAgentId: string,
     content: string,
-    priority: "low" | "normal" | "high" | "urgent" = "normal",
+    priority: "low" | "normal" | "high" | "urgent" = "normal"
   ): Promise<void> {
     log.info("sendMessage", { from: fromAgentId, to: toAgentId, priority });
     const message: P2PMessage = {
@@ -406,9 +414,11 @@ export class MeshOrchestrator {
   async meshSend(
     targets: SendTarget[],
     text: string,
-    attachments?: ContextAttachmentDTO[],
+    attachments?: ContextAttachmentDTO[]
   ): Promise<MultiSendResult> {
-    const targetDesc = targets.map((t) => `${t.agentId}:${t.sessionId}`).join(", ");
+    const targetDesc = targets
+      .map((t) => `${t.agentId}:${t.sessionId}`)
+      .join(", ");
     log.info("mesh:send", {
       targetCount: targets.length,
       targets: targetDesc,
@@ -423,7 +433,7 @@ export class MeshOrchestrator {
   async fanout(
     agentIds: string[],
     text: string,
-    attachments?: ContextAttachmentDTO[],
+    attachments?: ContextAttachmentDTO[]
   ): Promise<MultiSendResult> {
     const targets: SendTarget[] = [];
     for (const agentId of agentIds) {
@@ -439,7 +449,9 @@ export class MeshOrchestrator {
     }
 
     if (targets.length === 0) {
-      log.warn("fanout: no active sessions found", { requestedAgentIds: agentIds });
+      log.warn("fanout: no active sessions found", {
+        requestedAgentIds: agentIds,
+      });
       return { results: [] };
     }
 
@@ -457,8 +469,11 @@ export class MeshOrchestrator {
   async pipelineSend(
     targets: SendTarget[],
     text: string,
-    attachments?: ContextAttachmentDTO[],
-  ): Promise<{ success: boolean; steps: Array<{ target: SendTarget; status: string; error?: string }> }> {
+    attachments?: ContextAttachmentDTO[]
+  ): Promise<{
+    success: boolean;
+    steps: Array<{ target: SendTarget; status: string; error?: string }>;
+  }> {
     log.info("pipelineSend", { targetCount: targets.length });
     const context = this.buildContext(attachments);
     return this.pipelineExecutor.execute(targets, { text, context });
@@ -475,7 +490,7 @@ export class MeshOrchestrator {
     waitForAll = false,
     leadOutput?: string,
     maxRetries?: number,
-    lockFiles?: string[],
+    lockFiles?: string[]
   ): Promise<{
     assignments: Array<{ workerTarget: SendTarget; status: string }>;
     completedCount: number;
@@ -500,7 +515,7 @@ export class MeshOrchestrator {
         maxRetries,
         lockFiles,
       },
-      leadOutput,
+      leadOutput
     );
   }
 
@@ -545,11 +560,20 @@ export class MeshOrchestrator {
           });
         }
 
-        const activeSessionId = this.sessionOrchestrator.getActiveSessionId(agentId);
-        const activeInfo = allSessions.find((s) => s.sessionId === activeSessionId);
+        const activeSessionId =
+          this.sessionOrchestrator.getActiveSessionId(agentId);
+        const activeInfo = allSessions.find(
+          (s) => s.sessionId === activeSessionId
+        );
         if (activeInfo && activeInfo.status === "running") {
           const progress = activeInfo.contextWindowMax
-            ? Math.min(95, Math.round((activeInfo.tokenUsage.total / activeInfo.contextWindowMax) * 100))
+            ? Math.min(
+                95,
+                Math.round(
+                  (activeInfo.tokenUsage.total / activeInfo.contextWindowMax) *
+                    100
+                )
+              )
             : undefined;
 
           statuses.push({

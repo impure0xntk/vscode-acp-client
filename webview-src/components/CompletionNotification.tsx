@@ -72,7 +72,11 @@ export function CompletionNotification({
       }}
     >
       <div className="completion-notification-content">
-        <Icon name={iconName} className="completion-notification-icon" size="sm" />
+        <Icon
+          name={iconName}
+          className="completion-notification-icon"
+          size="sm"
+        />
         <span className="completion-notification-text">
           <span className="completion-notification-title">{displayName}</span>
           <span className="completion-notification-agent">{agentId}</span>

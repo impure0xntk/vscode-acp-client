@@ -66,7 +66,7 @@ export class PipelineExecutor {
   async execute(
     targets: SendTarget[],
     request: PipelineRequest,
-    transformFn?: (lastResponse: string, nextTarget: SendTarget) => string,
+    transformFn?: (lastResponse: string, nextTarget: SendTarget) => string
   ): Promise<PipelineResult> {
     const steps: PipelineStepResult[] = [];
     let lastResponse = request.text;
@@ -88,15 +88,19 @@ export class PipelineExecutor {
           target.agentId,
           target.sessionId,
           text,
-          request.context,
+          request.context
         );
         steps.push({ target, status: "sent" });
         lastResponse = text;
       } catch (e) {
-        log.error("pipeline step failed", {
-          agentId: target.agentId,
-          sessionId: target.sessionId,
-        }, e as Error);
+        log.error(
+          "pipeline step failed",
+          {
+            agentId: target.agentId,
+            sessionId: target.sessionId,
+          },
+          e as Error
+        );
         steps.push({
           target,
           status: "failed",

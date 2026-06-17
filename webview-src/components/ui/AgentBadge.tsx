@@ -25,10 +25,7 @@ export function AgentBadge({
   const displayName = agentName ?? agentId;
   return (
     <span className={`agent-badge ${className}`.trim()}>
-      <span
-        className="agent-badge-dot"
-        style={{ backgroundColor: dotColor }}
-      />
+      <span className="agent-badge-dot" style={{ backgroundColor: dotColor }} />
       <span className="agent-badge-name" title={agentId}>
         {displayName}
       </span>

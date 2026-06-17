@@ -159,7 +159,8 @@ function SessionRow({
         </div>
         {entry.workspaceName && (
           <div className="history-item-workspace" title={entry.cwd}>
-            <Icon name="folder-opened" size="sm" /> {highlightMatch(entry.workspaceName, query)}
+            <Icon name="folder-opened" size="sm" />{" "}
+            {highlightMatch(entry.workspaceName, query)}
           </div>
         )}
         <TokenBar entry={entry} />
@@ -180,7 +181,11 @@ function SessionRow({
           }}
           title={entry.isArchived ? "Unarchive" : "Archive"}
         >
-          {entry.isArchived ? <Icon name="archive" size="sm" /> : <Icon name="save" size="sm" />}
+          {entry.isArchived ? (
+            <Icon name="archive" size="sm" />
+          ) : (
+            <Icon name="save" size="sm" />
+          )}
         </button>
         <button
           className="history-item-action-btn history-item-delete"
@@ -217,9 +222,7 @@ export function SessionList({
         <div key={groupLabel} className="history-group">
           <div className="history-group-header">
             {groupLabel}
-            <span className="history-group-count">
-              {groupEntries.length}
-            </span>
+            <span className="history-group-count">{groupEntries.length}</span>
           </div>
           {groupEntries.map((entry) => (
             <SessionRow

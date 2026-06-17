@@ -41,7 +41,11 @@ import type {
 import type { TerminalAPI, Terminal } from "../terminal";
 import type { OrchestrationStateAPI } from "../orchestration";
 import type { PlatformAPI } from "../platform";
-import type { LogStorageAPI, ClearLogsOptions, ClearLogsResult } from "../logStorage";
+import type {
+  LogStorageAPI,
+  ClearLogsOptions,
+  ClearLogsResult,
+} from "../logStorage";
 import { VsCodeOutputBackend } from "../backends/vscode-output-backend";
 import { LogEntrySinkBackend } from "../backends/log-entry-sink-backend";
 import { LoggerFactoryImpl } from "../backends/logger-impl";

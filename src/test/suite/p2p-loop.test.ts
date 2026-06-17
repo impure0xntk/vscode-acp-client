@@ -197,8 +197,7 @@ describe("P2P Loop Integration", () => {
   // -----------------------------------------------------------------------
 
   it("ignores invalid JSON inside v2 markers", () => {
-    const raw =
-      "[ACP_MESH_MESSAGE v2]{ not valid json }[/ACP_MESH_MESSAGE]";
+    const raw = "[ACP_MESH_MESSAGE v2]{ not valid json }[/ACP_MESH_MESSAGE]";
     const { messages } = parseMeshMarkers(raw, "agent-a");
     assert.strictEqual(messages.length, 0);
   });
@@ -248,9 +247,21 @@ describe("P2P Loop Integration", () => {
 
   it("extracts multiple v2 markers from single agent output", () => {
     const msgs = [
-      createMessage({ to: "agent-b", type: "task_delegate", payload: { agentIndex: 0, description: "Task 1" } }),
-      createMessage({ to: "agent-c", type: "task_delegate", payload: { agentIndex: 1, description: "Task 2" } }),
-      createMessage({ to: "agent-b", type: "status_update", payload: { agentId: "agent-a", status: "working" } }),
+      createMessage({
+        to: "agent-b",
+        type: "task_delegate",
+        payload: { agentIndex: 0, description: "Task 1" },
+      }),
+      createMessage({
+        to: "agent-c",
+        type: "task_delegate",
+        payload: { agentIndex: 1, description: "Task 2" },
+      }),
+      createMessage({
+        to: "agent-b",
+        type: "status_update",
+        payload: { agentId: "agent-a", status: "working" },
+      }),
     ];
 
     const raw = msgs

@@ -48,7 +48,7 @@ export const useUiStateStore = create<UiStateStore>((set) => ({
   panelMode: "classic",
 
   setPanelMode: (mode) =>
-    set((state) => state.panelMode === mode ? state : { panelMode: mode }),
+    set((state) => (state.panelMode === mode ? state : { panelMode: mode })),
 
   overviewVisible: false,
   overviewWidth: 280,
@@ -106,7 +106,9 @@ export const useUiStateStore = create<UiStateStore>((set) => ({
     set((state) => {
       const idx = state.overviewSelectedSessionIds.indexOf(sessionId);
       if (idx >= 0) {
-        const next = state.overviewSelectedSessionIds.filter((_, i) => i !== idx);
+        const next = state.overviewSelectedSessionIds.filter(
+          (_, i) => i !== idx
+        );
         return next.length !== state.overviewSelectedSessionIds.length
           ? { ...state, overviewSelectedSessionIds: next }
           : state;
@@ -122,7 +124,9 @@ export const useUiStateStore = create<UiStateStore>((set) => ({
 
   setOverviewSelectionMode: (enabled: boolean) =>
     set((state) =>
-      state.overviewSelectionMode === enabled ? state : { ...state, overviewSelectionMode: enabled },
+      state.overviewSelectionMode === enabled
+        ? state
+        : { ...state, overviewSelectionMode: enabled }
     ),
 
   toggleOverviewSelection: (sessionId: string) =>
@@ -134,26 +138,42 @@ export const useUiStateStore = create<UiStateStore>((set) => ({
       } else {
         nextIds = [...state.overviewSelectedSessionIds, sessionId];
       }
-      return { ...state, overviewSelectedSessionIds: nextIds, overviewSelectionMode: true };
+      return {
+        ...state,
+        overviewSelectedSessionIds: nextIds,
+        overviewSelectionMode: true,
+      };
     }),
 
   setOverviewState: (ovState: Partial<SessionOverviewState>) =>
     set((state) => {
       let changed = false;
       const next = { ...state };
-      if (ovState.filter !== undefined && next.overviewFilter !== ovState.filter) {
+      if (
+        ovState.filter !== undefined &&
+        next.overviewFilter !== ovState.filter
+      ) {
         next.overviewFilter = ovState.filter;
         changed = true;
       }
-      if (ovState.expandedSessions !== undefined && next.overviewExpandedSessions !== ovState.expandedSessions) {
+      if (
+        ovState.expandedSessions !== undefined &&
+        next.overviewExpandedSessions !== ovState.expandedSessions
+      ) {
         next.overviewExpandedSessions = ovState.expandedSessions;
         changed = true;
       }
-      if (ovState.selectedSessionIds !== undefined && next.overviewSelectedSessionIds !== ovState.selectedSessionIds) {
+      if (
+        ovState.selectedSessionIds !== undefined &&
+        next.overviewSelectedSessionIds !== ovState.selectedSessionIds
+      ) {
         next.overviewSelectedSessionIds = ovState.selectedSessionIds;
         changed = true;
       }
-      if (ovState.selectionMode !== undefined && next.overviewSelectionMode !== ovState.selectionMode) {
+      if (
+        ovState.selectionMode !== undefined &&
+        next.overviewSelectionMode !== ovState.selectionMode
+      ) {
         next.overviewSelectionMode = ovState.selectionMode;
         changed = true;
       }

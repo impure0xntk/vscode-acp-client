@@ -14,3 +14,33 @@ export { MeshOrchestrator } from "./mesh-orchestrator";
 export { FanoutExecutor } from "./fanout-executor";
 export { PipelineExecutor } from "./pipeline-executor";
 export { SupervisorManager } from "./supervisor-manager";
+export {
+  PromptBuilder,
+  buildMeshSystemPrompt,
+  buildPlannerSystemPrompt,
+  buildWorkerSystemPrompt,
+  buildLeadSystemPrompt,
+  buildReviewerSystemPrompt,
+  buildUserPromptEnvelope,
+  buildReinjectionPrompt,
+  buildRepromptMessage,
+} from "./prompt-builder";
+export type {
+  MeshAgentRole,
+  MeshProtocolConfig,
+  InboundMessage,
+} from "./prompt-builder";
+export { SupervisorOrchestrator } from "./supervisor-orchestrator";
+export type {
+  SupervisorOrchestratorDeps,
+  PlanWebviewMessage,
+  PlanOutboundMessage,
+  WebviewMessage,
+  PlanApproveMessage,
+  PlanRejectMessage,
+  PlanModifyStepMessage,
+  PlanAddStepMessage,
+  PlanRemoveStepMessage,
+  PlanCancelMessage,
+  PlanReplanMessage,
+} from "./supervisor-orchestrator";

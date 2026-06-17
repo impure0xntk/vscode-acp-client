@@ -1,15 +1,21 @@
 import React from "react";
-import type { SessionOverviewItem, ToolbarMeta, ResponsePreview } from "../../types";
+import type {
+  SessionOverviewItem,
+  ToolbarMeta,
+  ResponsePreview,
+} from "../../types";
 import type { TurnOutcome } from "../StatusIcon";
 import { Chip } from "../ui/Chip";
 import { AgentBadge } from "../ui/AgentBadge";
 import { StatusIcon } from "../StatusIcon";
 import type { StatusIconType } from "../StatusIcon";
-import { ELAPSED_WARNING_MS, ELAPSED_CRITICAL_MS } from "../../shared/constants";
+import {
+  ELAPSED_WARNING_MS,
+  ELAPSED_CRITICAL_MS,
+} from "../../shared/constants";
 import { Icon } from "../../lib/icons";
 import { snapshotToOverviewItem } from "../../store/sessionStore";
 export { snapshotToOverviewItem };
-
 
 // ============================================================================
 // Shared helpers
@@ -56,25 +62,46 @@ export function elapsedTier(elapsedMs: number): ElapsedTier {
  */
 export function effectiveStatus(
   status: string,
-  lastTurnOutcome: TurnOutcome | null,
+  lastTurnOutcome: TurnOutcome | null
 ): StatusIconType {
   if (status === "running") return "running";
   if (lastTurnOutcome) return lastTurnOutcome;
-  if (status === "idle" || status === "waiting" || status === "waiting_for_input") return status;
+  if (
+    status === "idle" ||
+    status === "waiting" ||
+    status === "waiting_for_input"
+  )
+    return status;
   return "idle";
 }
 
 export const STATUS_STYLE_MAP: Record<
   string,
-  { iconStatus: StatusIconType; accentClass: string; colorGroup: SessionColorGroup }
+  {
+    iconStatus: StatusIconType;
+    accentClass: string;
+    colorGroup: SessionColorGroup;
+  }
 > = {
-  running:           { iconStatus: "running",  accentClass: "status-icon-running",          colorGroup: "active" },
-  idle:              { iconStatus: "idle",     accentClass: "",                             colorGroup: "done" },
-  waiting:           { iconStatus: "waiting",  accentClass: "status-icon-waiting",         colorGroup: "waiting" },
-  waiting_for_input: { iconStatus: "waiting",  accentClass: "status-icon-waiting",         colorGroup: "waiting" },
-  completed:         { iconStatus: "completed", accentClass: "",                             colorGroup: "done" },
-  error:             { iconStatus: "error",     accentClass: "",                             colorGroup: "done" },
-  cancelled:         { iconStatus: "cancelled", accentClass: "",                             colorGroup: "done" },
+  running: {
+    iconStatus: "running",
+    accentClass: "status-icon-running",
+    colorGroup: "active",
+  },
+  idle: { iconStatus: "idle", accentClass: "", colorGroup: "done" },
+  waiting: {
+    iconStatus: "waiting",
+    accentClass: "status-icon-waiting",
+    colorGroup: "waiting",
+  },
+  waiting_for_input: {
+    iconStatus: "waiting",
+    accentClass: "status-icon-waiting",
+    colorGroup: "waiting",
+  },
+  completed: { iconStatus: "completed", accentClass: "", colorGroup: "done" },
+  error: { iconStatus: "error", accentClass: "", colorGroup: "done" },
+  cancelled: { iconStatus: "cancelled", accentClass: "", colorGroup: "done" },
 };
 
 export function fmt(n: number): string {
@@ -171,7 +198,11 @@ export function SessionOverviewHeader({
 }): React.ReactElement {
   return (
     <div className={`soc-title-row ${className}`.trim()}>
-      <AgentBadge agentId={session.agentId} agentColor={agentColor} className="soc-agent" />
+      <AgentBadge
+        agentId={session.agentId}
+        agentColor={agentColor}
+        className="soc-agent"
+      />
       <span className="soc-title">{session.title}</span>
       {session.model && <span className="soc-model">{session.model}</span>}
     </div>

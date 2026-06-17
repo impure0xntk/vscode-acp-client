@@ -2,7 +2,7 @@ import * as assert from "assert";
 import { describe, it, beforeEach, afterEach } from "mocha";
 import { EventEmitter } from "events";
 
-import type { SessionInfo } from "../../application/session/types";
+import type { AppSessionInfo } from "../../application/session/types";
 import type { ChatMessage } from "../../domain/models/chat";
 import type { AgentInfo } from "../../application/session/orchestrator";
 import type { UIAPI } from "../../platform/ui";
@@ -19,10 +19,16 @@ function makeUI(): UIAPI {
     showInputBox: async () => undefined,
     showOpenDialog: async () => undefined,
     createStatusBarItem: () => ({
-      text: "", tooltip: "", show() {}, hide() {}, dispose() {},
+      text: "",
+      tooltip: "",
+      show() {},
+      hide() {},
+      dispose() {},
     }),
     createOutputChannel: () => ({
-      appendLine() {}, show() {}, dispose() {},
+      appendLine() {},
+      show() {},
+      dispose() {},
     }),
     createWebviewPanel: () => ({
       webview: {
@@ -59,15 +65,26 @@ function makeFS(): FileSystemAPI {
     findFiles: async () => [],
     watchFiles: () => () => {},
     captureSnapshot: async () => ({ path: "", content: "", mtime: 0 }),
-    uri: (p: string) => ({ scheme: "file", fsPath: p, path: p, toString: () => p } as any),
-    joinPath: (base: any, ...segs: string[]) => ({ scheme: "file", fsPath: base.fsPath + "/" + segs.join("/"), path: base.path + "/" + segs.join("/"), toString: () => base.path + "/" + segs.join("/") } as any),
+    uri: (p: string) =>
+      ({ scheme: "file", fsPath: p, path: p, toString: () => p }) as any,
+    joinPath: (base: any, ...segs: string[]) =>
+      ({
+        scheme: "file",
+        fsPath: base.fsPath + "/" + segs.join("/"),
+        path: base.path + "/" + segs.join("/"),
+        toString: () => base.path + "/" + segs.join("/"),
+      }) as any,
     basename: (p: string) => p.split("/").pop() || "",
     dirname: (p: string) => p.split("/").slice(0, -1).join("/"),
     relativePath: (_from: string, to: string) => to,
     isAbsolutePath: (p: string) => p.startsWith("/"),
     getConfiguration: () => ({ get: (_k: string, d?: any) => d }),
-    get workspaceRoots() { return ["/workspace"]; },
-    get workspaceRoot() { return "/workspace"; },
+    get workspaceRoots() {
+      return ["/workspace"];
+    },
+    get workspaceRoot() {
+      return "/workspace";
+    },
     resolvePath: (base: string, rel: string) => base + "/" + rel,
   } as unknown as FileSystemAPI;
 }
@@ -88,14 +105,23 @@ function makeMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
 
 interface OrchestratorInternals {
   connections: Map<string, any>;
-  sessions: Map<string, Map<string, SessionInfo>>;
+  sessions: Map<string, Map<string, AppSessionInfo>>;
   activeSessions: Map<string, string>;
   agentInfoMap: Map<string, AgentInfo>;
   agentConfigs: Map<string, any>;
   historyStore: any;
-  getSessionInfo(agentId: string, sessionId: string): SessionInfo | undefined;
-  prompt(agentId: string, sessionId: string, text: string, context?: any): Promise<void>;
-  restoreSession(agentId: string, sourceSessionId: string, messages: ChatMessage[]): Promise<any>;
+  getSessionInfo(agentId: string, sessionId: string): AppSessionInfo | undefined;
+  prompt(
+    agentId: string,
+    sessionId: string,
+    text: string,
+    context?: any
+  ): Promise<void>;
+  restoreSession(
+    agentId: string,
+    sourceSessionId: string,
+    messages: ChatMessage[]
+  ): Promise<any>;
   chatMessageToContentBlocks(msg: ChatMessage): any[];
 }
 
@@ -113,7 +139,9 @@ describe("restoreSession — Strategy 1: native loadSession", () => {
 
   beforeEach(() => {
     // Lazy import to avoid side effects at module level
-    const { SessionOrchestrator } = require("../../application/session/orchestrator");
+    const {
+      SessionOrchestrator,
+    } = require("../../application/session/orchestrator");
     orchestrator = new SessionOrchestrator({ ui: makeUI(), fs: makeFS() });
     const o = orchAs(orchestrator);
 
@@ -135,7 +163,7 @@ describe("restoreSession — Strategy 1: native loadSession", () => {
     });
 
     // Pre-register a source session so getSessionInfo finds it
-    const sourceSession: SessionInfo = {
+    const sourceSession: AppSessionInfo = {
       sessionId: "sess-source-001",
       agentId: "agent-native",
       title: "Original Session",
@@ -150,7 +178,10 @@ describe("restoreSession — Strategy 1: native loadSession", () => {
       lastResponseAt: null,
       pendingCancel: false,
     };
-    o.sessions.set("agent-native", new Map([["sess-source-001", sourceSession]]));
+    o.sessions.set(
+      "agent-native",
+      new Map([["sess-source-001", sourceSession]])
+    );
   });
 
   afterEach(() => {
@@ -159,10 +190,16 @@ describe("restoreSession — Strategy 1: native loadSession", () => {
 
   it("calls connection.loadSession with the source sessionId", async () => {
     let capturedReq: any = null;
-    mockConn.loadSession = async (req: any) => { capturedReq = req; };
+    mockConn.loadSession = async (req: any) => {
+      capturedReq = req;
+    };
 
     const messages = [makeMessage({ role: "user", content: "Hi" })];
-    await orchestrator.restoreSession("agent-native", "sess-source-001", messages);
+    await orchestrator.restoreSession(
+      "agent-native",
+      "sess-source-001",
+      messages
+    );
 
     assert.ok(capturedReq, "loadSession should have been called");
     assert.strictEqual(capturedReq.sessionId, "sess-source-001");
@@ -171,7 +208,11 @@ describe("restoreSession — Strategy 1: native loadSession", () => {
 
   it("returns nativeRestore=true and replayedMessageCount=0", async () => {
     const messages = [makeMessage({ role: "user", content: "Hi" })];
-    const result = await orchestrator.restoreSession("agent-native", "sess-source-001", messages);
+    const result = await orchestrator.restoreSession(
+      "agent-native",
+      "sess-source-001",
+      messages
+    );
 
     assert.strictEqual(result.nativeRestore, true);
     assert.strictEqual(result.replayedMessageCount, 0);
@@ -179,14 +220,22 @@ describe("restoreSession — Strategy 1: native loadSession", () => {
 
   it("returns the same sessionId (not a new one)", async () => {
     const messages = [makeMessage({ role: "user", content: "Hi" })];
-    const result = await orchestrator.restoreSession("agent-native", "sess-source-001", messages);
+    const result = await orchestrator.restoreSession(
+      "agent-native",
+      "sess-source-001",
+      messages
+    );
 
     assert.strictEqual(result.sessionId, "sess-source-001");
   });
 
   it("registers the restored session in sessions map", async () => {
     const messages = [makeMessage({ role: "user", content: "Hi" })];
-    await orchestrator.restoreSession("agent-native", "sess-source-001", messages);
+    await orchestrator.restoreSession(
+      "agent-native",
+      "sess-source-001",
+      messages
+    );
 
     const o = orchAs(orchestrator);
     const restored = o.getSessionInfo("agent-native", "sess-source-001");
@@ -198,26 +247,50 @@ describe("restoreSession — Strategy 1: native loadSession", () => {
   it("does NOT call connection.newSession or connection.prompt", async () => {
     let newSessionCalled = false;
     let promptCalled = false;
-    mockConn.newSession = async () => { newSessionCalled = true; return { sessionId: "new" }; };
-    mockConn.prompt = async () => { promptCalled = true; return { stopReason: "end_turn" }; };
+    mockConn.newSession = async () => {
+      newSessionCalled = true;
+      return { sessionId: "new" };
+    };
+    mockConn.prompt = async () => {
+      promptCalled = true;
+      return { stopReason: "end_turn" };
+    };
 
     const messages = [makeMessage({ role: "user", content: "Hi" })];
-    await orchestrator.restoreSession("agent-native", "sess-source-001", messages);
+    await orchestrator.restoreSession(
+      "agent-native",
+      "sess-source-001",
+      messages
+    );
 
-    assert.strictEqual(newSessionCalled, false, "newSession should not be called in native path");
-    assert.strictEqual(promptCalled, false, "prompt should not be called in native path");
+    assert.strictEqual(
+      newSessionCalled,
+      false,
+      "newSession should not be called in native path"
+    );
+    assert.strictEqual(
+      promptCalled,
+      false,
+      "prompt should not be called in native path"
+    );
   });
 
   it("uses process.cwd() when source session is not in sessions map", async () => {
     let capturedReq: any = null;
-    mockConn.loadSession = async (req: any) => { capturedReq = req; };
+    mockConn.loadSession = async (req: any) => {
+      capturedReq = req;
+    };
 
     // Remove source session from map
     const o = orchAs(orchestrator);
     o.sessions.get("agent-native")!.delete("sess-source-001");
 
     const messages = [makeMessage({ role: "user", content: "Hi" })];
-    await orchestrator.restoreSession("agent-native", "sess-source-001", messages);
+    await orchestrator.restoreSession(
+      "agent-native",
+      "sess-source-001",
+      messages
+    );
 
     assert.ok(capturedReq);
     assert.strictEqual(capturedReq.cwd, process.cwd());
@@ -230,7 +303,9 @@ describe("restoreSession — Strategy 2: bridge replay", () => {
   let promptCalls: Array<{ sessionId: string; text: string; context: any[] }>;
 
   beforeEach(() => {
-    const { SessionOrchestrator } = require("../../application/session/orchestrator");
+    const {
+      SessionOrchestrator,
+    } = require("../../application/session/orchestrator");
     orchestrator = new SessionOrchestrator({ ui: makeUI(), fs: makeFS() });
     const o = orchAs(orchestrator);
 
@@ -259,7 +334,7 @@ describe("restoreSession — Strategy 2: bridge replay", () => {
     });
 
     // Pre-register source session
-    const sourceSession: SessionInfo = {
+    const sourceSession: AppSessionInfo = {
       sessionId: "sess-source-002",
       agentId: "agent-bridge",
       title: "Bridge Original",
@@ -274,7 +349,10 @@ describe("restoreSession — Strategy 2: bridge replay", () => {
       lastResponseAt: null,
       pendingCancel: false,
     };
-    o.sessions.set("agent-bridge", new Map([["sess-source-002", sourceSession]]));
+    o.sessions.set(
+      "agent-bridge",
+      new Map([["sess-source-002", sourceSession]])
+    );
   });
 
   afterEach(() => {
@@ -283,12 +361,23 @@ describe("restoreSession — Strategy 2: bridge replay", () => {
 
   it("calls createSession (newSession) to get a new session ID", async () => {
     let newSessionCalled = false;
-    mockConn.newSession = async () => { newSessionCalled = true; return { sessionId: "sess-new-bridge" }; };
+    mockConn.newSession = async () => {
+      newSessionCalled = true;
+      return { sessionId: "sess-new-bridge" };
+    };
 
     const messages = [makeMessage({ role: "user", content: "Hi" })];
-    await orchestrator.restoreSession("agent-bridge", "sess-source-002", messages);
+    await orchestrator.restoreSession(
+      "agent-bridge",
+      "sess-source-002",
+      messages
+    );
 
-    assert.strictEqual(newSessionCalled, true, "newSession should be called in bridge path");
+    assert.strictEqual(
+      newSessionCalled,
+      true,
+      "newSession should be called in bridge path"
+    );
   });
 
   it("returns nativeRestore=false and replayedMessageCount > 0", async () => {
@@ -297,7 +386,11 @@ describe("restoreSession — Strategy 2: bridge replay", () => {
       makeMessage({ role: "agent", content: "Reply" }),
       makeMessage({ role: "user", content: "Second" }),
     ];
-    const result = await orchestrator.restoreSession("agent-bridge", "sess-source-002", messages);
+    const result = await orchestrator.restoreSession(
+      "agent-bridge",
+      "sess-source-002",
+      messages
+    );
 
     assert.strictEqual(result.nativeRestore, false);
     // user + agent messages are replayed (3 total)
@@ -306,7 +399,11 @@ describe("restoreSession — Strategy 2: bridge replay", () => {
 
   it("returns a new session ID (not the source)", async () => {
     const messages = [makeMessage({ role: "user", content: "Hi" })];
-    const result = await orchestrator.restoreSession("agent-bridge", "sess-source-002", messages);
+    const result = await orchestrator.restoreSession(
+      "agent-bridge",
+      "sess-source-002",
+      messages
+    );
 
     assert.notStrictEqual(result.sessionId, "sess-source-002");
     assert.ok(result.sessionId.length > 0);
@@ -314,17 +411,31 @@ describe("restoreSession — Strategy 2: bridge replay", () => {
 
   it("does NOT call connection.loadSession", async () => {
     let loadSessionCalled = false;
-    mockConn.loadSession = async () => { loadSessionCalled = true; };
+    mockConn.loadSession = async () => {
+      loadSessionCalled = true;
+    };
 
     const messages = [makeMessage({ role: "user", content: "Hi" })];
-    await orchestrator.restoreSession("agent-bridge", "sess-source-002", messages);
+    await orchestrator.restoreSession(
+      "agent-bridge",
+      "sess-source-002",
+      messages
+    );
 
-    assert.strictEqual(loadSessionCalled, false, "loadSession should not be called in bridge path");
+    assert.strictEqual(
+      loadSessionCalled,
+      false,
+      "loadSession should not be called in bridge path"
+    );
   });
 
   it("updates the new session title to match the source", async () => {
     const messages = [makeMessage({ role: "user", content: "Hi" })];
-    const result = await orchestrator.restoreSession("agent-bridge", "sess-source-002", messages);
+    const result = await orchestrator.restoreSession(
+      "agent-bridge",
+      "sess-source-002",
+      messages
+    );
 
     const o = orchAs(orchestrator);
     const newInfo = o.getSessionInfo("agent-bridge", result.sessionId);
@@ -339,7 +450,9 @@ describe("replayMessages — message filtering", () => {
   let promptCalls: Array<{ sessionId: string; context: any[] }>;
 
   beforeEach(() => {
-    const { SessionOrchestrator } = require("../../application/session/orchestrator");
+    const {
+      SessionOrchestrator,
+    } = require("../../application/session/orchestrator");
     orchestrator = new SessionOrchestrator({ ui: makeUI(), fs: makeFS() });
     const o = orchAs(orchestrator);
 
@@ -360,7 +473,7 @@ describe("replayMessages — message filtering", () => {
       capabilities: { loadSession: false },
     });
 
-    const sourceSession: SessionInfo = {
+    const sourceSession: AppSessionInfo = {
       sessionId: "sess-source-filter",
       agentId: "agent-filter",
       title: "Filter Test",
@@ -375,7 +488,10 @@ describe("replayMessages — message filtering", () => {
       lastResponseAt: null,
       pendingCancel: false,
     };
-    o.sessions.set("agent-filter", new Map([["sess-source-filter", sourceSession]]));
+    o.sessions.set(
+      "agent-filter",
+      new Map([["sess-source-filter", sourceSession]])
+    );
   });
 
   afterEach(() => {
@@ -392,7 +508,11 @@ describe("replayMessages — message filtering", () => {
       makeMessage({ id: "u3", role: "user", content: "User msg 3" }),
     ];
 
-    const result = await orchestrator.restoreSession("agent-filter", "sess-source-filter", messages);
+    const result = await orchestrator.restoreSession(
+      "agent-filter",
+      "sess-source-filter",
+      messages
+    );
 
     // u1, a1, u2, u3 = 4 replayable messages (tool + system skipped)
     assert.strictEqual(result.replayedMessageCount, 4);
@@ -402,10 +522,18 @@ describe("replayMessages — message filtering", () => {
     //   promptBlocks = [...blocks, { type: "text", text: "" }]
     // For a plain text "User msg 1", blocks = [{ type: "text", text: "User msg 1" }]
     // so the last non-empty text block in context equals the stored content.
-    const textBlocks0 = promptCalls[0].context.filter((b: any) => b.type === "text" && b.text);
-    const textBlocks1 = promptCalls[1].context.filter((b: any) => b.type === "text" && b.text);
-    const textBlocks2 = promptCalls[2].context.filter((b: any) => b.type === "text" && b.text);
-    const textBlocks3 = promptCalls[3].context.filter((b: any) => b.type === "text" && b.text);
+    const textBlocks0 = promptCalls[0].context.filter(
+      (b: any) => b.type === "text" && b.text
+    );
+    const textBlocks1 = promptCalls[1].context.filter(
+      (b: any) => b.type === "text" && b.text
+    );
+    const textBlocks2 = promptCalls[2].context.filter(
+      (b: any) => b.type === "text" && b.text
+    );
+    const textBlocks3 = promptCalls[3].context.filter(
+      (b: any) => b.type === "text" && b.text
+    );
     assert.strictEqual(textBlocks0[textBlocks0.length - 1].text, "User msg 1");
     assert.strictEqual(textBlocks1[textBlocks1.length - 1].text, "Agent reply");
     assert.strictEqual(textBlocks2[textBlocks2.length - 1].text, "User msg 2");
@@ -418,7 +546,11 @@ describe("replayMessages — message filtering", () => {
       makeMessage({ id: "s1", role: "system", content: "System context" }),
     ];
 
-    const result = await orchestrator.restoreSession("agent-filter", "sess-source-filter", messages);
+    const result = await orchestrator.restoreSession(
+      "agent-filter",
+      "sess-source-filter",
+      messages
+    );
 
     assert.strictEqual(result.replayedMessageCount, 0);
     assert.strictEqual(promptCalls.length, 0);
@@ -436,12 +568,16 @@ describe("replayMessages — message filtering", () => {
       makeMessage({ role: "user", content: "M2" }),
     ];
 
-    await orchestrator.restoreSession("agent-filter", "sess-source-filter", messages);
+    await orchestrator.restoreSession(
+      "agent-filter",
+      "sess-source-filter",
+      messages
+    );
 
     assert.ok(events.includes("start"), "should emit sessionReplayStart");
     assert.ok(events.includes("complete"), "should emit sessionReplayComplete");
     // progress fires once per replayable message (after each successful prompt)
-    const progressCount = events.filter(e => e === "progress").length;
+    const progressCount = events.filter((e) => e === "progress").length;
     assert.strictEqual(progressCount, 3);
   });
 
@@ -453,17 +589,28 @@ describe("replayMessages — message filtering", () => {
       makeMessage({ id: "a2", role: "agent", content: "Detailed response" }),
     ];
 
-    const result = await orchestrator.restoreSession("agent-filter", "sess-source-filter", messages);
+    const result = await orchestrator.restoreSession(
+      "agent-filter",
+      "sess-source-filter",
+      messages
+    );
 
     assert.strictEqual(result.replayedMessageCount, 4);
     assert.strictEqual(promptCalls.length, 4);
 
     // Verify order is preserved
     const texts = promptCalls.map((c) => {
-      const textBlocks = c.context.filter((b: any) => b.type === "text" && b.text);
+      const textBlocks = c.context.filter(
+        (b: any) => b.type === "text" && b.text
+      );
       return textBlocks[textBlocks.length - 1]?.text;
     });
-    assert.deepStrictEqual(texts, ["Question", "Answer", "Follow-up", "Detailed response"]);
+    assert.deepStrictEqual(texts, [
+      "Question",
+      "Answer",
+      "Follow-up",
+      "Detailed response",
+    ]);
   });
 
   it("continues replay even if one message fails", async () => {
@@ -482,7 +629,11 @@ describe("replayMessages — message filtering", () => {
       makeMessage({ role: "user", content: "OK 3" }),
     ];
 
-    const result = await orchestrator.restoreSession("agent-filter", "sess-source-filter", messages);
+    const result = await orchestrator.restoreSession(
+      "agent-filter",
+      "sess-source-filter",
+      messages
+    );
 
     // 2 out of 3 succeed
     assert.strictEqual(result.replayedMessageCount, 2);
@@ -493,7 +644,9 @@ describe("chatMessageToContentBlocks — ContentBlock conversion", () => {
   let orchestrator: any;
 
   beforeEach(() => {
-    const { SessionOrchestrator } = require("../../application/session/orchestrator");
+    const {
+      SessionOrchestrator,
+    } = require("../../application/session/orchestrator");
     orchestrator = new SessionOrchestrator({ ui: makeUI(), fs: makeFS() });
   });
 
@@ -654,7 +807,9 @@ describe("restoreSession — error handling", () => {
   let orchestrator: any;
 
   beforeEach(() => {
-    const { SessionOrchestrator } = require("../../application/session/orchestrator");
+    const {
+      SessionOrchestrator,
+    } = require("../../application/session/orchestrator");
     orchestrator = new SessionOrchestrator({ ui: makeUI(), fs: makeFS() });
   });
 
@@ -666,7 +821,8 @@ describe("restoreSession — error handling", () => {
     const messages = [makeMessage()];
 
     await assert.rejects(
-      () => orchestrator.restoreSession("nonexistent-agent", "sess-1", messages),
+      () =>
+        orchestrator.restoreSession("nonexistent-agent", "sess-1", messages),
       /not connected/
     );
   });

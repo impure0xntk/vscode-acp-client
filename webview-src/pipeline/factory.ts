@@ -15,7 +15,6 @@ export const DEFAULT_CONFIG: PipelineConfig = {
     maxGap: 10,
   },
   annotate: {
-    detectInlinePaths: true,
     resolveAttachments: true,
   },
 };

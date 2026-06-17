@@ -10,26 +10,23 @@ import type { SessionInfoDTO, SessionTabState } from "../store/sessionStore";
  * per-session live fields instead.
  */
 export function useSessions() {
-  const subscribe = useCallback(
-    (onStoreChange: () => void) => {
-      return useSessionStore.subscribe((state, prevState) => {
-        if (
-          state.activeSessionKey !== prevState.activeSessionKey ||
-          state.tabOrder !== prevState.tabOrder ||
-          state.tabTitles !== prevState.tabTitles ||
-          state.tabIcons !== prevState.tabIcons ||
-          state.workspaceRoot !== prevState.workspaceRoot ||
-          state.connectedAgents !== prevState.connectedAgents ||
-          state.agentInfoMap !== prevState.agentInfoMap ||
-          state.workspaceFolders !== prevState.workspaceFolders ||
-          state.statusline !== prevState.statusline
-        ) {
-          onStoreChange();
-        }
-      });
-    },
-    [],
-  );
+  const subscribe = useCallback((onStoreChange: () => void) => {
+    return useSessionStore.subscribe((state, prevState) => {
+      if (
+        state.activeSessionKey !== prevState.activeSessionKey ||
+        state.tabOrder !== prevState.tabOrder ||
+        state.tabTitles !== prevState.tabTitles ||
+        state.tabIcons !== prevState.tabIcons ||
+        state.workspaceRoot !== prevState.workspaceRoot ||
+        state.connectedAgents !== prevState.connectedAgents ||
+        state.agentInfoMap !== prevState.agentInfoMap ||
+        state.workspaceFolders !== prevState.workspaceFolders ||
+        state.statusline !== prevState.statusline
+      ) {
+        onStoreChange();
+      }
+    });
+  }, []);
 
   const getSnapshot = useCallback(() => {
     const s = useSessionStore.getState();

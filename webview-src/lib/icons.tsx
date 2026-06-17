@@ -43,23 +43,46 @@ function Svg({
 
 // ── Status icons ────────────────────────────────────────────────────────────
 
-export function IconCircleFilled({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconCircleFilled({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" className={className}>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      className={className}
+    >
       <circle cx="8" cy="8" r="4" />
     </svg>
   );
 }
 
-export function IconCircleOutline({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconCircleOutline({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className={className}>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      className={className}
+    >
       <circle cx="8" cy="8" r="4" />
     </svg>
   );
 }
 
-export function IconCheck({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconCheck({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <path d="M3.5 8.5l3 3 7-7" />
@@ -67,7 +90,10 @@ export function IconCheck({ className, size = 16 }: IconProps): React.ReactEleme
   );
 }
 
-export function IconCross({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconCross({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <path d="M4 4l8 8M12 4l-8 8" />
@@ -75,7 +101,10 @@ export function IconCross({ className, size = 16 }: IconProps): React.ReactEleme
   );
 }
 
-export function IconChat({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconChat({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <path d="M2 2.5h12a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H9l-3 3-3-3H2a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1z" />
@@ -84,7 +113,10 @@ export function IconChat({ className, size = 16 }: IconProps): React.ReactElemen
   );
 }
 
-export function IconBan({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconBan({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <circle cx="8" cy="8" r="5.5" />
@@ -93,7 +125,10 @@ export function IconBan({ className, size = 16 }: IconProps): React.ReactElement
   );
 }
 
-export function IconWarning({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconWarning({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <path d="M8 2.5l6 11H2L8 2.5z" />
@@ -103,7 +138,10 @@ export function IconWarning({ className, size = 16 }: IconProps): React.ReactEle
   );
 }
 
-export function IconSpinner({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconSpinner({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <svg
       width={size}
@@ -123,7 +161,10 @@ export function IconSpinner({ className, size = 16 }: IconProps): React.ReactEle
 
 // ── Action icons ────────────────────────────────────────────────────────────
 
-export function IconClose({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconClose({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <path d="M4 4l8 8M12 4l-8 8" />
@@ -131,7 +172,10 @@ export function IconClose({ className, size = 16 }: IconProps): React.ReactEleme
   );
 }
 
-export function IconCopy({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconCopy({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <rect x="4" y="4" width="9" height="9" rx="1.5" />
@@ -140,7 +184,10 @@ export function IconCopy({ className, size = 16 }: IconProps): React.ReactElemen
   );
 }
 
-export function IconZap({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconZap({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <path d="M9 1L2 9h6l-1 6 7-8h-6l1-6z" fill="currentColor" stroke="none" />
@@ -148,15 +195,27 @@ export function IconZap({ className, size = 16 }: IconProps): React.ReactElement
   );
 }
 
-export function IconSparkle({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconSparkle({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" className={className}>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      className={className}
+    >
       <path d="M8 1l1.5 5L14 8l-4.5 2L8 15l-1.5-5L2 8l4.5-2L8 1z" />
     </svg>
   );
 }
 
-export function IconSync({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconSync({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <path d="M2 8a6 6 0 0 1 10.5-4" />
@@ -169,7 +228,10 @@ export function IconSync({ className, size = 16 }: IconProps): React.ReactElemen
 
 // ── File type icons ─────────────────────────────────────────────────────────
 
-export function IconFile({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconFile({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <path d="M3 1.5h6l3.5 3.5v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-12a1 1 0 0 1 1-1z" />
@@ -178,7 +240,10 @@ export function IconFile({ className, size = 16 }: IconProps): React.ReactElemen
   );
 }
 
-export function IconSelection({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconSelection({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <rect x="2" y="3" width="12" height="10" rx="1.5" />
@@ -187,7 +252,10 @@ export function IconSelection({ className, size = 16 }: IconProps): React.ReactE
   );
 }
 
-export function IconSymbolClass({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconSymbolClass({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size} strokeWidth={0} fill="currentColor">
       <path d="M8 1l2 4h4l-3 3 1 4-4-2-4 2 1-4-3-3h4L8 1z" />
@@ -195,7 +263,10 @@ export function IconSymbolClass({ className, size = 16 }: IconProps): React.Reac
   );
 }
 
-export function IconDiff({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconDiff({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <path d="M3 2h5l3 3v8H3z" />
@@ -207,7 +278,10 @@ export function IconDiff({ className, size = 16 }: IconProps): React.ReactElemen
   );
 }
 
-export function IconTerminal({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconTerminal({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" />
@@ -217,7 +291,10 @@ export function IconTerminal({ className, size = 16 }: IconProps): React.ReactEl
   );
 }
 
-export function IconFolder({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconFolder({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <path d="M1.5 3.5v9a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-7a1 1 0 0 0-1-1H7.8L6.5 3.5H1.5z" />
@@ -226,7 +303,10 @@ export function IconFolder({ className, size = 16 }: IconProps): React.ReactElem
   );
 }
 
-export function IconGitBranch({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconGitBranch({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <circle cx="5" cy="4" r="2" />
@@ -244,7 +324,10 @@ export function IconGitBranch({ className, size = 16 }: IconProps): React.ReactE
  * TOOL_CALL fallback icon — a simple "T" monogram inside a rounded square,
  * matching the 16x16 viewBox and stroke-based style of other tool kind icons.
  */
-export function IconTools({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconTools({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <rect x="2.5" y="2.5" width="11" height="11" rx="2" />
@@ -253,63 +336,156 @@ export function IconTools({ className, size = 16 }: IconProps): React.ReactEleme
   );
 }
 
-export function IconQuestion({ className, size = 16, strokeWidth }: IconProps): React.ReactElement {
+export function IconQuestion({
+  className,
+  size = 16,
+  strokeWidth,
+}: IconProps): React.ReactElement {
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" className={className}>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      className={className}
+    >
       <path d="M8 1a5 5 0 0 0-3 9v2h6v-2A5 5 0 0 0 8 1z" />
       <rect x="6.5" y="12" width="3" height="2.5" rx="0.5" />
-      <text x="8" y="9" textAnchor="middle" fontSize="6" fontWeight="bold">?</text>
+      <text x="8" y="9" textAnchor="middle" fontSize="6" fontWeight="bold">
+        ?
+      </text>
     </svg>
   );
 }
 
-export function IconPin({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconPin({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
       <path d="M8 1.5l2.5 2.5v4l-2.5 2.5-2.5-2.5v-4z" />
       <line x1="8" y1="8" x2="8" y2="14.5" />
     </svg>
   );
 }
 
-export function IconPinFilled({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconPinFilled({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      stroke="currentColor"
+      strokeWidth="1"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
       <path d="M8 1.5l2.5 2.5v4l-2.5 2.5-2.5-2.5v-4z" />
-      <line x1="8" y1="8" x2="8" y2="14.5" stroke="var(--bg-primary, #1e1e1e)" strokeWidth="1.5" />
+      <line
+        x1="8"
+        y1="8"
+        x2="8"
+        y2="14.5"
+        stroke="var(--bg-primary, #1e1e1e)"
+        strokeWidth="1.5"
+      />
     </svg>
   );
 }
 
-export function IconSingle({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconSingle({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
       <rect x="2" y="2" width="12" height="12" rx="1" />
     </svg>
   );
 }
 
-export function IconRows({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconRows({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
       <rect x="2" y="2" width="12" height="4" rx="1" />
       <rect x="2" y="10" width="12" height="4" rx="1" />
     </svg>
   );
 }
 
-export function IconColumns({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconColumns({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
       <rect x="2" y="2" width="5" height="12" rx="1" />
       <rect x="9" y="2" width="5" height="12" rx="1" />
     </svg>
   );
 }
 
-export function IconMoreVertical({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconMoreVertical({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" className={className}>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      className={className}
+    >
       <circle cx="8" cy="3" r="1.5" />
       <circle cx="8" cy="8" r="1.5" />
       <circle cx="8" cy="13" r="1.5" />
@@ -317,9 +493,20 @@ export function IconMoreVertical({ className, size = 16 }: IconProps): React.Rea
   );
 }
 
-export function IconLayoutGrid({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconLayoutGrid({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2" className={className}>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.2"
+      className={className}
+    >
       <rect x="2" y="2" width="5" height="5" rx="1" />
       <rect x="9" y="2" width="5" height="5" rx="1" />
       <rect x="2" y="9" width="5" height="5" rx="1" />
@@ -328,9 +515,20 @@ export function IconLayoutGrid({ className, size = 16 }: IconProps): React.React
   );
 }
 
-export function IconLayoutList({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconLayoutList({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2" className={className}>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.2"
+      className={className}
+    >
       <rect x="2" y="2.5" width="12" height="3" rx="1" />
       <rect x="2" y="6.5" width="12" height="3" rx="1" />
       <rect x="2" y="10.5" width="12" height="3" rx="1" />
@@ -338,7 +536,10 @@ export function IconLayoutList({ className, size = 16 }: IconProps): React.React
   );
 }
 
-export function IconOutput({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconOutput({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" />
@@ -347,7 +548,10 @@ export function IconOutput({ className, size = 16 }: IconProps): React.ReactElem
   );
 }
 
-export function IconRepoForked({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconRepoForked({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <circle cx="4" cy="3" r="2" />
@@ -359,7 +563,10 @@ export function IconRepoForked({ className, size = 16 }: IconProps): React.React
   );
 }
 
-export function IconClock({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconClock({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <circle cx="8" cy="8" r="6" />
@@ -368,7 +575,10 @@ export function IconClock({ className, size = 16 }: IconProps): React.ReactEleme
   );
 }
 
-export function IconChevronDown({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconChevronDown({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <path d="M3 5.5l5 5 5-5" />
@@ -376,7 +586,10 @@ export function IconChevronDown({ className, size = 16 }: IconProps): React.Reac
   );
 }
 
-export function IconChevronRight({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconChevronRight({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <path d="M5.5 3l5 5-5 5" />
@@ -385,7 +598,10 @@ export function IconChevronRight({ className, size = 16 }: IconProps): React.Rea
 }
 
 /** List-tree icon — indent lines + horizontal tee, like a tree/list toggle */
-export function IconListTree({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconListTree({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size} strokeWidth={1.5}>
       <path d="M2 3h5" />
@@ -396,19 +612,38 @@ export function IconListTree({ className, size = 16 }: IconProps): React.ReactEl
   );
 }
 
-export function IconBrain({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconBrain({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <path d="M4 3.5a3.5 3.5 0 0 1 7 0c1 .5 1.5 1.5 1.5 2.5s-.5 2-1 2.5c1 .5 1.5 1.5 1.5 3a3.5 3.5 0 0 1-7 0 3.5 3.5 0 0 0 0-5 3 3 0 0 0-1.5-2.5c.5-.5.5-1 0-1z" />
       <path d="M6.5 7v2M9.5 7v2" />
-      <path d="M6.5 5.5c1 0 1.5.5 1.5.5M9.5 5.5c-1 0-1.5.5-1.5.5" strokeWidth="0.8" />
+      <path
+        d="M6.5 5.5c1 0 1.5.5 1.5.5M9.5 5.5c-1 0-1.5.5-1.5.5"
+        strokeWidth="0.8"
+      />
     </Svg>
   );
 }
 
-export function IconInput({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconInput({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
       <circle cx="8" cy="8" r="6" />
       <path d="M8 7v5" />
       <circle cx="8" cy="4.5" r="0.6" fill="currentColor" stroke="none" />
@@ -416,7 +651,10 @@ export function IconInput({ className, size = 16 }: IconProps): React.ReactEleme
   );
 }
 
-export function IconScroll({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconScroll({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <circle cx="8" cy="8" r="5.5" />
@@ -429,7 +667,10 @@ export function IconScroll({ className, size = 16 }: IconProps): React.ReactElem
 
 // ── Tool kind icons (for batch summary) ─────────────────────────────────────
 
-export function IconFileRead({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconFileRead({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <path d="M3 1.5h6l3.5 3.5v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-12a1 1 0 0 1 1-1z" />
@@ -439,7 +680,10 @@ export function IconFileRead({ className, size = 16 }: IconProps): React.ReactEl
   );
 }
 
-export function IconFileWrite({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconFileWrite({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <path d="M3 1.5h6l3.5 3.5v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-12a1 1 0 0 1 1-1z" />
@@ -449,7 +693,10 @@ export function IconFileWrite({ className, size = 16 }: IconProps): React.ReactE
   );
 }
 
-export function IconTerminalBash({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconTerminalBash({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" />
@@ -459,7 +706,10 @@ export function IconTerminalBash({ className, size = 16 }: IconProps): React.Rea
   );
 }
 
-export function IconMagnifier({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconMagnifier({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <circle cx="7" cy="7" r="4.5" />
@@ -468,7 +718,10 @@ export function IconMagnifier({ className, size = 16 }: IconProps): React.ReactE
   );
 }
 
-export function IconBulletList({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconBulletList({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <path d="M3 4h10M3 8h10M3 12h10" />
@@ -476,7 +729,10 @@ export function IconBulletList({ className, size = 16 }: IconProps): React.React
   );
 }
 
-export function IconWorld({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconWorld({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <circle cx="8" cy="8" r="5.5" />
@@ -485,7 +741,10 @@ export function IconWorld({ className, size = 16 }: IconProps): React.ReactEleme
   );
 }
 
-export function IconPatch({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconPatch({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <path d="M5.5 2.5l6 6-3 3-6-6z" />
@@ -494,7 +753,10 @@ export function IconPatch({ className, size = 16 }: IconProps): React.ReactEleme
   );
 }
 
-export function IconTrash({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconTrash({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <path d="M3 4h10" />
@@ -504,7 +766,10 @@ export function IconTrash({ className, size = 16 }: IconProps): React.ReactEleme
   );
 }
 
-export function IconCompress({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconCompress({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <path d="M4 2v4H0" />
@@ -516,7 +781,10 @@ export function IconCompress({ className, size = 16 }: IconProps): React.ReactEl
   );
 }
 
-export function IconPlug({ className, size = 16 }: IconProps): React.ReactElement {
+export function IconPlug({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
       <path d="M6 2v4" />
@@ -529,58 +797,58 @@ export function IconPlug({ className, size = 16 }: IconProps): React.ReactElemen
 // ── Lookup table: name → component ──────────────────────────────────────────
 
 const ICON_COMPONENTS: Record<string, React.FC<IconProps>> = {
-  chat:              IconChat,
-  "circle-filled":   IconCircleFilled,
-  "circle-outline":  IconCircleOutline,
-  "pass-filled":     IconCheck,
-  "circle-slash":    IconBan,
-  loading:           IconSpinner,
-  clock:             IconClock,
-  check:             IconCheck,
-  close:             IconClose,
-  copy:              IconCopy,
-  zap:               IconZap,
-  sparkle:           IconSparkle,
-  sync:              IconSync,
-  file:              IconFile,
-  selection:         IconSelection,
-  "symbol-class":    IconSymbolClass,
-  "diff-single":     IconDiff,
-  terminal:          IconTerminal,
-  "folder-opened":   IconFolder,
-  "git-branch":      IconGitBranch,
-  tools:             IconTools,
-  question:          IconQuestion,
-  output:            IconOutput,
-  "repo-forked":     IconRepoForked,
-  "chevron-down":    IconChevronDown,
-  "chevron-right":   IconChevronRight,
-  "list-tree":       IconListTree,
-  input:             IconInput,
+  chat: IconChat,
+  "circle-filled": IconCircleFilled,
+  "circle-outline": IconCircleOutline,
+  "pass-filled": IconCheck,
+  "circle-slash": IconBan,
+  loading: IconSpinner,
+  clock: IconClock,
+  check: IconCheck,
+  close: IconClose,
+  copy: IconCopy,
+  zap: IconZap,
+  sparkle: IconSparkle,
+  sync: IconSync,
+  file: IconFile,
+  selection: IconSelection,
+  "symbol-class": IconSymbolClass,
+  "diff-single": IconDiff,
+  terminal: IconTerminal,
+  "folder-opened": IconFolder,
+  "git-branch": IconGitBranch,
+  tools: IconTools,
+  question: IconQuestion,
+  output: IconOutput,
+  "repo-forked": IconRepoForked,
+  "chevron-down": IconChevronDown,
+  "chevron-right": IconChevronRight,
+  "list-tree": IconListTree,
+  input: IconInput,
   // Tool kind icons
-  "tool-read":        IconFileRead,
-  "tool-write":       IconFileWrite,
-  "tool-edit":        IconFileWrite,
-  "tool-delete":      IconTrash,
-  "tool-bash":        IconTerminalBash,
-  "tool-shell":       IconTerminalBash,
-  "tool-search":      IconMagnifier,
-  "tool-grep":        IconMagnifier,
-  "tool-list":        IconBulletList,
-  "tool-fetch":       IconWorld,
-  "tool-web_search":  IconMagnifier,
-  "tool-web_fetch":   IconWorld,
-  "tool-apply_patch":  IconPatch,
-  "tool-todo":        IconBulletList,
-  "tool-task":        IconBulletList,
-  "tool-mcp":         IconPlug,
-  compress:           IconCompress,
-  pin:                IconPin,
-  "pin-filled":       IconPinFilled,
-  "more-vertical":    IconMoreVertical,
-  "layout-grid":       IconLayoutGrid,
-  single:             IconSingle,
-  "layout-list":       IconLayoutList,
+  "tool-read": IconFileRead,
+  "tool-write": IconFileWrite,
+  "tool-edit": IconFileWrite,
+  "tool-delete": IconTrash,
+  "tool-bash": IconTerminalBash,
+  "tool-shell": IconTerminalBash,
+  "tool-search": IconMagnifier,
+  "tool-grep": IconMagnifier,
+  "tool-list": IconBulletList,
+  "tool-fetch": IconWorld,
+  "tool-web_search": IconMagnifier,
+  "tool-web_fetch": IconWorld,
+  "tool-apply_patch": IconPatch,
+  "tool-todo": IconBulletList,
+  "tool-task": IconBulletList,
+  "tool-mcp": IconPlug,
+  compress: IconCompress,
+  pin: IconPin,
+  "pin-filled": IconPinFilled,
+  "more-vertical": IconMoreVertical,
+  "layout-grid": IconLayoutGrid,
+  single: IconSingle,
+  "layout-list": IconLayoutList,
 };
 
 export function Icon({
@@ -605,13 +873,20 @@ export function iconForType(
   type: "file" | "selection" | "symbol" | "diff" | "terminal" | "folder" | "git"
 ): string {
   switch (type) {
-    case "file":       return "file";
-    case "selection":  return "selection";
-    case "symbol":     return "symbol-class";
-    case "diff":       return "diff-single";
-    case "terminal":   return "terminal";
-    case "folder":     return "folder-opened";
-    case "git":        return "git-branch";
+    case "file":
+      return "file";
+    case "selection":
+      return "selection";
+    case "symbol":
+      return "symbol-class";
+    case "diff":
+      return "diff-single";
+    case "terminal":
+      return "terminal";
+    case "folder":
+      return "folder-opened";
+    case "git":
+      return "git-branch";
   }
 }
 
@@ -622,22 +897,22 @@ export function iconForType(
 export function iconForToolKind(kind: string): string {
   const k = kind.toLowerCase().trim();
   const map: Record<string, string> = {
-    read:        "tool-read",
-    write:       "tool-write",
-    edit:        "tool-edit",
-    delete:      "tool-delete",
-    bash:        "tool-bash",
-    shell:       "tool-shell",
-    search:      "tool-search",
-    grep:        "tool-grep",
-    list:        "tool-list",
-    fetch:       "tool-fetch",
-    web_search:  "tool-web_search",
-    web_fetch:   "tool-web_fetch",
+    read: "tool-read",
+    write: "tool-write",
+    edit: "tool-edit",
+    delete: "tool-delete",
+    bash: "tool-bash",
+    shell: "tool-shell",
+    search: "tool-search",
+    grep: "tool-grep",
+    list: "tool-list",
+    fetch: "tool-fetch",
+    web_search: "tool-web_search",
+    web_fetch: "tool-web_fetch",
     apply_patch: "tool-apply_patch",
-    todo:        "tool-todo",
-    task:        "tool-task",
-    mcp:         "tool-mcp",
+    todo: "tool-todo",
+    task: "tool-task",
+    mcp: "tool-mcp",
   };
   return map[k] ?? "tools";
 }

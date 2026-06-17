@@ -58,7 +58,11 @@ describe("supervisor-manager decomposition", () => {
 
   describe("lead output decomposition", () => {
     it("should extract sub-tasks from v2 task_delegate markers in lead output", async () => {
-      const promptCalls: Array<{ agentId: string; sessionId: string; text: string }> = [];
+      const promptCalls: Array<{
+        agentId: string;
+        sessionId: string;
+        text: string;
+      }> = [];
       const deps = createDeps({ promptCalls });
       const mgr = new SupervisorManager(deps);
 
@@ -83,16 +87,12 @@ describe("supervisor-manager decomposition", () => {
       );
 
       // worker-0 should have received the decomposed sub-task
-      const worker0Call = promptCalls.find(
-        (c) => c.agentId === "worker-0"
-      );
+      const worker0Call = promptCalls.find((c) => c.agentId === "worker-0");
       assert.ok(worker0Call, "worker-0 should have received a prompt");
       assert.strictEqual(worker0Call!.text, "Implement auth module");
 
       // worker-1 should have received the original task (no marker for it)
-      const worker1Call = promptCalls.find(
-        (c) => c.agentId === "worker-1"
-      );
+      const worker1Call = promptCalls.find((c) => c.agentId === "worker-1");
       assert.ok(worker1Call, "worker-1 should have received a prompt");
       assert.strictEqual(worker1Call!.text, "Build the auth system");
     });
@@ -104,7 +104,11 @@ describe("supervisor-manager decomposition", () => {
 
   describe("no lead output fallback", () => {
     it("should use original task text when no lead output provided", async () => {
-      const promptCalls: Array<{ agentId: string; sessionId: string; text: string }> = [];
+      const promptCalls: Array<{
+        agentId: string;
+        sessionId: string;
+        text: string;
+      }> = [];
       const deps = createDeps({ promptCalls });
       const mgr = new SupervisorManager(deps);
 
@@ -127,7 +131,11 @@ describe("supervisor-manager decomposition", () => {
 
   describe("backward compatibility", () => {
     it("should work without taskBoardPath (no TaskBoard sync)", async () => {
-      const promptCalls: Array<{ agentId: string; sessionId: string; text: string }> = [];
+      const promptCalls: Array<{
+        agentId: string;
+        sessionId: string;
+        text: string;
+      }> = [];
       const deps = createDeps({ promptCalls });
       const mgr = new SupervisorManager(deps);
 
@@ -150,7 +158,11 @@ describe("supervisor-manager decomposition", () => {
 
   describe("unknown worker mapping", () => {
     it("should ignore task_delegate markers with unknown agentIndex", async () => {
-      const promptCalls: Array<{ agentId: string; sessionId: string; text: string }> = [];
+      const promptCalls: Array<{
+        agentId: string;
+        sessionId: string;
+        text: string;
+      }> = [];
       const deps = createDeps({ promptCalls });
       const mgr = new SupervisorManager(deps);
 
@@ -187,7 +199,11 @@ describe("supervisor-manager decomposition", () => {
 
   describe("multiple task_delegate markers", () => {
     it("should handle multiple task_delegate markers mapping to different workers", async () => {
-      const promptCalls: Array<{ agentId: string; sessionId: string; text: string }> = [];
+      const promptCalls: Array<{
+        agentId: string;
+        sessionId: string;
+        text: string;
+      }> = [];
       const deps = createDeps({ promptCalls });
       const mgr = new SupervisorManager(deps);
 
@@ -236,7 +252,11 @@ describe("supervisor-manager decomposition", () => {
 
   describe("retry support", () => {
     it("should retry failed workers up to maxRetries", async () => {
-      const promptCalls: Array<{ agentId: string; sessionId: string; text: string }> = [];
+      const promptCalls: Array<{
+        agentId: string;
+        sessionId: string;
+        text: string;
+      }> = [];
       let callCount = 0;
       const deps: SupervisorManagerDeps = {
         sessionOrchestrator: {
@@ -278,8 +298,15 @@ describe("supervisor-manager decomposition", () => {
 
   describe("retry exhausted", () => {
     it("should mark worker as failed when retries exhausted", async () => {
-      const promptCalls: Array<{ agentId: string; sessionId: string; text: string }> = [];
-      const deps = createDeps({ promptCalls, failAgents: new Set(["worker-0"]) });
+      const promptCalls: Array<{
+        agentId: string;
+        sessionId: string;
+        text: string;
+      }> = [];
+      const deps = createDeps({
+        promptCalls,
+        failAgents: new Set(["worker-0"]),
+      });
       const mgr = new SupervisorManager(deps);
 
       const result = await mgr.supervise({
@@ -304,7 +331,11 @@ describe("supervisor-manager decomposition", () => {
 
   describe("file lock integration", () => {
     it("should acquire and release file locks around worker execution", async () => {
-      const promptCalls: Array<{ agentId: string; sessionId: string; text: string }> = [];
+      const promptCalls: Array<{
+        agentId: string;
+        sessionId: string;
+        text: string;
+      }> = [];
       const deps = createDeps({ promptCalls });
       const mgr = new SupervisorManager(deps);
 
@@ -321,12 +352,20 @@ describe("supervisor-manager decomposition", () => {
     });
 
     it("should throw if file lock cannot be acquired", async () => {
-      const promptCalls: Array<{ agentId: string; sessionId: string; text: string }> = [];
+      const promptCalls: Array<{
+        agentId: string;
+        sessionId: string;
+        text: string;
+      }> = [];
       const deps = createDeps({ promptCalls });
       const mgr = new SupervisorManager(deps);
 
       // Pre-lock the file with a different agent
-      await deps.fileLockManager!.acquire("src/shared.ts", "other-agent", "write");
+      await deps.fileLockManager!.acquire(
+        "src/shared.ts",
+        "other-agent",
+        "write"
+      );
 
       await assert.rejects(
         () =>
@@ -347,7 +386,11 @@ describe("supervisor-manager decomposition", () => {
 
   describe("task board with decomposition", () => {
     it("should create parent and sub-tasks with decomposed descriptions", async () => {
-      const promptCalls: Array<{ agentId: string; sessionId: string; text: string }> = [];
+      const promptCalls: Array<{
+        agentId: string;
+        sessionId: string;
+        text: string;
+      }> = [];
       const deps = createDeps({ promptCalls });
       // Pre-create the task board since we're not going through MeshOrchestrator.startTeam()
       deps.taskBoardStore.create(".acp-mesh/test/taskboard.json");

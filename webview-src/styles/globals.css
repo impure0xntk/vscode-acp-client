@@ -680,10 +680,12 @@ body {
   flex-direction: column;
   position: relative;
   min-height: 0; /* Prevent flex child overflow */
+  height: 100%;
 }
 
 .chat-container {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 16px 14px;
   display: flex;
@@ -1748,8 +1750,6 @@ body {
   margin-left: auto;
 }
 
-
-
 /* ============================================================================
    Tool Batch Summary — kind entries in header
    ============================================================================ */
@@ -1808,8 +1808,6 @@ body {
   min-width: 0;
   overflow: hidden;
 }
-
-
 
 /* ============================================================================
    Tool Batch Summary — error/ok group labels (mixed-status batches)
@@ -1911,13 +1909,22 @@ body {
 }
 
 @keyframes streaming-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes streaming-critical-pulse {
-  0%, 100% { opacity: 1; }
-  50%      { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 /* ============================================================================
@@ -2098,7 +2105,9 @@ body {
   color: #ffd54f;
 }
 .status-icon-waiting .status-icon-spinner {
-  animation: status-spin 0.8s linear infinite, status-pulse 2s ease-in-out infinite;
+  animation:
+    status-spin 0.8s linear infinite,
+    status-pulse 2s ease-in-out infinite;
   transform-origin: center;
 }
 
@@ -3822,6 +3831,7 @@ body {
   display: flex;
   flex-direction: row;
   height: 100vh;
+  width: 100vw;
   overflow: hidden;
   position: relative;
 }
@@ -3831,8 +3841,10 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
   overflow: hidden;
   position: relative;
+  height: 100%;
 }
 
 /* ── Overview toggle button in TopToolbar ── */
@@ -4203,8 +4215,13 @@ body {
 }
 
 @keyframes soc-running-pulse {
-  0%, 100% { border-left-color: #4fc3f7; }
-  50%      { border-left-color: color-mix(in srgb, #4fc3f7 30%, transparent); }
+  0%,
+  100% {
+    border-left-color: #4fc3f7;
+  }
+  50% {
+    border-left-color: color-mix(in srgb, #4fc3f7 30%, transparent);
+  }
 }
 
 .session-overview-card[data-color-group="waiting"] {
@@ -4213,8 +4230,13 @@ body {
 }
 
 @keyframes soc-waiting-pulse {
-  0%, 100% { border-left-color: #ffd54f; }
-  50%      { border-left-color: color-mix(in srgb, #ffd54f 30%, transparent); }
+  0%,
+  100% {
+    border-left-color: #ffd54f;
+  }
+  50% {
+    border-left-color: color-mix(in srgb, #ffd54f 30%, transparent);
+  }
 }
 
 /* Elapsed-time tier: color-group を上書き (spinner と完全一致) */
@@ -4231,8 +4253,13 @@ body {
 }
 
 @keyframes soc-elapsed-warning-pulse {
-  0%, 100% { border-left-color: #ffd54f; }
-  50%      { border-left-color: color-mix(in srgb, #ffd54f 30%, transparent); }
+  0%,
+  100% {
+    border-left-color: #ffd54f;
+  }
+  50% {
+    border-left-color: color-mix(in srgb, #ffd54f 30%, transparent);
+  }
 }
 
 /* ≥30s: red critical — active */
@@ -4248,8 +4275,13 @@ body {
 }
 
 @keyframes soc-elapsed-critical-pulse {
-  0%, 100% { border-left-color: #ef5350; }
-  50%      { border-left-color: color-mix(in srgb, #ef5350 30%, transparent); }
+  0%,
+  100% {
+    border-left-color: #ef5350;
+  }
+  50% {
+    border-left-color: color-mix(in srgb, #ef5350 30%, transparent);
+  }
 }
 
 /* Completed / error: flash border then fade out (CSS-only, 2.5s) */
@@ -4264,12 +4296,30 @@ body {
 }
 
 @keyframes soc-flash-border {
-  0%   { outline: 2px solid var(--soc-flash-color); outline-offset: 0; }
-  15%  { outline: 2px solid transparent; outline-offset: 0; }
-  30%  { outline: 2px solid var(--soc-flash-color); outline-offset: 0; }
-  45%  { outline: 2px solid transparent; outline-offset: 0; }
-  60%  { outline: 2px solid var(--soc-flash-color); outline-offset: 0; }
-  100% { outline: 2px solid transparent; outline-offset: 0; }
+  0% {
+    outline: 2px solid var(--soc-flash-color);
+    outline-offset: 0;
+  }
+  15% {
+    outline: 2px solid transparent;
+    outline-offset: 0;
+  }
+  30% {
+    outline: 2px solid var(--soc-flash-color);
+    outline-offset: 0;
+  }
+  45% {
+    outline: 2px solid transparent;
+    outline-offset: 0;
+  }
+  60% {
+    outline: 2px solid var(--soc-flash-color);
+    outline-offset: 0;
+  }
+  100% {
+    outline: 2px solid transparent;
+    outline-offset: 0;
+  }
 }
 
 /* Completed: no border-left accent (same as idle) */
@@ -5014,11 +5064,34 @@ body {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  height: 100%;
 }
 
-.unified-chat-panel--single { }
-.unified-chat-panel--split { }
-.unified-chat-panel--grid { }
+/* ── Classic / Unified mode root — fill available height ── */
+.classic-mode {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  height: 100%;
+}
+
+.unified-mode {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  height: 100%;
+}
+
+.unified-chat-panel--single {
+}
+.unified-chat-panel--split {
+}
+.unified-chat-panel--grid {
+}
 
 /* ── Panel mode toggle ── */
 .panel-mode-toggle {
@@ -5040,7 +5113,9 @@ body {
   font-size: 11px;
   font-family: var(--font-ui);
   cursor: pointer;
-  transition: color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s;
 }
 
 .panel-mode-btn:hover {
@@ -5143,7 +5218,8 @@ body {
 }
 
 /* Horizontal split: top bar instead of left bar */
-.unified-section-header[data-is-horizontal="true"] .unified-section-header-accent {
+.unified-section-header[data-is-horizontal="true"]
+  .unified-section-header-accent {
   left: 0;
   right: 0;
   bottom: auto;
@@ -5234,8 +5310,13 @@ body {
 }
 
 @keyframes token-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 /* ── Pin button ── */
@@ -5252,7 +5333,9 @@ body {
   color: var(--fg-muted);
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .unified-section-header-pin:hover {
@@ -5308,7 +5391,9 @@ body {
   white-space: nowrap;
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .session-chip:hover {
@@ -5380,7 +5465,9 @@ body {
   padding: 0;
   color: var(--accent);
   opacity: 0.8;
-  transition: background 0.15s ease, opacity 0.15s ease;
+  transition:
+    background 0.15s ease,
+    opacity 0.15s ease;
 }
 
 .send-all-button:hover:not(:disabled) {
@@ -5415,12 +5502,24 @@ body {
 }
 
 @keyframes usec-flash-border {
-  0%   { box-shadow: inset 0 0 0 2px var(--usec-flash-color); }
-  15%  { box-shadow: inset 0 0 0 2px transparent; }
-  30%  { box-shadow: inset 0 0 0 2px var(--usec-flash-color); }
-  45%  { box-shadow: inset 0 0 0 2px transparent; }
-  60%  { box-shadow: inset 0 0 0 2px var(--usec-flash-color); }
-  100% { box-shadow: inset 0 0 0 2px transparent; }
+  0% {
+    box-shadow: inset 0 0 0 2px var(--usec-flash-color);
+  }
+  15% {
+    box-shadow: inset 0 0 0 2px transparent;
+  }
+  30% {
+    box-shadow: inset 0 0 0 2px var(--usec-flash-color);
+  }
+  45% {
+    box-shadow: inset 0 0 0 2px transparent;
+  }
+  60% {
+    box-shadow: inset 0 0 0 2px var(--usec-flash-color);
+  }
+  100% {
+    box-shadow: inset 0 0 0 2px transparent;
+  }
 }
 
 /* ── Disconnected session section ── */
@@ -5492,7 +5591,9 @@ body {
   color: var(--fg-muted);
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .unified-session-bar-new-btn:hover {
@@ -5532,7 +5633,9 @@ body {
   color: var(--fg-muted);
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .unified-section-header-menu-btn:hover {
@@ -5668,7 +5771,9 @@ body {
   color: var(--fg-muted);
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .unified-session-bar-mode-toggle:hover {
@@ -5711,7 +5816,9 @@ body {
   line-height: 1;
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .unified-session-bar-layout-btn:hover {
@@ -5746,7 +5853,9 @@ body {
   white-space: nowrap;
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .unified-session-bar-tab:hover {
@@ -5807,7 +5916,9 @@ body {
   background: transparent;
   color: var(--fg-muted);
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
   opacity: 0.7;
 }
 
@@ -5837,7 +5948,9 @@ body {
   color: var(--fg-muted);
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
   opacity: 0;
   pointer-events: none;
 }
@@ -5866,7 +5979,9 @@ body {
   border-radius: 4px;
   background: var(--bg-primary);
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
   flex-shrink: 0;
   width: 100%;
   box-sizing: border-box;
@@ -5936,7 +6051,9 @@ body {
   color: var(--fg-muted);
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .unified-session-overview-card-close:hover {
@@ -5985,7 +6102,10 @@ body {
   font-size: 14px;
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .unified-session-bar-add-btn:hover {
@@ -6101,7 +6221,9 @@ body {
   font-family: var(--font-ui);
   cursor: pointer;
   text-align: left;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .command-center-toggle:hover {
@@ -6223,7 +6345,9 @@ body {
   background: var(--bg-primary);
   cursor: pointer;
   text-align: left;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
   flex-shrink: 0;
 }
 
@@ -6320,7 +6444,9 @@ body {
 .agent-card-progress-fill {
   height: 100%;
   border-radius: 1.5px;
-  transition: width 0.3s ease, background 0.3s ease;
+  transition:
+    width 0.3s ease,
+    background 0.3s ease;
 }
 
 .agent-card-elapsed {
@@ -6378,7 +6504,9 @@ body {
   color: var(--fg-muted);
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .agent-card-action-btn:hover {
@@ -6415,12 +6543,20 @@ body {
   animation: streaming-dot-bounce 1.4s ease-in-out infinite both;
 }
 
-.streaming-status-dot:nth-child(1) { animation-delay: 0s; }
-.streaming-status-dot:nth-child(2) { animation-delay: 0.2s; }
-.streaming-status-dot:nth-child(3) { animation-delay: 0.4s; }
+.streaming-status-dot:nth-child(1) {
+  animation-delay: 0s;
+}
+.streaming-status-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.streaming-status-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
 
 @keyframes streaming-dot-bounce {
-  0%, 80%, 100% {
+  0%,
+  80%,
+  100% {
     transform: scale(0.6);
     opacity: 0.4;
   }
@@ -6428,4 +6564,421 @@ body {
     transform: scale(1);
     opacity: 1;
   }
+}
+
+/* ============================================================================
+   Plan Viewer — overlay for plan approval and execution tracking
+   ============================================================================ */
+
+.plan-viewer-overlay {
+  flex-shrink: 0;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.plan-viewer {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 14px;
+  gap: 6px;
+}
+
+.plan-viewer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.plan-viewer-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg-primary);
+}
+
+.plan-viewer-status {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.plan-viewer-status--pending {
+  background: color-mix(in srgb, var(--warning) 15%, transparent);
+  color: var(--warning);
+}
+
+.plan-viewer-status--approved {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+}
+
+.plan-viewer-status--executing {
+  background: color-mix(in srgb, #4fc3f7 15%, transparent);
+  color: #4fc3f7;
+}
+
+.plan-viewer-status--completed {
+  background: color-mix(in srgb, var(--success) 15%, transparent);
+  color: var(--success);
+}
+
+.plan-viewer-status--failed {
+  background: color-mix(in srgb, var(--error) 15%, transparent);
+  color: var(--error);
+}
+
+.plan-viewer-status--rejected,
+.plan-viewer-status--cancelled {
+  background: color-mix(in srgb, var(--fg-muted) 15%, transparent);
+  color: var(--fg-muted);
+}
+
+.plan-viewer-status--draft {
+  background: color-mix(in srgb, var(--fg-muted) 10%, transparent);
+  color: var(--fg-muted);
+}
+
+.plan-viewer-progress-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.plan-viewer-progress-track {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.plan-viewer-progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.plan-viewer-progress-text {
+  font-size: 10px;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.plan-viewer-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.plan-step {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 3px;
+  background: var(--bg-primary);
+  border-left: 2px solid transparent;
+}
+
+.plan-step--pending {
+  border-left-color: var(--fg-muted);
+}
+
+.plan-step--assigned {
+  border-left-color: var(--accent);
+}
+
+.plan-step--in_progress {
+  border-left-color: #4fc3f7;
+}
+
+.plan-step--completed {
+  border-left-color: var(--success);
+}
+
+.plan-step--failed {
+  border-left-color: var(--error);
+}
+
+.plan-step--skipped {
+  border-left-color: var(--fg-muted);
+  opacity: 0.5;
+}
+
+.plan-step-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.plan-step-index {
+  font-size: 10px;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+  width: 20px;
+}
+
+.plan-step-description {
+  flex: 1;
+  font-size: 11px;
+  color: var(--fg-primary);
+}
+
+.plan-step-assignee {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--fg-muted);
+  padding-left: 26px;
+}
+
+.plan-step-tool {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--fg-muted);
+  padding-left: 26px;
+}
+
+.plan-step-error {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--error);
+  padding-left: 26px;
+}
+
+.plan-step-result {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--success);
+  padding-left: 26px;
+}
+
+.plan-step-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 26px;
+}
+
+.plan-step-modify,
+.plan-step-add-after,
+.plan-step-remove,
+.plan-step-replan {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 10px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.plan-step-modify:hover,
+.plan-step-add-after:hover,
+.plan-step-replan:hover {
+  background: var(--accent-hover);
+  color: var(--fg-primary);
+}
+
+.plan-step-remove:hover {
+  background: var(--error);
+  color: var(--user-fg);
+}
+
+.plan-step-edit-inline {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.plan-step-edit-input {
+  flex: 1;
+  padding: 2px 6px;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  background: var(--bg-input);
+  color: var(--fg-primary);
+  font-size: 11px;
+  outline: none;
+}
+
+.plan-step-edit-confirm,
+.plan-step-edit-cancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.plan-step-edit-confirm:hover {
+  background: var(--success);
+  color: var(--user-fg);
+}
+
+.plan-step-edit-cancel:hover {
+  background: var(--error);
+  color: var(--user-fg);
+}
+
+.plan-step-add-form {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  margin-left: 26px;
+}
+
+.plan-step-add-input {
+  flex: 1;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg-input);
+  color: var(--fg-primary);
+  font-size: 11px;
+  outline: none;
+}
+
+.plan-step-add-input:focus {
+  border-color: var(--accent);
+}
+
+.plan-step-add-confirm,
+.plan-step-add-cancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.plan-step-add-confirm:hover {
+  background: var(--success);
+  color: var(--user-fg);
+}
+
+.plan-step-add-cancel:hover {
+  background: var(--error);
+  color: var(--user-fg);
+}
+
+.plan-step-add-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px dashed var(--border);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 10px;
+  cursor: pointer;
+  margin-left: 26px;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.plan-step-add-trigger:hover {
+  background: var(--accent-hover);
+  color: var(--fg-primary);
+  border-color: var(--accent);
+}
+
+.plan-viewer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+.plan-viewer-approve,
+.plan-viewer-reject,
+.plan-viewer-cancel,
+.plan-viewer-replan {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.plan-viewer-approve {
+  background: var(--success);
+  color: var(--bg-primary);
+  border-color: var(--success);
+}
+
+.plan-viewer-approve:hover {
+  background: color-mix(in srgb, var(--success) 80%, white);
+}
+
+.plan-viewer-reject,
+.plan-viewer-cancel {
+  background: transparent;
+  color: var(--fg-muted);
+}
+
+.plan-viewer-reject:hover,
+.plan-viewer-cancel:hover {
+  background: var(--error);
+  color: var(--user-fg);
+  border-color: var(--error);
+}
+
+.plan-viewer-replan {
+  background: transparent;
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.plan-viewer-replan:hover {
+  background: var(--accent);
+  color: var(--user-fg);
+}
+
+.plan-viewer-progress {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #4fc3f7;
 }

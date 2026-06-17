@@ -15,7 +15,9 @@ function deduplicateToolCalls(calls: ToolCall[]): ToolCall[] {
 /**
  * Find the last non-tool message in the array, or null if none.
  */
-function findLastNonTool(messages: ClassifiedMessage[]): ClassifiedMessage | null {
+function findLastNonTool(
+  messages: ClassifiedMessage[]
+): ClassifiedMessage | null {
   for (let i = messages.length - 1; i >= 0; i--) {
     if (messages[i].role !== "tool") return messages[i];
   }
@@ -43,7 +45,7 @@ function findLastNonTool(messages: ClassifiedMessage[]): ClassifiedMessage | nul
  */
 export function mergeToolBatches(
   messages: ClassifiedMessage[],
-  _config: MergeConfig,
+  _config: MergeConfig
 ): ClassifiedMessage[] {
   const result: ClassifiedMessage[] = [];
   /** The last promoted tool message that has not yet been consumed by an agent message. */
@@ -68,9 +70,9 @@ export function mergeToolBatches(
         lastNonTool.role === "agent" &&
         lastNonTool.systemKind === "info"
       ) {
-      // Case 1: merge into preceding agent message in-place.
-      // Do NOT set pendingTool — the tool calls are fully absorbed here,
-      // and the following agent message must not inherit them again.
+        // Case 1: merge into preceding agent message in-place.
+        // Do NOT set pendingTool — the tool calls are fully absorbed here,
+        // and the following agent message must not inherit them again.
         const merged: ClassifiedMessage = {
           ...lastNonTool,
           toolCalls: deduplicateToolCalls([
@@ -93,7 +95,11 @@ export function mergeToolBatches(
         // agent messages from the same agent.
         const lastNonTool = findLastNonTool(result);
         const inheritedAgentId = lastNonTool?.agentId ?? msg.agentId;
-        pendingTool = { ...msg, role: "agent" as const, agentId: inheritedAgentId };
+        pendingTool = {
+          ...msg,
+          role: "agent" as const,
+          agentId: inheritedAgentId,
+        };
       }
     } else if (msg.role === "agent" && pendingTool) {
       // Case 3: agent after a promoted tool — flush the pending tool as its

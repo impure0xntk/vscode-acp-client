@@ -52,7 +52,11 @@ export class MessageBus {
   // -----------------------------------------------------------------------
 
   async send(message: P2PMessage): Promise<void> {
-    log.debug("send", { from: message.from, to: message.to, type: message.type });
+    log.debug("send", {
+      from: message.from,
+      to: message.to,
+      type: message.type,
+    });
     this.pushLog(message);
 
     // Broadcast
@@ -168,7 +172,11 @@ export class MessageBus {
       try {
         await h(message);
       } catch (e) {
-        log.error("handler error", { to: message.to, type: message.type }, e as Error);
+        log.error(
+          "handler error",
+          { to: message.to, type: message.type },
+          e as Error
+        );
       }
     }
   }

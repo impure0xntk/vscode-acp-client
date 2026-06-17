@@ -24,7 +24,11 @@ export function Row({
 
 // ── AgentSection ────────────────────────────────────────────────────────────
 
-export function AgentSection({ info }: { info: AgentInfo }): React.ReactElement {
+export function AgentSection({
+  info,
+}: {
+  info: AgentInfo;
+}): React.ReactElement {
   const caps: string[] = [];
   if (info.capabilities?.loadSession) caps.push("load session");
   if (info.capabilities?.sessionCapabilities?.fork) caps.push("fork");
@@ -147,7 +151,7 @@ export function TurnSection({
         <div className={`toolbar-detail-item ${outcomeClass}`}>
           <span className="toolbar-detail-label">Outcome</span>
           <span className="toolbar-detail-value">
-            <Icon name={outcomeIcon} size={12} className="turn-section-icon" />
+            <Icon name={outcomeIcon} size="sm" className="turn-section-icon" />
             {outcomeLabel}
           </span>
         </div>

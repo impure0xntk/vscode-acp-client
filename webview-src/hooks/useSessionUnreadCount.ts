@@ -24,7 +24,7 @@ const EMPTY_CACHE: UnreadCache = {
  */
 function computeUnread(
   readUpToId: string | null,
-  msgCount: number,
+  msgCount: number
 ): { count: number; firstId: string | null } {
   if (!readUpToId || msgCount === 0) return { count: 0, firstId: null };
   // We need the message ID array to find the index, but to avoid subscribing
@@ -54,9 +54,7 @@ export function useSessionUnreadCount(sessionKey: string | null): number {
         if (cur !== prev) onStoreChange();
       });
       const unsubMsg = useMessageStore.subscribe((state, prevState) => {
-        if (
-          state.perSession[sessionKey] !== prevState.perSession[sessionKey]
-        ) {
+        if (state.perSession[sessionKey] !== prevState.perSession[sessionKey]) {
           onStoreChange();
         }
       });
@@ -65,7 +63,7 @@ export function useSessionUnreadCount(sessionKey: string | null): number {
         unsubMsg();
       };
     },
-    [sessionKey],
+    [sessionKey]
   );
 
   const getSnapshot = useCallback((): number => {
@@ -76,10 +74,7 @@ export function useSessionUnreadCount(sessionKey: string | null): number {
     const msgCount = msgs?.length ?? 0;
     const cache = cacheRef.current;
 
-    if (
-      cache.readUpToId === readUpToId &&
-      cache.msgCount === msgCount
-    ) {
+    if (cache.readUpToId === readUpToId && cache.msgCount === msgCount) {
       return cache.count;
     }
 

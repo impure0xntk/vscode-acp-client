@@ -14,7 +14,12 @@ import type { PromptContext } from "../../application/session/orchestrator";
 // ----------------------------------------------------------------------------
 
 interface MockOrchestrator {
-  promptCalls: Array<{ agentId: string; sessionId: string; text: string; context?: PromptContext }>;
+  promptCalls: Array<{
+    agentId: string;
+    sessionId: string;
+    text: string;
+    context?: PromptContext;
+  }>;
   prompt: SessionOrchestrator["prompt"];
   getActiveSessionId: SessionOrchestrator["getActiveSessionId"];
   getAgentConfig: SessionOrchestrator["getAgentConfig"];
@@ -22,11 +27,21 @@ interface MockOrchestrator {
 }
 
 function createMockOrchestrator(): MockOrchestrator {
-  const calls: Array<{ agentId: string; sessionId: string; text: string; context?: PromptContext }> = [];
+  const calls: Array<{
+    agentId: string;
+    sessionId: string;
+    text: string;
+    context?: PromptContext;
+  }> = [];
 
   return {
     promptCalls: calls,
-    prompt: async (agentId: string, sessionId: string, text: string, context?: PromptContext) => {
+    prompt: async (
+      agentId: string,
+      sessionId: string,
+      text: string,
+      context?: PromptContext
+    ) => {
       calls.push({ agentId, sessionId, text, context });
       return undefined;
     },
@@ -46,7 +61,9 @@ describe("PipelineExecutor", () => {
 
   beforeEach(() => {
     orchestrator = createMockOrchestrator();
-    executor = new PipelineExecutor({ sessionOrchestrator: orchestrator as unknown as SessionOrchestrator });
+    executor = new PipelineExecutor({
+      sessionOrchestrator: orchestrator as unknown as SessionOrchestrator,
+    });
   });
 
   it("sends to all targets sequentially", async () => {
@@ -56,7 +73,10 @@ describe("PipelineExecutor", () => {
       { agentId: "agent-c", sessionId: "s3", label: "C" },
     ];
 
-    const result = await executor.execute(targets, { text: "pipeline task", context: [] });
+    const result = await executor.execute(targets, {
+      text: "pipeline task",
+      context: [],
+    });
 
     assert.strictEqual(result.success, true);
     assert.strictEqual(result.steps.length, 3);
@@ -71,14 +91,21 @@ describe("PipelineExecutor", () => {
 
   it("stops on first failure", async () => {
     orchestrator.promptCalls.length = 0;
-    orchestrator.prompt = async (agentId: string, sessionId: string, text: string, context?: PromptContext) => {
+    orchestrator.prompt = async (
+      agentId: string,
+      sessionId: string,
+      text: string,
+      context?: PromptContext
+    ) => {
       orchestrator.promptCalls.push({ agentId, sessionId, text, context });
       if (agentId === "agent-b") throw new Error("Agent B unavailable");
       return undefined;
     };
 
     // Recreate executor with updated mock
-    executor = new PipelineExecutor({ sessionOrchestrator: orchestrator as unknown as SessionOrchestrator });
+    executor = new PipelineExecutor({
+      sessionOrchestrator: orchestrator as unknown as SessionOrchestrator,
+    });
 
     const targets: SendTarget[] = [
       { agentId: "agent-a", sessionId: "s1", label: "A" },
@@ -86,7 +113,10 @@ describe("PipelineExecutor", () => {
       { agentId: "agent-c", sessionId: "s3", label: "C" },
     ];
 
-    const result = await executor.execute(targets, { text: "test", context: [] });
+    const result = await executor.execute(targets, {
+      text: "test",
+      context: [],
+    });
 
     assert.strictEqual(result.success, false);
     assert.strictEqual(result.steps.length, 2);
@@ -97,19 +127,31 @@ describe("PipelineExecutor", () => {
 
   it("uses transformFn when provided", async () => {
     orchestrator.promptCalls.length = 0;
-    executor = new PipelineExecutor({ sessionOrchestrator: orchestrator as unknown as SessionOrchestrator });
+    executor = new PipelineExecutor({
+      sessionOrchestrator: orchestrator as unknown as SessionOrchestrator,
+    });
 
     const targets: SendTarget[] = [
       { agentId: "agent-a", sessionId: "s1", label: "A" },
       { agentId: "agent-b", sessionId: "s2", label: "B" },
     ];
 
-    await executor.execute(targets, { text: "initial", context: [] }, (last, _target) => {
-      return `${last} -> transformed`;
-    });
+    await executor.execute(
+      targets,
+      { text: "initial", context: [] },
+      (last, _target) => {
+        return `${last} -> transformed`;
+      }
+    );
 
-    assert.strictEqual(orchestrator.promptCalls[0].text, "initial -> transformed");
-    assert.strictEqual(orchestrator.promptCalls[1].text, "initial -> transformed -> transformed");
+    assert.strictEqual(
+      orchestrator.promptCalls[0].text,
+      "initial -> transformed"
+    );
+    assert.strictEqual(
+      orchestrator.promptCalls[1].text,
+      "initial -> transformed -> transformed"
+    );
   });
 
   it("returns success for empty targets", async () => {

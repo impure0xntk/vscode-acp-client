@@ -28,18 +28,18 @@ export function MessageActions({
   }, [content]);
 
   return (
-    <span className="message-actions-inline" role="toolbar" aria-label="Message actions">
+    <span
+      className="message-actions-inline"
+      role="toolbar"
+      aria-label="Message actions"
+    >
       <button
         className="message-action-inline-btn"
         onClick={handleCopy}
         title={copied ? "Copied" : "Copy to clipboard"}
         aria-label={copied ? "Copied" : "Copy to clipboard"}
       >
-        {copied ? (
-          <IconCheck size={12} />
-        ) : (
-          <IconCopy size={12} />
-        )}
+        {copied ? <IconCheck size={12} /> : <IconCopy size={12} />}
       </button>
     </span>
   );

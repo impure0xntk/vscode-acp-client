@@ -1,17 +1,19 @@
-import type { TokenUsage, ChatMessage } from "../../domain/models/chat";
+import type { ChatMessage, TokenUsage } from "../../domain/models/chat";
 import type { ContentBlock } from "@agentclientprotocol/sdk";
+import type {
+  SessionInfo,
+  SessionStatus,
+  TurnOutcome,
+} from "../../domain/models/session";
 
-export type { TokenUsage };
+// Re-export domain types so downstream consumers import from one place
+export type { SessionInfo, SessionStatus, TurnOutcome, TokenUsage };
 
 // ============================================================================
 // Queued Prompt — message buffered while a turn is active
 // ============================================================================
 
-export type QueuedPromptStatus =
-  | "pending"
-  | "sending"
-  | "sent"
-  | "cancelled";
+export type QueuedPromptStatus = "pending" | "sending" | "sent" | "cancelled";
 
 export interface QueuedPrompt {
   id: string;
@@ -25,40 +27,14 @@ export interface QueuedPrompt {
 }
 
 // ============================================================================
-// Session Status — runtime state of the session itself
+// App Session Info — application-layer extension of domain SessionInfo
+//
+// domain/SessionInfo is the canonical pure state type (no messages, no
+// application-only bookkeeping).  This interface adds fields that only the
+// application layer needs (message history, compression tracking).
 // ============================================================================
 
-export type SessionStatus = "idle" | "running" | "completed" | "error" | "cancelled";
-
-// ============================================================================
-// Turn Outcome — how the last turn ended
-// ============================================================================
-
-export type TurnOutcome = "completed" | "error" | "cancelled";
-
-// ============================================================================
-// Session Info — single source of truth for runtime session state
-// ============================================================================
-
-export interface SessionInfo {
-  sessionId: string;
-  agentId: string;
-  title: string;
-  cwd: string;
-  mode?: string;
-  model?: string;
-  status: SessionStatus;
-  /** Outcome of the most recent turn; null if no turn has completed yet. */
-  lastTurnOutcome: TurnOutcome | null;
-  /** True while streaming content is in progress */
-  isStreaming: boolean;
-  tokenUsage: TokenUsage;
-  contextWindowMax?: number;
-  createdAt: Date;
-  updatedAt: Date;
-  /** ISO string of last agent response; null if no response yet. Used for elapsed time anchoring in the webview. */
-  lastResponseAt: string | null;
-  pendingCancel: boolean;
+export interface AppSessionInfo extends SessionInfo {
   /** Previous context usage (tokens) — used for compression detection */
   _prevContextUsed?: number;
   /** Messages in the session — used for fork/replay operations */

@@ -25,12 +25,9 @@ export class LogEntrySinkImpl {
     if (!this.store) return;
 
     const ctx = record.context ?? {};
-    const sessionId =
-      typeof ctx.sessionId === "string" ? ctx.sessionId : null;
-    const agentId =
-      typeof ctx.agentId === "string" ? ctx.agentId : null;
-    const traceId =
-      typeof ctx.traceId === "string" ? ctx.traceId : null;
+    const sessionId = typeof ctx.sessionId === "string" ? ctx.sessionId : null;
+    const agentId = typeof ctx.agentId === "string" ? ctx.agentId : null;
+    const traceId = typeof ctx.traceId === "string" ? ctx.traceId : null;
 
     // Serialize remaining context (strip extracted fields)
     const { sessionId: _s, agentId: _a, traceId: _t, ...rest } = ctx;

@@ -17,7 +17,12 @@ export interface MessageState {
   appendMessage: (key: string, msg: ChatMessage) => void;
   setStreaming: (key: string, v: boolean) => void;
   /** Append a streaming chunk to the last agent message, or create one */
-  appendStreamChunk: (key: string, agentId: string, sessionId: string, chunk: string) => void;
+  appendStreamChunk: (
+    key: string,
+    agentId: string,
+    sessionId: string,
+    chunk: string
+  ) => void;
   clearSession: (key: string) => void;
   /** Add a queued prompt entry */
   addQueuedPrompt: (key: string, entry: QueuedPrompt) => void;
@@ -43,7 +48,12 @@ export const useMessageStore = create<MessageState>((set) => ({
   appendMessage: (key, msg) =>
     set((state) => {
       const existing = state.perSession[key] ?? [];
-      log.trace("appendMessage", { key, msgId: msg.id, role: msg.role, len: existing.length + 1 });
+      log.trace("appendMessage", {
+        key,
+        msgId: msg.id,
+        role: msg.role,
+        len: existing.length + 1,
+      });
       return {
         ...state,
         perSession: { ...state.perSession, [key]: [...existing, msg] },
@@ -85,9 +95,10 @@ export const useMessageStore = create<MessageState>((set) => ({
           },
         ];
       }
-      const newStreaming = state.streaming[key] === true
-        ? state.streaming
-        : { ...state.streaming, [key]: true };
+      const newStreaming =
+        state.streaming[key] === true
+          ? state.streaming
+          : { ...state.streaming, [key]: true };
       log.trace("appendStreamChunk", { key, agentId, chunkLen: chunk.length });
       return {
         ...state,
@@ -107,7 +118,11 @@ export const useMessageStore = create<MessageState>((set) => ({
   addQueuedPrompt: (key, entry) =>
     set((state) => {
       const existing = state.promptQueue[key] ?? [];
-      log.trace("addQueuedPrompt", { key, entryId: entry.id, len: existing.length + 1 });
+      log.trace("addQueuedPrompt", {
+        key,
+        entryId: entry.id,
+        len: existing.length + 1,
+      });
       return {
         ...state,
         promptQueue: { ...state.promptQueue, [key]: [...existing, entry] },

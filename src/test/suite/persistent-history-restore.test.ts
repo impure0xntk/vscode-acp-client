@@ -7,8 +7,8 @@ import * as os from "os";
 import initSqlJs from "sql.js";
 import { PersistentHistoryStore } from "../../application/session/persistentHistory";
 import { SCHEMA_SQL } from "../../application/session/schema";
-import type { ChatMessage, TokenUsage }from "../../domain/models/chat";
-import type { SessionInfo } from "../../application/session/types";
+import type { ChatMessage, TokenUsage } from "../../domain/models/chat";
+import type { AppSessionInfo } from "../../application/session/types";
 
 // ============================================================================
 // Helpers
@@ -24,7 +24,7 @@ function makeMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
   };
 }
 
-function makeSession(overrides: Partial<SessionInfo> = {}): SessionInfo {
+function makeSession(overrides: Partial<AppSessionInfo> = {}): AppSessionInfo {
   return {
     sessionId: "sess-original",
     agentId: "claude",
@@ -194,7 +194,7 @@ describe("PersistentHistory → SessionInfo data model compatibility", () => {
   it("SessionStatus values are compatible between PersistentSessionEntry and SessionInfo", () => {
     const validStatuses = ["idle", "running"];
     for (const status of validStatuses) {
-      const entryStatus = status as SessionInfo["status"];
+      const entryStatus = status as AppSessionInfo["status"];
       assert.ok(validStatuses.includes(entryStatus));
     }
   });
@@ -233,9 +233,24 @@ describe("Restore Integration — save, retrieve, reconstruct", () => {
 
   it("full round-trip: SessionInfo → save → getSessionMessages → ChatMessage[]", async () => {
     const messages = [
-      makeMessage({ id: "m1", role: "user", content: "Hello", timestamp: 1000 }),
-      makeMessage({ id: "m2", role: "agent", content: "Hi there!", timestamp: 1001 }),
-      makeMessage({ id: "m3", role: "user", content: "What is 2+2?", timestamp: 1002 }),
+      makeMessage({
+        id: "m1",
+        role: "user",
+        content: "Hello",
+        timestamp: 1000,
+      }),
+      makeMessage({
+        id: "m2",
+        role: "agent",
+        content: "Hi there!",
+        timestamp: 1001,
+      }),
+      makeMessage({
+        id: "m3",
+        role: "user",
+        content: "What is 2+2?",
+        timestamp: 1002,
+      }),
       makeMessage({ id: "m4", role: "agent", content: "4", timestamp: 1003 }),
     ];
 
@@ -304,7 +319,11 @@ describe("Restore Integration — save, retrieve, reconstruct", () => {
         input: '{"path": "src/main.ts"}',
         output: "File updated",
         locations: [{ path: "src/main.ts", line: 10 }],
-        diffContent: { newText: "new line", oldText: "old line", path: "src/main.ts" },
+        diffContent: {
+          newText: "new line",
+          oldText: "old line",
+          path: "src/main.ts",
+        },
       },
     ];
 
@@ -341,7 +360,9 @@ describe("Restore Integration — save, retrieve, reconstruct", () => {
     assert.strictEqual(parsed[0].id, "tc-1");
     assert.strictEqual(parsed[0].kind, "edit");
     assert.strictEqual(parsed[0].status, "completed");
-    assert.deepStrictEqual(parsed[0].locations, [{ path: "src/main.ts", line: 10 }]);
+    assert.deepStrictEqual(parsed[0].locations, [
+      { path: "src/main.ts", line: 10 },
+    ]);
     assert.deepStrictEqual(parsed[0].diffContent, {
       newText: "new line",
       oldText: "old line",
@@ -384,7 +405,8 @@ describe("Restore Integration — save, retrieve, reconstruct", () => {
     await new Promise((r) => setTimeout(r, 1100));
     await store.saveMessages("sess-reconstruct", messages);
 
-    const { messages: retrieved } = store.getSessionMessages("sess-reconstruct");
+    const { messages: retrieved } =
+      store.getSessionMessages("sess-reconstruct");
 
     // Simulate what the restore command does: appendMessageSilent for each
     const newSession = makeSession({
@@ -404,7 +426,11 @@ describe("Restore Integration — save, retrieve, reconstruct", () => {
   it("getSessionMessages returns empty for unknown session", () => {
     const result = store.getSessionMessages("nonexistent");
     assert.strictEqual(result.messages.length, 0);
-    assert.deepStrictEqual(result.tokenUsage, { input: 0, output: 0, total: 0 });
+    assert.deepStrictEqual(result.tokenUsage, {
+      input: 0,
+      output: 0,
+      total: 0,
+    });
   });
 
   it("saveMessages is idempotent (duplicate calls don't duplicate)", async () => {

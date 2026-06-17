@@ -166,11 +166,7 @@ export class Orchestrator {
 
     // Update source session
     sourceSession.context.childSessionIds.push(newSessionId);
-    this.sessionManager.updateSessionStatus(
-      fromAgentId,
-      sessionId,
-      "idle"
-    );
+    this.sessionManager.updateSessionStatus(fromAgentId, sessionId, "idle");
 
     // Emit handoff event
     const event = this.stateManager.createEvent("agent.handoff", {

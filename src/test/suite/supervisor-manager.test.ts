@@ -17,7 +17,12 @@ import type { QueuedPrompt } from "../../application/session/types";
 
 interface MockOrchestrator {
   promptCalls: Array<{ agentId: string; sessionId: string; text: string }>;
-  prompt: (agentId: string, sessionId: string, text: string, context?: PromptContext) => Promise<QueuedPrompt | undefined>;
+  prompt: (
+    agentId: string,
+    sessionId: string,
+    text: string,
+    context?: PromptContext
+  ) => Promise<QueuedPrompt | undefined>;
   getActiveSessionId: (agentId: string) => string | undefined;
   getAgentConfig: (agentId: string) => undefined;
   getSessionsForAgent: (agentId: string) => [];
@@ -28,7 +33,12 @@ function createMockOrchestrator(): MockOrchestrator {
 
   return {
     promptCalls: calls,
-    prompt: async (agentId: string, sessionId: string, text: string, _context?: PromptContext) => {
+    prompt: async (
+      agentId: string,
+      sessionId: string,
+      text: string,
+      _context?: PromptContext
+    ) => {
       calls.push({ agentId, sessionId, text });
       return undefined;
     },
@@ -57,7 +67,11 @@ describe("SupervisorManager", () => {
   });
 
   it("sends task to lead then distributes to workers", async () => {
-    const lead: SendTarget = { agentId: "lead", sessionId: "s1", label: "Lead" };
+    const lead: SendTarget = {
+      agentId: "lead",
+      sessionId: "s1",
+      label: "Lead",
+    };
     const workers: SendTarget[] = [
       { agentId: "worker-a", sessionId: "s2", label: "Worker A" },
       { agentId: "worker-b", sessionId: "s3", label: "Worker B" },
@@ -81,7 +95,12 @@ describe("SupervisorManager", () => {
 
   it("handles lead failure gracefully", async () => {
     orchestrator.promptCalls.length = 0;
-    orchestrator.prompt = async (agentId: string, sessionId: string, text: string, _context?: PromptContext) => {
+    orchestrator.prompt = async (
+      agentId: string,
+      sessionId: string,
+      text: string,
+      _context?: PromptContext
+    ) => {
       orchestrator.promptCalls.push({ agentId, sessionId, text });
       if (agentId === "lead") throw new Error("Lead agent offline");
       return undefined;
@@ -92,7 +111,11 @@ describe("SupervisorManager", () => {
       taskBoardStore,
     });
 
-    const lead: SendTarget = { agentId: "lead", sessionId: "s1", label: "Lead" };
+    const lead: SendTarget = {
+      agentId: "lead",
+      sessionId: "s1",
+      label: "Lead",
+    };
     const workers: SendTarget[] = [
       { agentId: "worker-a", sessionId: "s2", label: "Worker A" },
     ];
@@ -110,7 +133,12 @@ describe("SupervisorManager", () => {
 
   it("tracks worker failures without stopping other workers", async () => {
     orchestrator.promptCalls.length = 0;
-    orchestrator.prompt = async (agentId: string, sessionId: string, text: string, _context?: PromptContext) => {
+    orchestrator.prompt = async (
+      agentId: string,
+      sessionId: string,
+      text: string,
+      _context?: PromptContext
+    ) => {
       orchestrator.promptCalls.push({ agentId, sessionId, text });
       if (agentId === "worker-b") throw new Error("Worker B crashed");
       return undefined;
@@ -121,7 +149,11 @@ describe("SupervisorManager", () => {
       taskBoardStore,
     });
 
-    const lead: SendTarget = { agentId: "lead", sessionId: "s1", label: "Lead" };
+    const lead: SendTarget = {
+      agentId: "lead",
+      sessionId: "s1",
+      label: "Lead",
+    };
     const workers: SendTarget[] = [
       { agentId: "worker-a", sessionId: "s2", label: "Worker A" },
       { agentId: "worker-b", sessionId: "s3", label: "Worker B" },
@@ -142,8 +174,180 @@ describe("SupervisorManager", () => {
     assert.strictEqual(result.assignments[2].status, "completed");
   });
 
+  it("parses task_plan markers from lead output", async () => {
+    const lead: SendTarget = {
+      agentId: "lead",
+      sessionId: "s1",
+      label: "Lead",
+    };
+    const workers: SendTarget[] = [
+      { agentId: "worker-a", sessionId: "s2", label: "Worker A" },
+      { agentId: "worker-b", sessionId: "s3", label: "Worker B" },
+    ];
+
+    const leadOutput =
+      "Here is my plan.\n" +
+      "[ACP_MESH_MESSAGE v2]" +
+      JSON.stringify({
+        version: "2.0",
+        type: "task_plan",
+        id: "plan-1",
+        from: "lead",
+        to: "orchestrator",
+        mode: "supervisor",
+        payload: {
+          parentTaskId: "task-1",
+          subtasks: [
+            {
+              index: 0,
+              description: "Implement OAuth2 flow",
+              complexity: "high",
+            },
+            { index: 1, description: "Write tests", complexity: "low" },
+          ],
+        },
+      }) +
+      "[/ACP_MESH_MESSAGE]";
+
+    const result = await manager.supervise(
+      {
+        leadTarget: lead,
+        workerTargets: workers,
+        task: "Refactor auth",
+        waitForAll: true,
+      },
+      leadOutput
+    );
+
+    assert.strictEqual(result.assignments[0].subTask, "Implement OAuth2 flow");
+    assert.strictEqual(result.assignments[1].subTask, "Write tests");
+  });
+
+  it("parses task_delegate markers from lead output", async () => {
+    const lead: SendTarget = {
+      agentId: "lead",
+      sessionId: "s1",
+      label: "Lead",
+    };
+    const workers: SendTarget[] = [
+      { agentId: "worker-a", sessionId: "s2", label: "Worker A" },
+      { agentId: "worker-b", sessionId: "s3", label: "Worker B" },
+    ];
+
+    const leadOutput =
+      "[ACP_MESH_MESSAGE v2]" +
+      JSON.stringify({
+        version: "2.0",
+        type: "task_delegate",
+        id: "del-1",
+        from: "lead",
+        to: "orchestrator",
+        mode: "supervisor",
+        payload: { agentIndex: 1, description: "Write unit tests" },
+      }) +
+      "[/ACP_MESH_MESSAGE]";
+
+    const result = await manager.supervise(
+      {
+        leadTarget: lead,
+        workerTargets: workers,
+        task: "Refactor auth",
+        waitForAll: true,
+      },
+      leadOutput
+    );
+
+    // worker-a keeps default task (agentIndex 0 not specified)
+    assert.strictEqual(result.assignments[0].subTask, "Refactor auth");
+    // worker-b gets the delegated description
+    assert.strictEqual(result.assignments[1].subTask, "Write unit tests");
+  });
+
+  it("handles task_plan with out-of-range index gracefully", async () => {
+    const lead: SendTarget = {
+      agentId: "lead",
+      sessionId: "s1",
+      label: "Lead",
+    };
+    const workers: SendTarget[] = [
+      { agentId: "worker-a", sessionId: "s2", label: "Worker A" },
+    ];
+
+    const leadOutput =
+      "[ACP_MESH_MESSAGE v2]" +
+      JSON.stringify({
+        version: "2.0",
+        type: "task_plan",
+        id: "plan-1",
+        from: "lead",
+        to: "orchestrator",
+        mode: "supervisor",
+        payload: {
+          subtasks: [
+            { index: 0, description: "Valid task" },
+            { index: 5, description: "Out of range" },
+            { index: -1, description: "Negative index" },
+          ],
+        },
+      }) +
+      "[/ACP_MESH_MESSAGE]";
+
+    const result = await manager.supervise(
+      {
+        leadTarget: lead,
+        workerTargets: workers,
+        task: "Refactor auth",
+        waitForAll: true,
+      },
+      leadOutput
+    );
+
+    assert.strictEqual(result.assignments[0].subTask, "Valid task");
+  });
+
+  it("handles task_plan with missing subtasks field", async () => {
+    const lead: SendTarget = {
+      agentId: "lead",
+      sessionId: "s1",
+      label: "Lead",
+    };
+    const workers: SendTarget[] = [
+      { agentId: "worker-a", sessionId: "s2", label: "Worker A" },
+    ];
+
+    const leadOutput =
+      "[ACP_MESH_MESSAGE v2]" +
+      JSON.stringify({
+        version: "2.0",
+        type: "task_plan",
+        id: "plan-1",
+        from: "lead",
+        to: "orchestrator",
+        mode: "supervisor",
+        payload: { parentTaskId: "task-1" },
+      }) +
+      "[/ACP_MESH_MESSAGE]";
+
+    const result = await manager.supervise(
+      {
+        leadTarget: lead,
+        workerTargets: workers,
+        task: "Refactor auth",
+        waitForAll: true,
+      },
+      leadOutput
+    );
+
+    // Falls back to default task
+    assert.strictEqual(result.assignments[0].subTask, "Refactor auth");
+  });
+
   it("handles empty worker list", async () => {
-    const lead: SendTarget = { agentId: "lead", sessionId: "s1", label: "Lead" };
+    const lead: SendTarget = {
+      agentId: "lead",
+      sessionId: "s1",
+      label: "Lead",
+    };
 
     const result = await manager.supervise({
       leadTarget: lead,

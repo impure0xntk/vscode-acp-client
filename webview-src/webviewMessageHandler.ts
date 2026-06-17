@@ -21,6 +21,7 @@ import type {
   TokenUsage,
   SessionOverviewState,
   Plan,
+  PlanStep,
 } from "./types";
 
 const log = getLogger("webview.messageHandler");
@@ -141,7 +142,11 @@ interface SessionInfo {
   sessionId: string;
   status: string;
   lastTurnOutcome: string | null;
-  tokenUsage: { inputTokens: number; outputTokens: number; totalTokens: number };
+  tokenUsage: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+  };
   contextWindowMax?: number;
   model?: string;
   mode?: string;
@@ -281,10 +286,19 @@ interface PathsResolvedMessage {
 
 interface PlanUpdateMessage {
   type: "plan.update";
-  agentId: string;
-  sessionId: string;
-  steps: Plan["steps"];
-  status: Plan["status"];
+  plan: Plan;
+}
+
+interface PlanStepUpdateMessage {
+  type: "plan.stepUpdate";
+  planId: string;
+  stepId: string;
+  updates: Partial<PlanStep>;
+}
+
+interface PlanCancelledMessage {
+  type: "plan.cancelled";
+  planId: string;
 }
 
 // ── Agent status message ────────────────────────────────────────────────────
@@ -307,6 +321,8 @@ interface UnifiedChatSetLayoutMessage {
 
 type WebviewMessage =
   | PlanUpdateMessage
+  | PlanStepUpdateMessage
+  | PlanCancelledMessage
   | AgentStatusMessage
   | SessionTitleMessage
   | SetTabsMessage
@@ -350,7 +366,9 @@ function handleSetTabs(data: SetTabsMessage): void {
     tabs: data.tabs.map((t) => sessionKeyOf(t.agentId, t.sessionId)),
     activeSessionKey: data.activeSessionKey,
     hasWorkspaceRoot: !!data.workspaceRoot,
-    hasAgentInfo: !!data.agentInfoMap ? Object.keys(data.agentInfoMap).length : 0,
+    hasAgentInfo: !!data.agentInfoMap
+      ? Object.keys(data.agentInfoMap).length
+      : 0,
   });
 
   const newKeys = data.tabs.map((t) => sessionKeyOf(t.agentId, t.sessionId));
@@ -363,9 +381,9 @@ function handleSetTabs(data: SetTabsMessage): void {
   const authoritativeKey =
     data.activeSessionKey && newKeys.includes(data.activeSessionKey)
       ? data.activeSessionKey
-      : (existingKey && newKeys.includes(existingKey)
+      : existingKey && newKeys.includes(existingKey)
         ? existingKey
-        : (newKeys[0] ?? null));
+        : (newKeys[0] ?? null);
 
   useSessionStore.getState().bulkSetTabs({
     tabs: data.tabs,
@@ -395,21 +413,21 @@ function handleSessionMessage(data: SessionMessage): void {
   // Deserialize attachmentsJson into attachments array so the pipeline
   // and <Message /> component can render attachment chips.
   const msg = data.message;
-  const attachments = msg.attachments
-    ?? (msg.attachmentsJson
-      ? (JSON.parse(msg.attachmentsJson) as import("./types").ContextAttachment[])
+  const attachments =
+    msg.attachments ??
+    (msg.attachmentsJson
+      ? (JSON.parse(
+          msg.attachmentsJson
+        ) as import("./types").ContextAttachment[])
       : undefined);
   useMessageStore.getState().appendMessage(msgKey, { ...msg, attachments });
 }
 
 function handleSessionStream(data: SessionStream): void {
   const msgKey = sessionKeyOf(data.agentId, data.sessionId);
-  useMessageStore.getState().appendStreamChunk(
-    msgKey,
-    data.agentId,
-    data.sessionId,
-    data.chunk,
-  );
+  useMessageStore
+    .getState()
+    .appendStreamChunk(msgKey, data.agentId, data.sessionId, data.chunk);
   // Update lastResponseAt so the session is considered "alive" — but only
   // if the session is currently running.  Overwriting lastResponseAt during
   // idle/completed state can cause stale "elapsedMs" display in the overview.
@@ -469,7 +487,11 @@ function handleSessionSwitch(data: SessionSwitch): void {
   // UI can render it. Without this, activeSessionKey is set but no tab
   // exists, resulting in a blank panel with no messages.
   if (!sessionStore.tabOrder.includes(key)) {
-    sessionStore.addTab(data.agentId, data.sessionId, data.sessionId.slice(0, 8));
+    sessionStore.addTab(
+      data.agentId,
+      data.sessionId,
+      data.sessionId.slice(0, 8)
+    );
   }
 
   // Only set activeSessionKey if it differs from the current key.
@@ -486,7 +508,12 @@ function handleSessionSwitch(data: SessionSwitch): void {
 function handleSessionTurnActive(data: SessionTurnActive): void {
   const msgKey = sessionKeyOf(data.agentId, data.sessionId);
   const active = data.active;
-  log.debug("handleSessionTurnActive", { agentId: data.agentId, sessionId: data.sessionId, active, action: data.action });
+  log.debug("handleSessionTurnActive", {
+    agentId: data.agentId,
+    sessionId: data.sessionId,
+    active,
+    action: data.action,
+  });
 
   // Sync streamingMap so Composer button reflects turn state
   useMessageStore.getState().setStreaming(msgKey, active);
@@ -535,7 +562,11 @@ function handleSessionCompression(data: SessionCompression): void {
 function handleSessionCompleted(data: SessionCompleted): void {
   const key = sessionKeyOf(data.agentId, data.sessionId);
   const existing = useSessionStore.getState().sessionInfoMap[key];
-  log.info("handleSessionCompleted", { agentId: data.agentId, sessionId: data.sessionId, title: data.title });
+  log.info("handleSessionCompleted", {
+    agentId: data.agentId,
+    sessionId: data.sessionId,
+    title: data.title,
+  });
   if (existing) {
     useSessionStore.getState().setSessionInfo(data.agentId, data.sessionId, {
       ...existing,
@@ -558,7 +589,9 @@ function handleSessionSnapshot(data: SessionSnapshot): void {
   const messages = data.messages.map((msg) => {
     if (msg.attachmentsJson && !msg.attachments) {
       try {
-        const attachments = JSON.parse(msg.attachmentsJson) as import("./types").ContextAttachment[];
+        const attachments = JSON.parse(
+          msg.attachmentsJson
+        ) as import("./types").ContextAttachment[];
         return { ...msg, attachments };
       } catch {
         return msg;
@@ -577,7 +610,11 @@ function handleSessionSnapshot(data: SessionSnapshot): void {
     status: data.status,
     lastTurnOutcome: null,
     isStreaming: data.isStreaming,
-    tokenUsage: { input: data.tokenUsage.inputTokens, output: data.tokenUsage.outputTokens, total: data.tokenUsage.totalTokens },
+    tokenUsage: {
+      input: data.tokenUsage.inputTokens,
+      output: data.tokenUsage.outputTokens,
+      total: data.tokenUsage.totalTokens,
+    },
     contextWindowMax: data.contextWindowMax,
     model: data.model,
     mode: data.mode,
@@ -595,7 +632,11 @@ function handleSessionInfo(data: SessionInfo): void {
     status: data.status,
     lastTurnOutcome: data.lastTurnOutcome,
     isStreaming: data.isStreaming,
-    tokenUsage: { input: data.tokenUsage.inputTokens, output: data.tokenUsage.outputTokens, total: data.tokenUsage.totalTokens },
+    tokenUsage: {
+      input: data.tokenUsage.inputTokens,
+      output: data.tokenUsage.outputTokens,
+      total: data.tokenUsage.totalTokens,
+    },
     contextWindowMax: data.contextWindowMax,
     model: data.model,
     mode: data.mode,
@@ -620,7 +661,9 @@ function handleStatusline(data: StatuslineMessage): void {
 }
 
 function handleAddTab(data: AddTabMessage): void {
-  useSessionStore.getState().addTab(data.tab.agentId, data.tab.sessionId, data.tab.title);
+  useSessionStore
+    .getState()
+    .addTab(data.tab.agentId, data.tab.sessionId, data.tab.title);
 }
 
 function handleUpdateTab(data: UpdateTabMessage): void {
@@ -632,11 +675,15 @@ function handleUpdateTab(data: UpdateTabMessage): void {
 }
 
 function handleSetActiveSession(data: SetActiveSessionMessage): void {
-  useSessionStore.getState().setActiveSession(sessionKeyOf(data.agentId, data.sessionId));
+  useSessionStore
+    .getState()
+    .setActiveSession(sessionKeyOf(data.agentId, data.sessionId));
 }
 
 function handleSessionCommands(data: SessionCommandsMessage): void {
-  useSessionStore.getState().setSessionCommands(data.agentId, data.sessionId, data.commands);
+  useSessionStore
+    .getState()
+    .setSessionCommands(data.agentId, data.sessionId, data.commands);
 }
 
 function handleQueueAdded(data: QueueAddedMessage): void {
@@ -657,7 +704,9 @@ function handleSessionOverviewToggle(data: SessionOverviewToggleMessage): void {
   useUiStateStore.getState().setOverviewVisible(data.payload.visible);
 }
 
-function handleSessionOverviewPosition(data: SessionOverviewPositionMessage): void {
+function handleSessionOverviewPosition(
+  data: SessionOverviewPositionMessage
+): void {
   useUiStateStore.getState().setOverviewPosition(data.payload.position);
 }
 
@@ -692,40 +741,68 @@ function handleMeshPanelToggle(data: MeshPanelToggleMessage): void {
 }
 
 function handlePathsResolved(data: PathsResolvedMessage): void {
-  usePathResolutionStore.getState().addResolvedPaths(data.sessionKey, data.paths);
+  usePathResolutionStore
+    .getState()
+    .addResolvedPaths(data.sessionKey, data.paths);
 }
 
 // ── Session pin/unpin handlers ─────────────────────────────────────────────
 
 function handleSessionTitle(data: SessionTitleMessage): void {
   const key = sessionKeyOf(data.agentId, data.sessionId);
-  log.info("session title changed", { agentId: data.agentId, sessionId: data.sessionId, title: data.title });
+  log.info("session title changed", {
+    agentId: data.agentId,
+    sessionId: data.sessionId,
+    title: data.title,
+  });
   useSessionStore.getState().setTabTitle(key, data.title);
 }
 
 function handleSessionPinned(data: SessionPinnedNotification): void {
   const key = sessionKeyOf(data.agentId, data.sessionId);
-  log.info("session pinned", { agentId: data.agentId, sessionId: data.sessionId });
+  log.info("session pinned", {
+    agentId: data.agentId,
+    sessionId: data.sessionId,
+  });
   useSessionStore.getState().pinSession(key);
 }
 
 function handleSessionUnpinned(data: SessionUnpinnedNotification): void {
   const key = sessionKeyOf(data.agentId, data.sessionId);
-  log.info("session unpinned", { agentId: data.agentId, sessionId: data.sessionId });
+  log.info("session unpinned", {
+    agentId: data.agentId,
+    sessionId: data.sessionId,
+  });
   useSessionStore.getState().unpinSession(key);
 }
 
 // ── Plan update handler ─────────────────────────────────────────────────────
 
 function handlePlanUpdate(data: PlanUpdateMessage): void {
-  const plan: Plan = {
-    agentId: data.agentId,
-    sessionId: data.sessionId,
-    steps: data.steps,
-    status: data.status,
-  };
-  log.info("plan.update", { agentId: data.agentId, sessionId: data.sessionId, stepCount: data.steps.length, status: data.status });
-  useSessionStore.getState().setCurrentPlan(plan);
+  log.info("plan.update", {
+    planId: data.plan.id,
+    stepCount: data.plan.steps.length,
+    status: data.plan.status,
+  });
+  useSessionStore.getState().setCurrentPlan(data.plan);
+}
+
+function handlePlanStepUpdate(data: PlanStepUpdateMessage): void {
+  log.debug("plan.stepUpdate", {
+    planId: data.planId,
+    stepId: data.stepId,
+    updates: Object.keys(data.updates),
+  });
+  const store = useSessionStore.getState();
+  if (!store.currentPlan || store.currentPlan.id !== data.planId) return;
+  store.updatePlanStep(data.stepId, data.updates);
+}
+
+function handlePlanCancelled(data: PlanCancelledMessage): void {
+  log.info("plan.cancelled", { planId: data.planId });
+  const store = useSessionStore.getState();
+  if (!store.currentPlan || store.currentPlan.id !== data.planId) return;
+  store.cancelPlan();
 }
 
 // ── Agent status handler ────────────────────────────────────────────────────
@@ -733,7 +810,14 @@ function handlePlanUpdate(data: PlanUpdateMessage): void {
 function handleAgentStatus(data: AgentStatusMessage): void {
   log.debug("agent.status", { agentId: data.agentId, status: data.status });
   useMeshStore.getState().updateAgentStatus(data.agentId, {
-    state: data.status === "running" ? "working" : data.status === "waiting" ? "waiting" : data.status === "error" ? "error" : "idle",
+    state:
+      data.status === "running"
+        ? "working"
+        : data.status === "waiting"
+          ? "waiting"
+          : data.status === "error"
+            ? "error"
+            : "idle",
     currentTask: data.currentTask,
     progress: data.progress,
   });
@@ -742,7 +826,10 @@ function handleAgentStatus(data: AgentStatusMessage): void {
 // ── UnifiedChat layout handler ──────────────────────────────────────────────
 
 function handleUnifiedChatSetLayout(data: UnifiedChatSetLayoutMessage): void {
-  log.info("handleUnifiedChatSetLayout", { layout: data.layout, splitRatio: data.splitRatio });
+  log.info("handleUnifiedChatSetLayout", {
+    layout: data.layout,
+    splitRatio: data.splitRatio,
+  });
   const store = useSessionStore.getState();
   store.setLayoutMode(data.layout);
   if (data.splitRatio !== undefined) {
@@ -877,6 +964,12 @@ export function setupMessageHandlers(): void {
         break;
       case "plan.update":
         handlePlanUpdate(data);
+        break;
+      case "plan.stepUpdate":
+        handlePlanStepUpdate(data);
+        break;
+      case "plan.cancelled":
+        handlePlanCancelled(data);
         break;
       case "agent.status":
         handleAgentStatus(data);

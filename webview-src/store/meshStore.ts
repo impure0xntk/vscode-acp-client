@@ -16,7 +16,10 @@ export interface MeshState {
   meshPanelVisible: boolean;
 
   setAgentStatuses: (statuses: MeshAgentStatus[]) => void;
-  updateAgentStatus: (agentId: string, updates: Partial<MeshAgentStatus>) => void;
+  updateAgentStatus: (
+    agentId: string,
+    updates: Partial<MeshAgentStatus>
+  ) => void;
   setTasks: (tasks: MeshTaskEntry[]) => void;
   updateTask: (taskId: string, updates: Partial<MeshTaskEntry>) => void;
   setRecentMessages: (messages: MeshRecentMessage[]) => void;
@@ -41,7 +44,10 @@ export const useMeshStore = create<MeshState>((set, get) => ({
   sendTargets: [],
   meshPanelVisible: false,
 
-  setAgentStatuses: (statuses) => set((s) => s.agentStatuses === statuses ? s : { agentStatuses: statuses }),
+  setAgentStatuses: (statuses) =>
+    set((s) =>
+      s.agentStatuses === statuses ? s : { agentStatuses: statuses }
+    ),
 
   updateAgentStatus: (agentId, updates) =>
     set((state) => {
@@ -55,7 +61,7 @@ export const useMeshStore = create<MeshState>((set, get) => ({
       return { ...state, agentStatuses: arr };
     }),
 
-  setTasks: (tasks) => set((s) => s.tasks === tasks ? s : { tasks }),
+  setTasks: (tasks) => set((s) => (s.tasks === tasks ? s : { tasks })),
 
   updateTask: (taskId, updates) =>
     set((state) => {
@@ -69,7 +75,10 @@ export const useMeshStore = create<MeshState>((set, get) => ({
       return { ...state, tasks: arr };
     }),
 
-  setRecentMessages: (messages) => set((s) => s.recentMessages === messages ? s : { recentMessages: messages }),
+  setRecentMessages: (messages) =>
+    set((s) =>
+      s.recentMessages === messages ? s : { recentMessages: messages }
+    ),
 
   addRecentMessage: (message) =>
     set((state) => {
@@ -92,7 +101,9 @@ export const useMeshStore = create<MeshState>((set, get) => ({
       const filtered = state.sendTargets.filter(
         (t) => !(t.agentId === agentId && t.sessionId === sessionId)
       );
-      return filtered.length !== state.sendTargets.length ? { sendTargets: filtered } : state;
+      return filtered.length !== state.sendTargets.length
+        ? { sendTargets: filtered }
+        : state;
     }),
 
   clearSendTargets: () => set({ sendTargets: [] }),
@@ -110,5 +121,8 @@ export const useMeshStore = create<MeshState>((set, get) => ({
       return { ...state, sendTargets: arr };
     }),
 
-  setMeshPanelVisible: (visible) => set((s) => s.meshPanelVisible === visible ? s : { meshPanelVisible: visible }),
+  setMeshPanelVisible: (visible) =>
+    set((s) =>
+      s.meshPanelVisible === visible ? s : { meshPanelVisible: visible }
+    ),
 }));

@@ -17,18 +17,37 @@ export function getFileExtension(path: string): string {
 
 export function fileIcon(ext: string): string {
   switch (ext) {
-    case "ts": case "tsx": case "js": case "jsx": return "TS";
-    case "py": return "PY";
-    case "rs": return "RS";
-    case "go": return "GO";
-    case "java": return "JV";
-    case "c": case "cpp": case "h": case "hpp": return "C";
-    case "md": return "MD";
-    case "json": return "{}";
-    case "yaml": case "yml": return "Y";
-    case "toml": return "T";
-    case "nix": return "N";
-    default: return "•";
+    case "ts":
+    case "tsx":
+    case "js":
+    case "jsx":
+      return "TS";
+    case "py":
+      return "PY";
+    case "rs":
+      return "RS";
+    case "go":
+      return "GO";
+    case "java":
+      return "JV";
+    case "c":
+    case "cpp":
+    case "h":
+    case "hpp":
+      return "C";
+    case "md":
+      return "MD";
+    case "json":
+      return "{}";
+    case "yaml":
+    case "yml":
+      return "Y";
+    case "toml":
+      return "T";
+    case "nix":
+      return "N";
+    default:
+      return "•";
   }
 }
 
@@ -57,7 +76,11 @@ function Chevron({ open }: { open: boolean }): React.ReactElement {
 
 // ── DiffView ────────────────────────────────────────────────────────────────
 
-export function DiffView({ diff }: { diff: ToolCallDiffContent }): React.ReactElement {
+export function DiffView({
+  diff,
+}: {
+  diff: ToolCallDiffContent;
+}): React.ReactElement {
   const lines: Array<{ prefix: string; text: string }> = [];
   const diffLines = (diff.diff ?? "").split("\n");
 
@@ -159,7 +182,11 @@ export function ToolCallCard({
         <span className="tool-status-icon">
           <StatusIcon status={status} variant="tool" />
         </span>
-        <Icon name={iconForToolKind(kind ?? "tool_call")} size="sm" className="tool-kind-icon" />
+        <Icon
+          name={iconForToolKind(kind ?? "tool_call")}
+          size="sm"
+          className="tool-kind-icon"
+        />
         <span className="tool-kind">{(kind ?? "TOOL_CALL").toUpperCase()}</span>
         <span className="tool-title">{title}</span>
         {hasLocations &&

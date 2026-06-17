@@ -18,11 +18,11 @@ export interface ToolbarMeta {
 }
 
 const STATUS_DOT: Record<SessionTabStatus, { color: string; icon: string }> = {
-  running:    { color: "#4ec9b0", icon: "circle-filled" },
-  idle:       { color: "#666666", icon: "circle-outline" },
-  completed:  { color: "#4ec9b0", icon: "pass-filled" },
-  error:      { color: "#f14c4c", icon: "circle-filled" },
-  cancelled:  { color: "#666666", icon: "circle-slash" },
+  running: { color: "#4ec9b0", icon: "circle-filled" },
+  idle: { color: "#666666", icon: "circle-outline" },
+  completed: { color: "#4ec9b0", icon: "pass-filled" },
+  error: { color: "#f14c4c", icon: "circle-filled" },
+  cancelled: { color: "#666666", icon: "circle-slash" },
 };
 
 const TURN_ICON: Record<string, string> = {
@@ -48,7 +48,9 @@ export function Chip({
 }): React.ReactElement {
   const cat = meta.category ?? "";
   const dot = meta.statusIndicator ? STATUS_DOT[meta.statusIndicator] : null;
-  const resolvedModeIcon = meta.modeIcon ? (MODE_ICON[meta.modeIcon] ?? meta.modeIcon) : null;
+  const resolvedModeIcon = meta.modeIcon
+    ? (MODE_ICON[meta.modeIcon] ?? meta.modeIcon)
+    : null;
   const turnKey = meta.turnStatus ?? null;
   const turnIconName = turnKey ? (TURN_ICON[turnKey] ?? null) : null;
   const turnCls = turnKey ? ` toolbar-chip--turn-${turnKey}` : "";

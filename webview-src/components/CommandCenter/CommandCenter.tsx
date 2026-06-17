@@ -39,7 +39,10 @@ export const CommandCenter = React.memo(function CommandCenter({
   const entries = Object.entries(sessionInfoMap);
   if (entries.length === 0) return null;
 
-  const totalTokens = entries.reduce((sum, [, info]) => sum + info.tokenUsage.totalTokens, 0);
+  const totalTokens = entries.reduce(
+    (sum, [, info]) => sum + info.tokenUsage.totalTokens,
+    0
+  );
 
   const agentMap = new Map(connectedAgents.map((a) => [a.agentId, a]));
 
@@ -52,22 +55,18 @@ export const CommandCenter = React.memo(function CommandCenter({
     [onSelectSession, setCommandCenterSelectedKey]
   );
 
-  const handleCancel = useCallback(
-    (agentId: string, sessionId: string) => {
-      getVsCodeApi().postMessage({ type: "cancelTurn", agentId, sessionId });
-    },
-    []
-  );
+  const handleCancel = useCallback((agentId: string, sessionId: string) => {
+    getVsCodeApi().postMessage({ type: "cancelTurn", agentId, sessionId });
+  }, []);
 
-  const handleClose = useCallback(
-    (agentId: string, sessionId: string) => {
-      getVsCodeApi().postMessage({ type: "closeSession", agentId, sessionId });
-    },
-    []
-  );
+  const handleClose = useCallback((agentId: string, sessionId: string) => {
+    getVsCodeApi().postMessage({ type: "closeSession", agentId, sessionId });
+  }, []);
 
   return (
-    <div className={`command-center${commandCenterExpanded ? " command-center--expanded" : ""}`}>
+    <div
+      className={`command-center${commandCenterExpanded ? " command-center--expanded" : ""}`}
+    >
       {/* Toggle bar */}
       <button
         className="command-center-toggle"
