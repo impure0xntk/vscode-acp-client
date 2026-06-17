@@ -525,6 +525,48 @@ function wireOrchestratorEvents(meshOrch: MeshOrchestrator): void {
     meshOrchestrator: meshOrch,
   });
 
+  // Wire MeshOrchestrator extracted message callback → plan.update / agent.status
+  meshOrch.onExtractedMessage = (msg) => {
+    if (!chatPanel) return;
+    switch (msg.type) {
+      case "plan_update": {
+        const payload = msg.payload as { steps?: Array<{ id: string; description: string; status: string }>; status?: string } | undefined;
+        chatPanel.postMessage({
+          type: "plan.update",
+          agentId: msg.agentId,
+          sessionId: "", // filled by agent session context
+          steps: payload?.steps ?? [],
+          status: (payload?.status as "pending" | "approved" | "rejected" | "executing" | "completed") ?? "pending",
+        });
+        break;
+      }
+      case "task_delegate": {
+        // Auto-forward to worker agent via the message bus (already handled by MessageBus subscription)
+        // But we also notify the UI about the delegation
+        chatPanel.postMessage({
+          type: "agent.status",
+          agentId: msg.to,
+          status: "running",
+          currentTask: (msg.payload as { description?: string })?.description,
+        });
+        break;
+      }
+      case "status_update": {
+        const payload = msg.payload as { agentId?: string; status?: string; currentTask?: string; progress?: number } | undefined;
+        if (payload?.agentId) {
+          chatPanel.postMessage({
+            type: "agent.status",
+            agentId: payload.agentId,
+            status: (payload.status as "idle" | "running" | "waiting" | "error" | "completed") ?? "idle",
+            currentTask: payload.currentTask,
+            progress: payload.progress,
+          });
+        }
+        break;
+      }
+    }
+  };
+
   // Session Overview: push updates to webview on debounced orchestrator event
   orchestrator.on("sessionOverview:update", (overview) => {
     if (!chatPanel) return;

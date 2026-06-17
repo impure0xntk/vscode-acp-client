@@ -49,15 +49,6 @@
 .toolbar-chip svg,
 .context-chip svg,
 .user-attach-chip svg,
-
-/* ── User message attachment chips row ── */
-.user-attach-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  justify-content: flex-end;
-  padding: 2px 0 0;
-}
 .file-chip svg {
   flex-shrink: 0;
 }
@@ -944,6 +935,15 @@ body {
   align-items: center;
   gap: 6px;
   justify-content: flex-end;
+}
+
+/* User message attachment chips row — below the bubble, right-aligned */
+.message-user .user-attach-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+  padding: 4px 0 0;
 }
 
 /* User message actions — inline, vertically centered with the bubble */
@@ -5598,11 +5598,24 @@ body {
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   overflow-x: auto;
-  scrollbar-width: none;
+  scrollbar-width: thin;
 }
 
 .unified-session-bar::-webkit-scrollbar {
-  display: none;
+  height: 4px;
+}
+
+.unified-session-bar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.unified-session-bar::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.unified-session-bar::-webkit-scrollbar-thumb:hover {
+  background: var(--fg-muted);
 }
 
 /* ── Scroll container ──────────────────────────────────────────── */
@@ -5613,11 +5626,24 @@ body {
   flex: 1;
   min-width: 0;
   overflow-x: auto;
-  scrollbar-width: none;
+  scrollbar-width: thin;
 }
 
 .unified-session-bar-scroll::-webkit-scrollbar {
-  display: none;
+  height: 4px;
+}
+
+.unified-session-bar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.unified-session-bar-scroll::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.unified-session-bar-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--fg-muted);
 }
 
 .unified-session-bar-scroll--cards {
@@ -5768,14 +5794,26 @@ body {
   color: var(--fg-secondary);
 }
 
-.unified-session-bar-tab-pin {
+.unified-session-bar-tab-pin-btn {
   flex-shrink: 0;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
   opacity: 0.7;
+}
+
+.unified-session-bar-tab-pin-btn:hover {
+  background: var(--accent-hover);
+  color: var(--fg-primary);
 }
 
 .unified-session-bar-tab-pin--empty {
@@ -6129,11 +6167,24 @@ body {
   gap: 6px;
   overflow-x: auto;
   padding: 4px 0;
-  scrollbar-width: none;
+  scrollbar-width: thin;
 }
 
 .command-center-cards::-webkit-scrollbar {
-  display: none;
+  height: 4px;
+}
+
+.command-center-cards::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.command-center-cards::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.command-center-cards::-webkit-scrollbar-thumb:hover {
+  background: var(--fg-muted);
 }
 
 /* ── Summary row ───────────────────────────────────────────────────── */
@@ -6338,4 +6389,43 @@ body {
 .agent-card-action-btn:first-child:hover {
   background: var(--error);
   color: var(--user-fg);
+}
+
+/* ============================================================================
+   Streaming Status — pending (Sending…) state
+   ============================================================================ */
+
+.streaming-status--pending {
+  color: var(--fg-muted);
+}
+
+.streaming-status--pending .streaming-status-spinner {
+  animation: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.streaming-status-dot {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--fg-muted);
+  animation: streaming-dot-bounce 1.4s ease-in-out infinite both;
+}
+
+.streaming-status-dot:nth-child(1) { animation-delay: 0s; }
+.streaming-status-dot:nth-child(2) { animation-delay: 0.2s; }
+.streaming-status-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes streaming-dot-bounce {
+  0%, 80%, 100% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }

@@ -23,6 +23,8 @@ interface UnifiedSessionBarProps {
   connectedAgents: { agentId: string; color?: string }[];
   onFocusChange: (key: string) => void;
   onClose: (key: string) => void;
+  /** Toggle pin for a session key */
+  onTogglePin: (key: string) => void;
   /** Create a new session (opens picker) */
   onNewSession: () => void;
   /** Current layout mode */
@@ -45,6 +47,7 @@ interface UnifiedTabProps {
   unreadCount: number;
   onClick: () => void;
   onClose: () => void;
+  onTogglePin: () => void;
 }
 
 const UnifiedTab = React.memo(function UnifiedTab({
@@ -55,6 +58,7 @@ const UnifiedTab = React.memo(function UnifiedTab({
   unreadCount,
   onClick,
   onClose,
+  onTogglePin,
 }: UnifiedTabProps): React.ReactElement {
   const [isHovered, setIsHovered] = useState(false);
   const sessionKey = sessionKeyOf(tab.agentId, tab.sessionId);
@@ -107,10 +111,17 @@ const UnifiedTab = React.memo(function UnifiedTab({
       <span className="unified-session-bar-tab-title" title={tab.title}>
         {tab.title.length > 12 ? `${tab.title.slice(0, 12)}…` : tab.title}
       </span>
-      {/* Pin icon — always reserves space; shows filled/outline SVG */}
-      <span className="unified-session-bar-tab-pin" title={isPinned ? "Pinned" : ""}>
-        {isPinned ? <IconPinFilled size={12} /> : <IconPin size={12} className="unified-session-bar-tab-pin--empty" />}
-      </span>
+      {/* Pin button — clickable, toggles pin state */}
+      <button
+        className="unified-session-bar-tab-pin-btn"
+        onClick={(e) => { e.stopPropagation(); onTogglePin(); }}
+        title={isPinned ? "Unpin session" : "Pin session"}
+        type="button"
+      >
+        {isPinned
+          ? <IconPinFilled size={12} />
+          : <IconPin size={12} className="unified-session-bar-tab-pin--empty" />}
+      </button>
       <UnreadBadge count={unreadCount} hidden={isActive} className="unified-session-bar-tab-badge" />
       {/* Close button — always reserves space; visibility toggled via CSS */}
       <button
@@ -134,6 +145,7 @@ export const UnifiedSessionBar = React.memo(function UnifiedSessionBar({
   connectedAgents,
   onFocusChange,
   onClose,
+  onTogglePin,
   onNewSession,
   layoutMode,
   splitDirection,
@@ -159,6 +171,7 @@ export const UnifiedSessionBar = React.memo(function UnifiedSessionBar({
               unreadCount={0}
               onClick={() => onFocusChange(key)}
               onClose={() => onClose(key)}
+              onTogglePin={() => onTogglePin(key)}
             />
           );
         })}

@@ -64,6 +64,10 @@ interface SessionSectionProps {
   scrollToMessageRef?: React.MutableRefObject<((id: string) => void) | undefined>;
   forceScrollToBottomRef?: React.MutableRefObject<(() => void) | undefined>;
   scrollToUnreadRef?: React.MutableRefObject<(() => void) | undefined>;
+  /** Per-session turn start timestamps (keyed by sessionKey) */
+  turnStartedAtMap?: Record<string, string>;
+  /** Per-session pending flags (keyed by sessionKey) */
+  pendingMap?: Record<string, boolean>;
 }
 
 const SessionSection = React.memo(function SessionSection({
@@ -84,6 +88,8 @@ const SessionSection = React.memo(function SessionSection({
   scrollToMessageRef,
   forceScrollToBottomRef,
   scrollToUnreadRef,
+  turnStartedAtMap,
+  pendingMap,
 }: SessionSectionProps): React.ReactElement | null {
   const log = useLogger("SessionSection");
   const info = useSessionInfo(sessionKey);
@@ -196,6 +202,8 @@ const SessionSection = React.memo(function SessionSection({
       </div>
       <StreamingStatus
         sessionKey={sessionKey}
+        turnStartedAt={turnStartedAtMap?.[sessionKey]}
+        pending={pendingMap?.[sessionKey] ?? false}
       />
     </div>
   );
@@ -217,6 +225,10 @@ export interface MultiSessionViewProps {
   scrollToMessageRef?: React.MutableRefObject<((id: string) => void) | undefined>;
   forceScrollToBottomRef?: React.MutableRefObject<(() => void) | undefined>;
   scrollToUnreadRef?: React.MutableRefObject<(() => void) | undefined>;
+  /** Per-session turn start timestamps (keyed by sessionKey) */
+  turnStartedAtMap?: Record<string, string>;
+  /** Per-session pending flags (keyed by sessionKey) */
+  pendingMap?: Record<string, boolean>;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -235,6 +247,8 @@ export const MultiSessionView = React.memo(function MultiSessionView({
   scrollToMessageRef,
   forceScrollToBottomRef,
   scrollToUnreadRef,
+  turnStartedAtMap,
+  pendingMap,
 }: MultiSessionViewProps): React.ReactElement | null {
   const log = useLogger("MultiSessionView");
 
@@ -377,6 +391,8 @@ export const MultiSessionView = React.memo(function MultiSessionView({
         splitRatios={effectiveRatios}
         messages={allMessages[sessionKey] ?? []}
         tabTitles={tabTitles}
+        turnStartedAtMap={turnStartedAtMap}
+        pendingMap={pendingMap}
         onFocusChange={onFocusChange}
         onPin={onPin}
         onUnpin={onUnpin}

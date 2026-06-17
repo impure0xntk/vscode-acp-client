@@ -215,14 +215,14 @@ export const Message = React.memo(function Message({
             )}
           </div>
         )}
-        {hasAttachments && (
-          <div className="user-attach-row">
-            {attachments.map((a) => (
-              <AttachmentChip key={a.id} attachment={a} />
-            ))}
-          </div>
-        )}
       </div>
+      {hasAttachments && (
+        <div className="user-attach-row">
+          {attachments.map((a) => (
+            <AttachmentChip key={a.id} attachment={a} />
+          ))}
+        </div>
+      )}
       {hasToolCalls && resolvedToolCalls && (
         <div className="message-tool-batch">
           {resolvedToolCalls.length === 1 ? (

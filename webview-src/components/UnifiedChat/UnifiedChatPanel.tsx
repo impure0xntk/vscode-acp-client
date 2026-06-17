@@ -1,16 +1,15 @@
-import React, { useCallback, useMemo, useRef } from "react";
+import React, { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import { useShallow } from "zustand/shallow";
-import {
-  useSessionStore,
-  sessionKeyOf,
-} from "../../store/sessionStore";
+import { useSessionStore } from "../../store/sessionStore";
 import type { SessionStoreState, SessionTabState } from "../../store/sessionStore";
+import { useMessageStore } from "../../store/messageStore";
+import { useSessionInfo } from "../../hooks/useSessionInfo";
 import { useLogger } from "../../hooks/useLogger";
 import { getVsCodeApi } from "../../lib/vscodeApi";
 import { UnifiedSessionBar } from "./UnifiedSessionBar";
 import { MultiSessionView } from "./MultiSessionView";
-import { CommandCenter } from "../CommandCenter/CommandCenter";
 import { Composer } from "../Composer";
+import type { ContextAttachment, SendTarget } from "../../types";
 
 
 export interface UnifiedChatPanelProps {
@@ -64,16 +63,13 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
     tabOrder,
     tabTitles,
     tabIcons,
-    pinSession,
+    togglePin,
     unpinSession,
     setLayoutMode,
     setSplitDirection,
     setSplitRatios,
     setFocusSession,
     removeTab,
-    commandCenterExpanded,
-    commandCenterSelectedKey,
-    setCommandCenterSelectedKey,
   } = useSessionStore(
     useShallow((s: SessionStoreState) => ({
       activeSessionKey: s.activeSessionKey,
@@ -86,16 +82,13 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
       tabOrder: s.tabOrder,
       tabTitles: s.tabTitles,
       tabIcons: s.tabIcons,
-      pinSession: s.pinSession,
+      togglePin: s.togglePin,
       unpinSession: s.unpinSession,
       setLayoutMode: s.setLayoutMode,
       setSplitDirection: s.setSplitDirection,
       setSplitRatios: s.setSplitRatios,
       setFocusSession: s.setFocusSession,
       removeTab: s.removeTab,
-      commandCenterExpanded: s.commandCenterExpanded,
-      commandCenterSelectedKey: s.commandCenterSelectedKey,
-      setCommandCenterSelectedKey: s.setCommandCenterSelectedKey,
     }))
   );
 
@@ -129,20 +122,13 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
     [setFocusSession, onSwitchSession, log],
   );
 
-  const handlePin = useCallback(
+  const handleTogglePin = useCallback(
     (key: string) => {
-      log.debug("pin session", { key });
-      pinSession(key);
+      const isPinned = useSessionStore.getState().pinnedSessionKeys.includes(key);
+      log.debug("toggle pin", { key, currentlyPinned: isPinned });
+      togglePin(key);
     },
-    [pinSession, log],
-  );
-
-  const handleUnpin = useCallback(
-    (key: string) => {
-      log.debug("unpin session", { key });
-      unpinSession(key);
-    },
-    [unpinSession, log],
+    [togglePin, log],
   );
 
   const handleClose = useCallback(
@@ -170,6 +156,52 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
 
   const focusKey = activeSessionKey;
 
+  // ── Turn tracking for pending/waiting indicator (per-session) ─────
+  const [turnStartedAtMap, setTurnStartedAtMap] = useState<Record<string, string>>({});
+  const [pendingMap, setPendingMap] = useState<Record<string, boolean>>({});
+
+  // ── Send handler (no local echo — extension pushes user message back via sessionMessage) ──
+  const handleSendWithEcho = useCallback(
+    (text: string, attachments: ContextAttachment[], targets?: SendTarget[]) => {
+      const key = activeSessionKey;
+      if (key) {
+        setTurnStartedAtMap((prev) => ({ ...prev, [key]: new Date().toISOString() }));
+        setPendingMap((prev) => ({ ...prev, [key]: true }));
+      }
+      onSendMessage(text, attachments, targets);
+    },
+    [onSendMessage, activeSessionKey],
+  );
+
+  // Clear pending state once the agent acknowledges the turn (status → running).
+  const activeInfo = useSessionInfo(activeSessionKey ?? null);
+  useEffect(() => {
+    if (activeSessionKey && activeInfo?.status === "running" && pendingMap[activeSessionKey]) {
+      setPendingMap((prev) => ({ ...prev, [activeSessionKey]: false }));
+    }
+  }, [activeInfo?.status, activeSessionKey, pendingMap]);
+
+  // Clean up turn tracking when a session is removed
+  const prevTabOrderRef = useRef(tabOrder);
+  useEffect(() => {
+    const prevKeys = new Set(prevTabOrderRef.current);
+    const currentKeys = new Set(tabOrder);
+    const removed = [...prevKeys].filter((k) => !currentKeys.has(k));
+    if (removed.length > 0) {
+      setTurnStartedAtMap((prev) => {
+        const next = { ...prev };
+        for (const k of removed) delete next[k];
+        return next;
+      });
+      setPendingMap((prev) => {
+        const next = { ...prev };
+        for (const k of removed) delete next[k];
+        return next;
+      });
+    }
+    prevTabOrderRef.current = tabOrder;
+  }, [tabOrder]);
+
   // ── Scroll refs — shared across all sections ───────────────────────
   const scrollToMessageRef = useRef<((id: string) => void) | undefined>(undefined);
   const forceScrollToBottomRef = useRef<(() => void) | undefined>(undefined);
@@ -185,6 +217,7 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
         connectedAgents={connectedAgents}
         onFocusChange={handleFocusChange}
         onClose={handleClose}
+        onTogglePin={handleTogglePin}
         onNewSession={onNewSession}
         layoutMode={layoutMode}
         splitDirection={splitDirection}
@@ -200,28 +233,22 @@ export const UnifiedChatPanel = React.memo(function UnifiedChatPanel({
         splitDirection={splitDirection}
         splitRatios={splitRatios}
         onFocusChange={handleFocusChange}
-        onPin={handlePin}
-        onUnpin={handleUnpin}
+        onPin={handleTogglePin}
+        onUnpin={handleTogglePin}
         onClose={handleClose}
         onSplitRatiosChange={setSplitRatios}
         scrollToMessageRef={scrollToMessageRef}
         forceScrollToBottomRef={forceScrollToBottomRef}
         scrollToUnreadRef={scrollToUnreadRef}
+        turnStartedAtMap={turnStartedAtMap}
+        pendingMap={pendingMap}
       />
 
-      {/* Command Center — between chat view and Composer */}
-      <CommandCenter
-        selectedSessionKey={commandCenterSelectedKey}
-        onSelectSession={(agentId, sessionId) => {
-          const key = sessionKeyOf(agentId, sessionId);
-          setCommandCenterSelectedKey(key);
-          handleFocusChange(key);
-        }}
-      />
+      {/* Command Center — hidden; preserved in source for future orchestration UI */}
 
       {/* Composer */}
       <Composer
-        onSend={onSendMessage}
+        onSend={handleSendWithEcho}
         onCancel={onCancel}
         onSwitchSession={onSwitchSession}
         onRenameSession={onRenameSession}

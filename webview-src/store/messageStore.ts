@@ -33,14 +33,6 @@ export const useMessageStore = create<MessageState>((set) => ({
       const prev = state.perSession[key];
       // Same reference → no change, return same state object
       if (prev === msgs) return state;
-      // Same length (content may differ) — still update, but skip if identical
-      if (prev && prev.length === msgs.length) {
-        let same = true;
-        for (let i = 0; i < prev.length; i++) {
-          if (prev[i] !== msgs[i]) { same = false; break; }
-        }
-        if (same) return state;
-      }
       log.debug("setMessages", { key, count: msgs.length });
       return {
         ...state,

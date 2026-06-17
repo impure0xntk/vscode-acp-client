@@ -8,6 +8,7 @@ import type {
   SessionProgress,
   ResponsePreview,
   QueuedPrompt,
+  Plan,
 } from "../types";
 
 // ── Re-exported types (previously from useSessionContext) ──────────────────
@@ -235,6 +236,12 @@ export interface SessionStoreState {
   splitDirection: "vertical" | "horizontal";
   /** Split mode divider ratios — one per section, normalized to sum to 1 */
   splitRatios: number[];
+  // ── Plan Viewer ────────────────────────────────────────────────────
+  /** Current plan for the active session (null if no plan) */
+  currentPlan: Plan | null;
+  /** Plan history (previous plans that were approved/rejected) */
+  planHistory: Plan[];
+
   /** Command Center panel expanded state */
   commandCenterExpanded: boolean;
   /** Command Center selected session key (agentId:sessionId) */
@@ -284,6 +291,10 @@ export interface SessionStoreState {
   /** Ensure splitRatios matches the current number of visible sections */
   ensureSplitRatios: (count: number) => void;
   setFocusSession: (sessionKey: string | null) => void;
+  setCurrentPlan: (plan: Plan | null) => void;
+  updatePlanStep: (stepId: string, updates: Partial<Plan["steps"][number]>) => void;
+  approvePlan: () => void;
+  rejectPlan: () => void;
   toggleCommandCenter: () => void;
   setCommandCenterExpanded: (expanded: boolean) => void;
   setCommandCenterSelectedKey: (key: string | null) => void;
@@ -308,6 +319,8 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
   layoutMode: "single",
   splitDirection: "vertical",
   splitRatios: [],
+  currentPlan: null,
+  planHistory: [],
   commandCenterExpanded: false,
   commandCenterSelectedKey: null,
 
@@ -588,6 +601,40 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
     }),
 
   setFocusSession: (sessionKey) => set((s) => s.activeSessionKey === sessionKey ? s : { activeSessionKey: sessionKey }),
+
+  // ── Plan Viewer ──────────────────────────────────────────────────────
+
+  setCurrentPlan: (plan) =>
+    set((s) => ({ ...s, currentPlan: plan })),
+
+  updatePlanStep: (stepId, updates) =>
+    set((s) => {
+      if (!s.currentPlan) return s;
+      const steps = s.currentPlan.steps.map((step) =>
+        step.id === stepId ? { ...step, ...updates } : step
+      );
+      return { ...s, currentPlan: { ...s.currentPlan, steps } };
+    }),
+
+  approvePlan: () =>
+    set((s) => {
+      if (!s.currentPlan) return s;
+      return {
+        ...s,
+        currentPlan: { ...s.currentPlan, status: "approved" },
+        planHistory: [...s.planHistory, { ...s.currentPlan, status: "approved" }],
+      };
+    }),
+
+  rejectPlan: () =>
+    set((s) => {
+      if (!s.currentPlan) return s;
+      return {
+        ...s,
+        currentPlan: null,
+        planHistory: [...s.planHistory, { ...s.currentPlan, status: "rejected" }],
+      };
+    }),
 
   // ── Command Center ─────────────────────────────────────────────────
 

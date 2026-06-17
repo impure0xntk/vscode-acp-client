@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useLogger } from "../../hooks/useLogger";
 import { useSessionUnreadCount } from "../../hooks/useSessionUnreadCount";
+import { useScrollStateStore } from "../../store/scrollStateStore";
+import { useMessageStore } from "../../store/messageStore";
 import { ChatContainer } from "../ChatContainer";
 
 // ── Props ───────────────────────────────────────────────────────────────────
@@ -56,9 +58,32 @@ export const SectionChatContainer = React.memo(function SectionChatContainer({
         isAtBottomRef.current = metrics.isAtBottom;
         setIsAtBottom(metrics.isAtBottom);
       }
+      // Update scroll state store — mirrors ChatArea's handleScroll
+      const store = useScrollStateStore.getState();
+      store.setScrollTop(sessionKey, metrics.scrollTop);
+      store.setIsAtBottom(sessionKey, metrics.isAtBottom);
+      if (metrics.isAtBottom) {
+        // At bottom → mark all as read
+        const ids = useMessageStore.getState().perSession[sessionKey];
+        const newestId = ids && ids.length > 0 ? ids[ids.length - 1].id : null;
+        store.setReadUpTo(sessionKey, newestId);
+      }
     },
-    [],
+    [sessionKey],
   );
+
+  // When messages arrive and isAtBottom is true, advance readUpTo
+  const msgCountRef = useRef(0);
+  useEffect(() => {
+    if (!sessionKey || !isAtBottom) return;
+    const ids = useMessageStore.getState().perSession[sessionKey];
+    const len = ids?.length ?? 0;
+    if (len <= msgCountRef.current) return;
+    msgCountRef.current = len;
+    const store = useScrollStateStore.getState();
+    const newestId = ids && ids.length > 0 ? ids[ids.length - 1].id : null;
+    store.setReadUpTo(sessionKey, newestId);
+  }, [sessionKey, isAtBottom, unreadCount]);
 
   const handleScrollToBottom = useCallback(() => {
     // Direct DOM scroll — bypasses the ref chain which can be stale

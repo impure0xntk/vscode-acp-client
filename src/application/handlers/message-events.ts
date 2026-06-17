@@ -89,6 +89,7 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
   // -----------------------------------------------------------------------
   // Session stream chunk — process agent output through MeshOrchestrator
   // to extract P2P markers before they reach the chat UI.
+  // The sanitized chunk (markers stripped) replaces the original for display.
   // -----------------------------------------------------------------------
   orchestrator.on(
     "sessionStreamChunk",
@@ -98,13 +99,16 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
       chunk: string;
     }) => {
       const { agentId, sessionId, chunk } = event;
-      // Run chunk through MeshOrchestrator to extract P2P markers.
-      // processAgentOutput returns sanitized text (markers stripped) and
-      // routes extracted messages through the MessageBus.
+      let displayChunk = chunk;
       try {
-        await meshOrchestrator.processAgentOutput(agentId, chunk);
+        displayChunk = await meshOrchestrator.processAgentOutput(agentId, chunk);
       } catch (e) {
         log.warn("processAgentOutput failed", { agentId, sessionId, error: (e as Error).message });
+      }
+      // Push the sanitized chunk (P2P markers removed) to the chat UI
+      const cp = getChatPanel();
+      if (cp && displayChunk) {
+        cp.pushStreamChunk(agentId, sessionId, displayChunk);
       }
     }
   );

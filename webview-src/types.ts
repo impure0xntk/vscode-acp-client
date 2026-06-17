@@ -301,3 +301,19 @@ export interface MeshRecentMessage {
   timestamp: string;
   summary: string;
 }
+
+// ── Plan Viewer ──────────────────────────────────────────────────────────────
+
+export interface PlanStep {
+  id: string;
+  description: string;
+  status: "pending" | "in_progress" | "completed" | "failed";
+  toolCall?: ToolCallInfo;
+}
+
+export interface Plan {
+  agentId: string;
+  sessionId: string;
+  steps: PlanStep[];
+  status: "pending" | "approved" | "rejected" | "executing" | "completed";
+}

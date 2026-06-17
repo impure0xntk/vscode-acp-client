@@ -20,6 +20,7 @@ import type {
   ChatMessage,
   TokenUsage,
   SessionOverviewState,
+  Plan,
 } from "./types";
 
 const log = getLogger("webview.messageHandler");
@@ -276,6 +277,26 @@ interface PathsResolvedMessage {
   paths: string[];
 }
 
+// ── Plan update message ─────────────────────────────────────────────────────
+
+interface PlanUpdateMessage {
+  type: "plan.update";
+  agentId: string;
+  sessionId: string;
+  steps: Plan["steps"];
+  status: Plan["status"];
+}
+
+// ── Agent status message ────────────────────────────────────────────────────
+
+interface AgentStatusMessage {
+  type: "agent.status";
+  agentId: string;
+  status: "idle" | "running" | "waiting" | "error" | "completed";
+  currentTask?: string;
+  progress?: number;
+}
+
 // ── UnifiedChat layout message ──────────────────────────────────────────────
 
 interface UnifiedChatSetLayoutMessage {
@@ -285,6 +306,8 @@ interface UnifiedChatSetLayoutMessage {
 }
 
 type WebviewMessage =
+  | PlanUpdateMessage
+  | AgentStatusMessage
   | SessionTitleMessage
   | SetTabsMessage
   | SessionMessage
@@ -692,6 +715,30 @@ function handleSessionUnpinned(data: SessionUnpinnedNotification): void {
   useSessionStore.getState().unpinSession(key);
 }
 
+// ── Plan update handler ─────────────────────────────────────────────────────
+
+function handlePlanUpdate(data: PlanUpdateMessage): void {
+  const plan: Plan = {
+    agentId: data.agentId,
+    sessionId: data.sessionId,
+    steps: data.steps,
+    status: data.status,
+  };
+  log.info("plan.update", { agentId: data.agentId, sessionId: data.sessionId, stepCount: data.steps.length, status: data.status });
+  useSessionStore.getState().setCurrentPlan(plan);
+}
+
+// ── Agent status handler ────────────────────────────────────────────────────
+
+function handleAgentStatus(data: AgentStatusMessage): void {
+  log.debug("agent.status", { agentId: data.agentId, status: data.status });
+  useMeshStore.getState().updateAgentStatus(data.agentId, {
+    state: data.status === "running" ? "working" : data.status === "waiting" ? "waiting" : data.status === "error" ? "error" : "idle",
+    currentTask: data.currentTask,
+    progress: data.progress,
+  });
+}
+
 // ── UnifiedChat layout handler ──────────────────────────────────────────────
 
 function handleUnifiedChatSetLayout(data: UnifiedChatSetLayoutMessage): void {
@@ -827,6 +874,12 @@ export function setupMessageHandlers(): void {
         break;
       case "unifiedChat:setLayout":
         handleUnifiedChatSetLayout(data);
+        break;
+      case "plan.update":
+        handlePlanUpdate(data);
+        break;
+      case "agent.status":
+        handleAgentStatus(data);
         break;
     }
   });

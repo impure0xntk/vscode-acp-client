@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect, memo } from "react";
+import React, { useRef, useCallback, useEffect, memo, useState } from "react";
 import { useSyncExternalStore, useCallback as useCallbackReact } from "react";
 import { ChatContainer } from "../components/ChatContainer";
 import { Composer } from "../components/Composer";
@@ -117,10 +117,16 @@ export const ChatArea = memo(function ChatArea({
   const forceScrollToBottomRef = useRef<() => void>();
   const scrollToUnreadRef = useRef<(id: string) => void>();
 
+  // ── Turn tracking: startedAt marks when the user sent the current turn ──
+  const [turnStartedAt, setTurnStartedAt] = useState<string | undefined>(undefined);
+  // pending = message sent but agent hasn't transitioned to "running" yet
+  const [pending, setPending] = useState(false);
+
   // ── Subscribe to per-session data via stable selectors ───────────────
   const { messages: activeMessages, isStreaming } = useMessages(activeKey ?? null);
   const scrollState = useActiveScrollState(activeKey);
   const messageIds = useMessageIdArray(activeKey);
+  const prevStreamingRef = useRef(isStreaming);
 
   const { isAtBottom, readUpToMessageId } = scrollState;
 
@@ -188,10 +194,12 @@ export const ChatArea = memo(function ChatArea({
 
   // ── Compute unread count & firstUnreadId from store data ─────────────
   // Purely derived, no setState — computed every render from stable inputs.
+  // Note: isAtBottom is NOT used here. Unread is determined solely by
+  // readUpToMessageId vs actual messages. The button visibility is
+  // controlled separately by isAtBottom to avoid race conditions.
   const { unreadCount, firstUnreadId } = deriveUnread(
     readUpToMessageId,
     activeMessages,
-    isAtBottom,
   );
 
   // ── Handlers ──────────────────────────────────────────────────────
@@ -220,6 +228,11 @@ export const ChatArea = memo(function ChatArea({
               : undefined,
         });
       }
+      // Record turn start time and pending state BEFORE calling onSend.
+      // This ensures StreamingStatus shows "Sending…" immediately,
+      // bridging the gap between user send and agent acknowledging "running".
+      setTurnStartedAt(new Date().toISOString());
+      setPending(true);
       onSend(text, attachments, targets);
       forceScrollToBottomRef.current?.();
     },
@@ -238,9 +251,49 @@ export const ChatArea = memo(function ChatArea({
   const activeSessionInfo = useSessionInfo(activeKey);
   const promptQueue = useSessionStore((s) => s.promptQueue);
   const sessionQueue = activeKey ? (promptQueue[activeKey] ?? []) : [];
-  const lastResponseAt = activeSessionInfo?.lastResponseAt;
   const status = activeSessionInfo?.status;
   const isTurnActive = status === "running";
+
+  // Clear pending state once the agent acknowledges the turn (status → running).
+  useEffect(() => {
+    if (isTurnActive && pending) {
+      setPending(false);
+    }
+  }, [isTurnActive, pending]);
+
+  // Clear pending state when the turn completes (status transitions away from running).
+  // This handles the case where the turn finishes before ever entering "running",
+  // or when a fast response arrives that completes the turn in one shot.
+  useEffect(() => {
+    if (!isTurnActive && !pending && turnStartedAt) {
+      // Turn completed — reset turn tracking
+      setTurnStartedAt(undefined);
+    }
+    if (!isTurnActive && pending) {
+      // Edge case: turn completed but pending was never cleared
+      // (e.g., agent never transitioned to running)
+      setPending(false);
+      setTurnStartedAt(undefined);
+    }
+  }, [isTurnActive, pending, turnStartedAt]);
+
+  // Clear pending when streaming ends — catches the race where streamEnd arrives
+  // before turnActive sets status to "running". Without this, pending stays true
+  // forever and "Sending…" never disappears.
+  useEffect(() => {
+    const wasStreaming = prevStreamingRef.current;
+    prevStreamingRef.current = isStreaming;
+    if (wasStreaming && !isStreaming && pending) {
+      setPending(false);
+      setTurnStartedAt(undefined);
+    }
+  }, [isStreaming, pending]);
+
+  // Reset turn tracking when session changes.
+  useEffect(() => {
+    setTurnStartedAt(undefined);
+    setPending(false);
+  }, [activeKey]);
 
   return (
     <>
@@ -258,18 +311,14 @@ export const ChatArea = memo(function ChatArea({
           scrollToUnreadRef={scrollToUnreadRef}
         />
 
-        {!isAtBottom && (
+        {unreadCount > 0 && (
           <button
             className="scroll-to-bottom-button"
             onClick={handleScrollToBottomClick}
-            aria-label={unreadCount > 0 ? "Scroll to unread" : "Scroll to bottom"}
+            aria-label="Scroll to unread"
           >
-            <span className="scroll-to-bottom-icon">
-              {unreadCount > 0 ? "↧" : "↓"}
-            </span>
-            {unreadCount > 0 && (
-              <span className="scroll-to-bottom-badge">{unreadCount}</span>
-            )}
+            <span className="scroll-to-bottom-icon">↧</span>
+            <span className="scroll-to-bottom-badge">{unreadCount}</span>
           </button>
         )}
       </div>
@@ -280,7 +329,8 @@ export const ChatArea = memo(function ChatArea({
             : undefined
         }
         active={isTurnActive}
-        lastResponseAt={lastResponseAt ?? undefined}
+        turnStartedAt={turnStartedAt}
+        pending={pending}
         sessionKey={activeKey ?? undefined}
       />
       <QueuedPromptList
@@ -322,10 +372,18 @@ export const ChatArea = memo(function ChatArea({
 function deriveUnread(
   readUpToId: string | null,
   messages: import("../types").ChatMessage[],
-  isAtBottom: boolean,
 ): { unreadCount: number; firstUnreadId: string | null } {
-  if (isAtBottom || !readUpToId || messages.length === 0) {
+  if (messages.length === 0) {
     return { unreadCount: 0, firstUnreadId: null };
+  }
+  // Determine "read" state purely from readUpToId vs actual messages.
+  // If readUpToId is null, nothing has been read yet → all unread.
+  // If readUpToId matches the last message, everything is read.
+  if (!readUpToId) {
+    return {
+      unreadCount: messages.length,
+      firstUnreadId: messages[0].id,
+    };
   }
   const idx = messages.findIndex((m) => m.id === readUpToId);
   if (idx < 0 || idx + 1 >= messages.length) {

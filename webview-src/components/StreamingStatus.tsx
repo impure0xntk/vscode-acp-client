@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Icon } from "../lib/icons";
 import { elapsedColor } from "../shared/elapsedColor";
 import { useSessionInfo } from "../hooks/useSessionInfo";
@@ -9,11 +9,17 @@ export interface StreamingStatusProps {
   /** Whether the turn is still active */
   active?: boolean;
   /**
-   * ISO timestamp of the last agent response.
-   * Used for both elapsed-time anchoring and freshness-based colour tiering.
-   * If omitted, falls back to the store's streamingStartedAt.
+   * ISO timestamp of when the current turn was started by the user.
+   * Used as the elapsed-time anchor so the timer always starts from 0
+   * when a new message is sent, regardless of lastResponseAt staleness.
    */
-  lastResponseAt?: string;
+  turnStartedAt?: string;
+  /**
+   * Whether the message has been sent but the agent hasn't acknowledged
+   * yet (status still idle). Shows a distinct "Sending…" state so the
+   * user knows the message is in-flight.
+   */
+  pending?: boolean;
   /**
    * Session key (${agentId}:${sessionId}). When provided, the component
    * reads streaming state from sessionInfoMap for that specific session
@@ -26,34 +32,36 @@ export interface StreamingStatusProps {
 /**
  * StreamingStatus — shows the current agent action + elapsed time while streaming.
  *
- * Streaming state (active/action/startedAt) is stored in sessionInfoMap
- * so that the timer and colour tier survive tab switches.
+ * Three visual states:
+ * 1. pending=true  → "Sending…" with message-send animation (gap between
+ *    user send and extension acknowledging status=running)
+ * 2. active + recent turnStartedAt → "Waiting for {agent}… · Xs" with timer
+ * 3. active + no turnStartedAt (legacy) → falls back to lastResponseAt anchor
  */
 export function StreamingStatus({
   action,
   active = false,
-  lastResponseAt,
+  turnStartedAt,
+  pending = false,
   sessionKey,
 }: StreamingStatusProps): React.ReactElement | null {
-  // Subscribe to session info via useSessionInfo — only re-renders when
-  // the specific session's DTO actually changes (referential equality).
   const sessionInfo = useSessionInfo(sessionKey ?? null);
 
   const storedActive = sessionInfo?.status === "running";
-  const storedLastResponseAt = sessionInfo?.lastResponseAt ?? null;
 
   const effectiveActive = active || (sessionKey ? storedActive : false);
-  const effectiveAction =
-    action || (sessionKey && storedActive
-      ? `Waiting for ${sessionKey.split(":")[0]}…`
-      : null);
 
-  // Explicit lastResponseAt prop takes precedence, then store, then "now".
-  const anchorRaw = lastResponseAt ?? storedLastResponseAt ?? null;
-  const anchorMs = useMemo(
-    () => (anchorRaw ? new Date(anchorRaw).getTime() : Date.now()),
-    [anchorRaw],
-  );
+  // Determine the action label.
+  const effectiveAction = effectiveActive
+    ? (action || (sessionKey ? `Waiting for ${sessionKey.split(":")[0]}…` : "Waiting…"))
+    : null;
+
+  // Timer anchor: turnStartedAt (fresh) → sessionInfo.lastResponseAt (stale) → now.
+  const anchorMs = turnStartedAt
+    ? new Date(turnStartedAt).getTime()
+    : (sessionInfo?.lastResponseAt
+      ? new Date(sessionInfo.lastResponseAt).getTime()
+      : Date.now());
 
   const [elapsedSec, setElapsedSec] = useState(0);
   const rafRef = useRef<number | null>(null);
@@ -61,7 +69,7 @@ export function StreamingStatus({
   anchorRef.current = anchorMs;
 
   useEffect(() => {
-    if (!effectiveActive || !effectiveAction) {
+    if (!effectiveAction) {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
       setElapsedSec(0);
       return;
@@ -75,21 +83,48 @@ export function StreamingStatus({
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     };
-  }, [effectiveActive, effectiveAction, anchorMs]);
+  }, [effectiveAction, anchorMs]);
 
-  if (!effectiveActive || !effectiveAction) return null;
+  // Pending state: message sent, waiting for agent to acknowledge
+  if (pending && !effectiveActive) {
+    return (
+      <div
+        className="streaming-status streaming-status--pending"
+        role="status"
+        aria-live="polite"
+      >
+        <span className="streaming-status-spinner" aria-hidden="true">
+          <span className="streaming-status-dot" />
+          <span className="streaming-status-dot" />
+          <span className="streaming-status-dot" />
+        </span>
+        <span className="streaming-status-text">Sending…</span>
+      </div>
+    );
+  }
 
-  const tier = elapsedColor(elapsedSec * 1000);
-  const label = effectiveAction;
+  // Active streaming state
+  if (!effectiveAction) return null;
+
+  const tierColour = elapsedColor(elapsedSec * 1000);
 
   return (
     <div
-      className={`streaming-status streaming-status--${tier}`}
+      className={`streaming-status streaming-status--${tierColour}`}
       role="status"
       aria-live="polite"
     >
       <Icon name="loading" size="sm" className="streaming-status-spinner" />
-      <span className="streaming-status-text">{label}</span>
+      <span className="streaming-status-text">
+        {effectiveAction} · {formatElapsed(elapsedSec)}
+      </span>
     </div>
   );
+}
+
+function formatElapsed(sec: number): string {
+  if (sec < 60) return `${Math.floor(sec)}s`;
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}m ${s}s`;
 }

@@ -201,6 +201,12 @@ export class MeshOrchestrator {
   // Agent Output Processing
   // -----------------------------------------------------------------------
 
+  /**
+   * Callback invoked for each extracted P2P message.
+   * Enables the extension host to trigger side effects (plan viewer, agent status).
+   */
+  onExtractedMessage?: (msg: P2PMessage & { agentId: string }) => void;
+
   async processAgentOutput(
     agentId: string,
     rawOutput: string,
@@ -223,6 +229,11 @@ export class MeshOrchestrator {
           from: msg.from,
           to: msg.to,
         }, e as Error);
+      }
+
+      // Notify extension host for plan_update / task_delegate side effects
+      if (this.onExtractedMessage) {
+        this.onExtractedMessage({ ...msg, agentId });
       }
     }
 

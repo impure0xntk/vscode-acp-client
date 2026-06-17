@@ -21,7 +21,8 @@ export type P2PMessageType =
   | "answer"
   | "broadcast"
   | "ping"
-  | "pong";
+  | "pong"
+  | "plan_update";
 
 // ----------------------------------------------------------------------------
 // Message payloads
