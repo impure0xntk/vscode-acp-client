@@ -1,6 +1,6 @@
 import React from "react";
 
-interface UnreadBadgeProps {
+export interface UnreadBadgeProps {
   count: number;
   /** When true, suppress the badge (already visible / active) */
   hidden?: boolean;

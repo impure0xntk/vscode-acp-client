@@ -8,7 +8,7 @@ import React, {
 import { useShallow } from "zustand/shallow";
 import { SessionView } from "../../sessions/SessionView";
 import { SessionTabBar } from "../../sessions/SessionTabBar";
-import { Composer } from "../../Composer";
+import { Composer } from "../../composer/Composer";
 import { useSessionStore } from "../../../store/sessionStore";
 import type {
   SessionStoreState,

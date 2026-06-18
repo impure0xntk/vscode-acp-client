@@ -10,13 +10,11 @@ import {
   StatuslineInfo,
   statuslinePrefix,
   statuslineChips,
-} from "../toolbar/formatting";
-import {
   AgentSection,
   MetricsSection,
   SessionIdRow,
   TurnSection,
-} from "../toolbar/DetailSections";
+} from "./toolbar";
 
 export type { ToolbarMeta, ContextColor };
 export { fmt, visualBar, contextColor };

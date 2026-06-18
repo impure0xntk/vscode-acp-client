@@ -45,7 +45,6 @@ import { MessageBus } from "../../domain/services/message-bus";
 import { FileLockManager } from "../../domain/services/file-lock-manager";
 import { TaskBoardStore } from "../../domain/services/task-board-store";
 import { SupervisorOrchestrator } from "../../domain/services/supervisor-orchestrator";
-import type { PlanWebviewMessage } from "../../domain/services/supervisor-orchestrator";
 import {
   MESH_MARKER_V2_OPEN,
   MESH_MARKER_CLOSE,
@@ -335,7 +334,8 @@ function wireChatPanelEventsLocal(): void {
     searchSymbols,
     resolveSymbolByName,
     persistentHistory ?? undefined,
-    meshOrchestrator ?? undefined
+    meshOrchestrator ?? undefined,
+    supervisorOrchestrator ?? undefined
   );
 }
 

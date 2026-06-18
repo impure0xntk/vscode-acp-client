@@ -10,4 +10,4 @@ export { SessionTabBar } from "./SessionTabBar";
 export type { SessionTabBarProps } from "./SessionTabBar";
 export { SessionView } from "./SessionView";
 export type { SessionViewProps } from "./SessionView";
-export { SessionTab } from "../SessionTab";
+export { SessionTab } from "./SessionTab";

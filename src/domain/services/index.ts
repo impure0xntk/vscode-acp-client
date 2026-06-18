@@ -33,14 +33,6 @@ export type {
 export { SupervisorOrchestrator } from "./supervisor-orchestrator";
 export type {
   SupervisorOrchestratorDeps,
-  PlanWebviewMessage,
   PlanOutboundMessage,
   WebviewMessage,
-  PlanApproveMessage,
-  PlanRejectMessage,
-  PlanModifyStepMessage,
-  PlanAddStepMessage,
-  PlanRemoveStepMessage,
-  PlanCancelMessage,
-  PlanReplanMessage,
 } from "./supervisor-orchestrator";

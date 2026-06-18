@@ -31,49 +31,49 @@ const log = getLogger("supervisor");
 // Webview message types (plan.*)
 // ----------------------------------------------------------------------------
 
-export interface PlanApproveMessage {
+interface PlanApproveMessage {
   type: "plan.approve";
   planId: string;
 }
 
-export interface PlanRejectMessage {
+interface PlanRejectMessage {
   type: "plan.reject";
   planId: string;
 }
 
-export interface PlanModifyStepMessage {
+interface PlanModifyStepMessage {
   type: "plan.modifyStep";
   planId: string;
   stepId: string;
   newDescription: string;
 }
 
-export interface PlanAddStepMessage {
+interface PlanAddStepMessage {
   type: "plan.addStep";
   planId: string;
   description: string;
   afterStepId?: string;
 }
 
-export interface PlanRemoveStepMessage {
+interface PlanRemoveStepMessage {
   type: "plan.removeStep";
   planId: string;
   stepId: string;
 }
 
-export interface PlanCancelMessage {
+interface PlanCancelMessage {
   type: "plan.cancel";
   planId: string;
 }
 
-export interface PlanReplanMessage {
+interface PlanReplanMessage {
   type: "plan.replan";
   planId: string;
   failedStepId: string;
   reason: string;
 }
 
-export type PlanWebviewMessage =
+type PlanWebviewMessage =
   | PlanApproveMessage
   | PlanRejectMessage
   | PlanModifyStepMessage
@@ -745,36 +745,6 @@ export class SupervisorOrchestrator {
     } catch (e) {
       log.error("replan failed", { planId }, e as Error);
       return null;
-    }
-  }
-
-  // ========================================================================
-  // Webview Message Handling
-  // ========================================================================
-
-  handleWebviewMessage(msg: PlanWebviewMessage): void {
-    switch (msg.type) {
-      case "plan.approve":
-        void this.approvePlan(msg.planId);
-        break;
-      case "plan.reject":
-        this.rejectPlan(msg.planId);
-        break;
-      case "plan.modifyStep":
-        this.modifyStep(msg.planId, msg.stepId, msg.newDescription);
-        break;
-      case "plan.addStep":
-        this.addStep(msg.planId, msg.description, msg.afterStepId);
-        break;
-      case "plan.removeStep":
-        this.removeStep(msg.planId, msg.stepId);
-        break;
-      case "plan.cancel":
-        void this.cancelPlan(msg.planId);
-        break;
-      case "plan.replan":
-        void this.replan(msg.planId, msg.failedStepId, msg.reason);
-        break;
     }
   }
 

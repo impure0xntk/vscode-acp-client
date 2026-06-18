@@ -18,6 +18,7 @@ import {
 } from "../../../adapter/context/symbol";
 import type { SendTarget } from "../../../domain/models/mesh";
 import type { MeshOrchestrator } from "../../../domain/services/mesh-orchestrator";
+import type { SupervisorOrchestrator } from "../../../domain/services/supervisor-orchestrator";
 
 // -----------------------------------------------------------------------
 // Internal state — captured via closure so meshSend can access
@@ -26,6 +27,9 @@ import type { MeshOrchestrator } from "../../../domain/services/mesh-orchestrato
 let _chatPanel: ChatPanel | null = null;
 let _orchestrator: SessionOrchestrator | null = null;
 let _meshOrchestrator: MeshOrchestrator | null = null;
+let _supervisorOrchestrator: SupervisorOrchestrator | null = null;
+
+// handlePlanMessage is imported from plan-message-handler.ts (pure, testable)
 
 /**
  * Multi-send for multi-target (mesh:send) paths.
@@ -84,13 +88,15 @@ export function wireChatPanelEvents(
   searchSymbols: (query: string) => Promise<SuggestionItem[]>,
   resolveSymbolByName: (name: string) => Promise<ContextAttachmentDTO>,
   persistentHistory?: PersistentHistoryStore,
-  meshOrchestrator?: MeshOrchestrator
+  meshOrchestrator?: MeshOrchestrator,
+  supervisorOrchestrator?: SupervisorOrchestrator
 ): void {
   // Capture into closure-scoped vars so meshSend can access
   // without threading through every call site.
   _chatPanel = chatPanel;
   _orchestrator = orchestrator;
   _meshOrchestrator = meshOrchestrator ?? null;
+  _supervisorOrchestrator = supervisorOrchestrator ?? null;
 
   if (!chatPanel) return;
 
@@ -484,6 +490,44 @@ export function wireChatPanelEvents(
           promptId: string;
         };
         orchestrator.cancelQueuedPrompt(agentId, sessionId, promptId);
+        break;
+      }
+
+      // ==================================================================
+      // Supervisor / Plan messages
+      // ==================================================================
+      case "plan.approve": {
+        void _supervisorOrchestrator?.approvePlan(data.planId as string);
+        break;
+      }
+      case "plan.reject": {
+        _supervisorOrchestrator?.rejectPlan(data.planId as string);
+        break;
+      }
+      case "plan.modifyStep": {
+        _supervisorOrchestrator?.modifyStep(
+          data.planId as string, data.stepId as string, data.newDescription as string
+        );
+        break;
+      }
+      case "plan.addStep": {
+        _supervisorOrchestrator?.addStep(
+          data.planId as string, data.description as string, data.afterStepId as string | undefined
+        );
+        break;
+      }
+      case "plan.removeStep": {
+        _supervisorOrchestrator?.removeStep(data.planId as string, data.stepId as string);
+        break;
+      }
+      case "plan.cancel": {
+        void _supervisorOrchestrator?.cancelPlan(data.planId as string);
+        break;
+      }
+      case "plan.replan": {
+        void _supervisorOrchestrator?.replan(
+          data.planId as string, data.failedStepId as string, data.reason as string
+        );
         break;
       }
     }

@@ -7,13 +7,13 @@ import React, {
 } from "react";
 import { useLogger } from "../hooks/useLogger";
 import { CompletionNotification } from "../components/CompletionNotification";
-import type { TurnOutcome } from "../components/StatusIcon";
+import type { TurnOutcome } from "./ui/StatusIcon";
 import {
   SessionHistoryPanel,
   PersistentSessionEntry,
 } from "../components/SessionHistory";
-import { ResizableSessionOverviewPanel } from "../components/SessionOverview/SessionOverviewPanel";
-import { MeshPanel } from "../components/MeshPanel";
+import { ResizableSessionOverviewPanel } from "../components/overview/SessionOverview/SessionOverviewPanel";
+import { MeshPanel } from "../components/mesh";
 import { useSessionStore, sessionKeyOf } from "../store/sessionStore";
 import type { SessionStoreState } from "../store/sessionStore";
 import { useUiStateStore } from "../store/uiStateStore";
@@ -21,10 +21,10 @@ import { useMeshStore } from "../store/meshStore";
 import { getVsCodeApi } from "../lib/vscodeApi";
 import { setPendingSwitch } from "../webviewMessageHandler";
 import { useShallow } from "zustand/shallow";
-import { useChatHandlers } from "./hooks/useChatHandlers";
-import { useOverviewHandlers } from "./hooks/useOverviewHandlers";
+import { useChatHandlers } from "../hooks/useChatHandlers";
+import { useOverviewHandlers } from "../hooks/useOverviewHandlers";
 import { ClassicMode, UnifiedMode } from "../components/modes";
-import { PlanViewerOverlay } from "../components/PlanViewer";
+import { PlanViewerOverlay } from "../components/modes/supervisor/PlanViewer";
 import type { ContextAttachment, SendTarget } from "../types";
 
 export function AppContainer(): React.ReactElement {

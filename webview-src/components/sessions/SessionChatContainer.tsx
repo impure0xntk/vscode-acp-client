@@ -1,5 +1,5 @@
 import React, { useRef, memo, useCallback, useEffect, useState } from "react";
-import { DisplayItemView } from "../DisplayItemView";
+import { DisplayItemView } from "../message/DisplayItemView";
 import { useMessages } from "../../hooks/useMessages";
 import { useMessagePipeline } from "../../hooks/useMessagePipeline";
 import { useScrollController } from "../../hooks/useScrollController";

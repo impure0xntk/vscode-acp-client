@@ -1,6 +1,6 @@
 import React from "react";
 
-interface AgentBadgeProps {
+export interface AgentBadgeProps {
   agentId: string;
   /** Display name — if omitted, falls back to agentId */
   agentName?: string;

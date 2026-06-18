@@ -6,9 +6,9 @@ import type {
   SessionInfoDTO,
 } from "../../store/sessionStore";
 import { Chip } from "../ui/Chip";
-import type { ToolbarMeta } from "../ui/Chip";
-import { fmt, visualBar, contextColor } from "../toolbar/formatting";
-import { UserJumpNav } from "../UserJumpNav";
+import type { ToolbarMeta } from "../../types";
+import { fmt, visualBar, contextColor } from "./toolbar";
+import { UserJumpNav } from "../message/UserJumpNav";
 import { AgentBadge } from "../ui/AgentBadge";
 import { Icon, IconPin, IconPinFilled } from "../../lib/icons";
 

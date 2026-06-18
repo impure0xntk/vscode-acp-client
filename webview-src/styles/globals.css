@@ -5160,12 +5160,14 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
   overflow: hidden;
 }
 
 .unified-section-chat-wrapper {
   flex: 1;
   min-height: 0;
+  min-width: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -5565,16 +5567,19 @@ body {
 /* ── Horizontal split ── */
 .multi-session-view--split-horizontal {
   flex-direction: row;
+  align-items: stretch;
 }
 
 .multi-session-view--split-horizontal .unified-session-section {
   max-height: 100%;
+  min-width: 0;
 }
 
 .unified-split-divider--horizontal {
   width: 4px;
   height: auto;
   cursor: col-resize;
+  align-self: stretch;
 }
 
 /* ── New session button (in UnifiedSessionBar) ── */

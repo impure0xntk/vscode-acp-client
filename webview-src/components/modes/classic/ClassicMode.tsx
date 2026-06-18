@@ -9,7 +9,7 @@ import { useShallow } from "zustand/shallow";
 import { SessionView } from "../../sessions/SessionView";
 import { SessionFooter } from "../../sessions/SessionFooter";
 import { SessionTabBar } from "../../sessions/SessionTabBar";
-import { Composer } from "../../Composer";
+import { Composer } from "../../composer/Composer";
 import { useSessionStore, sessionKeyOf } from "../../../store/sessionStore";
 import type {
   SessionStoreState,
@@ -23,7 +23,7 @@ import type {
   FileCandidate,
   SuggestionItem,
 } from "../../../types";
-import type { TurnOutcome } from "../../StatusIcon";
+import type { TurnOutcome } from "../ui/StatusIcon";
 
 export interface ClassicModeProps {
   activeSessionKey: string | null;

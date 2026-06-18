@@ -251,6 +251,7 @@ export interface ToolbarMeta {
   modeIcon?: string;
   contextColor?: ContextColor;
   barPct?: number;
+  turnStatus?: "completed" | "error" | "cancelled" | "running" | null;
 }
 
 // ── Mesh Orchestrator types ──────────────────────────────────────────

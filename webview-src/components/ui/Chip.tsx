@@ -1,21 +1,9 @@
-import React, { type ReactNode } from "react";
-import type { SessionTabStatus, TurnOutcome } from "../../store/sessionStore";
+import React from "react";
+import type { ToolbarMeta, ContextColor } from "../../types";
+import type { SessionTabStatus } from "../../store/sessionStore";
 import { Icon } from "../../lib/icons";
 
-export type ContextColor = "normal" | "warning" | "critical";
-
-export interface ToolbarMeta {
-  key: string;
-  label: string;
-  value: string;
-  icon?: ReactNode;
-  category?: "session" | "runtime" | "metrics" | "workspace";
-  statusIndicator?: SessionTabStatus;
-  modeIcon?: string;
-  contextColor?: ContextColor;
-  barPct?: number;
-  turnStatus?: TurnOutcome | "running" | null;
-}
+export type { ToolbarMeta, ContextColor };
 
 const STATUS_DOT: Record<SessionTabStatus, { color: string; icon: string }> = {
   running: { color: "#4ec9b0", icon: "circle-filled" },

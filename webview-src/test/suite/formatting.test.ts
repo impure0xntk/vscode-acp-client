@@ -8,8 +8,8 @@ import {
   visualBar,
   contextColor,
   statuslineChips,
-} from "../../components/toolbar/formatting";
-import type { StatuslineInfo } from "../../components/toolbar/formatting";
+} from "../../components/sessions/toolbar/formatting";
+import type { StatuslineInfo } from "../../components/sessions/toolbar/formatting";
 import type { ContextColor } from "../../components/ui/Chip";
 
 // ── Tests ───────────────────────────────────────────────────────────────────

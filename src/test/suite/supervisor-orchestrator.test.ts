@@ -4,7 +4,7 @@
 // refs: docs/supervisor-planner-design.md Section 6
 // ============================================================================
 
-import { describe, it, beforeEach } from "mocha";
+import { describe, it } from "mocha";
 import * as assert from "assert";
 import { SupervisorOrchestrator } from "../../domain/services/supervisor-orchestrator";
 import type { SupervisorOrchestratorDeps } from "../../domain/services/supervisor-orchestrator";
@@ -640,70 +640,12 @@ describe("SupervisorOrchestrator", () => {
   });
 
   // ========================================================================
-  // Webview Message Handling
+  // Step Modification (direct method tests — replaces handleWebviewMessage)
   // ========================================================================
 
-  describe("handleWebviewMessage", () => {
-    it("handles plan.approve", async () => {
-      const { deps } = createDeps({});
-      const orch = new SupervisorOrchestrator(deps);
-
-      const planProposal = {
-        version: "2.0",
-        type: "plan_proposal",
-        id: "p1",
-        from: "planner-1",
-        to: "orchestrator",
-        mode: "p2p",
-        payload: { steps: [{ id: "s1", description: "Step 1" }] },
-      };
-
-      const raw = `${MESH_MARKER_V2_OPEN}${JSON.stringify(planProposal)}${MESH_MARKER_CLOSE}`;
-      const plan = orch.parsePlanFromOutput("planner-1", "s1", raw);
-
-      orch.handleWebviewMessage({
-        type: "plan.approve",
-        planId: plan!.id,
-      });
-
-      // Approve triggers async execution — give it a tick
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      const updated = orch.getPlan(plan!.id);
-      assert.ok(
-        updated!.status === "approved" ||
-          updated!.status === "executing" ||
-          updated!.status === "completed"
-      );
-    });
-
-    it("handles plan.reject", () => {
-      const { deps } = createDeps({});
-      const orch = new SupervisorOrchestrator(deps);
-
-      const planProposal = {
-        version: "2.0",
-        type: "plan_proposal",
-        id: "p1",
-        from: "planner-1",
-        to: "orchestrator",
-        mode: "p2p",
-        payload: { steps: [{ id: "s1", description: "Step 1" }] },
-      };
-
-      const raw = `${MESH_MARKER_V2_OPEN}${JSON.stringify(planProposal)}${MESH_MARKER_CLOSE}`;
-      const plan = orch.parsePlanFromOutput("planner-1", "s1", raw);
-
-      orch.handleWebviewMessage({
-        type: "plan.reject",
-        planId: plan!.id,
-      });
-
-      assert.strictEqual(orch.getPlan(plan!.id)!.status, "rejected");
-    });
-
-    it("handles plan.modifyStep", () => {
-      const { deps } = createDeps({});
+  describe("modifyStep", () => {
+    it("updates step description and syncs to webview", () => {
+      const { deps, calls } = createDeps({});
       const orch = new SupervisorOrchestrator(deps);
 
       const plan: Plan = {
@@ -730,20 +672,58 @@ describe("SupervisorOrchestrator", () => {
         plan
       );
 
-      orch.handleWebviewMessage({
-        type: "plan.modifyStep",
-        planId: "plan-1",
-        stepId: "s1",
-        newDescription: "Modified description",
-      });
+      orch.modifyStep("plan-1", "s1", "Modified description");
 
       assert.strictEqual(
         orch.getPlan("plan-1")!.steps[0].description,
         "Modified description"
       );
+
+      // Should emit step update + plan update
+      const stepUpdate = calls.postMessages.find(
+        (m) => m.type === "plan.stepUpdate"
+      );
+      assert.ok(stepUpdate);
     });
 
-    it("handles plan.addStep", () => {
+    it("does nothing for unknown plan", () => {
+      const { deps } = createDeps({});
+      const orch = new SupervisorOrchestrator(deps);
+
+      // Should not throw
+      orch.modifyStep("nonexistent", "s1", "New desc");
+    });
+
+    it("does nothing for unknown step", () => {
+      const { deps } = createDeps({});
+      const orch = new SupervisorOrchestrator(deps);
+
+      const plan: Plan = {
+        id: "plan-1",
+        teamId: "team-1",
+        status: "pending",
+        steps: [
+          { id: "s1", index: 0, description: "Step 1", status: "pending" },
+        ],
+        plannerAgentId: "planner-1",
+        plannerSessionId: "s1",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        metadata: { userRequest: "Test" },
+      };
+
+      (orch as unknown as { plans: Map<string, Plan> }).plans.set(
+        plan.id,
+        plan
+      );
+
+      orch.modifyStep("plan-1", "nonexistent", "New desc");
+      assert.strictEqual(orch.getPlan("plan-1")!.steps[0].description, "Step 1");
+    });
+  });
+
+  describe("addStep", () => {
+    it("appends a new step to the plan", () => {
       const { deps } = createDeps({});
       const orch = new SupervisorOrchestrator(deps);
 
@@ -771,18 +751,59 @@ describe("SupervisorOrchestrator", () => {
         plan
       );
 
-      orch.handleWebviewMessage({
-        type: "plan.addStep",
-        planId: "plan-1",
-        description: "New step",
-      });
+      orch.addStep("plan-1", "New step");
 
       const updated = orch.getPlan("plan-1")!;
       assert.strictEqual(updated.steps.length, 2);
       assert.strictEqual(updated.steps[1].description, "New step");
+      assert.strictEqual(updated.steps[1].status, "pending");
     });
 
-    it("handles plan.removeStep", () => {
+    it("inserts step after specified afterStepId", () => {
+      const { deps } = createDeps({});
+      const orch = new SupervisorOrchestrator(deps);
+
+      const plan: Plan = {
+        id: "plan-1",
+        teamId: "team-1",
+        status: "pending",
+        steps: [
+          { id: "s1", index: 0, description: "Step 1", status: "pending" },
+          { id: "s2", index: 1, description: "Step 2", status: "pending" },
+        ],
+        plannerAgentId: "planner-1",
+        plannerSessionId: "s1",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        metadata: { userRequest: "Test" },
+      };
+
+      (orch as unknown as { plans: Map<string, Plan> }).plans.set(
+        plan.id,
+        plan
+      );
+
+      orch.addStep("plan-1", "Inserted step", "s1");
+
+      const updated = orch.getPlan("plan-1")!;
+      assert.strictEqual(updated.steps.length, 3);
+      assert.strictEqual(updated.steps[1].description, "Inserted step");
+      // Re-indexed
+      assert.strictEqual(updated.steps[0].index, 0);
+      assert.strictEqual(updated.steps[1].index, 1);
+      assert.strictEqual(updated.steps[2].index, 2);
+    });
+
+    it("does nothing for unknown plan", () => {
+      const { deps } = createDeps({});
+      const orch = new SupervisorOrchestrator(deps);
+
+      orch.addStep("nonexistent", "New step");
+    });
+  });
+
+  describe("removeStep", () => {
+    it("removes the step and re-indexes", () => {
       const { deps } = createDeps({});
       const orch = new SupervisorOrchestrator(deps);
 
@@ -806,21 +827,52 @@ describe("SupervisorOrchestrator", () => {
         plan
       );
 
-      orch.handleWebviewMessage({
-        type: "plan.removeStep",
-        planId: "plan-1",
-        stepId: "s2",
-      });
+      orch.removeStep("plan-1", "s2");
 
       const updated = orch.getPlan("plan-1")!;
       assert.strictEqual(updated.steps.length, 1);
       assert.strictEqual(updated.steps[0].id, "s1");
-      // Re-indexed
       assert.strictEqual(updated.steps[0].index, 0);
     });
 
-    it("handles plan.cancel", async () => {
+    it("does nothing for unknown plan", () => {
       const { deps } = createDeps({});
+      const orch = new SupervisorOrchestrator(deps);
+
+      orch.removeStep("nonexistent", "s1");
+    });
+
+    it("does nothing for unknown step", () => {
+      const { deps } = createDeps({});
+      const orch = new SupervisorOrchestrator(deps);
+
+      const plan: Plan = {
+        id: "plan-1",
+        teamId: "team-1",
+        status: "pending",
+        steps: [
+          { id: "s1", index: 0, description: "Step 1", status: "pending" },
+        ],
+        plannerAgentId: "planner-1",
+        plannerSessionId: "s1",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        metadata: { userRequest: "Test" },
+      };
+
+      (orch as unknown as { plans: Map<string, Plan> }).plans.set(
+        plan.id,
+        plan
+      );
+
+      orch.removeStep("plan-1", "nonexistent");
+      assert.strictEqual(orch.getPlan("plan-1")!.steps.length, 1);
+    });
+  });
+
+  describe("cancelPlan", () => {
+    it("cancels running tasks and sets status to cancelled", async () => {
+      const { deps, calls } = createDeps({});
       const orch = new SupervisorOrchestrator(deps);
 
       const plan: Plan = {
@@ -852,15 +904,107 @@ describe("SupervisorOrchestrator", () => {
         orch as unknown as { runningTasks: Map<string, Set<string>> }
       ).runningTasks.set("plan-1", new Set(["task-1"]));
 
-      orch.handleWebviewMessage({
-        type: "plan.cancel",
-        planId: "plan-1",
-      });
-
-      // Cancel is async — give it a tick
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await orch.cancelPlan("plan-1");
 
       assert.strictEqual(orch.getPlan("plan-1")!.status, "cancelled");
+      // Should have cancelled the running session
+      assert.ok(
+        calls.getCancellations.some(
+          (c) => c.agentId === "worker-1" && c.sessionId === "ws1"
+        )
+      );
+    });
+
+    it("throws for unknown plan", async () => {
+      const { deps } = createDeps({});
+      const orch = new SupervisorOrchestrator(deps);
+
+      await assert.rejects(
+        () => orch.cancelPlan("nonexistent"),
+        /Plan nonexistent not found/
+      );
+    });
+  });
+
+  describe("replan (direct)", () => {
+    it("creates a new plan from failed step", async () => {
+      const { deps, calls } = createDeps({});
+      const orch = new SupervisorOrchestrator(deps);
+
+      const plan: Plan = {
+        id: "plan-1",
+        teamId: "team-1",
+        status: "executing",
+        steps: [
+          { id: "s1", index: 0, description: "Done", status: "completed" },
+          {
+            id: "s2",
+            index: 1,
+            description: "Failed step",
+            status: "failed",
+            taskId: "task-2",
+          },
+          { id: "s3", index: 2, description: "Pending", status: "pending" },
+        ],
+        plannerAgentId: "planner-1",
+        plannerSessionId: "s1",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        metadata: { userRequest: "Test" },
+      };
+
+      (orch as unknown as { plans: Map<string, Plan> }).plans.set(
+        plan.id,
+        plan
+      );
+
+      const newPlan = await orch.replan("plan-1", "s2", "Compilation error");
+
+      assert.ok(newPlan);
+      assert.strictEqual(newPlan!.status, "pending");
+      assert.ok(newPlan!.steps.length >= 1);
+      assert.strictEqual(newPlan!.steps[0].status, "pending");
+      assert.ok(newPlan!.metadata.userRequest.includes("replan"));
+
+      // Should have called supervise for replan
+      assert.ok(calls.supervises.length >= 1);
+    });
+
+    it("throws for unknown plan", async () => {
+      const { deps } = createDeps({});
+      const orch = new SupervisorOrchestrator(deps);
+
+      await assert.rejects(
+        () => orch.replan("nonexistent", "s1", "error"),
+        /Plan nonexistent not found/
+      );
+    });
+
+    it("returns null for unknown failed step", async () => {
+      const { deps } = createDeps({});
+      const orch = new SupervisorOrchestrator(deps);
+
+      const plan: Plan = {
+        id: "plan-1",
+        teamId: "team-1",
+        status: "executing",
+        steps: [
+          { id: "s1", index: 0, description: "Done", status: "completed" },
+        ],
+        plannerAgentId: "planner-1",
+        plannerSessionId: "s1",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        metadata: { userRequest: "Test" },
+      };
+
+      (orch as unknown as { plans: Map<string, Plan> }).plans.set(
+        plan.id,
+        plan
+      );
+
+      const result = await orch.replan("plan-1", "nonexistent", "error");
+      assert.strictEqual(result, null);
     });
   });
 
@@ -950,65 +1094,6 @@ describe("SupervisorOrchestrator", () => {
       assert.strictEqual(orch.getPlansByStatus("pending").length, 1);
       assert.strictEqual(orch.getPlansByStatus("completed").length, 1);
       assert.strictEqual(orch.getPlansByStatus("rejected").length, 0);
-    });
-  });
-
-  // ========================================================================
-  // Replan
-  // ========================================================================
-
-  describe("replan", () => {
-    it("creates a new plan with remaining steps", async () => {
-      const { deps, calls } = createDeps({});
-      const orch = new SupervisorOrchestrator(deps);
-
-      const plan: Plan = {
-        id: "plan-1",
-        teamId: "team-1",
-        status: "executing",
-        steps: [
-          { id: "s1", index: 0, description: "Done", status: "completed" },
-          {
-            id: "s2",
-            index: 1,
-            description: "Failed",
-            status: "failed",
-            taskId: "task-2",
-          },
-          { id: "s3", index: 2, description: "Pending", status: "pending" },
-        ],
-        plannerAgentId: "planner-1",
-        plannerSessionId: "s1",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        metadata: { userRequest: "Test" },
-      };
-
-      (orch as unknown as { plans: Map<string, Plan> }).plans.set(
-        plan.id,
-        plan
-      );
-
-      const newPlan = await orch.replan("plan-1", "s2", "Compilation error");
-
-      assert.ok(newPlan);
-      assert.strictEqual(newPlan!.status, "pending");
-      // Should include failed step + pending steps (not completed)
-      assert.ok(newPlan!.steps.length >= 1);
-      assert.strictEqual(newPlan!.steps[0].status, "pending");
-
-      // Should have called supervise for replan
-      assert.ok(calls.supervises.length >= 1);
-    });
-
-    it("returns null for unknown plan", async () => {
-      const { deps } = createDeps({});
-      const orch = new SupervisorOrchestrator(deps);
-
-      await assert.rejects(
-        () => orch.replan("nonexistent", "s1", "error"),
-        /Plan nonexistent not found/
-      );
     });
   });
 
