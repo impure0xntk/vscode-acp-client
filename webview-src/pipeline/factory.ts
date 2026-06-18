@@ -16,6 +16,7 @@ export const DEFAULT_CONFIG: PipelineConfig = {
   },
   annotate: {
     resolveAttachments: true,
+    detectInlinePaths: true,
   },
 };
 

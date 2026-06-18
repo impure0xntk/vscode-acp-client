@@ -15,7 +15,7 @@ import {
 // ============================================================================
 
 /** Session runtime state — no terminal values */
-export type SessionStatus = "idle" | "running";
+export type SessionStatus = "idle" | "running" | "cancelling";
 /** Turn outcome — set after a turn completes */
 export type TurnOutcome = "completed" | "error" | "cancelled";
 export type ToolStatus = "in_progress" | "completed" | "failed";
@@ -34,6 +34,7 @@ export type StatusIconType =
 const classMap: Record<StatusIconType, string> = {
   idle: "idle",
   running: "running",
+  cancelling: "cancelling",
   working: "running",
   in_progress: "running",
   pending: "running",
@@ -53,6 +54,7 @@ const IconComponentMap: Record<
 > = {
   idle: IconCircleOutline,
   running: IconSpinner,
+  cancelling: IconSpinner,
   waiting: IconSpinner,
   waiting_for_input: IconInput,
   completed: IconCheck,

@@ -6,13 +6,13 @@ import React, {
   useCallback,
 } from "react";
 import { useLogger } from "../hooks/useLogger";
-import { CompletionNotification } from "../components/CompletionNotification";
-import type { TurnOutcome } from "./ui/StatusIcon";
+import { CompletionNotification } from "../components/message/CompletionNotification";
+import type { TurnOutcome } from "../components/primitives";
 import {
   SessionHistoryPanel,
   PersistentSessionEntry,
-} from "../components/SessionHistory";
-import { ResizableSessionOverviewPanel } from "../components/overview/SessionOverview/SessionOverviewPanel";
+} from "../components/sessions/history";
+import { ResizableSessionOverviewPanel } from "../components/sessions/overview/SessionOverviewPanel";
 import { MeshPanel } from "../components/mesh";
 import { useSessionStore, sessionKeyOf } from "../store/sessionStore";
 import type { SessionStoreState } from "../store/sessionStore";

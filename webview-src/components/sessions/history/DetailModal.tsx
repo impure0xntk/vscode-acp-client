@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Icon } from "../../lib/icons";
+import { Icon } from "../../../lib/icons";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 

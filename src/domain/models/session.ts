@@ -5,6 +5,7 @@
 export type SessionStatus =
   | "idle"
   | "running"
+  | "cancelling"
   | "completed"
   | "error"
   | "cancelled";

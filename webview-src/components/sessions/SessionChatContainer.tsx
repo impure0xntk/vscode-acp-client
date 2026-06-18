@@ -4,8 +4,8 @@ import { useMessages } from "../../hooks/useMessages";
 import { useMessagePipeline } from "../../hooks/useMessagePipeline";
 import { useScrollController } from "../../hooks/useScrollController";
 import { useSessionUnreadCount } from "../../hooks/useSessionUnreadCount";
-import { useScrollStateStore } from "../../store/scrollStateStore";
-import { useMessageStore } from "../../store/messageStore";
+import { useScrollStateStore } from "../../store/scrollStateStore"
+import { useMessageStore } from "../../store/messageStore"
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
@@ -17,7 +17,7 @@ export interface SessionChatContainerProps {
   sessionKey: string | null;
   sessionId?: string;
   agentId?: string;
-  status?: "idle" | "running" | "completed" | "error" | "cancelled" | "warning";
+  status?: "idle" | "running" | "cancelling" | "completed" | "error" | "cancelled" | "warning";
   isActive?: boolean;
   color?: string;
 

@@ -54,11 +54,12 @@ export interface ResolvedAttachment {
   detail: string;
 }
 
-// ---------------------------------------------------------------------------
-// RenderContext is intentionally removed — inline path linking now relies
-// solely on the extension-host BatchedPathResolver (pathsResolved messages).
-// The webview no longer performs speculative path detection.
-// ---------------------------------------------------------------------------
+// ── RenderContext — carried from annotate → Message for markdown rendering ──
+
+export interface RenderContext {
+  /** Candidate paths extracted from inline code during annotation */
+  filePaths: Set<string>;
+}
 
 // ── PipelineItem — final pipeline output (union) ────────────────────────────
 
@@ -85,6 +86,8 @@ export interface ChatDisplayItem {
   isConsecutive: boolean;
   /** Effective source key for grouping (e.g. "agent:claude", "system", "user") */
   groupKey: string;
+  /** Extracted path candidates for inline code linking */
+  renderContext?: RenderContext;
 }
 
 /** Session compression notice rendered by <ContextCompressionNotice /> */
@@ -154,6 +157,8 @@ export interface MergeConfig {
 
 export interface AnnotateConfig {
   resolveAttachments: boolean;
+  /** Extract path candidates from inline code for speculative linking */
+  detectInlinePaths: boolean;
 }
 
 export interface PipelineConfig {

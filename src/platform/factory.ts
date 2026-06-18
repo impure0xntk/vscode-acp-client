@@ -1,12 +1,19 @@
 // src/platform/factory.ts
 
 import type { PlatformAPI } from "./platform";
+import type { LogLevelValue } from "./backends/types";
 
 export type PlatformType = "vscode" | "node" | "electron";
 
+export interface CreatePlatformOptions {
+  context?: import('vscode').ExtensionContext;
+  logLevel?: LogLevelValue;
+  [key: string]: unknown;
+}
+
 export async function createPlatform(
   type: PlatformType,
-  options?: Record<string, unknown>
+  options?: CreatePlatformOptions
 ): Promise<PlatformAPI> {
   switch (type) {
     case "vscode": {

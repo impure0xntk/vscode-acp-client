@@ -10,7 +10,7 @@ import {
   statuslineChips,
 } from "../../components/sessions/toolbar/formatting";
 import type { StatuslineInfo } from "../../components/sessions/toolbar/formatting";
-import type { ContextColor } from "../../components/ui/Chip";
+import type { ContextColor } from "../../components/primitives/Chip";
 
 // ── Tests ───────────────────────────────────────────────────────────────────
 

@@ -4,13 +4,14 @@ import type { ChatMessage } from "../../types";
 import type {
   ConnectedAgentInfo,
   SessionInfoDTO,
+  SessionState,
 } from "../../store/sessionStore";
-import { Chip } from "../ui/Chip";
+import { Chip } from "../primitives/Chip";
 import type { ToolbarMeta } from "../../types";
 import { fmt, visualBar, contextColor } from "./toolbar";
 import { UserJumpNav } from "../message/UserJumpNav";
-import { AgentBadge } from "../ui/AgentBadge";
-import { Icon, IconPin, IconPinFilled } from "../../lib/icons";
+import { AgentBadge } from "../primitives/AgentBadge";
+import { Icon, IconPin, IconPinFilled } from "../../lib/icons"
 
 // ── props ─────────────────────────────────────────────────────────────────
 
@@ -18,12 +19,13 @@ export interface SessionHeaderProps {
   sessionKey: string | null;
   agentId?: string;
   agentName?: string;
+  title?: string;
   connectedAgents?: ConnectedAgentInfo[];
   model?: string;
   mode?: string;
   cwd?: string;
   workspaceRoot?: string;
-  status?: "idle" | "running" | "completed" | "error" | "cancelled" | "warning";
+  status?: SessionState;
   onJumpToMessage?: (id: string) => void;
   sessionOverviewVisible?: boolean;
   onToggleSessionOverview?: () => void;
@@ -33,6 +35,7 @@ export interface SessionHeaderProps {
   isPinned?: boolean;
   onTogglePin?: () => void;
   onClose?: () => void;
+  onClick?: () => void;
   splitDirection?: "vertical" | "horizontal";
   messageCount?: number;
   info?: SessionInfoDTO;

@@ -20,7 +20,9 @@ const levelLabel: Record<LogLevelValue, string> = {
  *
  * Usage:
  *   const backend = new ConsoleLoggerBackend(LogLevel.debug);
- *   const factory = createLoggerFactory(backend);
+ *   const factory = new LoggerFactoryImpl(backend);
+ *   const logger = factory.getLogger('my-module');
+ *   logger.info('hello');
  */
 export class ConsoleLoggerBackend implements LoggerBackend {
   minLevel: LogLevelValue;
@@ -52,17 +54,18 @@ export class ConsoleLoggerBackend implements LoggerBackend {
     const line = parts.join(" ");
 
     switch (record.level) {
-      case 0: // trace
-      case 1: // debug
+      case 0: // TRACE
+      case 1: // DEBUG
         console.debug(line);
         break;
-      case 2: // info
-        console.info(line);
+      case 2: // INFO
+        console.log(line);
         break;
-      case 3: // warn
+      case 3: // WARN
         console.warn(line);
         break;
-      case 4: // error
+      case 4: // ERROR
+      default:
         if (record.error) {
           console.error(line, record.error);
         } else {

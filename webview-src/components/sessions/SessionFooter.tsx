@@ -1,7 +1,7 @@
 import React from "react";
-import type { AgentInfo, SessionTabStatus } from "../../store/sessionStore";
-import type { ToolbarMeta, ContextColor } from "../ui/Chip";
-import { Chip } from "../ui/Chip";
+import type { AgentInfo, SessionTabStatus } from "../../store/sessionStore"
+import type { ToolbarMeta, ContextColor } from "../primitives/Chip";
+import { Chip } from "../primitives/Chip";
 import {
   fmt,
   fmtDuration,

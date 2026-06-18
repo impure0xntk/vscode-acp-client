@@ -4,7 +4,7 @@ import { SessionHeader } from "../SessionHeader";
 import { SessionStatusBar } from "../SessionStatusBar";
 import { useSessionInfo } from "../../../hooks/useSessionInfo";
 import type { ChatMessage } from "../../../types";
-import type { TurnOutcome } from "../../ui/StatusIcon";
+import type { TurnOutcome } from "../../primitives/StatusIcon"
 import type { SessionHeaderProps } from "../SessionView";
 
 export interface SessionSectionProps {

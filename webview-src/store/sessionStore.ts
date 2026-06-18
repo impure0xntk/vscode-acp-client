@@ -18,12 +18,13 @@ export interface SessionTabState {
   agentId: string;
   title: string;
   agentIcon?: string;
-  status?: "idle" | "running" | "completed" | "error" | "cancelled";
+  status?: "idle" | "running" | "cancelling" | "completed" | "error" | "cancelled";
 }
 
 export type SessionState =
   | "idle"
   | "running"
+  | "cancelling"
   | "completed"
   | "error"
   | "cancelled";
@@ -90,6 +91,7 @@ export interface SlashCommand {
 export type SessionTabStatus =
   | "idle"
   | "running"
+  | "cancelling"
   | "completed"
   | "error"
   | "cancelled";

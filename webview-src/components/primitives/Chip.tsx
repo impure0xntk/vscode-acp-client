@@ -1,13 +1,14 @@
 import React from "react";
-import type { ToolbarMeta, ContextColor } from "../../types";
-import type { SessionTabStatus } from "../../store/sessionStore";
-import { Icon } from "../../lib/icons";
+import type { ToolbarMeta, ContextColor } from "../../types"
+import type { SessionTabStatus } from "../../store/sessionStore"
+import { Icon } from "../../lib/icons"
 
 export type { ToolbarMeta, ContextColor };
 
 const STATUS_DOT: Record<SessionTabStatus, { color: string; icon: string }> = {
   running: { color: "#4ec9b0", icon: "circle-filled" },
   idle: { color: "#666666", icon: "circle-outline" },
+  cancelling: { color: "#cca700", icon: "circle-filled" },
   completed: { color: "#4ec9b0", icon: "pass-filled" },
   error: { color: "#f14c4c", icon: "circle-filled" },
   cancelled: { color: "#666666", icon: "circle-slash" },

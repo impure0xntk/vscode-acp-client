@@ -520,12 +520,10 @@ export class SessionOrchestrator extends EventEmitter {
 
     log.info("closing session", { agentId, sessionId });
 
-    try {
-      await connection.closeSession({ sessionId });
-    } catch {
-      // Not all agents support session/close
-    }
-
+    // Remove from orchestrator state IMMEDIATELY (before the async agent call).
+    // This prevents a race where another operation (e.g. restoreSession) reads
+    // the session list before closeSession's await resolves and sees a stale
+    // entry, causing the closed session to reappear in the tab bar.
     const agentSessions = this.sessions.get(agentId);
     if (agentSessions) {
       agentSessions.delete(sessionId);
@@ -553,6 +551,14 @@ export class SessionOrchestrator extends EventEmitter {
     log.info("session closed", { agentId, sessionId });
     this.emit("sessionClosed", { agentId, sessionId });
     this.emitOverviewUpdate();
+
+    // Notify the agent process asynchronously — the session is already
+    // removed from orchestrator state, so this cannot cause a stale read.
+    try {
+      await connection.closeSession({ sessionId });
+    } catch {
+      // Not all agents support session/close
+    }
   }
 
   // ========================================================================
@@ -1191,8 +1197,12 @@ export class SessionOrchestrator extends EventEmitter {
     if (sessionInfo) {
       sessionInfo.pendingCancel = true;
       sessionInfo.isStreaming = false;
-      sessionInfo.status = "idle";
-      sessionInfo.lastTurnOutcome = "cancelled";
+      // Transition to "cancelling" so the Composer keeps the stop button
+      // (shown when status is "running" | "cancelling") and the status bar
+      // displays "Cancelling…" instead of reverting to the send button.
+      // The final transition to "idle" happens in handleSessionUpdate when
+      // the agent confirms the cancel by sending a session/update.
+      sessionInfo.status = "cancelling";
       sessionInfo.updatedAt = new Date();
 
       this.emit("sessionTurnActiveChanged", {
@@ -1201,7 +1211,7 @@ export class SessionOrchestrator extends EventEmitter {
         active: false,
       });
 
-      log.info("turn cancelled", { agentId, sessionId });
+      log.info("turn cancelling", { agentId, sessionId });
     }
 
     await connection.cancel({ sessionId } satisfies CancelNotification);
@@ -1700,10 +1710,31 @@ export class SessionOrchestrator extends EventEmitter {
     const sessionInfo = agentSessions?.get(sessionId);
     if (!sessionInfo) return;
 
-    // Guard: reject notifications for sessions that are not actively running a turn.
-    // This prevents stale/background updates from being surfaced in the chat UI
-    // after the turn has already completed, been cancelled, or errored out.
-    if (sessionInfo.status !== "running") {
+    // Guard: reject notifications for sessions that are not actively running
+    // or cancelling a turn. When status is "cancelling" the agent is still
+    // expected to send one final session/update acknowledging the cancel —
+    // we let that through and then transition to "idle"/"cancelled".
+    if (
+      sessionInfo.status !== "running" &&
+      sessionInfo.status !== "cancelling"
+    ) {
+      return;
+    }
+
+    // If the session was awaiting a cancel confirmation, any incoming
+    // session/update from the agent signals that the cancel is complete.
+    // Transition to the final "cancelled" outcome.
+    if (sessionInfo.status === "cancelling") {
+      sessionInfo.status = "idle";
+      sessionInfo.lastTurnOutcome = "cancelled";
+      sessionInfo.pendingCancel = false;
+      sessionInfo.isStreaming = false;
+      sessionInfo.updatedAt = new Date();
+      this.emit("sessionTurnActiveChanged", {
+        agentId,
+        sessionId,
+        active: false,
+      });
       return;
     }
 

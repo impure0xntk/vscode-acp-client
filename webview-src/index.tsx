@@ -1,6 +1,6 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { ErrorBoundary } from "./components/ErrorBoundary";
+import { ErrorBoundary } from "./components/primitives/ErrorBoundary";
 import { AppContainer } from "./containers/AppContainer";
 import { setupMessageHandlers } from "./webviewMessageHandler";
 // CSS is built separately via esbuild.js postcss pipeline

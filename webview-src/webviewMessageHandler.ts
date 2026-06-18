@@ -521,10 +521,16 @@ function handleSessionTurnActive(data: SessionTurnActive): void {
   // Update session status in sessionInfoMap
   const existing = useSessionStore.getState().sessionInfoMap[msgKey];
   if (existing) {
+    // When cancelling, the orchestrator emits sessionTurnActiveChanged with
+    // active=false but keeps status="cancelling" until the agent confirms.
+    // Overwriting to "idle" here would hide the cancelling state from the
+    // Composer stop button and the StreamingStatus bar.
+    const nextStatus =
+      existing.status === "cancelling" ? "cancelling" : active ? "running" : "idle";
     useSessionStore.getState().setSessionInfo(data.agentId, data.sessionId, {
       ...existing,
       isStreaming: active,
-      status: active ? "running" : "idle",
+      status: nextStatus,
     });
   }
 }

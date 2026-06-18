@@ -25,7 +25,7 @@ export default [
         "error",
         { argsIgnorePattern: "^_" },
       ],
-      "no-console": ["warn", { allow: ["error"] }],
+      "no-console": ["warn", { allow: ["error", "warn"] }],
     },
   },
   {

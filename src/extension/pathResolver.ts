@@ -49,11 +49,13 @@ export class BatchedPathResolver {
       limited.map(async (filePath) => {
         const cached = this.cache.get(filePath);
         if (cached !== undefined) return { path: filePath, exists: cached };
+        const fullPath = path.resolve(this.cwd, filePath);
         try {
-          const fullPath = path.resolve(this.cwd, filePath);
-          await vscode.workspace.fs.stat(vscode.Uri.file(fullPath));
-          this.cache.set(filePath, true);
-          return { path: filePath, exists: true };
+          const stat = await vscode.workspace.fs.stat(vscode.Uri.file(fullPath));
+          // Only link files, not directories
+          const isFile = (stat.type & vscode.FileType.File) !== 0;
+          this.cache.set(filePath, isFile);
+          return { path: filePath, exists: isFile };
         } catch {
           this.cache.set(filePath, false);
           return { path: filePath, exists: false };
@@ -61,10 +63,13 @@ export class BatchedPathResolver {
       })
     );
 
-    const existingPaths = results.filter((r) => r.exists).map((r) => r.path);
+    const existingPaths: string[] = [];
 
-    for (const p of existingPaths) {
-      this.resolved.add(p);
+    for (const r of results) {
+      if (r.exists) {
+        this.resolved.add(r.path);
+        existingPaths.push(r.path);
+      }
     }
 
     if (existingPaths.length > 0) {

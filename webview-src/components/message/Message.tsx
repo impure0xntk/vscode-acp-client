@@ -132,7 +132,7 @@ export const Message = React.memo(function Message({
   isConsecutive,
   sessionId,
 }: MessageProps): React.ReactElement {
-  const { role, content, timestamp, resolvedToolCalls, attachments, thinking } =
+  const { role, content, timestamp, resolvedToolCalls, attachments, thinking, renderContext } =
     item;
 
   const rawResolved = usePathResolutionStore(
@@ -141,9 +141,12 @@ export const Message = React.memo(function Message({
 
   const mergedContext = useMemo(
     () => ({
-      filePaths: new Set<string>(rawResolved ?? []),
+      filePaths: new Set<string>([
+        ...(renderContext?.filePaths ?? []),
+        ...(rawResolved ?? []),
+      ]),
     }),
-    [rawResolved]
+    [renderContext?.filePaths, rawResolved]
   );
 
   const time = new Date(timestamp ?? 0).toLocaleTimeString();

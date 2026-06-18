@@ -7,7 +7,7 @@ import {
   formatDuration,
 } from "./ToolCallCard";
 
-import { StatusIcon } from "../ui/StatusIcon";
+import { StatusIcon } from "../primitives/StatusIcon";
 import { summarizeKinds } from "../../util/toolBatchSummary";
 import { Icon } from "../../lib/icons";
 import { getVsCodeApi } from "../../lib/vscodeApi";

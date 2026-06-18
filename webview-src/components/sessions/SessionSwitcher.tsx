@@ -5,10 +5,10 @@ import React, {
   useCallback,
   useMemo,
 } from "react";
-import type { SessionTabState } from "../store/sessionStore";
-import { useMessageStore } from "../store/messageStore";
-import { StatusIcon } from "../ui/StatusIcon";
-import type { StatusIconType } from "../ui/StatusIcon";
+import type { SessionTabState } from "../../store/sessionStore"
+import { useMessageStore } from "../../store/messageStore"
+import { StatusIcon } from "../primitives/StatusIcon";
+import type { StatusIconType } from "../primitives/StatusIcon";
 
 // ============================================================================
 // Props

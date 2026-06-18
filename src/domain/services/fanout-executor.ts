@@ -14,6 +14,7 @@ import type { SessionOrchestrator } from "../../application/session/orchestrator
 import type { PromptContext } from "../../application/session/orchestrator";
 import type { SendTarget, MultiSendResult } from "../models/mesh";
 import type { ChatMessage } from "../../domain/models/chat";
+import type { ContextAttachmentDTO } from "../../domain/models/chat";
 import { getLogger } from "../../platform/backends";
 
 const log = getLogger("mesh.fanout");
@@ -42,6 +43,8 @@ export interface FanoutRequest {
   text: string;
   /** Pre-built ACP context blocks (attachments already converted) */
   context: PromptContext;
+  /** Original attachment DTOs for UI echo (passed through to pushUserMessage) */
+  attachments?: ContextAttachmentDTO[];
 }
 
 // ----------------------------------------------------------------------------
@@ -114,6 +117,10 @@ export class FanoutExecutor {
         role: "user",
         content: request.text,
         timestamp: Date.now(),
+        attachments: request.attachments,
+        attachmentsJson: request.attachments?.length
+          ? JSON.stringify(request.attachments)
+          : undefined,
       });
 
       await this.sessionOrchestrator.prompt(

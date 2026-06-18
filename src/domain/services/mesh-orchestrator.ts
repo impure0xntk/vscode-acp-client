@@ -424,7 +424,7 @@ export class MeshOrchestrator {
       targets: targetDesc,
     });
     const context = this.buildContext(attachments);
-    return this.fanoutExecutor.execute(targets, { text, context });
+    return this.fanoutExecutor.execute(targets, { text, context, attachments });
   }
 
   /**
@@ -460,7 +460,7 @@ export class MeshOrchestrator {
       resolvedTargetCount: targets.length,
     });
     const context = this.buildContext(attachments);
-    return this.fanoutExecutor.execute(targets, { text, context });
+    return this.fanoutExecutor.execute(targets, { text, context, attachments });
   }
 
   /**

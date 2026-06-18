@@ -221,17 +221,34 @@ export const UnifiedMode = React.memo(function UnifiedMode({
     [onSendMessage, activeSessionKey]
   );
 
-  // Clear pending state once the agent acknowledges the turn
+  // Clear pending state for any session whose agent has acknowledged the turn
+  // (status became "running").  Previously only the active session was cleared,
+  // causing unfocused sessions to stay stuck on "Sending…" forever.
+  // Use a ref to always read the latest pendingMap inside the subscription.
+  const pendingMapRef = useRef(pendingMap);
+  pendingMapRef.current = pendingMap;
+  const turnStartedAtMapRef = useRef(turnStartedAtMap);
+  turnStartedAtMapRef.current = turnStartedAtMap;
   useEffect(() => {
-    if (
-      activeSessionKey &&
-      useSessionStore.getState().sessionInfoMap[activeSessionKey]?.status ===
-        "running" &&
-      pendingMap[activeSessionKey]
-    ) {
-      setPendingMap((prev) => ({ ...prev, [activeSessionKey]: false }));
-    }
-  }, [activeSessionKey, pendingMap]);
+    return useSessionStore.subscribe((state) => {
+      const infoMap = state.sessionInfoMap;
+      const currentPending = pendingMapRef.current;
+      let pendingChanged = false;
+      let turnChanged = false;
+      const nextPending = { ...currentPending };
+      const nextTurn = { ...turnStartedAtMapRef.current };
+      for (const [key, isPending] of Object.entries(currentPending)) {
+        if (isPending && infoMap[key]?.status === "running") {
+          nextPending[key] = false;
+          delete nextTurn[key];
+          pendingChanged = true;
+          turnChanged = true;
+        }
+      }
+      if (pendingChanged) setPendingMap(nextPending);
+      if (turnChanged) setTurnStartedAtMap(nextTurn);
+    });
+  }, []);
 
   const scrollToMessageRef = useRef<((id: string) => void) | undefined>(
     undefined

@@ -690,6 +690,78 @@ body {
   padding: 16px 14px;
   display: flex;
   flex-direction: column;
+  position: relative;
+}
+
+/* When sticky bar is visible, shift content down */
+.chat-container--has-sticky {
+  padding-top: 0;
+}
+
+/* ── Sticky Context Bar ──────────────────────────────────────────────────
+   VS Code-style "sticky scroll" — anchored between tab bar and first
+   visible message.  One line: agent dot • agent › first message preview.
+   Appears only once the user has scrolled past the initial messages.
+*/
+
+.sticky-context-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 14px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  backdrop-filter: blur(2px);
+}
+
+/* animated slide-in */
+.chat-container--has-sticky .sticky-context-bar {
+  animation: sticky-context-in 0.12s ease-out;
+}
+
+@keyframes sticky-context-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.sticky-context-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.sticky-context-agent {
+  font-weight: 600;
+  color: var(--fg-primary);
+  flex-shrink: 0;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sticky-context-sep {
+  color: var(--fg-muted);
+  flex-shrink: 0;
+  font-size: 10px;
+}
+
+.sticky-context-title {
+  color: var(--fg-secondary);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10.5px;
 }
 
 .empty-state {
@@ -1476,14 +1548,13 @@ body {
 .tool-group-file-chip {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  padding: 1px 4px 1px 2px;
+  gap: 3px;
+  padding: 2px 5px 2px 3px;
   border-radius: 3px;
   background: color-mix(in srgb, var(--bg-input) 60%, transparent);
   cursor: pointer;
   user-select: none;
   transition: background 0.15s;
-  flex-shrink: 0;
 }
 .tool-group-file-chip:hover {
   background: var(--accent-hover);
@@ -1496,11 +1567,11 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 15px;
-  height: 12px;
-  border-radius: 2px;
+  width: 18px;
+  height: 15px;
+  border-radius: 3px;
   font-family: var(--font-mono);
-  font-size: 7px;
+  font-size: 8px;
   font-weight: 700;
   line-height: 1;
   letter-spacing: -0.3px;
@@ -1509,9 +1580,9 @@ body {
   color: var(--fg-secondary);
 }
 .tool-group-file-name {
-  font-size: 9px;
+  font-size: 10px;
   color: var(--fg-secondary);
-  max-width: 100px;
+  max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2298,12 +2369,11 @@ body {
   gap: 2px;
   opacity: 0;
   transition: opacity 0.15s ease;
-  pointer-events: none;
+  z-index: 10;
 }
 
 .session-tab-actions-visible {
   opacity: 1;
-  pointer-events: auto;
 }
 
 .session-tab-close {
@@ -2321,14 +2391,32 @@ body {
   font-size: 12px;
   line-height: 1;
   cursor: pointer;
-  transition:
-    background 0.15s ease,
-    color 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .session-tab-close:hover {
   background: var(--error);
   color: var(--user-fg);
+}
+
+/* Active-running tab: thin progress bar along the bottom edge */
+.session-tab-active.status-tab-has-running-status::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--warning);
+  opacity: 0.8;
+  animation: tab-progress 2.4s ease-in-out infinite;
+}
+
+@keyframes tab-progress {
+  0%   { transform: scaleX(0);    transform-origin: left; }
+  50%  { transform: scaleX(1);    transform-origin: left; }
+  50.01% { transform-origin: right; }
+  100% { transform: scaleX(0);    transform-origin: right; }
 }
 
 /* ============================================================================

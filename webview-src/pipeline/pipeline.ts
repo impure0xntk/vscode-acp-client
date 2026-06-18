@@ -25,11 +25,12 @@ export class MessagePipeline {
 
   /**
    * Process all messages from scratch (first render).
-   * Carries over lastGroupKey from previous state so that consecutive
-   * message detection works across session switches.
+   * Does NOT carry over lastGroupKey — a full reprocess resets the
+   * consecutive-message context so that the first agent message always
+   * shows its header.
    */
   process(messages: RawMessage[], ctx: PipelineContext): PipelineItem[] {
-    const result = this.runStages(messages, ctx, this.lastGroupKey);
+    const result = this.runStages(messages, ctx, "");
     this.cache = result;
     // Update lastGroupKey from the last cached item
     const lastItem = result.length > 0 ? result[result.length - 1] : null;
@@ -133,12 +134,24 @@ export class MessagePipeline {
     // across the cache boundary.
     const lastCached =
       this.cache.length > 0 ? this.cache[this.cache.length - 1] : null;
-    // Use the last chat item's groupKey, or fall back to the preserved
-    // lastGroupKey (which survives cache resets from system messages).
-    const lastGroupKey =
-      lastCached && lastCached.type === "chat"
-        ? lastCached.groupKey
-        : this.lastGroupKey;
+    // Determine the initial groupKey for annotation.
+    // If the last cached item is a chat message with the same role as
+    // the first new message, carry over its groupKey so consecutive
+    // detection works across the boundary. Otherwise reset to "" so
+    // the first new message always shows its header.
+    const firstNewRole = mergedNew.length > 0 ? mergedNew[0].role : "";
+    let lastGroupKey = "";
+    if (lastCached && lastCached.type === "chat" && firstNewRole) {
+      if (lastCached.role === firstNewRole) {
+        lastGroupKey = lastCached.groupKey;
+      }
+      // else: role changed → reset to "" (header will be shown)
+    }
+    // Also consider the preserved lastGroupKey when the cache is empty
+    // but we have a valid lastGroupKey from a previous incremental pass.
+    if (!lastCached && this.lastGroupKey) {
+      lastGroupKey = this.lastGroupKey;
+    }
     const annotated = annotateMessages(
       mergedNew,
       this.config.annotate,
@@ -161,12 +174,12 @@ export class MessagePipeline {
 
   /**
    * Clear the internal cache (e.g. on session switch).
-   * Preserves lastGroupKey so consecutive message detection works
-   * across session switches.
+   * Resets lastGroupKey so that the first message after a clear
+   * always shows its header.
    */
   clear(): void {
     this.cache = [];
-    // Intentionally NOT resetting lastGroupKey
+    this.lastGroupKey = "";
   }
 
   /**

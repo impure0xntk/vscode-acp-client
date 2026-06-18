@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import type { ToolCallDiffContent, ToolCall } from "../../types";
-import { StatusIcon } from "../ui/StatusIcon";
+import { StatusIcon } from "../primitives/StatusIcon";
 import { getVsCodeApi } from "../../lib/vscodeApi";
 import { Icon, iconForToolKind } from "../../lib/icons";
 import { getLogger } from "../../lib/logger";

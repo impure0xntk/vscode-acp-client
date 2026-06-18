@@ -82,8 +82,18 @@ export class PlatformAcpClient implements Client {
     params: ReadTextFileRequest
   ): Promise<ReadTextFileResponse> {
     log.debug("readTextFile", { agentId: this.agentId, path: params.path });
-    const content = await this.deps.fs.readFile(params.path);
-    return { content };
+    try {
+      const content = await this.deps.fs.readFile(params.path);
+      return { content };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      log.warn("readTextFile failed", {
+        agentId: this.agentId,
+        path: params.path,
+        error: msg,
+      });
+      return { content: "" };
+    }
   }
 
   async writeTextFile(

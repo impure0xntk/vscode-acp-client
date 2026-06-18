@@ -32,7 +32,7 @@ export interface SessionOverviewItem {
   sessionId: string;
   agentId: string;
   title: string;
-  status: "idle" | "running" | "completed" | "error" | "cancelled";
+  status: "idle" | "running" | "cancelling" | "completed" | "error" | "cancelled";
   lastTurnOutcome: "completed" | "error" | "cancelled" | null;
   model?: string;
   mode?: string;
@@ -196,7 +196,7 @@ export interface SuggestionItem {
   /** Session identifier — populated for session suggestions */
   sessionId?: string;
   /** Session status — populated for session suggestions (mirrors SessionInfoSnapshot.status) */
-  status?: "idle" | "running" | "completed" | "error" | "cancelled";
+  status?: "idle" | "running" | "cancelling" | "completed" | "error" | "cancelled";
 }
 
 export interface SessionCompressionInfo {
@@ -247,7 +247,7 @@ export interface ToolbarMeta {
   value: string;
   icon?: React.ReactNode;
   category?: "session" | "runtime" | "metrics" | "workspace";
-  statusIndicator?: "idle" | "running" | "completed" | "error" | "cancelled";
+  statusIndicator?: "idle" | "running" | "cancelling" | "completed" | "error" | "cancelled";
   modeIcon?: string;
   contextColor?: ContextColor;
   barPct?: number;

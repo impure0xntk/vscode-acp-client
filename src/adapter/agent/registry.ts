@@ -102,12 +102,15 @@ export class AgentRegistry {
    * and the named config exists, otherwise undefined.
    */
   loadPreset(platform: PlatformAPI): PresetConfig | undefined {
-    const presetsCfg = platform.fs.getConfiguration("acp.presets");
-    const defaultName = presetsCfg.get<string>("default", "");
+    const cfg = platform.fs.getConfiguration("acp");
+    const presetsObj = cfg.get<{ default: string; configs: Record<string, PresetConfig> }>(
+      "presets",
+      { default: "", configs: {} }
+    ) ?? { default: "", configs: {} };
+    const defaultName = presetsObj.default;
     if (!defaultName) return undefined;
 
-    const configs =
-      presetsCfg.get<Record<string, PresetConfig>>("configs", {}) ?? {};
+    const configs = presetsObj.configs ?? {};
     const preset = configs[defaultName];
     if (!preset || !Array.isArray(preset.sessions)) return undefined;
 
@@ -158,16 +161,19 @@ export class AgentRegistry {
         | import("../../application/orchestrator").AutoConnectEntry[]
         | undefined;
       if (Array.isArray(a.autoConnect)) {
-        autoConnect = (a.autoConnect as Array<Record<string, unknown>>).map(
-          (entry) => ({
-            workspace:
-              typeof entry.workspace === "string" ? entry.workspace : undefined,
+        autoConnect = (a.autoConnect as Array<unknown>)
+          .filter(
+            (e): e is Record<string, unknown> =>
+              typeof e === "object" && e !== null && !Array.isArray(e)
+          )
+          .filter((entry) => typeof entry.workspace === "string")
+          .map((entry) => ({
+            workspace: entry.workspace as string,
             sessionName:
               typeof entry.sessionName === "string"
                 ? entry.sessionName
                 : undefined,
-          })
-        );
+          }));
       }
       return {
         id: key,

@@ -7,11 +7,13 @@ import type {
   ErrorNoticeDisplayItem,
   ModeChangeDisplayItem,
   PipelineItem,
+  RenderContext,
   ResolvedAttachment,
   ResolvedToolCall,
   SessionCompressionInfo,
 } from "../types";
 import type { ContextAttachment } from "../../types";
+import { extractCandidatePaths } from "../../lib/pathPatterns";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -70,6 +72,23 @@ function resolveAttachments(
     extension: (att.path ?? "").split(".").pop() ?? "",
     detail: att.label ?? "",
   }));
+}
+
+/**
+ * Extract path candidates from inline code spans in the message content.
+ * Runs synchronously during annotation — no FS access, just pattern matching.
+ */
+function buildRenderContext(msg: ClassifiedMessage): RenderContext | undefined {
+  const inlineCodeRegex = /`([^`]+)`/g;
+  const candidates: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = inlineCodeRegex.exec(msg.content)) !== null) {
+    const code = match[1];
+    const paths = extractCandidatePaths(code);
+    candidates.push(...paths);
+  }
+  if (candidates.length === 0) return undefined;
+  return { filePaths: new Set(candidates) };
 }
 
 /**
@@ -169,6 +188,10 @@ function toPipelineItem(
             }
           : undefined;
 
+      const renderContext: RenderContext | undefined = _config.detectInlinePaths
+        ? buildRenderContext(msg)
+        : undefined;
+
       return {
         item: {
           type: "chat",
@@ -179,7 +202,7 @@ function toPipelineItem(
           agentId: msg.agentId,
           resolvedToolCalls: resolveToolCalls(msg),
           attachments: resolveAttachments(msg, _config),
-
+          renderContext,
           thinking,
           isConsecutive,
           groupKey: gk,
@@ -194,6 +217,10 @@ function toPipelineItem(
  * Annotate classified messages into PipelineItem[].
  * Computes isConsecutive so that <Message /> can hide the header for
  * consecutive messages from the same source.
+ *
+ * Consecutive detection resets when the role changes (e.g. user → agent),
+ * ensuring the first agent message after a user message always shows its
+ * header even if the groupKey happens to match a stale previous value.
  */
 export function annotateMessages(
   messages: ClassifiedMessage[],
@@ -202,13 +229,25 @@ export function annotateMessages(
 ): PipelineItem[] {
   const items: PipelineItem[] = [];
   let prevGroupKey = initialGroupKey;
+  let prevRole = "";
+  let isFirst = true;
 
   for (const msg of messages) {
+    // Reset group tracking when the role changes so that cross-role
+    // transitions (e.g. user → agent) always show the header.
+    // When initialGroupKey is provided (non-empty), the caller has
+    // verified role compatibility, so skip the reset on the first
+    // iteration to allow cross-batch consecutive detection.
+    if (!(isFirst && initialGroupKey !== "") && msg.role !== prevRole) {
+      prevGroupKey = "";
+    }
+    isFirst = false;
     const { item, groupKey } = toPipelineItem(msg, config, prevGroupKey);
     if (item) items.push(item);
     // Non-info messages (compression, mode_change, etc.) reset the group
     // so the next info message always shows its header.
     prevGroupKey = groupKey;
+    prevRole = msg.role;
   }
 
   return items;

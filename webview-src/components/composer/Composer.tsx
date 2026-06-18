@@ -38,7 +38,7 @@ export interface ComposerProps {
   onSwitchSession?: (agentId: string, sessionId: string) => void;
   onRenameSession?: (agentId: string, sessionId: string, title: string) => void;
   disabled?: boolean;
-  status?: "idle" | "running" | "completed" | "error" | "cancelled";
+  status?: "idle" | "running" | "cancelling" | "completed" | "error" | "cancelled";
   fetchFiles: (query: string) => Promise<FileCandidate[]>;
   resolveFile: (path: string) => Promise<ContextAttachment>;
   resolveSelection: () => Promise<ContextAttachment | null>;
@@ -460,14 +460,13 @@ export function Composer({
           };
           addSendTarget(target);
 
-          // Replace @query with transparent marker (chip shown below)
-          const completion = `@${item.label} `;
-          newText = before + completion + after;
+          // Remove @query from textarea — send target chip is shown below
+          newText = before + after;
           setText(newText);
 
           requestAnimationFrame(() => {
             if (textareaRef.current) {
-              const pos = before.length + completion.length;
+              const pos = before.length;
               textareaRef.current.selectionStart = pos;
               textareaRef.current.selectionEnd = pos;
               textareaRef.current.focus();
@@ -715,13 +714,14 @@ export function Composer({
           disabled={disabled}
           rows={1}
         />
-        {status === "running" ? (
+        {status === "running" || status === "cancelling" ? (
           <button
-            className="stop-button"
-            onClick={onCancel}
-            title="Stop generation"
+            className={`stop-button ${status === "cancelling" ? "stop-button--cancelling" : ""}`}
+            onClick={status === "running" ? onCancel : undefined}
+            disabled={status === "cancelling"}
+            title={status === "cancelling" ? "Cancelling…" : "Stop generation"}
           >
-            ■
+            {status === "cancelling" ? "◔" : "■"}
           </button>
         ) : (
           <>

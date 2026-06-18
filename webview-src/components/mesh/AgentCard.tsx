@@ -3,12 +3,12 @@ import type {
   SessionInfoDTO,
   ConnectedAgentInfo,
 } from "../../store/sessionStore";
-import { StatusIcon } from "../ui/StatusIcon";
+import { StatusIcon } from "../primitives/StatusIcon";
 import { Icon } from "../../lib/icons";
 import {
   fmtDuration,
   sessionColorGroup,
-} from "../overview/SessionOverview/SessionOverviewCardBase";
+} from "../sessions/overview/SessionOverviewCardBase";
 import { fmt } from "../sessions/toolbar/formatting";
 import {
   ELAPSED_WARNING_MS,

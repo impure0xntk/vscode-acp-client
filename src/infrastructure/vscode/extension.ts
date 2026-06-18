@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 import { getLogger } from "../../platform/backends";
 import type { PresetConfig } from "../../domain/models/agent";
+import type { ContextAttachmentDTO } from "../../domain/models/chat";
 
 const log = getLogger("extension");
 import {
@@ -51,9 +52,6 @@ import {
 } from "../../domain/models/mesh";
 import { VscodePlatform } from "../../platform/adapters/vscode";
 import type { PlatformAPI } from "../../platform/platform";
-import type { ContextAttachmentDTO } from "../../domain/models/chat";
-import type { FileSystemAPI } from "../../platform/filesystem";
-import type { EditorAPI } from "../../platform/editor";
 import { TreeItem, TreeItemCollapsibleState } from "vscode";
 import { exec } from "child_process";
 import { promisify } from "util";
@@ -86,23 +84,15 @@ function resolveFile(
   filePath: string,
   cwd?: string
 ): Promise<ContextAttachmentDTO> {
-  return resolveFilePlatform(
-    platform.fs,
-    filePath,
-    cwd
-  ) as Promise<ContextAttachmentDTO>;
+  return resolveFilePlatform(platform.fs, filePath, cwd) as Promise<ContextAttachmentDTO>;
 }
 
 function resolveSelection(): Promise<ContextAttachmentDTO | null> {
-  return resolveSelectionPlatform(
-    platform.editor
-  ) as Promise<ContextAttachmentDTO | null>;
+  return resolveSelectionPlatform(platform.editor) as Promise<ContextAttachmentDTO | null>;
 }
 
 function resolveDiff(): Promise<ContextAttachmentDTO | null> {
-  return resolveDiffPlatform(
-    platform.editor
-  ) as Promise<ContextAttachmentDTO | null>;
+  return resolveDiffPlatform(platform.editor) as Promise<ContextAttachmentDTO | null>;
 }
 
 function searchFiles(query: string, cwd?: string) {
@@ -114,7 +104,7 @@ function searchSymbols(query: string) {
 }
 
 function resolveSymbolByName(name: string): Promise<ContextAttachmentDTO> {
-  return resolveSymbolByNamePlatform(platform.editor, platform.fs, name);
+  return resolveSymbolByNamePlatform(platform.editor, platform.fs, name) as Promise<ContextAttachmentDTO>;
 }
 
 // TreeView adaptor: maps AgentTreeItem → vscode.TreeItem
@@ -399,6 +389,7 @@ export async function activate(
   // Create platform adapter
   platform = new VscodePlatform({ context });
   await platform.initialize();
+  log.info("ACP Client extension activated");
 
   statusBar = new AgentStatusBar(platform.ui);
   registry = new AgentRegistry(platform);

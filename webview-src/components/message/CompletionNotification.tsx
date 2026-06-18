@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { Icon } from "../../lib/icons";
-import type { TurnOutcome } from "../ui/StatusIcon";
+import type { TurnOutcome } from "../primitives/StatusIcon";
 
 // ============================================================================
 // Props

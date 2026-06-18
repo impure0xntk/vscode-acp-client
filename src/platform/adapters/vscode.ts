@@ -108,7 +108,7 @@ export class VscodePlatform implements PlatformAPI {
   private ctx: vscode.ExtensionContext;
   private sinkBackend: LogEntrySinkBackend | null = null;
 
-  constructor(options: { context: vscode.ExtensionContext }) {
+  constructor(options: { context: vscode.ExtensionContext; logLevel?: LogLevelValue }) {
     this.ctx = options.context;
     this.version = vscode.version;
 
@@ -223,6 +223,11 @@ export class VscodeUIAPI implements UIAPI {
   }
 
   createOutputChannel(name: string): OutputChannel {
+    return this.createInternalOutputChannel(name);
+  }
+
+  /** @internal LoggerFactory 用の直接 OutputChannel アクセス */
+  createInternalOutputChannel(name: string): OutputChannel {
     const channel = vscode.window.createOutputChannel(name);
     return {
       appendLine: (value: string) => channel.appendLine(value),

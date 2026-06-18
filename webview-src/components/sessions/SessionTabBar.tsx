@@ -5,7 +5,7 @@ import React, {
   useRef,
   useMemo,
 } from "react";
-import { getLogger } from "../../lib/logger";
+import { getLogger } from "../../lib/logger"
 
 const log = getLogger("webview.SessionTabBar");
 import type {
@@ -13,15 +13,15 @@ import type {
   ConnectedAgentInfo,
 } from "../../store/sessionStore";
 import type { SessionOverviewItem } from "../../types";
-import { useScrollStateStore } from "../../store/scrollStateStore";
-import { useMessageStore } from "../../store/messageStore";
-import { useSessionStore, sessionKeyOf } from "../../store/sessionStore";
+import { useScrollStateStore } from "../../store/scrollStateStore"
+import { useMessageStore } from "../../store/messageStore"
+import { useSessionStore, sessionKeyOf } from "../../store/sessionStore"
 import { SessionTab } from "./SessionTab";
-import { SessionOverviewPopup } from "../overview/SessionOverview/SessionOverviewPopup";
-import { StatusIcon } from "../ui/StatusIcon";
-import type { StatusIconType, TurnOutcome } from "../ui/StatusIcon";
-import { UnreadBadge } from "../ui/UnreadBadge";
-import { IconClose, IconPin, IconPinFilled } from "../../lib/icons";
+import { SessionOverviewPopup } from "./overview/SessionOverviewPopup";
+import { StatusIcon } from "../primitives/StatusIcon";
+import type { StatusIconType, TurnOutcome } from "../primitives/StatusIcon";
+import { UnreadBadge } from "../primitives/UnreadBadge";
+import { IconClose, IconPin, IconPinFilled } from "../../lib/icons"
 import { useSessionInfo } from "../../hooks/useSessionInfo";
 
 /** Delay before showing popup after hover (ms) */

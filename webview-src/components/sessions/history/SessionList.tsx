@@ -1,5 +1,5 @@
 import React from "react";
-import { Icon } from "../../lib/icons";
+import { Icon } from "../../../lib/icons";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -24,7 +24,7 @@ export interface PersistentSessionEntry {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-function formatTokens(n: number): string {
+export function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
   return String(n);
@@ -40,7 +40,7 @@ function formatDate(iso: string): string {
   });
 }
 
-function formatRelativeTime(iso: string): string {
+export function formatRelativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return "just now";
@@ -51,7 +51,7 @@ function formatRelativeTime(iso: string): string {
   return `${days}d ago`;
 }
 
-function contextUsagePct(usage: number, max: number | null): number {
+export function contextUsagePct(usage: number, max: number | null): number {
   if (!max || max <= 0) return 0;
   return Math.min(100, Math.round((usage / max) * 100));
 }

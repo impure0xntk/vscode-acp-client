@@ -1,6 +1,6 @@
 import React from "react";
-import type { SendTarget } from "../../types";
-import { StatusIcon } from "../ui/StatusIcon";
+import type { SendTarget } from "../../types"
+import { StatusIcon } from "./StatusIcon";
 
 // ── Props ──────────────────────────────────────────────────────────
 

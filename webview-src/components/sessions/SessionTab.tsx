@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import type { SessionTabState } from "../store/sessionStore";
+import type { SessionTabState } from "../../store/sessionStore"
 import { useSessionInfo } from "../../hooks/useSessionInfo";
-import { StatusIcon } from "../ui/StatusIcon";
-import type { StatusIconType, TurnOutcome } from "../ui/StatusIcon";
-import { UnreadBadge } from "../ui/UnreadBadge";
-import { getLogger } from "../../lib/logger";
+import { StatusIcon } from "../primitives/StatusIcon";
+import type { StatusIconType, TurnOutcome } from "../primitives/StatusIcon";
+import { UnreadBadge } from "../primitives/UnreadBadge";
+import { getLogger } from "../../lib/logger"
 
 const log = getLogger("webview.SessionTab");
 

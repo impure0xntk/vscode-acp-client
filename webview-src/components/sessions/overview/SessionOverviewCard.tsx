@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { getLogger } from "../../../lib/logger";
+import { getLogger } from "../../../lib/logger"
 
 const log = getLogger("webview.SessionOverviewCard");
 import type { SessionOverviewItem } from "../../../types";
 import { useSessionInfo } from "../../../hooks/useSessionInfo";
-import { UnreadBadge } from "../../ui/UnreadBadge";
+import { UnreadBadge } from "../../primitives/UnreadBadge";
 import {
   SessionOverviewHeader,
   SessionOverviewChips,
@@ -14,8 +14,8 @@ import {
   elapsedTier,
   snapshotToOverviewItem,
 } from "./SessionOverviewCardBase";
-import { useSessionStore } from "../../../store/sessionStore";
-import type { TurnOutcome } from "../../ui/StatusIcon";
+import { useSessionStore } from "../../../store/sessionStore"
+import type { TurnOutcome } from "../../primitives/StatusIcon"
 
 // ============================================================================
 // SessionOverviewCard — full vertical card for the overview panel
@@ -76,10 +76,11 @@ export function SessionOverviewCard({
     ? snapshotToOverviewItem(liveInfo, session.title)
     : session;
 
+  const status = liveItem.status as string;
   const isCancelable =
-    liveItem.status === "running" ||
-    liveItem.status === "waiting" ||
-    liveItem.status === "waiting_for_input";
+    status === "running" ||
+    status === "waiting" ||
+    status === "waiting_for_input";
 
   const tier = elapsedTier(liveItem.progress.elapsedMs);
 

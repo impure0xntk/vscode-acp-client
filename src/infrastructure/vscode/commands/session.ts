@@ -452,6 +452,14 @@ export function registerSessionCommands(
           // restored conversation is visible immediately.
           cp.pushSessionSnapshot(agentId, restoreResult.sessionId, newInfo);
           cp.setActiveSession(agentId, restoreResult.sessionId, newInfo);
+          // Explicitly switch the webview's active session so the
+          // SingleSessionLayout renders SessionChatContainer for
+          // this sessionKey instead of showing an empty panel.
+          cp.postMessage({
+            type: "session/switch",
+            agentId,
+            sessionId: restoreResult.sessionId,
+          });
         }
 
         const methodLabel = restoreResult.nativeRestore

@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import type { SuggestionItem, TriggerType, FileCandidate } from "../../types";
 import { Icon } from "../../lib/icons";
-import { StatusIcon } from "../ui/StatusIcon";
+import { StatusIcon } from "../primitives/StatusIcon";
 
 // Re-export for backward compatibility
 export type { FileCandidate };

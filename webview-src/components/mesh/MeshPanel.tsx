@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 import { useShallow } from "zustand/shallow";
 import { useMeshStore } from "../../store/meshStore";
 import { useSessionStore } from "../../store/sessionStore";
-import { StatusIcon } from "../ui/StatusIcon";
+import { StatusIcon } from "../primitives/StatusIcon";
 import { Icon } from "../../lib/icons";
 import type {
   MeshAgentStatus,

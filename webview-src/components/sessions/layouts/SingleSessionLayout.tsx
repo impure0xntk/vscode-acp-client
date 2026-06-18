@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { SessionChatContainer } from "../SessionChatContainer";
 import { SessionStatusBar } from "../SessionStatusBar";
-import { useSessionStore } from "../../../store/sessionStore";
-import { useMessageStore } from "../../../store/messageStore";
-import { useScrollStateStore } from "../../../store/scrollStateStore";
+import { useSessionStore } from "../../../store/sessionStore"
+import { useMessageStore } from "../../../store/messageStore"
+import { useScrollStateStore } from "../../../store/scrollStateStore"
 import { useMessages } from "../../../hooks/useMessages";
 import { useSessionInfo } from "../../../hooks/useSessionInfo";
 import type { ContextAttachment, SendTarget, ChatMessage } from "../../../types";
@@ -162,9 +162,27 @@ export const SingleSessionLayout = React.memo(function SingleSessionLayout({
   const status = activeSessionInfo?.status;
   const isTurnActive = status === "running";
 
+  // Clear pending only after the agent has been running for at least
+  // MIN_DISPLAY_MS milliseconds, so that "Sending…" has time to render.
+  const pendingClearedRef = useRef(false);
+  const prevPendingRef = useRef(false);
   useEffect(() => {
-    if (isTurnActive && pending) {
-      setPending(false);
+    // Reset the cleared flag whenever pending transitions from false→true
+    // (i.e. a new message was sent) so the timer can fire again.
+    if (pending && !prevPendingRef.current) {
+      pendingClearedRef.current = false;
+    }
+    prevPendingRef.current = pending;
+
+    if (isTurnActive && pending && !pendingClearedRef.current) {
+      pendingClearedRef.current = true;
+      const timer = setTimeout(() => {
+        setPending(false);
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+    if (!isTurnActive) {
+      pendingClearedRef.current = false;
     }
   }, [isTurnActive, pending]);
 
@@ -177,6 +195,21 @@ export const SingleSessionLayout = React.memo(function SingleSessionLayout({
       setTurnStartedAt(undefined);
     }
   }, [isTurnActive, pending, turnStartedAt]);
+
+  // Clear pending when session status transitions to a terminal state
+  // (completed/done).  Without this, if session/completed arrives before
+  // session/streamEnd, isTurnActive flips to false but the 400ms timer
+  // in the effect above was never armed (isTurnActive was already false
+  // when pending became true, or the status skipped "running" entirely),
+  // leaving the "Sending…" indicator stuck.
+  const isTerminal =
+    status === "completed" || (status as string) === "done" || status === "error" || status === "cancelled";
+  useEffect(() => {
+    if (isTerminal && pending) {
+      setPending(false);
+      setTurnStartedAt(undefined);
+    }
+  }, [isTerminal, pending]);
 
   useEffect(() => {
     setTurnStartedAt(undefined);
