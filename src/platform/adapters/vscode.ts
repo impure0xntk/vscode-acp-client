@@ -408,6 +408,18 @@ class VscodeFileSystemAPI implements FileSystemAPI {
     return uris.map((uri) => toPlatformUri(uri));
   }
 
+  async findFilesInDirectory(
+    cwd: string,
+    pattern: string,
+    exclude?: string,
+    maxResults = 50
+  ): Promise<PlatformUri[]> {
+    const baseUri = vscode.Uri.file(cwd);
+    const relativePattern = new vscode.RelativePattern(baseUri, pattern);
+    const uris = await vscode.workspace.findFiles(relativePattern, exclude, maxResults);
+    return uris.map((uri) => toPlatformUri(uri));
+  }
+
   watchFiles(
     pattern: string,
     callback: (event: FileWatchEvent) => void

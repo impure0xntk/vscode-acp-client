@@ -38,7 +38,7 @@ export interface UnifiedModeProps {
   onNewSession: () => void;
   disabled?: boolean;
   status?: "idle" | "running" | "completed" | "error" | "cancelled";
-  fetchFiles: (query: string) => Promise<FileCandidate[]>;
+  fetchFiles: (query: string, cwd?: string) => Promise<FileCandidate[]>;
   resolveFile: (path: string) => Promise<ContextAttachment>;
   resolveSelection: () => Promise<ContextAttachment | null>;
   resolveDiff: () => Promise<ContextAttachment | null>;

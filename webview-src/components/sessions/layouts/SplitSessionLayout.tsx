@@ -149,10 +149,29 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
 
   const allMessages = useMessageStore.getState().perSession;
 
-  const effectiveRatios =
-    splitRatios.length >= visibleKeys.length
-      ? splitRatios
-      : Array(visibleKeys.length).fill(1 / visibleKeys.length);
+  const effectiveRatios = computeEffectiveRatios(splitRatios, visibleKeys.length);
+
+  /**
+   * Compute effective split ratios for the current visible sections.
+   *
+   * The store's splitRatios may be stale after a session is closed
+   * (length mismatch). When the count doesn't match, we coalesce to
+   * equal distribution so remaining sections always fill 100 % of the
+   * container.
+   */
+  function computeEffectiveRatios(
+    ratios: number[],
+    count: number
+  ): number[] {
+    if (count <= 0) return [];
+    if (ratios.length === count) {
+      const sum = ratios.reduce((a, b) => a + b, 0);
+      if (sum > 0) return ratios.map((r) => r / sum);
+    }
+    // Ratios length doesn't match visible sections — reset to equal split.
+    // This happens immediately after closing a session.
+    return Array(count).fill(1 / count);
+  }
 
   const renderSection = (key: string, isFocus: boolean) => {
     const isPinned = pinnedKeys.includes(key);

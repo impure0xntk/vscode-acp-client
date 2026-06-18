@@ -2886,14 +2886,28 @@ body {
   align-items: center;
   gap: 4px;
   padding: 4px 0;
-  flex-wrap: wrap;
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.context-bar::-webkit-scrollbar {
+  height: 3px;
+}
+
+.context-bar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.context-bar::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
 }
 
 .context-bar-chips {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 4px;
-  flex: 1;
+  flex: 0 0 auto;
   min-width: 0;
 }
 
@@ -5529,14 +5543,7 @@ body {
   color: var(--fg-muted);
 }
 
-/* ── Send targets bar (multi-@) ── */
-.send-targets-bar {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 0;
-  flex-wrap: wrap;
-}
+
 
 /* ── Send All button (Composer) ── */
 .send-all-button {
@@ -5580,7 +5587,10 @@ body {
   background: color-mix(in srgb, #4fc3f7 8%, var(--bg-secondary));
 }
 
-/* ── Turn completion flash (mirrors SessionOverviewCard soc-flash-border) ── */
+/* ── Turn completion flash (mirrors SessionOverviewCard soc-flash-border) ──
+   Uses outline (not box-shadow: inset) so the flash is visible on all edges
+   even when sections are adjacent in horizontal / split layouts.
+   outline is drawn outside the border box and is never clipped by siblings. */
 .unified-session-section[data-flashing="completed"] {
   --usec-flash-color: var(--success);
   animation: usec-flash-border 2.5s ease-out forwards;
@@ -5593,22 +5603,28 @@ body {
 
 @keyframes usec-flash-border {
   0% {
-    box-shadow: inset 0 0 0 2px var(--usec-flash-color);
+    outline: 2px solid var(--usec-flash-color);
+    outline-offset: -2px;
   }
   15% {
-    box-shadow: inset 0 0 0 2px transparent;
+    outline: 2px solid transparent;
+    outline-offset: -2px;
   }
   30% {
-    box-shadow: inset 0 0 0 2px var(--usec-flash-color);
+    outline: 2px solid var(--usec-flash-color);
+    outline-offset: -2px;
   }
   45% {
-    box-shadow: inset 0 0 0 2px transparent;
+    outline: 2px solid transparent;
+    outline-offset: -2px;
   }
   60% {
-    box-shadow: inset 0 0 0 2px var(--usec-flash-color);
+    outline: 2px solid var(--usec-flash-color);
+    outline-offset: -2px;
   }
   100% {
-    box-shadow: inset 0 0 0 2px transparent;
+    outline: 2px solid transparent;
+    outline-offset: -2px;
   }
 }
 
@@ -7074,4 +7090,9 @@ body {
   gap: 6px;
   font-size: 11px;
   color: #4fc3f7;
+}
+
+/* Target chips in the unified context-bar: slightly distinct background */
+.context-chip--target {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }

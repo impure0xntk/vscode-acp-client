@@ -114,6 +114,11 @@
     ],
     "keybindings": [
       {
+        "command": "acp.openChat",
+        "key": "ctrl+shift+i",
+        "mac": "cmd+shift+i"
+      },
+      {
         "command": "acp.newSession",
         "key": "ctrl+shift+n",
         "mac": "cmd+shift+n",

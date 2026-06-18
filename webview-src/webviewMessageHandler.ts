@@ -319,6 +319,10 @@ interface UnifiedChatSetLayoutMessage {
   splitRatio?: number;
 }
 
+interface ComposerFocusMessage {
+  type: "composer:focus";
+}
+
 type WebviewMessage =
   | PlanUpdateMessage
   | PlanStepUpdateMessage
@@ -356,7 +360,8 @@ type WebviewMessage =
   | SessionPinnedNotification
   | SessionUnpinnedNotification
   | PathsResolvedMessage
-  | UnifiedChatSetLayoutMessage;
+  | UnifiedChatSetLayoutMessage
+  | ComposerFocusMessage;
 
 // ── Handler functions ───────────────────────────────────────────────────────
 
@@ -979,6 +984,20 @@ export function setupMessageHandlers(): void {
         break;
       case "agent.status":
         handleAgentStatus(data);
+        break;
+      case "composer:focus":
+        requestAnimationFrame(() => {
+          const textarea = document.querySelector<HTMLTextAreaElement>(
+            ".composer textarea"
+          );
+          if (textarea) {
+            textarea.focus();
+            // Place cursor at end
+            const len = textarea.value.length;
+            textarea.selectionStart = len;
+            textarea.selectionEnd = len;
+          }
+        });
         break;
     }
   });

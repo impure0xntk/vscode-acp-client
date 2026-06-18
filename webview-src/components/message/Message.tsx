@@ -7,6 +7,7 @@ import { ToolCallCard } from "./ToolCallCard";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { MessageActions } from "./MessageActions";
 import { usePathResolutionStore } from "../../store/pathResolutionStore";
+import { sessionKeyOf } from "../../store/sessionStore";
 import type { ChatDisplayItem } from "../../pipeline";
 
 export interface MessageProps {
@@ -14,6 +15,7 @@ export interface MessageProps {
   item: ChatDisplayItem;
   isConsecutive: boolean;
   sessionId?: string;
+  agentId?: string;
 }
 
 function openFileFromLink(e: React.MouseEvent<HTMLElement>): void {
@@ -131,12 +133,15 @@ export const Message = React.memo(function Message({
   item,
   isConsecutive,
   sessionId,
+  agentId,
 }: MessageProps): React.ReactElement {
   const { role, content, timestamp, resolvedToolCalls, attachments, thinking, renderContext } =
     item;
 
+  // Use sessionKey (agentId:sessionId) for path resolution lookup
+  const sk = agentId && sessionId ? sessionKeyOf(agentId, sessionId) : "";
   const rawResolved = usePathResolutionStore(
-    (state) => state.resolvedPaths[sessionId ?? ""]
+    (state) => state.resolvedPaths[sk]
   );
 
   const mergedContext = useMemo(

@@ -17,17 +17,19 @@ export interface DisplayItemViewProps {
   idx: number;
   items: PipelineItem[];
   sessionId?: string;
+  agentId?: string;
 }
 
 // ── Chat item ───────────────────────────────────────────────────────────────
 
-function RenderChat(item: ChatDisplayItem, sessionId?: string) {
+function RenderChat(item: ChatDisplayItem, sessionId?: string, agentId?: string) {
   return (
     <Message
       key={item.key}
       item={item}
       isConsecutive={item.isConsecutive}
       sessionId={sessionId}
+      agentId={agentId}
     />
   );
 }
@@ -81,10 +83,11 @@ export function DisplayItemView({
   idx: _idx,
   items: _items,
   sessionId,
+  agentId,
 }: DisplayItemViewProps): React.ReactElement {
   switch (item.type) {
     case "chat":
-      return RenderChat(item, sessionId);
+      return RenderChat(item, sessionId, agentId);
     case "compression":
       return RenderCompression(item);
     case "mode_change":

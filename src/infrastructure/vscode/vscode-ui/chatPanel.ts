@@ -222,6 +222,10 @@ export class ChatPanel {
     this.panel?.reveal();
   }
 
+  focusComposer(): void {
+    this.postMessage({ type: "composer:focus" });
+  }
+
   setActiveSession(
     agentId: string,
     sessionId: string,

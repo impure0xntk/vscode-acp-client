@@ -4,7 +4,12 @@ import React, {
   useCallback,
   type KeyboardEvent,
 } from "react";
-import type { ContextAttachment, SuggestionItem, TriggerType } from "../../types";
+import type {
+  CommunicationMode,
+  ContextAttachment,
+  SuggestionItem,
+  TriggerType,
+} from "../../types";
 import type { SlashCommand, SessionTabState } from "../../store/sessionStore";
 import type { SendTarget } from "../../types";
 import { useSessionStore } from "../../store/sessionStore";
@@ -25,13 +30,27 @@ import {
 
 const MAX_HISTORY = 50;
 
+// ── Mode label + icon config ────────────────────────────────────────
+
+const MODE_META: Record<
+  CommunicationMode,
+  { label: string; icon: string; description: string }
+> = {
+  direct: { label: "Direct", icon: "arrow-right", description: "1:1 direct message" },
+  fanout: { label: "Fanout", icon: "git-branch", description: "1:N broadcast to all targets" },
+  supervisor: { label: "Supervisor", icon: "crown", description: "Lead decomposes task, assigns workers" },
+  pipeline: { label: "Pipeline", icon: "arrow-down", description: "Sequential A→B→C processing" },
+  p2P: { label: "P2P", icon: "repeat", description: "Autonomous agent-to-agent" },
+};
+
 // ── Props ──────────────────────────────────────────────────────────
 
 export interface ComposerProps {
   onSend: (
     text: string,
     attachments: ContextAttachment[],
-    targets?: SendTarget[]
+    targets?: SendTarget[],
+    mode?: CommunicationMode | null
   ) => void;
   onCancel: () => void;
   onNewSession?: () => void;
@@ -39,7 +58,7 @@ export interface ComposerProps {
   onRenameSession?: (agentId: string, sessionId: string, title: string) => void;
   disabled?: boolean;
   status?: "idle" | "running" | "cancelling" | "completed" | "error" | "cancelled";
-  fetchFiles: (query: string) => Promise<FileCandidate[]>;
+  fetchFiles: (query: string, cwd?: string) => Promise<FileCandidate[]>;
   resolveFile: (path: string) => Promise<ContextAttachment>;
   resolveSelection: () => Promise<ContextAttachment | null>;
   resolveDiff: () => Promise<ContextAttachment | null>;
@@ -103,6 +122,7 @@ export function Composer({
   // Read tabs imperatively — getTabs() returns a new array each call,
   // which would cause an infinite loop via useSyncExternalStore.
   const tabs = useSessionStore.getState().getTabs();
+  const connectedAgents = useSessionStore((s) => s.connectedAgents);
 
   const [text, setText] = useState("");
   const [attachments, setAttachments] = useState<ContextAttachment[]>([]);
@@ -129,6 +149,10 @@ export function Composer({
   const addSendTarget = useMeshStore((s) => s.addSendTarget);
   const removeSendTarget = useMeshStore((s) => s.removeSendTarget);
   const clearSendTargets = useMeshStore((s) => s.clearSendTargets);
+
+  // ── Mesh communication mode ──────────────────────────────────────
+  const communicationMode = useMeshStore((s) => s.communicationMode);
+  const setCommunicationMode = useMeshStore((s) => s.setCommunicationMode);
 
   // Track multi-@ mode: true when at least one @ target is selected
   const isMultiMode = sendTargets.length > 0;
@@ -210,6 +234,30 @@ export function Composer({
             icon: "list-tree",
           },
           {
+            id: "mesh:fanout",
+            kind: "action",
+            label: "/mesh fanout",
+            value: "meshFanout",
+            detail: "1:N broadcast — select @targets then send",
+            icon: "git-branch",
+          },
+          {
+            id: "mesh:supervisor",
+            kind: "action",
+            label: "/mesh supervisor",
+            value: "meshSupervisor",
+            detail: "Lead/worker pattern — select lead @target then send",
+            icon: "crown",
+          },
+          {
+            id: "mesh:pipeline",
+            kind: "action",
+            label: "/mesh pipeline",
+            value: "meshPipeline",
+            detail: "Sequential A→B→C — select @targets in order",
+            icon: "arrow-down",
+          },
+          {
             id: "mesh:status",
             kind: "action",
             label: "/mesh status",
@@ -247,15 +295,70 @@ export function Composer({
       }
 
       if (subTrigger === "file") {
-        const files = await fetchFiles(query);
-        const fileItems: SuggestionItem[] = files.map((f) => ({
-          id: `file:${f.relativePath}`,
-          kind: "file" as const,
-          label: f.name,
-          value: f.relativePath,
-          detail: f.relativePath,
-          icon: "file",
-        }));
+        // When multi-@ targets are selected, fetch files from each target's
+        // cwd in parallel and merge results.  Single-target and no-target
+        // cases use the active session's cwd (or undefined).
+        const sessionInfoMap = useSessionStore.getState().sessionInfoMap;
+        const cwds: string[] = [];
+        // Build a reverse map: cwd → "agentId:sessionId" label for display
+        const cwdSources = new Map<string, string>();
+        if (sendTargets.length > 0) {
+          for (const t of sendTargets) {
+            const info = sessionInfoMap[`${t.agentId}:${t.sessionId}`];
+            if (info?.cwd && !cwds.includes(info.cwd)) {
+              cwds.push(info.cwd);
+              cwdSources.set(info.cwd, `${t.agentId}:${t.sessionId}`);
+            }
+          }
+        } else {
+          // Fallback: active session cwd
+          const activeKey = useSessionStore.getState().activeSessionKey;
+          if (activeKey) {
+            const info = sessionInfoMap[activeKey];
+            if (info?.cwd) {
+              cwds.push(info.cwd);
+              cwdSources.set(info.cwd, activeKey);
+            }
+          }
+        }
+
+        // Track how many unique cwds we're fetching from
+        const multiCwd = cwds.length > 1;
+
+        const fileArrays = await Promise.all(
+          cwds.length > 0
+            ? cwds.map((cwd) => fetchFiles(query, cwd))
+            : [fetchFiles(query)]
+        );
+        // Merge and deduplicate by relativePath, tagging each file with its source cwd
+        const seen = new Set<string>();
+        const merged: Array<FileCandidate & { sourceCwd?: string }> = [];
+        for (let i = 0; i < fileArrays.length; i++) {
+          const cwd = cwds[i];
+          for (const f of fileArrays[i]) {
+            if (!seen.has(f.relativePath)) {
+              seen.add(f.relativePath);
+              merged.push({ ...f, sourceCwd: cwd });
+            }
+          }
+        }
+        const fileItems: SuggestionItem[] = merged.map((f) => {
+          // When multiple cwds are merged, show the source agentId:sessionId:cwd
+          // so the user knows which session this file came from.
+          let detail = f.relativePath;
+          if (multiCwd && f.sourceCwd) {
+            const sourceSession = cwdSources.get(f.sourceCwd) ?? "?";
+            detail = `${f.relativePath}  •  ${sourceSession}:${f.sourceCwd}`;
+          }
+          return {
+            id: `file:${f.relativePath}`,
+            kind: "file" as const,
+            label: f.name,
+            value: f.absolutePath,
+            detail,
+            icon: "file",
+          };
+        });
         fileItems.push(
           {
             id: "special:selection",
@@ -433,6 +536,20 @@ export function Composer({
           if (currentPlan) {
             getVsCodeApi().postMessage({ type: "plan.cancel", planId: currentPlan.id });
           }
+        } else if (
+          item.value === "meshFanout" ||
+          item.value === "meshSupervisor" ||
+          item.value === "meshPipeline"
+        ) {
+          // Set communication mode — next @ picks become targets for this mode
+          const modeMap: Record<string, CommunicationMode> = {
+            meshFanout: "fanout",
+            meshSupervisor: "supervisor",
+            meshPipeline: "pipeline",
+          };
+          setCommunicationMode(modeMap[item.value]);
+          // Clear any stale targets from a previous mode
+          clearSendTargets();
         }
         newText = before + after;
         setText(newText);
@@ -574,10 +691,12 @@ export function Composer({
         textLen: trimmed.length,
         attachments: attachments.length,
         targets: targets?.length ?? 0,
+        mode: communicationMode,
       });
-      onSend(trimmed, attachments, targets);
+      onSend(trimmed, attachments, targets, communicationMode);
 
       clearSendTargets();
+      setCommunicationMode(null);
       resetPicker();
       setText("");
       setAttachments([]);
@@ -614,7 +733,38 @@ export function Composer({
         return;
       }
 
-      // Picker closed: ArrowUp/Down navigates message history
+      // Picker closed: ArrowUp/Down navigates message history.
+      // For multiline input, only navigate at the *boundary* of the textarea:
+      //   ArrowUp   → cursor is on the first line (any column)
+      //   ArrowDown → cursor is on the last line  (any column)
+      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+        const textarea = textareaRef.current;
+        if (textarea) {
+          const { selectionStart, value } = textarea;
+          const lines = value.split("\n");
+
+          // Determine cursor line-index
+          let offset = 0;
+          let cursorLine = 0;
+          for (let i = 0; i < lines.length; i++) {
+            const next = offset + lines[i].length;
+            if (selectionStart <= next) {
+              cursorLine = i;
+              break;
+            }
+            offset = next + 1; // skip the newline
+          }
+
+          if (e.key === "ArrowUp") {
+            // Allow history nav only when on the first line
+            if (cursorLine > 0) return;
+          } else {
+            // ArrowDown — allow history nav only on the last line
+            if (cursorLine < lines.length - 1) return;
+          }
+        }
+      }
+
       if (e.key === "ArrowUp") {
         const history = historyRef.current;
         if (history.length === 0) return;
@@ -664,30 +814,28 @@ export function Composer({
 
   return (
     <div className="composer">
-      <ContextBar attachments={attachments} onRemove={handleRemoveAttachment} />
+      <ContextBar
+        attachments={attachments}
+        onRemove={handleRemoveAttachment}
+        sendTargets={sendTargets}
+        onRemoveSendTarget={removeSendTarget}
+        connectedAgents={connectedAgents}
+      />
 
-      {/* Multi-@ send target chips — rendered in ContextBar style */}
-      {sendTargets.length > 0 && (
-        <div className="send-targets-bar">
-          {sendTargets.map((target) => (
-            <span
-              key={`${target.agentId}:${target.sessionId}`}
-              className="context-chip"
-              title={`${target.agentId}:${target.sessionId}`}
-            >
-              <Icon name="chat" className="context-chip-icon" size="sm" />
-              <span className="context-chip-label">{target.label}</span>
-              <button
-                className="context-chip-remove"
-                onClick={() =>
-                  removeSendTarget(target.agentId, target.sessionId)
-                }
-                title="Remove"
-              >
-                <Icon name="close" size="sm" />
-              </button>
-            </span>
-          ))}
+      {/* Mesh mode badge — shown when /mesh fanout|supervisor|pipeline is active */}
+      {communicationMode && (
+        <div className="mesh-mode-badge">
+          <Icon name={MODE_META[communicationMode].icon} size="sm" />
+          <span className="mesh-mode-badge-label">
+            {MODE_META[communicationMode].label}
+          </span>
+          <button
+            className="mesh-mode-badge-remove"
+            onClick={() => setCommunicationMode(null)}
+            title="Clear mode"
+          >
+            <Icon name="close" size="sm" />
+          </button>
         </div>
       )}
 

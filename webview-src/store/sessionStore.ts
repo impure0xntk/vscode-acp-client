@@ -445,12 +445,24 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
           : state.activeSessionKey;
       // Clean up the pipeline cache for the removed session
       removePipelineCache(targetKey);
+
+      // Recompute pinned keys and split ratios if the removed session was pinned
+      let nextPinned = state.pinnedSessionKeys;
+      let nextRatios = state.splitRatios;
+      if (state.pinnedSessionKeys.includes(targetKey)) {
+        nextPinned = state.pinnedSessionKeys.filter((k) => k !== targetKey);
+        const count = nextPinned.length;
+        nextRatios = count > 0 ? Array(count).fill(1 / count) : [];
+      }
+
       return {
         ...state,
         tabOrder: nextOrder,
         sessionInfoMap: nextInfoMap,
         promptQueue: nextQueue,
         activeSessionKey: nextActive,
+        pinnedSessionKeys: nextPinned,
+        splitRatios: nextRatios,
       };
     }),
 

@@ -77,6 +77,10 @@ export function registerConnectCommands(
       wireChatPanelEvents,
       orchestrator
     );
+    // Focus the Composer textarea in the webview after panel is visible
+    setTimeout(() => {
+      getChatPanel()?.focusComposer();
+    }, 300);
   });
 
   // acp.connect command

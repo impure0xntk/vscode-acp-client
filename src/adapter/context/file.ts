@@ -1,5 +1,6 @@
 import type { FileSystemAPI } from "../../platform/filesystem";
 import type { FileCandidate } from "../../platform/filesystem";
+import type { PlatformUri } from "../../platform/types";
 
 export type { FileCandidate };
 
@@ -19,22 +20,26 @@ export async function searchFiles(
   const raw =
     query.includes("*") || query.includes("{") ? query : `**/*${query}*`;
 
-  // When cwd differs from workspace root, prepend cwd-relative prefix
-  // so findFiles (which accepts workspace-relative globs) scopes correctly.
-  // e.g. cwd="/ws/sub", query="foo" → "sub/**/foo*", relativePath stripped to "sub/" prefix.
-  let pattern: string;
-  let cwdPrefix: string | undefined;
-  if (cwd && cwd !== wsRoot) {
-    const relCwd = fs.relativePath(wsRoot, cwd);
-    cwdPrefix = relCwd;
-    pattern = relCwd === "." ? raw : `${relCwd}/${raw}`;
-  } else {
-    pattern = raw;
-  }
-
   const exclude =
     "{**/node_modules/**,**/.git/**,**/dist/**,**/build/**,**/.next/**}";
-  const uris = await fs.findFiles(pattern, exclude, MAX_CANDIDATES);
+
+  let uris: PlatformUri[];
+
+  // When cwd is provided and fs supports findFilesInDirectory, use it
+  // to search in any directory (including outside the workspace).
+  if (cwd && fs.findFilesInDirectory) {
+    uris = await fs.findFilesInDirectory(cwd, raw, exclude, MAX_CANDIDATES);
+  } else {
+    // Fallback: use workspace-relative pattern (original behavior).
+    let pattern: string;
+    if (cwd && cwd !== wsRoot) {
+      const relCwd = fs.relativePath(wsRoot, cwd);
+      pattern = relCwd === "." ? raw : `${relCwd}/${raw}`;
+    } else {
+      pattern = raw;
+    }
+    uris = await fs.findFiles(pattern, exclude, MAX_CANDIDATES);
+  }
 
   const results: FileCandidate[] = [];
   const seen = new Set<string>();

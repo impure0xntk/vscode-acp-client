@@ -31,6 +31,18 @@ export interface FileSystemAPI {
     maxResults?: number
   ): Promise<PlatformUri[]>;
 
+  /**
+   * Find files in an absolute directory using a glob pattern.
+   * Unlike findFiles (which searches the workspace), this method
+   * can search any directory, including those outside the workspace.
+   */
+  findFilesInDirectory?(
+    cwd: string,
+    pattern: string,
+    exclude?: string,
+    maxResults?: number
+  ): Promise<PlatformUri[]>;
+
   // ── Watch ──
   watchFiles(
     pattern: string,

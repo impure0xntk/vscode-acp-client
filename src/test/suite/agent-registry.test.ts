@@ -26,6 +26,7 @@ function makePlatform(configValues: Record<string, unknown>): PlatformAPI {
     fileExists: async () => false,
     stat: async () => ({ type: "file", mtime: 0, size: 0 }),
     findFiles: async () => [],
+    findFilesInDirectory: async () => [],
     watchFiles: () => () => {},
     captureSnapshot: async () => ({ path: "", content: "", mtime: 0 }),
     uri: () => ({

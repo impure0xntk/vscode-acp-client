@@ -290,6 +290,11 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
 
   // -----------------------------------------------------------------------
   // Session completed (background-only notification)
+  // NOTE: Do NOT call sendTabs() here. sendTabs() re-registers all sessions
+  // in the presenter and rebuilds tabOrder in the webview, which causes
+  // unpinned sessions to reappear in the multi-session view and overview.
+  // The session status change is already reflected by pushSessionInfo +
+  // the debounced sessionOverview:update emission from the orchestrator.
   // -----------------------------------------------------------------------
   orchestrator.on(
     "sessionCompleted",
@@ -314,8 +319,6 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
       if (info) {
         cp?.pushSessionInfo(agentId, sessionId, info);
       }
-      sendTabs();
-
       // Push updated overview after session completion
       if (cp) {
         const overview = orchestrator.getSessionOverview();

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type {
+  CommunicationMode,
   MeshAgentStatus,
   MeshTaskEntry,
   MeshRecentMessage,
@@ -14,6 +15,8 @@ export interface MeshState {
   recentMessages: MeshRecentMessage[];
   sendTargets: SendTarget[];
   meshPanelVisible: boolean;
+  /** Active mesh communication mode — set by /mesh command, cleared on send */
+  communicationMode: CommunicationMode | null;
 
   setAgentStatuses: (statuses: MeshAgentStatus[]) => void;
   updateAgentStatus: (
@@ -35,6 +38,7 @@ export interface MeshState {
   ) => void;
 
   setMeshPanelVisible: (visible: boolean) => void;
+  setCommunicationMode: (mode: CommunicationMode | null) => void;
 }
 
 export const useMeshStore = create<MeshState>((set, get) => ({
@@ -43,6 +47,7 @@ export const useMeshStore = create<MeshState>((set, get) => ({
   recentMessages: [],
   sendTargets: [],
   meshPanelVisible: false,
+  communicationMode: null,
 
   setAgentStatuses: (statuses) =>
     set((s) =>
@@ -124,5 +129,9 @@ export const useMeshStore = create<MeshState>((set, get) => ({
   setMeshPanelVisible: (visible) =>
     set((s) =>
       s.meshPanelVisible === visible ? s : { meshPanelVisible: visible }
+    ),
+  setCommunicationMode: (mode) =>
+    set((s) =>
+      s.communicationMode === mode ? s : { communicationMode: mode }
     ),
 }));

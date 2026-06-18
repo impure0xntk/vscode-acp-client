@@ -37,7 +37,7 @@ export interface ClassicModeProps {
   onSwitchSession: (agentId: string, sessionId: string) => void;
   onRenameSession?: (agentId: string, sessionId: string, title: string) => void;
   onNewSession: () => void;
-  fetchFiles: (query: string) => Promise<FileCandidate[]>;
+  fetchFiles: (query: string, cwd?: string) => Promise<FileCandidate[]>;
   resolveFile: (path: string) => Promise<ContextAttachment>;
   resolveSelection: () => Promise<ContextAttachment | null>;
   resolveDiff: () => Promise<ContextAttachment | null>;

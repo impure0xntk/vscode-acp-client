@@ -11,8 +11,8 @@ export const SCROLL_BOTTOM_THRESHOLD = 100;
 // Zustand → useSyncExternalStore → infinite re-render loops.
 
 interface UiStateStore {
-  // Panel mode: "classic" = original single-session view, "unified" = multi-session unified panel
-  panelMode: "classic" | "unified";
+  // Panel mode: "classic" | "unified" | "supervisor" (multi-agent lead-worker)
+  panelMode: "classic" | "unified" | "supervisor";
 
   // Overview panel chrome
   overviewVisible: boolean;
@@ -25,7 +25,7 @@ interface UiStateStore {
 
   // ── Panel mode ─────────────────────────────────────────────────────────
 
-  setPanelMode: (mode: "classic" | "unified") => void;
+  setPanelMode: (mode: "classic" | "unified" | "supervisor") => void;
 
   // ── Overview chrome actions ────────────────────────────────────────────
 

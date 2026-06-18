@@ -203,6 +203,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                 idx={idx}
                 items={items}
                 sessionId={sessionId}
+                agentId={agentId}
               />
             ))}
             {isStreaming && (

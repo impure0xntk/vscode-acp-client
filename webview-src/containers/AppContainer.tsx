@@ -333,7 +333,7 @@ export function AppContainer(): React.ReactElement {
   }, [log]);
 
   // ── File/symbol resolution ─────────────────────────────────────────
-  const fetchFiles = useCallback((query: string) => {
+  const fetchFiles = useCallback((query: string, cwd?: string) => {
     return new Promise<import("../types").FileCandidate[]>((resolve) => {
       const reqId = crypto.randomUUID();
       const handler = (event: MessageEvent) => {
@@ -346,7 +346,13 @@ export function AppContainer(): React.ReactElement {
         }
       };
       window.addEventListener("message", handler);
-      getVsCodeApi().postMessage({ type: "fetchFiles", query, reqId });
+      // If cwd is not provided, fall back to the active session's cwd
+      const effectiveCwd = cwd ?? (() => {
+        const store = useSessionStore.getState();
+        const key = store.activeSessionKey;
+        return key ? store.sessionInfoMap[key]?.cwd : undefined;
+      })();
+      getVsCodeApi().postMessage({ type: "fetchFiles", query, reqId, cwd: effectiveCwd });
     });
   }, []);
 
