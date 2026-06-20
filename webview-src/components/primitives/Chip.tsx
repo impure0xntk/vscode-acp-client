@@ -1,7 +1,7 @@
 import React from "react";
-import type { ToolbarMeta, ContextColor } from "../../types"
-import type { SessionTabStatus } from "../../store/sessionStore"
-import { Icon } from "../../lib/icons"
+import type { ToolbarMeta, ContextColor } from "../../types";
+import type { SessionTabStatus } from "../../store/sessionStore";
+import { Icon } from "../../lib/icons";
 
 export type { ToolbarMeta, ContextColor };
 

@@ -4,11 +4,7 @@ import { SearchBar, type SortField, type SortDir } from "./SearchBar";
 import { SessionList, type PersistentSessionEntry } from "./SessionList";
 import { DetailModal } from "./DetailModal";
 import { CompareBar } from "./CompareView";
-import {
-  groupByDate,
-  exportAsJson,
-  exportAsMarkdown,
-} from "./formatting";
+import { groupByDate, exportAsJson, exportAsMarkdown } from "./formatting";
 import type { ChatMessage } from "./DetailModal";
 
 // ── Re-export types for backward compat ────────────────────────────────────

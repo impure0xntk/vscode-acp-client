@@ -104,6 +104,7 @@ export class SupervisorManager {
 
     log.info("supervise start", {
       leadAgentId: config.leadTarget.agentId,
+      leadSessionId: config.leadTarget.sessionId,
       workerCount: config.workerTargets.length,
       hasLeadOutput: leadOutput !== undefined,
       maxRetries,

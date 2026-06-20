@@ -2,27 +2,35 @@ import { create } from "zustand";
 import type {
   CommunicationMode,
   MeshAgentStatus,
+  MeshTeamEntry,
   MeshTaskEntry,
   MeshRecentMessage,
   SendTarget,
+  SelectedTeam,
 } from "../types";
 
 // ── Store shape ──────────────────────────────────────────────────────────────
 
 export interface MeshState {
   agentStatuses: MeshAgentStatus[];
+  teams: MeshTeamEntry[];
   tasks: MeshTaskEntry[];
   recentMessages: MeshRecentMessage[];
   sendTargets: SendTarget[];
   meshPanelVisible: boolean;
   /** Active mesh communication mode — set by /mesh command, cleared on send */
   communicationMode: CommunicationMode | null;
+  /** Selected team for @team: picker — set when user picks a team, cleared on send */
+  selectedTeam: SelectedTeam | null;
 
   setAgentStatuses: (statuses: MeshAgentStatus[]) => void;
   updateAgentStatus: (
     agentId: string,
     updates: Partial<MeshAgentStatus>
   ) => void;
+  setTeams: (teams: MeshTeamEntry[]) => void;
+  addTeam: (team: MeshTeamEntry) => void;
+  updateTeam: (teamId: string, updates: Partial<MeshTeamEntry>) => void;
   setTasks: (tasks: MeshTaskEntry[]) => void;
   updateTask: (taskId: string, updates: Partial<MeshTaskEntry>) => void;
   setRecentMessages: (messages: MeshRecentMessage[]) => void;
@@ -39,15 +47,18 @@ export interface MeshState {
 
   setMeshPanelVisible: (visible: boolean) => void;
   setCommunicationMode: (mode: CommunicationMode | null) => void;
+  setSelectedTeam: (team: SelectedTeam | null) => void;
 }
 
 export const useMeshStore = create<MeshState>((set, get) => ({
   agentStatuses: [],
+  teams: [],
   tasks: [],
   recentMessages: [],
   sendTargets: [],
   meshPanelVisible: false,
   communicationMode: null,
+  selectedTeam: null,
 
   setAgentStatuses: (statuses) =>
     set((s) =>
@@ -64,6 +75,27 @@ export const useMeshStore = create<MeshState>((set, get) => ({
       const arr = [...state.agentStatuses];
       arr[idx] = next;
       return { ...state, agentStatuses: arr };
+    }),
+
+  setTeams: (teams) => set((s) => (s.teams === teams ? s : { teams })),
+
+  addTeam: (team) =>
+    set((state) => {
+      const exists = state.teams.some((t) => t.id === team.id);
+      if (exists) return state;
+      return { ...state, teams: [...state.teams, team] };
+    }),
+
+  updateTeam: (teamId, updates) =>
+    set((state) => {
+      const idx = state.teams.findIndex((t) => t.id === teamId);
+      if (idx < 0) return state;
+      const prev = state.teams[idx];
+      const next = { ...prev, ...updates };
+      if (prev === next) return state;
+      const arr = [...state.teams];
+      arr[idx] = next;
+      return { ...state, teams: arr };
     }),
 
   setTasks: (tasks) => set((s) => (s.tasks === tasks ? s : { tasks })),
@@ -134,4 +166,6 @@ export const useMeshStore = create<MeshState>((set, get) => ({
     set((s) =>
       s.communicationMode === mode ? s : { communicationMode: mode }
     ),
+  setSelectedTeam: (team) =>
+    set((s) => (s.selectedTeam === team ? s : { selectedTeam: team })),
 }));

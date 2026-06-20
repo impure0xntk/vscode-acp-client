@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { getLogger } from "../../../lib/logger"
+import { getLogger } from "../../../lib/logger";
 
 const log = getLogger("webview.SessionOverviewCard");
 import type { SessionOverviewItem } from "../../../types";
@@ -14,8 +14,8 @@ import {
   elapsedTier,
   snapshotToOverviewItem,
 } from "./SessionOverviewCardBase";
-import { useSessionStore } from "../../../store/sessionStore"
-import type { TurnOutcome } from "../../primitives/StatusIcon"
+import { useSessionStore } from "../../../store/sessionStore";
+import type { TurnOutcome } from "../../primitives/StatusIcon";
 
 // ============================================================================
 // SessionOverviewCard — full vertical card for the overview panel

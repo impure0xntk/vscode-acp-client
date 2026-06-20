@@ -129,7 +129,10 @@ describe("readTextFile error handling", () => {
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { BatchedPathResolver } = require("../../extension/pathResolver");
 
-function createResolver(cwd: string, onResolved: (paths: string[]) => void): any {
+function createResolver(
+  cwd: string,
+  onResolved: (paths: string[]) => void
+): any {
   return new BatchedPathResolver(cwd, { onResolved });
 }
 

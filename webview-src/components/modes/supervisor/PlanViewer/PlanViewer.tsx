@@ -11,6 +11,7 @@ export interface PlanViewerProps {
   onAddStep: (description: string, afterStepId?: string) => void;
   onRemoveStep: (stepId: string) => void;
   onCancel: () => void;
+  onClose: () => void;
   onReplan?: (failedStepId: string, reason: string) => void;
 }
 
@@ -22,6 +23,7 @@ export function PlanViewer({
   onAddStep,
   onRemoveStep,
   onCancel,
+  onClose,
   onReplan,
 }: PlanViewerProps): React.ReactElement | null {
   const [addingAfter, setAddingAfter] = useState<string | null>(null);
@@ -50,9 +52,12 @@ export function PlanViewer({
 
   if (!plan) return null;
 
-  const completedCount = plan.steps.filter((s) => s.status === "completed").length;
+  const completedCount = plan.steps.filter(
+    (s) => s.status === "completed"
+  ).length;
   const totalSteps = plan.steps.length;
-  const progressPct = totalSteps > 0 ? Math.round((completedCount / totalSteps) * 100) : 0;
+  const progressPct =
+    totalSteps > 0 ? Math.round((completedCount / totalSteps) * 100) : 0;
 
   const failedSteps = plan.steps.filter((s) => s.status === "failed");
 
@@ -63,23 +68,35 @@ export function PlanViewer({
           <Icon name="list-tree" size="sm" />
           <span>Execution Plan</span>
         </div>
-        <span className={`plan-viewer-status plan-viewer-status--${plan.status}`}>
-          {plan.status === "executing"
-            ? `Executing (${completedCount}/${totalSteps})`
-            : plan.status === "completed"
-              ? "Completed"
-              : plan.status === "failed"
-                ? "Failed"
-                : plan.status === "cancelled"
-                  ? "Cancelled"
-                  : plan.status === "approved"
-                    ? "Approved — executing..."
-                    : plan.status === "rejected"
-                      ? "Rejected"
-                      : plan.status === "draft"
-                        ? "Draft"
-                        : "Pending approval"}
-        </span>
+        <div className="plan-viewer-header-right">
+          <span
+            className={`plan-viewer-status plan-viewer-status--${plan.status}`}
+          >
+            {plan.status === "executing"
+              ? `Executing (${completedCount}/${totalSteps})`
+              : plan.status === "completed"
+                ? "Completed"
+                : plan.status === "failed"
+                  ? "Failed"
+                  : plan.status === "cancelled"
+                    ? "Cancelled"
+                    : plan.status === "approved"
+                      ? "Approved — executing..."
+                      : plan.status === "rejected"
+                        ? "Rejected"
+                        : plan.status === "draft"
+                          ? "Draft"
+                          : "Pending approval"}
+          </span>
+          <button
+            className="plan-viewer-close"
+            onClick={onClose}
+            type="button"
+            aria-label="Close plan"
+          >
+            <Icon name="close" size="sm" />
+          </button>
+        </div>
       </div>
 
       {(plan.status === "executing" || plan.status === "approved") && (
@@ -104,7 +121,11 @@ export function PlanViewer({
               index={step.index}
               canModify={plan.status === "pending"}
               onModify={(newDesc) => onModifyStep(step.id, newDesc)}
-              onRemove={plan.status === "pending" ? () => onRemoveStep(step.id) : undefined}
+              onRemove={
+                plan.status === "pending"
+                  ? () => onRemoveStep(step.id)
+                  : undefined
+              }
               onStartAddAfter={() => handleStartAdd(step.id)}
               onReplan={
                 onReplan && step.status === "failed"
@@ -125,10 +146,18 @@ export function PlanViewer({
                     if (e.key === "Escape") handleCancelAdd();
                   }}
                 />
-                <button className="plan-step-add-confirm" onClick={handleCommitAdd} type="button">
+                <button
+                  className="plan-step-add-confirm"
+                  onClick={handleCommitAdd}
+                  type="button"
+                >
                   <Icon name="check" size="sm" />
                 </button>
-                <button className="plan-step-add-cancel" onClick={handleCancelAdd} type="button">
+                <button
+                  className="plan-step-add-cancel"
+                  onClick={handleCancelAdd}
+                  type="button"
+                >
                   <Icon name="close" size="sm" />
                 </button>
               </div>
@@ -151,10 +180,18 @@ export function PlanViewer({
                     if (e.key === "Escape") handleCancelAdd();
                   }}
                 />
-                <button className="plan-step-add-confirm" onClick={handleCommitAdd} type="button">
+                <button
+                  className="plan-step-add-confirm"
+                  onClick={handleCommitAdd}
+                  type="button"
+                >
                   <Icon name="check" size="sm" />
                 </button>
-                <button className="plan-step-add-cancel" onClick={handleCancelAdd} type="button">
+                <button
+                  className="plan-step-add-cancel"
+                  onClick={handleCancelAdd}
+                  type="button"
+                >
                   <Icon name="close" size="sm" />
                 </button>
               </div>
@@ -174,11 +211,19 @@ export function PlanViewer({
 
       {plan.status === "pending" && (
         <div className="plan-viewer-actions">
-          <button className="plan-viewer-approve" onClick={onApprove} type="button">
+          <button
+            className="plan-viewer-approve"
+            onClick={onApprove}
+            type="button"
+          >
             <Icon name="pass-filled" size="sm" />
             Approve & Execute
           </button>
-          <button className="plan-viewer-reject" onClick={onReject} type="button">
+          <button
+            className="plan-viewer-reject"
+            onClick={onReject}
+            type="button"
+          >
             <Icon name="circle-slash" size="sm" />
             Reject
           </button>
@@ -187,25 +232,36 @@ export function PlanViewer({
 
       {plan.status === "executing" && (
         <div className="plan-viewer-actions">
-          <button className="plan-viewer-cancel" onClick={onCancel} type="button">
+          <button
+            className="plan-viewer-cancel"
+            onClick={onCancel}
+            type="button"
+          >
             <Icon name="circle-slash" size="sm" />
             Cancel Execution
           </button>
         </div>
       )}
 
-      {(plan.status === "completed" || plan.status === "failed") && failedSteps.length > 0 && onReplan && (
-        <div className="plan-viewer-actions">
-          <button
-            className="plan-viewer-replan"
-            onClick={() => onReplan(failedSteps[0].id, failedSteps[0].error ?? "Step failed")}
-            type="button"
-          >
-            <Icon name="sync" size="sm" />
-            Replan Failed Steps
-          </button>
-        </div>
-      )}
+      {(plan.status === "completed" || plan.status === "failed") &&
+        failedSteps.length > 0 &&
+        onReplan && (
+          <div className="plan-viewer-actions">
+            <button
+              className="plan-viewer-replan"
+              onClick={() =>
+                onReplan(
+                  failedSteps[0].id,
+                  failedSteps[0].error ?? "Step failed"
+                )
+              }
+              type="button"
+            >
+              <Icon name="sync" size="sm" />
+              Replan Failed Steps
+            </button>
+          </div>
+        )}
     </div>
   );
 }

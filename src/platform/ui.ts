@@ -161,4 +161,7 @@ export interface UIAPI {
 
   // ── Clipboard ──
   clipboardWriteText(text: string): Promise<void>;
+
+  // ── Configuration ──
+  getConfiguration<T>(section: string, key: string, defaultValue: T): T;
 }

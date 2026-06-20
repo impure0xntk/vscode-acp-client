@@ -108,7 +108,10 @@ export class VscodePlatform implements PlatformAPI {
   private ctx: vscode.ExtensionContext;
   private sinkBackend: LogEntrySinkBackend | null = null;
 
-  constructor(options: { context: vscode.ExtensionContext; logLevel?: LogLevelValue }) {
+  constructor(options: {
+    context: vscode.ExtensionContext;
+    logLevel?: LogLevelValue;
+  }) {
     this.ctx = options.context;
     this.version = vscode.version;
 
@@ -226,7 +229,7 @@ export class VscodeUIAPI implements UIAPI {
     return this.createInternalOutputChannel(name);
   }
 
-  /** @internal LoggerFactory 用の直接 OutputChannel アクセス */
+  /** @internal Direct OutputChannel access for LoggerFactory */
   createInternalOutputChannel(name: string): OutputChannel {
     const channel = vscode.window.createOutputChannel(name);
     return {
@@ -363,6 +366,10 @@ export class VscodeUIAPI implements UIAPI {
   async clipboardWriteText(text: string): Promise<void> {
     await vscode.env.clipboard.writeText(text);
   }
+
+  getConfiguration<T>(section: string, key: string, defaultValue: T): T {
+    return vscode.workspace.getConfiguration(section).get<T>(key, defaultValue);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -416,7 +423,11 @@ class VscodeFileSystemAPI implements FileSystemAPI {
   ): Promise<PlatformUri[]> {
     const baseUri = vscode.Uri.file(cwd);
     const relativePattern = new vscode.RelativePattern(baseUri, pattern);
-    const uris = await vscode.workspace.findFiles(relativePattern, exclude, maxResults);
+    const uris = await vscode.workspace.findFiles(
+      relativePattern,
+      exclude,
+      maxResults
+    );
     return uris.map((uri) => toPlatformUri(uri));
   }
 
@@ -514,7 +525,11 @@ class VscodeEditorAPI implements EditorAPI {
   }
 
   get activeEditor(): ActiveEditor | undefined {
-    const editor = vscode.window.activeTextEditor;
+    // When the webview panel has focus, activeTextEditor is undefined.
+    // Fall back to the first visible text editor so that selection
+    // attachment still works while the chat panel is focused.
+    const editor =
+      vscode.window.activeTextEditor ?? vscode.window.visibleTextEditors[0];
     if (!editor) return undefined;
     return {
       documentUri: toPlatformUri(editor.document.uri),

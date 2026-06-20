@@ -73,7 +73,7 @@ beforeEach(() => {
     tabIcons: {},
     pinnedSessionKeys: [],
     layoutMode: "single",
-    splitDirection: "vertical",
+    splitDirection: "horizontal",
     splitRatios: [],
     promptQueue: {},
     connectedAgents: [],

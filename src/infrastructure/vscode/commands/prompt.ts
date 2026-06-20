@@ -19,6 +19,7 @@ import {
 import type { SendTarget } from "../../../domain/models/mesh";
 import type { MeshOrchestrator } from "../../../domain/services/mesh-orchestrator";
 import type { SupervisorOrchestrator } from "../../../domain/services/supervisor-orchestrator";
+import { getLogger } from "../../../platform/backends";
 
 // -----------------------------------------------------------------------
 // Internal state — captured via closure so meshSend can access
@@ -114,10 +115,31 @@ export function wireChatPanelEvents(
 
   chatPanel.onOpenFile(({ path: openPath, line }) => {
     void (async () => {
-      const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "";
-      const absPath = path.isAbsolute(openPath)
-        ? openPath
-        : path.join(ws, openPath);
+      let absPath: string;
+      if (path.isAbsolute(openPath)) {
+        absPath = openPath;
+      } else {
+        // Resolve relative to the active session's cwd, not workspace root.
+        // This matches how BatchedPathResolver resolves paths.
+        const activeAgent = orchestrator.getAllAgents()[0];
+        const activeSessionId = activeAgent
+          ? (orchestrator.getActiveSessionId(activeAgent.agentId) ??
+            activeAgent.sessions[0]?.sessionId)
+          : undefined;
+        let cwd: string | undefined;
+        if (activeAgent && activeSessionId) {
+          const info = orchestrator.getSessionInfo(
+            activeAgent.agentId,
+            activeSessionId
+          );
+          cwd = info?.cwd;
+        }
+        const base =
+          cwd ??
+          vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ??
+          process.cwd();
+        absPath = path.resolve(base, openPath);
+      }
       const uri = vscode.Uri.file(absPath);
       try {
         const doc = await vscode.workspace.openTextDocument(uri);
@@ -430,12 +452,45 @@ export function wireChatPanelEvents(
       // Mesh send — single or multi-target (mesh:send)
       // ==================================================================
       case "mesh:send": {
-        const { text, attachments, targets } = data as {
+        const { text, attachments, targets, mode, teamId } = data as {
           text: string;
           attachments: ContextAttachmentDTO[];
           targets: SendTarget[];
+          mode?: string;
+          teamId?: string;
         };
-        meshSend(text, attachments, targets);
+        // Supervisor mode: use SupervisorOrchestrator to distribute to team
+        if (mode === "supervisor" && teamId && _supervisorOrchestrator && _orchestrator) {
+          const team = meshOrchestrator?.getTeam(teamId);
+          if (team) {
+            const leadTarget: SendTarget = {
+              agentId: team.lead.agentId,
+              sessionId: team.lead.sessionId,
+              label: "Lead",
+              status: "idle",
+            };
+            const workerTargets: SendTarget[] = team.members
+              .filter(
+                (m) =>
+                  !(m.agentId === team.lead.agentId &&
+                    m.sessionId === team.lead.sessionId)
+              )
+              .map((m) => ({
+                agentId: m.agentId,
+                sessionId: m.sessionId,
+                label: m.agentId,
+                status: "idle" as const,
+              }));
+            void _supervisorOrchestrator.executePlanFromUserRequest(
+              teamId,
+              leadTarget,
+              workerTargets,
+              text
+            );
+          }
+        } else {
+          meshSend(text, attachments, targets);
+        }
         break;
       }
 
@@ -445,7 +500,20 @@ export function wireChatPanelEvents(
       case "mesh:getStatus": {
         if (meshOrchestrator) {
           const statuses = meshOrchestrator.getAgentStatuses();
-          chatPanel?.postMessage({ type: "mesh:status", agents: statuses });
+          const teams = meshOrchestrator.getAllTeams();
+          chatPanel?.postMessage({
+            type: "mesh:status",
+            agents: statuses,
+            teams: teams.map((t) => ({
+              id: t.id,
+              name: t.name,
+              description: t.description,
+              lead: t.lead,
+              members: t.members,
+              status: t.status,
+              createdAt: t.createdAt.toISOString(),
+            })),
+          });
         }
         break;
       }
@@ -464,6 +532,153 @@ export function wireChatPanelEvents(
       }
       case "mesh:togglePanel": {
         // Webview manages its own panel visibility; no-op on extension host side.
+        break;
+      }
+      case "mesh:plan": {
+        // Create a plan via SupervisorOrchestrator
+        if (_supervisorOrchestrator && _orchestrator) {
+          const teamId = (data.teamId as string) ?? "";
+          let plannerAgentId: string | undefined;
+          let plannerSessionId: string | undefined;
+
+          // If teamId is specified, use the team's lead session as planner
+          if (teamId && meshOrchestrator) {
+            const team = meshOrchestrator.getTeam(teamId);
+            if (team) {
+              plannerAgentId = team.lead.agentId;
+              plannerSessionId = team.lead.sessionId;
+            }
+          }
+
+          // Fallback to first active agent
+          if (!plannerAgentId || !plannerSessionId) {
+            const activeAgent = _orchestrator.getAllAgents()[0];
+            if (activeAgent) {
+              plannerAgentId = activeAgent.agentId;
+              plannerSessionId =
+                _orchestrator.getActiveSessionId(plannerAgentId) ??
+                activeAgent.sessions[0]?.sessionId;
+            }
+          }
+
+          if (plannerAgentId && plannerSessionId) {
+            void _supervisorOrchestrator.createPlan(
+              plannerAgentId,
+              plannerSessionId,
+              (data.text as string) ?? "",
+              teamId
+            );
+          }
+        }
+        break;
+      }
+      case "mesh:addMemberToTeam": {
+        const { teamId, agentId, sessionId } = data as {
+          teamId: string;
+          agentId: string;
+          sessionId: string;
+        };
+        if (meshOrchestrator) {
+          try {
+            const team = meshOrchestrator.addMemberToTeam(teamId, {
+              agentId,
+              sessionId,
+            });
+            chatPanel?.postMessage({
+              type: "mesh:teamUpdated",
+              team: {
+                id: team.id,
+                name: team.name,
+                description: team.description,
+                lead: team.lead,
+                members: team.members,
+                status: team.status,
+                createdAt: team.createdAt.toISOString(),
+              },
+            });
+          } catch (e) {
+            getLogger("prompt").error(
+              "addMemberToTeam failed",
+              {
+                teamId,
+                agentId,
+                sessionId,
+              },
+              e as Error
+            );
+          }
+        }
+        break;
+      }
+      case "mesh:removeMemberFromTeam": {
+        const { teamId, agentId, sessionId } = data as {
+          teamId: string;
+          agentId: string;
+          sessionId: string;
+        };
+        if (meshOrchestrator) {
+          void meshOrchestrator
+            .removeMemberFromTeam(teamId, { agentId, sessionId })
+            .then((team) => {
+              chatPanel?.postMessage({
+                type: "mesh:teamUpdated",
+                team: {
+                  id: team.id,
+                  name: team.name,
+                  description: team.description,
+                  lead: team.lead,
+                  members: team.members,
+                  status: team.status,
+                  createdAt: team.createdAt.toISOString(),
+                },
+              });
+            })
+            .catch((e: Error) => {
+              getLogger("prompt").error(
+                "removeMemberFromTeam failed",
+                {
+                  teamId,
+                  agentId,
+                  sessionId,
+                },
+                e
+              );
+            });
+        }
+        break;
+      }
+      case "mesh:startTeam": {
+        const { teamId, name, description, lead, members } = data as {
+          teamId: string;
+          name: string;
+          description: string;
+          lead: { agentId: string; sessionId: string };
+          members: Array<{ agentId: string; sessionId: string }>;
+        };
+        if (meshOrchestrator) {
+          void meshOrchestrator
+            .startTeam({
+              id: teamId,
+              name,
+              description,
+              lead,
+              members,
+            })
+            .then((team) => {
+              chatPanel?.postMessage({
+                type: "mesh:teamCreated",
+                team: {
+                  id: team.id,
+                  name: team.name,
+                  description: team.description,
+                  lead: team.lead,
+                  members: team.members,
+                  status: team.status,
+                  createdAt: team.createdAt.toISOString(),
+                },
+              });
+            });
+        }
         break;
       }
 
@@ -506,18 +721,25 @@ export function wireChatPanelEvents(
       }
       case "plan.modifyStep": {
         _supervisorOrchestrator?.modifyStep(
-          data.planId as string, data.stepId as string, data.newDescription as string
+          data.planId as string,
+          data.stepId as string,
+          data.newDescription as string
         );
         break;
       }
       case "plan.addStep": {
         _supervisorOrchestrator?.addStep(
-          data.planId as string, data.description as string, data.afterStepId as string | undefined
+          data.planId as string,
+          data.description as string,
+          data.afterStepId as string | undefined
         );
         break;
       }
       case "plan.removeStep": {
-        _supervisorOrchestrator?.removeStep(data.planId as string, data.stepId as string);
+        _supervisorOrchestrator?.removeStep(
+          data.planId as string,
+          data.stepId as string
+        );
         break;
       }
       case "plan.cancel": {
@@ -526,7 +748,9 @@ export function wireChatPanelEvents(
       }
       case "plan.replan": {
         void _supervisorOrchestrator?.replan(
-          data.planId as string, data.failedStepId as string, data.reason as string
+          data.planId as string,
+          data.failedStepId as string,
+          data.reason as string
         );
         break;
       }

@@ -13,7 +13,9 @@ describe("extractCandidatePaths", () => {
   });
 
   it("extracts nested absolute paths", () => {
-    const result = extractCandidatePaths("check /home/user/project/src/main.ts");
+    const result = extractCandidatePaths(
+      "check /home/user/project/src/main.ts"
+    );
     assert.deepStrictEqual(result, ["/home/user/project/src/main.ts"]);
   });
 
@@ -74,12 +76,21 @@ describe("extractCandidatePaths", () => {
   // ── Extensionless files ─────────────────────────────────────────────────
 
   it("extracts known extensionless filenames", () => {
-    const result = extractCandidatePaths("edit Makefile Dockerfile LICENSE README");
-    assert.deepStrictEqual(result, ["Makefile", "Dockerfile", "LICENSE", "README"]);
+    const result = extractCandidatePaths(
+      "edit Makefile Dockerfile LICENSE README"
+    );
+    assert.deepStrictEqual(result, [
+      "Makefile",
+      "Dockerfile",
+      "LICENSE",
+      "README",
+    ]);
   });
 
   it("extracts other extensionless filenames", () => {
-    const result = extractCandidatePaths("run rake via Rakefile or bundle Gemfile");
+    const result = extractCandidatePaths(
+      "run rake via Rakefile or bundle Gemfile"
+    );
     assert.deepStrictEqual(result, ["Rakefile", "Gemfile"]);
   });
 
@@ -127,7 +138,9 @@ describe("extractCandidatePaths", () => {
   // ── Filtering ───────────────────────────────────────────────────────────
 
   it("filters out URLs", () => {
-    const result = extractCandidatePaths("see https://example.com/path and /src/index.ts");
+    const result = extractCandidatePaths(
+      "see https://example.com/path and /src/index.ts"
+    );
     assert.deepStrictEqual(result, ["/src/index.ts"]);
   });
 
@@ -153,7 +166,9 @@ describe("extractCandidatePaths", () => {
   });
 
   it("returns empty array for plain text without paths", () => {
-    const result = extractCandidatePaths("hello world, this is a normal sentence");
+    const result = extractCandidatePaths(
+      "hello world, this is a normal sentence"
+    );
     assert.deepStrictEqual(result, []);
   });
 
@@ -181,7 +196,13 @@ describe("extractCandidatePaths", () => {
 
   it("handles paths with various extensions", () => {
     const result = extractCandidatePaths("/a.ts /b.jsx /c.py /d.rs /e.go");
-    assert.deepStrictEqual(result, ["/a.ts", "/b.jsx", "/c.py", "/d.rs", "/e.go"]);
+    assert.deepStrictEqual(result, [
+      "/a.ts",
+      "/b.jsx",
+      "/c.py",
+      "/d.rs",
+      "/e.go",
+    ]);
   });
 
   it("handles mixed content with paths and non-paths", () => {

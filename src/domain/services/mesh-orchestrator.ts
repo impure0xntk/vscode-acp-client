@@ -13,6 +13,7 @@ import type { SessionOrchestrator } from "../../application/session/orchestrator
 import type { PromptContext } from "../../application/session/orchestrator";
 import type {
   MeshTeam,
+  MeshSessionRef,
   P2PMessage,
   TaskBoard,
   TaskEntry,
@@ -95,15 +96,15 @@ export class MeshOrchestrator {
     id: string;
     name: string;
     description: string;
-    leadAgentId: string;
-    memberAgentIds: string[];
+    lead: MeshSessionRef;
+    members: MeshSessionRef[];
   }): Promise<MeshTeam> {
     const team: MeshTeam = {
       id: config.id,
       name: config.name,
       description: config.description,
-      leadAgentId: config.leadAgentId,
-      memberAgentIds: config.memberAgentIds,
+      lead: config.lead,
+      members: config.members,
       taskBoardPath: `.acp-mesh/${config.id}/taskboard.json`,
       createdAt: new Date(),
       status: "active",
@@ -112,15 +113,17 @@ export class MeshOrchestrator {
     this.teams.set(team.id, team);
     this.taskBoardStore.create(team.taskBoardPath);
 
-    for (const agentId of config.memberAgentIds) {
-      this.registerAgent(agentId, team.id);
+    for (const member of config.members) {
+      this.registerAgent(member.agentId, team.id);
     }
 
     log.info("team started", {
       teamId: team.id,
       name: team.name,
-      leadAgentId: team.leadAgentId,
-      memberCount: team.memberAgentIds.length,
+      leadAgentId: team.lead.agentId,
+      leadSessionId: team.lead.sessionId,
+      memberCount: team.members.length,
+      memberSessionIds: team.members.map((m) => `${m.agentId}:${m.sessionId}`),
     });
     return team;
   }
@@ -134,12 +137,12 @@ export class MeshOrchestrator {
 
     log.info("stopping team", { teamId, name: team.name });
 
-    for (const agentId of team.memberAgentIds) {
-      await this.fileLockManager.releaseAll(agentId);
-      const unsub = this.agentSubscriptions.get(agentId);
+    for (const member of team.members) {
+      await this.fileLockManager.releaseAll(member.agentId);
+      const unsub = this.agentSubscriptions.get(member.agentId);
       if (unsub) {
         unsub();
-        this.agentSubscriptions.delete(agentId);
+        this.agentSubscriptions.delete(member.agentId);
       }
     }
 
@@ -153,6 +156,69 @@ export class MeshOrchestrator {
 
   getAllTeams(): MeshTeam[] {
     return Array.from(this.teams.values());
+  }
+
+  /**
+   * Add a member session to an existing team.
+   * Registers the agent for message bus subscription.
+   */
+  addMemberToTeam(teamId: string, ref: MeshSessionRef): MeshTeam {
+    const team = this.teams.get(teamId);
+    if (!team) throw new Error(`Team ${teamId} not found`);
+    if (
+      team.members.some(
+        (m) => m.agentId === ref.agentId && m.sessionId === ref.sessionId
+      )
+    )
+      return team;
+
+    team.members = [...team.members, ref];
+    this.registerAgent(ref.agentId, teamId);
+
+    log.info("member added to team", {
+      teamId,
+      agentId: ref.agentId,
+      sessionId: ref.sessionId,
+    });
+    return team;
+  }
+
+  /**
+   * Remove a member session from a team.
+   * Unsubscribes the agent from the message bus and releases file locks.
+   */
+  async removeMemberFromTeam(
+    teamId: string,
+    ref: MeshSessionRef
+  ): Promise<MeshTeam> {
+    const team = this.teams.get(teamId);
+    if (!team) throw new Error(`Team ${teamId} not found`);
+
+    team.members = team.members.filter(
+      (m) => !(m.agentId === ref.agentId && m.sessionId === ref.sessionId)
+    );
+
+    // If the lead is removed, promote the first remaining member
+    if (
+      team.lead.agentId === ref.agentId &&
+      team.lead.sessionId === ref.sessionId
+    ) {
+      team.lead = team.members[0] ?? { agentId: "", sessionId: "" };
+    }
+
+    await this.fileLockManager.releaseAll(ref.agentId);
+    const unsub = this.agentSubscriptions.get(ref.agentId);
+    if (unsub) {
+      unsub();
+      this.agentSubscriptions.delete(ref.agentId);
+    }
+
+    log.info("member removed from team", {
+      teamId,
+      agentId: ref.agentId,
+      sessionId: ref.sessionId,
+    });
+    return team;
   }
 
   // -----------------------------------------------------------------------
@@ -299,7 +365,7 @@ export class MeshOrchestrator {
     log.warn("agent disconnected", { agentId });
 
     for (const [, team] of this.teams) {
-      if (!team.memberAgentIds.includes(agentId)) continue;
+      if (!team.members.some((m) => m.agentId === agentId)) continue;
 
       const tasks = this.taskBoardStore.getTasksByAgent(
         team.taskBoardPath,
@@ -318,7 +384,7 @@ export class MeshOrchestrator {
         id: crypto.randomUUID(),
         type: "status_update",
         from: "orchestrator",
-        to: team.leadAgentId,
+        to: team.lead.agentId,
         timestamp: new Date(),
         payload: {
           agentId,
@@ -503,6 +569,7 @@ export class MeshOrchestrator {
     log.info("supervise", {
       teamId,
       leadAgentId: leadTarget.agentId,
+      leadSessionId: leadTarget.sessionId,
       workerCount: workerTargets.length,
     });
     return this.supervisorManager.supervise(
@@ -537,9 +604,9 @@ export class MeshOrchestrator {
     const agentIds = new Set<string>();
 
     for (const team of this.teams.values()) {
-      agentIds.add(team.leadAgentId);
-      for (const id of team.memberAgentIds) {
-        agentIds.add(id);
+      agentIds.add(team.lead.agentId);
+      for (const member of team.members) {
+        agentIds.add(member.agentId);
       }
     }
 

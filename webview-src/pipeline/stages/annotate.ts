@@ -98,11 +98,16 @@ function buildRenderContext(msg: ClassifiedMessage): RenderContext | undefined {
  */
 function groupKeyOf(msg: ClassifiedMessage): string {
   if (msg.systemKind !== "info") return "";
+  // Note: msg.role may be "agent" for tool messages promoted by merge.
+  // We use msg.role (not originalRole) so that promoted tool messages share
+  // the same "agent:xxx" groupKey as subsequent real agent messages.
+  // The annotateMessages function and SessionChatContainer use originalRole
+  // separately to determine which messages qualify as final responses.
   switch (msg.role) {
     case "agent":
       return `agent:${msg.agentId ?? "unknown"}`;
     case "tool":
-      return `agent:${msg.agentId ?? "unknown"}`;
+      return `tool:${msg.agentId ?? "unknown"}`;
     case "system":
       return "system";
     case "user":
@@ -206,6 +211,7 @@ function toPipelineItem(
           thinking,
           isConsecutive,
           groupKey: gk,
+          originalRole: msg.originalRole,
         } satisfies ChatDisplayItem,
         groupKey: gk,
       };
@@ -233,11 +239,13 @@ export function annotateMessages(
   let isFirst = true;
 
   for (const msg of messages) {
-    // Reset group tracking when the role changes so that cross-role
-    // transitions (e.g. user → agent) always show the header.
-    // When initialGroupKey is provided (non-empty), the caller has
-    // verified role compatibility, so skip the reset on the first
-    // iteration to allow cross-batch consecutive detection.
+    // Use msg.role (not originalRole) for consecutive detection.
+    // Promoted tool messages have role="agent" (same as real agent messages),
+    // so a real agent following a promoted tool is correctly detected as
+    // consecutive (same groupKey "agent:xxx").
+    // originalRole is preserved on the PipelineItem for downstream use
+    // (e.g. groupByUserBoundary uses it to exclude promoted tools from
+    // final response selection).
     if (!(isFirst && initialGroupKey !== "") && msg.role !== prevRole) {
       prevGroupKey = "";
     }

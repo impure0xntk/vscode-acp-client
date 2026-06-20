@@ -1,10 +1,6 @@
 import { create } from "zustand";
 import type { SessionOverviewFilter, SessionOverviewState } from "../types";
 
-// ── Constants ───────────────────────────────────────────────────────────────
-
-export const SCROLL_BOTTOM_THRESHOLD = 100;
-
 // ── Store shape ──────────────────────────────────────────────────────────────
 // NOTE: Scroll state (isAtBottom, unreadCount, etc.) is NOT stored here.
 // It is derived locally in ChatArea from raw DOM scroll events to avoid

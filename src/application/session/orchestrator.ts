@@ -993,9 +993,15 @@ export class SessionOrchestrator extends EventEmitter {
     }
 
     // Mesh Protocol: wrap user prompt with protocol header
+    // Only inject when both per-agent and global settings are enabled
     let finalText = text;
+    const meshGlobalEnabled = this.deps.ui.getConfiguration<boolean>(
+      "acp.meshProtocol",
+      "enabled",
+      false
+    );
     const builder = this.promptBuilders.get(agentId);
-    if (builder && text.length > 0) {
+    if (meshGlobalEnabled && builder && text.length > 0) {
       const lastInbound = this.lastInboundMessages.get(agentId);
       finalText = builder.buildUserPrompt({
         text,
@@ -1513,7 +1519,10 @@ export class SessionOrchestrator extends EventEmitter {
     return this.sessions.get(agentId)?.get(sessionId);
   }
 
-  getSessionInfo(agentId: string, sessionId: string): AppSessionInfo | undefined {
+  getSessionInfo(
+    agentId: string,
+    sessionId: string
+  ): AppSessionInfo | undefined {
     return this.sessions.get(agentId)?.get(sessionId);
   }
 

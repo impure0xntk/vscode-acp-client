@@ -7,12 +7,14 @@ import React, {
 import type {
   CommunicationMode,
   ContextAttachment,
+  SelectedTeam,
   SuggestionItem,
   TriggerType,
 } from "../../types";
 import type { SlashCommand, SessionTabState } from "../../store/sessionStore";
 import type { SendTarget } from "../../types";
 import { useSessionStore } from "../../store/sessionStore";
+import { useMessageStore } from "../../store/messageStore";
 import { useMeshStore } from "../../store/meshStore";
 import { getVsCodeApi } from "../../lib/vscodeApi";
 import { getLogger } from "../../lib/logger";
@@ -36,11 +38,31 @@ const MODE_META: Record<
   CommunicationMode,
   { label: string; icon: string; description: string }
 > = {
-  direct: { label: "Direct", icon: "arrow-right", description: "1:1 direct message" },
-  fanout: { label: "Fanout", icon: "git-branch", description: "1:N broadcast to all targets" },
-  supervisor: { label: "Supervisor", icon: "crown", description: "Lead decomposes task, assigns workers" },
-  pipeline: { label: "Pipeline", icon: "arrow-down", description: "Sequential A→B→C processing" },
-  p2P: { label: "P2P", icon: "repeat", description: "Autonomous agent-to-agent" },
+  direct: {
+    label: "Direct",
+    icon: "arrow-right",
+    description: "1:1 direct message",
+  },
+  fanout: {
+    label: "Fanout",
+    icon: "git-branch",
+    description: "1:N broadcast to all targets",
+  },
+  supervisor: {
+    label: "Supervisor",
+    icon: "crown",
+    description: "Lead decomposes task, assigns workers",
+  },
+  pipeline: {
+    label: "Pipeline",
+    icon: "arrow-down",
+    description: "Sequential A→B→C processing",
+  },
+  p2P: {
+    label: "P2P",
+    icon: "repeat",
+    description: "Autonomous agent-to-agent",
+  },
 };
 
 // ── Props ──────────────────────────────────────────────────────────
@@ -50,14 +72,21 @@ export interface ComposerProps {
     text: string,
     attachments: ContextAttachment[],
     targets?: SendTarget[],
-    mode?: CommunicationMode | null
+    mode?: CommunicationMode | null,
+    teamId?: string
   ) => void;
   onCancel: () => void;
   onNewSession?: () => void;
   onSwitchSession?: (agentId: string, sessionId: string) => void;
   onRenameSession?: (agentId: string, sessionId: string, title: string) => void;
   disabled?: boolean;
-  status?: "idle" | "running" | "cancelling" | "completed" | "error" | "cancelled";
+  status?:
+    | "idle"
+    | "running"
+    | "cancelling"
+    | "completed"
+    | "error"
+    | "cancelled";
   fetchFiles: (query: string, cwd?: string) => Promise<FileCandidate[]>;
   resolveFile: (path: string) => Promise<ContextAttachment>;
   resolveSelection: () => Promise<ContextAttachment | null>;
@@ -67,26 +96,65 @@ export interface ComposerProps {
   availableCommands?: SlashCommand[];
 }
 
+// ── Relative time helper ───────────────────────────────────────────
+
+function relativeTime(iso: string | null): string {
+  if (!iso) return "No response";
+  const ms = Date.now() - new Date(iso).getTime();
+  if (ms < 0) return "just now";
+  const sec = Math.floor(ms / 1000);
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.floor(hr / 24);
+  return `${day}d ago`;
+}
+
 // ── Session suggestion factory (shared by @ and #switch) ───────────
 
 function buildSessionSuggestions(
   tabs: SessionTabState[],
   query: string
 ): SuggestionItem[] {
-  const sessionInfoMap = useSessionStore.getState().sessionInfoMap;
+  const sessionStore = useSessionStore.getState();
+  const sessionInfoMap = sessionStore.sessionInfoMap;
+  const connectedAgents = sessionStore.connectedAgents;
+  const perSession = useMessageStore.getState().perSession;
+
   const items: SuggestionItem[] = tabs.map((tab) => {
     const key = `${tab.agentId}:${tab.sessionId}`;
     const info = sessionInfoMap[key];
+    const sessionColor = connectedAgents.find(
+      (a) => a.agentId === tab.agentId
+    )?.color;
+
+    // Find the last agent message content for preview
+    const messages = perSession[key] ?? [];
+    const lastAgentMsg = [...messages]
+      .reverse()
+      .find((m) => m.role === "agent");
+    const preview = lastAgentMsg
+      ? lastAgentMsg.content.replace(/\s+/g, " ").trim().slice(0, 60)
+      : null;
+    const timeStr = relativeTime(info?.lastResponseAt ?? null);
+
+    const detail = preview
+      ? `${tab.agentId} · ${timeStr} · ${preview}`
+      : `${tab.agentId} · ${timeStr}`;
+
     return {
       id: `session:${tab.agentId}:${tab.sessionId}`,
       kind: "session" as const,
       label: tab.title ?? tab.sessionId.slice(0, 8),
       value: `${tab.agentId}:${tab.sessionId}`,
-      detail: tab.agentId,
+      detail,
       icon: "chat",
       agentId: tab.agentId,
       sessionId: tab.sessionId,
       status: info?.status ?? "idle",
+      sessionColor,
     };
   });
 
@@ -150,6 +218,10 @@ export function Composer({
   const removeSendTarget = useMeshStore((s) => s.removeSendTarget);
   const clearSendTargets = useMeshStore((s) => s.clearSendTargets);
 
+  // ── Selected team (@team: picker) ────────────────────────────────
+  const selectedTeam = useMeshStore((s) => s.selectedTeam);
+  const setSelectedTeam = useMeshStore((s) => s.setSelectedTeam);
+
   // ── Mesh communication mode ──────────────────────────────────────
   const communicationMode = useMeshStore((s) => s.communicationMode);
   const setCommunicationMode = useMeshStore((s) => s.setCommunicationMode);
@@ -207,13 +279,37 @@ export function Composer({
     resetPicker,
   ]);
 
+  // ── Team suggestion factory ─────────────────────────────────────
+
+  const buildTeamSuggestions = useCallback(
+    (query: string): SuggestionItem[] => {
+      const teams = useMeshStore.getState().teams;
+      const items: SuggestionItem[] = teams.map((team) => ({
+        id: `team:${team.id}`,
+        kind: "team" as const,
+        label: team.name,
+        value: team.id,
+        detail: `${team.members.length} members`,
+        icon: "users",
+      }));
+      if (!query) return items;
+      const q = query.toLowerCase();
+      return items.filter(
+        (t) =>
+          t.label.toLowerCase().includes(q) ||
+          t.value.toLowerCase().includes(q)
+      );
+    },
+    []
+  );
+
   // ── Suggestion fetch ─────────────────────────────────────────────
 
   const fetchSuggestions = useCallback(
     async (
       trigger: TriggerType,
       query: string,
-      subTrigger?: "symbol" | "file" | "switch"
+      subTrigger?: "symbol" | "file" | "switch" | "team"
     ): Promise<SuggestionItem[]> => {
       if (trigger === "/") {
         const agentItems: SuggestionItem[] = availableCommands.map((cmd) => ({
@@ -287,6 +383,9 @@ export function Composer({
       }
 
       if (trigger === "@") {
+        if (subTrigger === "team") {
+          return buildTeamSuggestions(query);
+        }
         return buildSessionSuggestions(tabs, query);
       }
 
@@ -299,15 +398,19 @@ export function Composer({
         // cwd in parallel and merge results.  Single-target and no-target
         // cases use the active session's cwd (or undefined).
         const sessionInfoMap = useSessionStore.getState().sessionInfoMap;
+        const tabTitles = useSessionStore.getState().tabTitles;
         const cwds: string[] = [];
-        // Build a reverse map: cwd → "agentId:sessionId" label for display
-        const cwdSources = new Map<string, string>();
+        // Build a map: cwd → set of session title labels for display
+        const cwdSources = new Map<string, Set<string>>();
         if (sendTargets.length > 0) {
           for (const t of sendTargets) {
             const info = sessionInfoMap[`${t.agentId}:${t.sessionId}`];
-            if (info?.cwd && !cwds.includes(info.cwd)) {
-              cwds.push(info.cwd);
-              cwdSources.set(info.cwd, `${t.agentId}:${t.sessionId}`);
+            if (info?.cwd) {
+              if (!cwds.includes(info.cwd)) cwds.push(info.cwd);
+              const key = `${t.agentId}:${t.sessionId}`;
+              const title = tabTitles[key] ?? t.label;
+              if (!cwdSources.has(info.cwd)) cwdSources.set(info.cwd, new Set());
+              cwdSources.get(info.cwd)!.add(title);
             }
           }
         } else {
@@ -317,7 +420,8 @@ export function Composer({
             const info = sessionInfoMap[activeKey];
             if (info?.cwd) {
               cwds.push(info.cwd);
-              cwdSources.set(info.cwd, activeKey);
+              const title = tabTitles[activeKey] ?? info.sessionId;
+              cwdSources.set(info.cwd, new Set([title]));
             }
           }
         }
@@ -330,25 +434,41 @@ export function Composer({
             ? cwds.map((cwd) => fetchFiles(query, cwd))
             : [fetchFiles(query)]
         );
-        // Merge and deduplicate by relativePath, tagging each file with its source cwd
-        const seen = new Set<string>();
-        const merged: Array<FileCandidate & { sourceCwd?: string }> = [];
+        // Merge and deduplicate by relativePath, collecting all source cwds per file
+        // Key insight: different sessions with the SAME cwd can also share files,
+        // so we track which unique cwds a file appeared in AND collect all session
+        // titles across all matching cwds.
+        const seen = new Map<
+          string,
+          FileCandidate & { sourceCwds: string[] }
+        >();
         for (let i = 0; i < fileArrays.length; i++) {
           const cwd = cwds[i];
           for (const f of fileArrays[i]) {
-            if (!seen.has(f.relativePath)) {
-              seen.add(f.relativePath);
-              merged.push({ ...f, sourceCwd: cwd });
+            const existing = seen.get(f.relativePath);
+            if (existing) {
+              if (!existing.sourceCwds.includes(cwd)) existing.sourceCwds.push(cwd);
+            } else {
+              seen.set(f.relativePath, { ...f, sourceCwds: [cwd] });
             }
           }
         }
+        const merged = Array.from(seen.values());
         const fileItems: SuggestionItem[] = merged.map((f) => {
-          // When multiple cwds are merged, show the source agentId:sessionId:cwd
-          // so the user knows which session this file came from.
+          // When multiple cwds are involved, collect all session titles from all
+          // matching cwds and show them comma-separated, e.g. "S1, S2 : /tmp/test"
           let detail = f.relativePath;
-          if (multiCwd && f.sourceCwd) {
-            const sourceSession = cwdSources.get(f.sourceCwd) ?? "?";
-            detail = `${f.relativePath}  •  ${sourceSession}:${f.sourceCwd}`;
+          if (multiCwd) {
+            const titles: string[] = [];
+            for (const cwd of f.sourceCwds) {
+              const srcs = cwdSources.get(cwd);
+              if (srcs) {
+                for (const t of srcs) titles.push(t);
+              }
+            }
+            if (titles.length > 0) {
+              detail = `${titles.join(", ")} : ${f.relativePath}`;
+            }
           }
           return {
             id: `file:${f.relativePath}`,
@@ -470,16 +590,28 @@ export function Composer({
     ): Promise<SelectOutput> => {
       const { triggerState, item } = input;
       let newText = input.text;
-      const consumed =
-        triggerState.trigger === "/" || triggerState.trigger === "@"
-          ? 1 + triggerState.query.length
-          : triggerState.subTrigger
-            ? 1 +
-              triggerState.subTrigger.length +
-              (triggerState.query.length > 0
-                ? 1 + triggerState.query.length
-                : 0)
-            : 1 + triggerState.query.length;
+      // Calculate consumed length based on trigger type and subTrigger
+      let consumed: number;
+      if (triggerState.trigger === "/") {
+        consumed = 1 + triggerState.query.length;
+      } else if (triggerState.trigger === "@") {
+        if (triggerState.subTrigger) {
+          // @team:query → @ + subTrigger + ":" + query
+          consumed = 1 + triggerState.subTrigger.length + 1 + triggerState.query.length;
+        } else {
+          // @query → @ + query
+          consumed = 1 + triggerState.query.length;
+        }
+      } else if (triggerState.subTrigger) {
+        // #subTrigger query → # + subTrigger + " " + query
+        consumed =
+          1 +
+          triggerState.subTrigger.length +
+          (triggerState.query.length > 0 ? 1 + triggerState.query.length : 0);
+      } else {
+        // #query → # + query
+        consumed = 1 + triggerState.query.length;
+      }
 
       const before = newText.slice(0, triggerState.caretOffset);
       const after = newText.slice(triggerState.caretOffset + consumed);
@@ -534,7 +666,10 @@ export function Composer({
         } else if (item.value === "meshCancel") {
           const currentPlan = useSessionStore.getState().currentPlan;
           if (currentPlan) {
-            getVsCodeApi().postMessage({ type: "plan.cancel", planId: currentPlan.id });
+            getVsCodeApi().postMessage({
+              type: "plan.cancel",
+              planId: currentPlan.id,
+            });
           }
         } else if (
           item.value === "meshFanout" ||
@@ -559,6 +694,18 @@ export function Composer({
           setAttachments((prev) => [...prev, attachment]);
         } catch {
           /* silently fail */
+        }
+        newText = before + after;
+        setText(newText);
+      } else if (item.kind === "team") {
+        // @team: picker — store selected team, remove @team:... from textarea
+        const team = useMeshStore.getState().teams.find((t) => t.id === item.value);
+        if (team) {
+          setSelectedTeam({
+            id: team.id,
+            name: team.name,
+            leadAgentId: team.lead.agentId,
+          });
         }
         newText = before + after;
         setText(newText);
@@ -692,10 +839,12 @@ export function Composer({
         attachments: attachments.length,
         targets: targets?.length ?? 0,
         mode: communicationMode,
+        teamId: selectedTeam?.id ?? null,
       });
-      onSend(trimmed, attachments, targets, communicationMode);
+      onSend(trimmed, attachments, targets, communicationMode, selectedTeam?.id);
 
       clearSendTargets();
+      setSelectedTeam(null);
       setCommunicationMode(null);
       resetPicker();
       setText("");
@@ -709,6 +858,8 @@ export function Composer({
     onSend,
     sendTargets,
     clearSendTargets,
+    selectedTeam,
+    setSelectedTeam,
     resetHeight,
     resetPicker,
   ]);
@@ -820,6 +971,8 @@ export function Composer({
         sendTargets={sendTargets}
         onRemoveSendTarget={removeSendTarget}
         connectedAgents={connectedAgents}
+        selectedTeam={selectedTeam}
+        onRemoveSelectedTeam={() => setSelectedTeam(null)}
       />
 
       {/* Mesh mode badge — shown when /mesh fanout|supervisor|pipeline is active */}

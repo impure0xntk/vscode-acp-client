@@ -112,10 +112,17 @@ export class MessagePipeline {
           // Re-annotate the merged first element and update cache's last item.
           // Carry over lastGroupKey so that isConsecutive is computed correctly
           // for the updated cache item.
+          // Use the existing cache item's groupKey as the initial key so that
+          // the reannotated item preserves its consecutive status.
+          const existingGroupKey =
+            this.cache.length > 0 &&
+            this.cache[this.cache.length - 1].type === "chat"
+              ? (this.cache[this.cache.length - 1] as import("./types").ChatDisplayItem).groupKey
+              : this.lastGroupKey;
           const reannotated = annotateMessages(
             [merged[0]],
             this.config.annotate,
-            this.lastGroupKey
+            existingGroupKey
           );
           if (reannotated.length > 0) {
             this.cache[this.cache.length - 1] = reannotated[0];
@@ -135,17 +142,25 @@ export class MessagePipeline {
     const lastCached =
       this.cache.length > 0 ? this.cache[this.cache.length - 1] : null;
     // Determine the initial groupKey for annotation.
-    // If the last cached item is a chat message with the same role as
-    // the first new message, carry over its groupKey so consecutive
-    // detection works across the boundary. Otherwise reset to "" so
-    // the first new message always shows its header.
+    // The key insight: when the last cached item is a non-consecutive chat
+    // message (i.e. it has a visible header), a new message of the same
+    // role starts a new visual group — reset lastGroupKey to "" so the
+    // first new message always shows its header.
+    // Only carry over groupKey when the last cached item is consecutive
+    // (no visible header) AND has the same role — this means the new
+    // message is a continuation of the same visual group.
     const firstNewRole = mergedNew.length > 0 ? mergedNew[0].role : "";
     let lastGroupKey = "";
     if (lastCached && lastCached.type === "chat" && firstNewRole) {
-      if (lastCached.role === firstNewRole) {
+      if (
+        lastCached.role === firstNewRole &&
+        lastCached.isConsecutive
+      ) {
         lastGroupKey = lastCached.groupKey;
       }
-      // else: role changed → reset to "" (header will be shown)
+      // else: role changed OR last was non-consecutive → reset to ""
+      // This ensures the first agent message after a user message
+      // (or any non-consecutive boundary) always shows its header.
     }
     // Also consider the preserved lastGroupKey when the cache is empty
     // but we have a valid lastGroupKey from a previous incremental pass.

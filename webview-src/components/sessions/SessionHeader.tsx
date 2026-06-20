@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import { useLogger } from "../../hooks/useLogger";
 import type { ChatMessage } from "../../types";
 import type {
@@ -8,10 +8,11 @@ import type {
 } from "../../store/sessionStore";
 import { Chip } from "../primitives/Chip";
 import type { ToolbarMeta } from "../../types";
-import { fmt, visualBar, contextColor } from "./toolbar";
+
+import { SectionDetailsPanel } from "./toolbar";
 import { UserJumpNav } from "../message/UserJumpNav";
 import { AgentBadge } from "../primitives/AgentBadge";
-import { Icon, IconPin, IconPinFilled } from "../../lib/icons"
+import { Icon, IconPin, IconPinFilled } from "../../lib/icons";
 
 // ── props ─────────────────────────────────────────────────────────────────
 
@@ -41,6 +42,7 @@ export interface SessionHeaderProps {
   info?: SessionInfoDTO;
   isActive?: boolean;
   color?: string;
+  onForkSession?: () => void;
 }
 
 // ── component ─────────────────────────────────────────────────────────────
@@ -63,11 +65,12 @@ export const SessionHeader = React.memo(function SessionHeader({
   isPinned,
   onTogglePin,
   onClose,
-  splitDirection = "vertical",
+  splitDirection = "horizontal",
   messageCount = 0,
   info,
   isActive,
   color,
+  onForkSession,
 }: SessionHeaderProps): React.ReactElement {
   const log = useLogger("SessionHeader");
 
@@ -107,69 +110,7 @@ export const SessionHeader = React.memo(function SessionHeader({
     const isHorizontal = splitDirection === "horizontal";
     const activeBg = isActive ? `${color}20` : `${color}14`;
 
-    // Build chips (mirrors BottomToolbar chip-building logic)
-    const total = info
-      ? info.tokenUsage.inputTokens + info.tokenUsage.outputTokens
-      : 0;
-    const ratio =
-      info?.contextWindowMax && total > 0
-        ? Math.min(total / info.contextWindowMax, 1)
-        : 0;
-
-    const chips: ToolbarMeta[] = [];
-
-    if (info?.mode && info.status === "running") {
-      chips.push({
-        key: "mode",
-        label: "Mode",
-        value: info.mode,
-        category: "runtime",
-        modeIcon: info.mode,
-      });
-    }
-    if (info?.model && info.status === "running") {
-      chips.push({
-        key: "model",
-        label: "Model",
-        value: info.model,
-        category: "runtime",
-      });
-    }
-    if (messageCount > 0) {
-      chips.push({
-        key: "msgs",
-        label: "Messages",
-        value: `msg:${messageCount}`,
-        category: "metrics",
-      });
-    }
-
-    chips.push({
-      key: "tokens",
-      label: "Tokens",
-      value: `\u2191${fmt(info?.tokenUsage.inputTokens ?? 0)} \u2193${fmt(info?.tokenUsage.outputTokens ?? 0)}`,
-      category: "metrics",
-    });
-
-    if (info?.contextWindowMax && total > 0) {
-      const pct = visualBar(ratio);
-      const contextChip: ToolbarMeta = {
-        key: "context",
-        label: "Context",
-        value: `${pct}%`,
-        category: "metrics",
-        contextColor: contextColor(ratio),
-        barPct: Number(pct),
-      };
-      const tokenIdx = chips.findIndex((c) => c.key === "tokens");
-      if (tokenIdx >= 0) {
-        chips.splice(tokenIdx, 0, contextChip);
-      } else {
-        chips.push(contextChip);
-      }
-    }
-
-    // Turn outcome chip
+    // Turn outcome chip only (no message/token count in header)
     const turnChip: ToolbarMeta | null = (() => {
       if (info?.status === "running") {
         return {
@@ -210,6 +151,23 @@ export const SessionHeader = React.memo(function SessionHeader({
       return null;
     })();
 
+    // Context usage chip — between turn chip and expand button
+    const contextChip: ToolbarMeta | null = (() => {
+      if (!info?.contextWindowMax || info.contextWindowMax <= 0) return null;
+      const used = info.tokenUsage?.totalTokens ?? 0;
+      const pct = Math.min(100, Math.round((used / info.contextWindowMax) * 100));
+      const ctxColor: "normal" | "warning" | "critical" =
+        pct >= 90 ? "critical" : pct >= 70 ? "warning" : "normal";
+      return {
+        key: "context",
+        label: "Context",
+        value: `${pct}%`,
+        category: "metrics" as const,
+        barPct: pct,
+        contextColor: ctxColor,
+      };
+    })();
+
     const title = info?.sessionId ?? agentId ?? "";
 
     return (
@@ -231,13 +189,16 @@ export const SessionHeader = React.memo(function SessionHeader({
           </span>
           <span className="section-header-chips">
             {turnChip && <Chip meta={turnChip} />}
-            {chips.map((c) => (
-              <Chip key={c.key} meta={c} />
-            ))}
           </span>
         </button>
 
         <div className="unified-section-header-actions">
+          {contextChip && <Chip meta={contextChip} />}
+          <ExpandButton
+            info={info}
+            messageCount={messageCount}
+            onForkSession={onForkSession}
+          />
           {onTogglePin && (
             <button
               className={`unified-section-header-pin${isPinned ? " unified-section-header-pin--active" : ""}`}
@@ -258,6 +219,63 @@ export const SessionHeader = React.memo(function SessionHeader({
               <Icon name="close" size="sm" />
             </button>
           )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Expand button (chevron + details panel) ─────────────────────────
+
+  function ExpandButton({
+    info,
+    messageCount,
+    onForkSession,
+  }: {
+    info: SessionInfoDTO;
+    messageCount: number;
+    onForkSession?: () => void;
+  }): React.ReactElement {
+    const [open, setOpen] = useState(false);
+
+    const handleToggle = useCallback(
+      (e: React.MouseEvent) => {
+        e.stopPropagation();
+        log.debug("toggle details", { sessionKey, open: !open });
+        setOpen((v) => !v);
+      },
+      [log, sessionKey, open]
+    );
+
+    return (
+      <div className="unified-section-header-expand-wrapper">
+        <button
+          className={`unified-section-header-expand${open ? " unified-section-header-expand--open" : ""}`}
+          onClick={handleToggle}
+          type="button"
+          title={open ? "Hide details" : "Show details"}
+          aria-expanded={open}
+          aria-label="Toggle session details"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path
+              d={open ? "M3 9L7 5L11 9" : "M3 5L7 9L11 5"}
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+        <div
+          className={`unified-section-header-details${open ? " unified-section-header-details--open" : ""}`}
+        >
+          <div className="unified-section-header-details-body">
+            <SectionDetailsPanel
+              info={info}
+              messageCount={messageCount}
+              onForkSession={onForkSession}
+            />
+          </div>
         </div>
       </div>
     );

@@ -179,6 +179,7 @@ export function ToolCallCard({
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
       >
+        {hasBody && <Chevron open={expanded} />}
         <span className="tool-status-icon">
           <StatusIcon status={status} variant="tool" />
         </span>
@@ -220,78 +221,92 @@ export function ToolCallCard({
             );
           })}
         <span className="tool-duration">{formatDuration(durationMs ?? 0)}</span>
-
-        {hasBody && <Chevron open={expanded} />}
       </button>
 
-      {expanded && (
-        <div className="tool-call-body">
-          {hasDiff && (
-            <div className="tool-section">
-              <button
-                className="tool-section-toggle"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setDiffOpen(!diffOpen);
-                }}
-                aria-expanded={diffOpen}
-              >
-                <Chevron open={diffOpen} />
-                <span className="tool-section-label">Diff</span>
-              </button>
-              {diffOpen && <DiffView diff={diffContent} />}
-            </div>
-          )}
-          {hasInput && (
-            <div className="tool-section">
-              <button
-                className="tool-section-toggle"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setInputOpen(!inputOpen);
-                }}
-                aria-expanded={inputOpen}
-              >
-                <Chevron open={inputOpen} />
-                <span className="tool-section-label">Input</span>
-              </button>
-              {inputOpen && (
-                <pre className="tool-content">
-                  <code>
-                    {typeof input === "string"
-                      ? tryFormatJson(input)
-                      : JSON.stringify(input, null, 2)}
-                  </code>
-                </pre>
-              )}
-            </div>
-          )}
-          {hasOutput && (
-            <div className="tool-section">
-              <button
-                className="tool-section-toggle"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setOutputOpen(!outputOpen);
-                }}
-                aria-expanded={outputOpen}
-              >
-                <Chevron open={outputOpen} />
-                <span className="tool-section-label">Output</span>
-              </button>
-              {outputOpen && (
-                <pre className="tool-content">
-                  <code>
-                    {typeof output === "string"
-                      ? tryFormatJson(output)
-                      : String(output)}
-                  </code>
-                </pre>
-              )}
-            </div>
-          )}
+      <div className={`collapsible ${expanded ? "collapsible--open" : ""}`}>
+        <div className="collapsible-body">
+          <div className="tool-call-body">
+            {hasDiff && (
+              <div className="tool-section">
+                <button
+                  className="tool-section-toggle"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDiffOpen(!diffOpen);
+                  }}
+                  aria-expanded={diffOpen}
+                >
+                  <Chevron open={diffOpen} />
+                  <span className="tool-section-label">Diff</span>
+                </button>
+                <div
+                  className={`collapsible ${diffOpen ? "collapsible--open" : ""}`}
+                >
+                  <div className="collapsible-body">
+                    <DiffView diff={diffContent} />
+                  </div>
+                </div>
+              </div>
+            )}
+            {hasInput && (
+              <div className="tool-section">
+                <button
+                  className="tool-section-toggle"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setInputOpen(!inputOpen);
+                  }}
+                  aria-expanded={inputOpen}
+                >
+                  <Chevron open={inputOpen} />
+                  <span className="tool-section-label">Input</span>
+                </button>
+                <div
+                  className={`collapsible ${inputOpen ? "collapsible--open" : ""}`}
+                >
+                  <div className="collapsible-body">
+                    <pre className="tool-content">
+                      <code>
+                        {typeof input === "string"
+                          ? tryFormatJson(input)
+                          : JSON.stringify(input, null, 2)}
+                      </code>
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            )}
+            {hasOutput && (
+              <div className="tool-section">
+                <button
+                  className="tool-section-toggle"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOutputOpen(!outputOpen);
+                  }}
+                  aria-expanded={outputOpen}
+                >
+                  <Chevron open={outputOpen} />
+                  <span className="tool-section-label">Output</span>
+                </button>
+                <div
+                  className={`collapsible ${outputOpen ? "collapsible--open" : ""}`}
+                >
+                  <div className="collapsible-body">
+                    <pre className="tool-content">
+                      <code>
+                        {typeof output === "string"
+                          ? tryFormatJson(output)
+                          : String(output)}
+                      </code>
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

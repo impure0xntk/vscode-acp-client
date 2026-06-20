@@ -82,10 +82,18 @@ export function PlanStepView({
                 if (e.key === "Escape") handleCancelEdit();
               }}
             />
-            <button className="plan-step-edit-confirm" onClick={handleCommitEdit} type="button">
+            <button
+              className="plan-step-edit-confirm"
+              onClick={handleCommitEdit}
+              type="button"
+            >
               <Icon name="check" size="sm" />
             </button>
-            <button className="plan-step-edit-cancel" onClick={handleCancelEdit} type="button">
+            <button
+              className="plan-step-edit-cancel"
+              onClick={handleCancelEdit}
+              type="button"
+            >
               <Icon name="close" size="sm" />
             </button>
           </div>
@@ -124,18 +132,30 @@ export function PlanStepView({
 
       {canModify && !editing && (
         <div className="plan-step-actions">
-          <button className="plan-step-modify" onClick={handleStartEdit} type="button">
+          <button
+            className="plan-step-modify"
+            onClick={handleStartEdit}
+            type="button"
+          >
             <Icon name="pencil" size="sm" />
             Modify
           </button>
           {onStartAddAfter && (
-            <button className="plan-step-add-after" onClick={onStartAddAfter} type="button">
+            <button
+              className="plan-step-add-after"
+              onClick={onStartAddAfter}
+              type="button"
+            >
               <Icon name="plus" size="sm" />
               Add after
             </button>
           )}
           {onRemove && (
-            <button className="plan-step-remove" onClick={onRemove} type="button">
+            <button
+              className="plan-step-remove"
+              onClick={onRemove}
+              type="button"
+            >
               <Icon name="trash" size="sm" />
               Remove
             </button>

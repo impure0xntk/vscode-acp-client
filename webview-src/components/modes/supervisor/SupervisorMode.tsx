@@ -1,12 +1,16 @@
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { useShallow } from "zustand/shallow";
 import { SessionView } from "../../sessions/SessionView";
 import { SessionTabBar } from "../../sessions/SessionTabBar";
 import { Composer } from "../../composer/Composer";
 import { MeshPanel } from "../../mesh/MeshPanel";
+import { TeamCreateDialog } from "../../mesh/TeamCreateDialog";
 import { PlanViewerOverlay } from "./PlanViewer/PlanViewerOverlay";
 import { useSessionStore } from "../../../store/sessionStore";
-import type { SessionStoreState, SlashCommand } from "../../../store/sessionStore";
+import type {
+  SessionStoreState,
+  SlashCommand,
+} from "../../../store/sessionStore";
 import { useMeshStore } from "../../../store/meshStore";
 import { getVsCodeApi } from "../../../lib/vscodeApi";
 import type {
@@ -20,14 +24,22 @@ export interface SupervisorModeProps {
   onSendMessage: (
     text: string,
     attachments: ContextAttachment[],
-    targets?: SendTarget[]
+    targets?: SendTarget[],
+    mode?: import("../../../types").CommunicationMode | null,
+    teamId?: string
   ) => void;
   onCancel: () => void;
   onSwitchSession: (agentId: string, sessionId: string) => void;
   onRenameSession?: (agentId: string, sessionId: string, title: string) => void;
   onNewSession: () => void;
   disabled?: boolean;
-  status?: "idle" | "running" | "completed" | "error" | "cancelled";
+  status?:
+    | "idle"
+    | "running"
+    | "cancelling"
+    | "completed"
+    | "error"
+    | "cancelled";
   fetchFiles: (query: string) => Promise<FileCandidate[]>;
   resolveFile: (path: string) => Promise<ContextAttachment>;
   resolveSelection: () => Promise<ContextAttachment | null>;
@@ -82,6 +94,16 @@ export const SupervisorMode = React.memo(function SupervisorMode({
   // Mesh panel visibility (always visible in supervisor mode)
   const meshPanelVisible = useMeshStore((s) => s.meshPanelVisible);
   const setMeshPanelVisible = useMeshStore((s) => s.setMeshPanelVisible);
+  const [showTeamCreate, setShowTeamCreate] = useState(false);
+
+  // Plan for a specific team — sends mesh:plan with teamId
+  const handlePlanTeam = useCallback((teamId: string) => {
+    getVsCodeApi().postMessage({
+      type: "mesh:plan",
+      teamId,
+      text: "",
+    });
+  }, []);
 
   const tabs = useMemo(
     () =>
@@ -167,7 +189,7 @@ export const SupervisorMode = React.memo(function SupervisorMode({
         <SessionView
           sessionKey={activeSessionKey}
           layoutMode="single"
-          splitDirection="vertical"
+          splitDirection="horizontal"
           splitRatios={[0.5]}
           disabled={disabled}
           pinnedKeys={pinnedSessionKeys}
@@ -200,12 +222,19 @@ export const SupervisorMode = React.memo(function SupervisorMode({
 
       {/* Right: Mesh panel (persistent in supervisor mode) */}
       <div className="supervisor-mode-mesh">
-        <MeshPanel onClose={() => setMeshPanelVisible(false)} />
+        <MeshPanel
+          onClose={() => setMeshPanelVisible(false)}
+          onOpenTeamCreate={() => setShowTeamCreate(true)}
+          onPlanTeam={handlePlanTeam}
+        />
       </div>
 
       {/* Overlay: Plan viewer */}
-      {currentPlan && (
-        <PlanViewerOverlay plan={currentPlan} />
+      {currentPlan && <PlanViewerOverlay plan={currentPlan} />}
+
+      {/* Team create dialog */}
+      {showTeamCreate && (
+        <TeamCreateDialog onClose={() => setShowTeamCreate(false)} />
       )}
     </div>
   );

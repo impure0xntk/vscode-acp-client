@@ -370,6 +370,59 @@
           "maximum": 0.8,
           "description": "Default split ratio for the unified chat panel split mode (0.0 = top 100%, 1.0 = bottom 100%)"
         },
+        "acp.meshProtocol": {
+          "type": "object",
+          "default": {},
+          "description": "Mesh Protocol global settings for multi-agent P2P communication",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable Mesh Protocol prompt injection globally. When false, no prompt injection occurs even if per-agent meshProtocol.enabled is true."
+            },
+            "defaultVersion": {
+              "type": "string",
+              "enum": [
+                "1",
+                "2"
+              ],
+              "default": "2",
+              "description": "Default Mesh Protocol version when per-agent version is not specified"
+            },
+            "injectionMode": {
+              "type": "string",
+              "enum": [
+                "system",
+                "user",
+                "both"
+              ],
+              "default": "both",
+              "description": "Where to inject protocol instructions: system prompt, user prompt, or both"
+            },
+            "includeFewShotExamples": {
+              "type": "boolean",
+              "default": true,
+              "description": "Include few-shot output examples in the protocol prompt to improve marker emission accuracy"
+            },
+            "maxRepromptAttempts": {
+              "type": "number",
+              "default": 2,
+              "minimum": 0,
+              "maximum": 5,
+              "description": "Maximum number of reprompt attempts when agent fails to emit expected marker"
+            },
+            "validateMarkers": {
+              "type": "boolean",
+              "default": true,
+              "description": "Validate emitted markers and log warnings for malformed output"
+            },
+            "repairBrokenJson": {
+              "type": "boolean",
+              "default": true,
+              "description": "Attempt to repair broken JSON in emitted markers before parsing"
+            }
+          }
+        },
         "acp.presets": {
           "type": "object",
           "default": {},

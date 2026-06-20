@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from "react";
-import { getLogger } from "../../../lib/logger"
+import { getLogger } from "../../../lib/logger";
 
 const log = getLogger("webview.SessionOverviewPanel");
 import type {
@@ -11,9 +11,9 @@ import type {
   ConnectedAgentInfo,
   SessionInfoDTO,
 } from "../../../store/sessionStore";
-import { useScrollStateStore } from "../../../store/scrollStateStore"
-import { useMessageStore } from "../../../store/messageStore"
-import { useSessionStore, sessionKeyOf } from "../../../store/sessionStore"
+import { useScrollStateStore } from "../../../store/scrollStateStore";
+import { useMessageStore } from "../../../store/messageStore";
+import { useSessionStore, sessionKeyOf } from "../../../store/sessionStore";
 import { SessionOverviewToolbar } from "./SessionOverviewToolbar";
 import { SessionOverviewCard } from "./SessionOverviewCard";
 import { useResizeHandle } from "../../../hooks/useResizeHandle";

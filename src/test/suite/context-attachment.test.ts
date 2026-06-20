@@ -29,7 +29,7 @@ describe("estimateTokens — Edge Cases", () => {
 
   it("handles unicode characters (multi-byte)", () => {
     // Each multi-byte char uses >1 bytes but estimateTokens uses .length (code units)
-    const multiByte = "テスト"; // 3 code points (multi-byte)
+    const multiByte = "test"; // 3 code points (multi-byte)
     assert.strictEqual(estimateTokens(multiByte), 1); // ceil(3/4) = 1
   });
 

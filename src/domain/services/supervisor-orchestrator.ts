@@ -279,6 +279,74 @@ export class SupervisorOrchestrator {
   }
 
   /**
+   * Execute a user request directly as a supervisor fanout.
+   * Sends the task to the lead agent, which then distributes to workers.
+   * This is the entry point for @team: picker → supervisor mode send.
+   */
+  async executePlanFromUserRequest(
+    teamId: string,
+    leadTarget: SendTarget,
+    workerTargets: SendTarget[],
+    task: string
+  ): Promise<void> {
+    log.info("executePlanFromUserRequest", {
+      teamId,
+      leadAgentId: leadTarget.agentId,
+      workerCount: workerTargets.length,
+    });
+
+    // Create a synthetic plan for tracking
+    const planId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    const plan: Plan = {
+      id: planId,
+      teamId,
+      status: "executing",
+      steps: [
+        {
+          id: crypto.randomUUID(),
+          index: 0,
+          description: task.substring(0, 100),
+          status: "in_progress",
+          startedAt: now,
+        },
+      ],
+      plannerAgentId: leadTarget.agentId,
+      plannerSessionId: leadTarget.sessionId,
+      createdAt: now,
+      updatedAt: now,
+      metadata: { userRequest: task },
+    };
+    this.plans.set(planId, plan);
+    this.syncPlanToWebview(plan);
+
+    // Use MeshOrchestrator.supervise() to send to lead → workers
+    try {
+      await this.meshOrchestrator.supervise(
+        teamId,
+        leadTarget,
+        workerTargets,
+        task,
+        false // don't wait for all — fire and forget
+      );
+
+      plan.status = "completed";
+      plan.completedAt = new Date().toISOString();
+      plan.updatedAt = plan.completedAt;
+      plan.steps[0].status = "completed";
+      plan.steps[0].completedAt = plan.completedAt;
+    } catch (e) {
+      log.error("executePlanFromUserRequest failed", { planId, teamId }, e as Error);
+      plan.status = "failed";
+      plan.updatedAt = new Date().toISOString();
+      plan.steps[0].status = "failed";
+      plan.steps[0].error = e instanceof Error ? e.message : String(e);
+    }
+
+    this.syncPlanToWebview(plan);
+  }
+
+  /**
    * Approve a plan — triggers execution.
    */
   async approvePlan(planId: string): Promise<void> {
@@ -502,14 +570,11 @@ export class SupervisorOrchestrator {
     // If no assigned agent, try to find one from the team
     if (!step.assignedTo) {
       const team = this.meshOrchestrator.getTeam(plan.teamId);
-      if (team && team.memberAgentIds.length > 0) {
-        const agentId =
-          team.memberAgentIds[step.index % team.memberAgentIds.length];
-        const activeSessionId =
-          this.sessionOrchestrator.getActiveSessionId(agentId);
+      if (team && team.members.length > 0) {
+        const member = team.members[step.index % team.members.length];
         step.assignedTo = {
-          agentId,
-          sessionId: activeSessionId ?? "",
+          agentId: member.agentId,
+          sessionId: member.sessionId,
         };
       }
     }

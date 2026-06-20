@@ -103,7 +103,10 @@ describe("exportAsMarkdown", () => {
 
   it("generates markdown with session title", () => {
     const sessions = [
-      { ...makeSession("My Session"), tokenUsage: { input: 1000, output: 500, total: 1500 } },
+      {
+        ...makeSession("My Session"),
+        tokenUsage: { input: 1000, output: 500, total: 1500 },
+      },
     ];
     const md = exportAsMarkdown(sessions, new Map());
     assert.ok(md.includes("## My Session"));
@@ -129,7 +132,10 @@ describe("exportAsMarkdown", () => {
   it("includes messages when provided", () => {
     const sessions = [makeSession("Test")];
     const messages = new Map<string, ChatMessage[]>([
-      ["Test", [{ id: "1", role: "user", content: "Hello", timestamp: 1705312800000 }]],
+      [
+        "Test",
+        [{ id: "1", role: "user", content: "Hello", timestamp: 1705312800000 }],
+      ],
     ]);
     const md = exportAsMarkdown(sessions, messages);
     assert.ok(md.includes("### user"));
@@ -139,13 +145,18 @@ describe("exportAsMarkdown", () => {
   it("includes inline file paths when present", () => {
     const sessions = [makeSession("Test")];
     const messages = new Map<string, ChatMessage[]>([
-      ["Test", [{
-        id: "1",
-        role: "agent",
-        content: "Done",
-        timestamp: 1705312800000,
-        inlineFilePaths: ["src/main.ts", "src/utils.ts"],
-      }]],
+      [
+        "Test",
+        [
+          {
+            id: "1",
+            role: "agent",
+            content: "Done",
+            timestamp: 1705312800000,
+            inlineFilePaths: ["src/main.ts", "src/utils.ts"],
+          },
+        ],
+      ],
     ]);
     const md = exportAsMarkdown(sessions, messages);
     assert.ok(md.includes("src/main.ts"));
@@ -184,7 +195,10 @@ describe("exportAsJson", () => {
   it("creates a Blob with correct MIME type", () => {
     const sessions = [makeSession("Test")];
     const messages = new Map<string, ChatMessage[]>([
-      ["Test", [{ id: "1", role: "user", content: "Hi", timestamp: 1705312800000 }]],
+      [
+        "Test",
+        [{ id: "1", role: "user", content: "Hi", timestamp: 1705312800000 }],
+      ],
     ]);
 
     // Spy on Blob constructor
@@ -198,7 +212,9 @@ describe("exportAsJson", () => {
     } as typeof Blob;
 
     try {
-      const { exportAsJson } = require("../../../components/sessions/history/formatting");
+      const {
+        exportAsJson,
+      } = require("../../../components/sessions/history/formatting");
       exportAsJson(sessions, messages);
       assert.strictEqual(capturedType, "application/json");
     } finally {

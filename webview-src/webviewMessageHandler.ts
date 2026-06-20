@@ -228,6 +228,7 @@ interface SessionOverviewStateMessage {
 interface MeshStatusMessage {
   type: "mesh:status";
   agents: import("./types").MeshAgentStatus[];
+  teams?: import("./types").MeshTeamEntry[];
 }
 
 interface MeshTaskBoardMessage {
@@ -253,6 +254,47 @@ interface MeshAgentDisconnectedMessage {
 interface MeshPanelToggleMessage {
   type: "mesh:togglePanel";
   visible: boolean;
+}
+
+interface MeshStartTeamMessage {
+  type: "mesh:startTeam";
+  teamId: string;
+  name: string;
+  description: string;
+  lead: { agentId: string; sessionId: string };
+  members: Array<{ agentId: string; sessionId: string }>;
+}
+
+interface MeshTeamCreatedMessage {
+  type: "mesh:teamCreated";
+  team: import("./types").MeshTeamEntry;
+}
+
+interface MeshOpenTeamCreateMessage {
+  type: "mesh:openTeamCreate";
+}
+
+interface MeshPlanMessage {
+  type: "mesh:plan";
+  text?: string;
+  teamId?: string;
+}
+
+interface MeshAddMemberToTeamMessage {
+  type: "mesh:addMemberToTeam";
+  teamId: string;
+  agentId: string;
+}
+
+interface MeshRemoveMemberFromTeamMessage {
+  type: "mesh:removeMemberFromTeam";
+  teamId: string;
+  agentId: string;
+}
+
+interface MeshTeamUpdatedMessage {
+  type: "mesh:teamUpdated";
+  team: import("./types").MeshTeamEntry;
 }
 
 // ── Session pin/unpin messages ─────────────────────────────────────────────
@@ -357,6 +399,13 @@ type WebviewMessage =
   | MeshAgentConnectedMessage
   | MeshAgentDisconnectedMessage
   | MeshPanelToggleMessage
+  | MeshStartTeamMessage
+  | MeshTeamCreatedMessage
+  | MeshOpenTeamCreateMessage
+  | MeshPlanMessage
+  | MeshAddMemberToTeamMessage
+  | MeshRemoveMemberFromTeamMessage
+  | MeshTeamUpdatedMessage
   | SessionPinnedNotification
   | SessionUnpinnedNotification
   | PathsResolvedMessage
@@ -531,7 +580,11 @@ function handleSessionTurnActive(data: SessionTurnActive): void {
     // Overwriting to "idle" here would hide the cancelling state from the
     // Composer stop button and the StreamingStatus bar.
     const nextStatus =
-      existing.status === "cancelling" ? "cancelling" : active ? "running" : "idle";
+      existing.status === "cancelling"
+        ? "cancelling"
+        : active
+          ? "running"
+          : "idle";
     useSessionStore.getState().setSessionInfo(data.agentId, data.sessionId, {
       ...existing,
       isStreaming: active,
@@ -725,6 +778,13 @@ function handleSessionOverviewPosition(
 
 function handleMeshStatus(data: MeshStatusMessage): void {
   useMeshStore.getState().setAgentStatuses(data.agents);
+  if (data.teams) {
+    useMeshStore.getState().setTeams(data.teams);
+  }
+}
+
+function handleMeshTeamCreated(data: MeshTeamCreatedMessage): void {
+  useMeshStore.getState().addTeam(data.team);
 }
 
 function handleMeshTaskBoard(data: MeshTaskBoardMessage): void {
@@ -749,6 +809,10 @@ function handleMeshAgentDisconnected(data: MeshAgentDisconnectedMessage): void {
 
 function handleMeshPanelToggle(data: MeshPanelToggleMessage): void {
   useMeshStore.getState().setMeshPanelVisible(data.visible);
+}
+
+function handleMeshTeamUpdated(data: MeshTeamUpdatedMessage): void {
+  useMeshStore.getState().updateTeam(data.team.id, data.team);
 }
 
 function handlePathsResolved(data: PathsResolvedMessage): void {
@@ -958,6 +1022,28 @@ export function setupMessageHandlers(): void {
       case "mesh:togglePanel":
         handleMeshPanelToggle(data);
         break;
+      case "mesh:startTeam":
+        // Forward to extension host — MeshOrchestrator.startTeam() handles the rest
+        // No-op on webview side; the extension host will send mesh:teamCreated on success
+        break;
+      case "mesh:teamCreated":
+        handleMeshTeamCreated(data);
+        break;
+      case "mesh:openTeamCreate":
+        // No-op on extension host — the webview manages the dialog state internally
+        break;
+      case "mesh:plan":
+        // Forward to extension host — SupervisorOrchestrator.createPlan() handles the rest
+        // No-op on webview side; the extension host will send plan.update when ready
+        break;
+      case "mesh:addMemberToTeam":
+      case "mesh:removeMemberFromTeam":
+        // Forward to extension host — MeshOrchestrator handles the rest
+        // No-op on webview side; the extension host will send mesh:teamUpdated on success
+        break;
+      case "mesh:teamUpdated":
+        handleMeshTeamUpdated(data);
+        break;
       case "pathsResolved":
         handlePathsResolved(data);
         break;
@@ -987,9 +1073,8 @@ export function setupMessageHandlers(): void {
         break;
       case "composer:focus":
         requestAnimationFrame(() => {
-          const textarea = document.querySelector<HTMLTextAreaElement>(
-            ".composer textarea"
-          );
+          const textarea =
+            document.querySelector<HTMLTextAreaElement>(".composer textarea");
           if (textarea) {
             textarea.focus();
             // Place cursor at end

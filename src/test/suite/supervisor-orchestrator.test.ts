@@ -84,8 +84,11 @@ function createDeps(overrides: { failPromptAgents?: Set<string> }): {
         : {
             id: teamId,
             taskBoardPath: `.acp-mesh/${teamId}/taskboard.json`,
-            leadAgentId: "lead-1",
-            memberAgentIds: ["worker-1", "worker-2"],
+            lead: { agentId: "lead-1", sessionId: "lead-session" },
+            members: [
+              { agentId: "worker-1", sessionId: "ws1" },
+              { agentId: "worker-2", sessionId: "ws2" },
+            ],
           },
     processAgentOutput: async (_agentId: string, raw: string) => raw,
   } as unknown as MeshOrchestrator;
@@ -718,7 +721,10 @@ describe("SupervisorOrchestrator", () => {
       );
 
       orch.modifyStep("plan-1", "nonexistent", "New desc");
-      assert.strictEqual(orch.getPlan("plan-1")!.steps[0].description, "Step 1");
+      assert.strictEqual(
+        orch.getPlan("plan-1")!.steps[0].description,
+        "Step 1"
+      );
     });
   });
 

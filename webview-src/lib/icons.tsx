@@ -766,6 +766,78 @@ export function IconTrash({
   );
 }
 
+export function IconPencil({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
+  return (
+    <Svg className={className} size={size}>
+      <path d="M2.5 13.5l9-9a1.5 1.5 0 0 0-2-2l-9 9v2h2z" />
+      <path d="M10 3l3 3" />
+    </Svg>
+  );
+}
+
+export function IconPerson({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
+  return (
+    <Svg className={className} size={size}>
+      <circle cx="8" cy="5" r="3" />
+      <path d="M2 14c0-3 2.5-5 6-5s6 2 6 5" />
+    </Svg>
+  );
+}
+
+export function IconPlus({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
+  return (
+    <Svg className={className} size={size}>
+      <path d="M8 3v10M3 8h10" />
+    </Svg>
+  );
+}
+
+export function IconCrown({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
+  return (
+    <Svg className={className} size={size}>
+      <path d="M2 12l2-7 3 3 2-5 2 5 3-3 2 7H2z" />
+      <path d="M4 12h8" />
+    </Svg>
+  );
+}
+
+export function IconWrench({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
+  return (
+    <Svg className={className} size={size} strokeWidth={1.5}>
+      <path d="M5.5 5.5L2 2l2-1.5L8 4l1.5 3.5L13 11l-2 2-3.5-3.5L4 8 2.5 4z" />
+    </Svg>
+  );
+}
+
+export function IconUsers({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
+  return (
+    <Svg className={className} size={size}>
+      <circle cx="5" cy="5" r="2.5" />
+      <path d="M1 13c0-2.5 2-4.5 4-4.5s4 2 4 4.5" />
+      <circle cx="12" cy="6" r="2" />
+      <path d="M15 13c0-2-1.5-3.5-3-3.5" />
+    </Svg>
+  );
+}
+
 export function IconCompress({
   className,
   size = 16,
@@ -843,6 +915,12 @@ const ICON_COMPONENTS: Record<string, React.FC<IconProps>> = {
   "tool-task": IconBulletList,
   "tool-mcp": IconPlug,
   compress: IconCompress,
+  crown: IconCrown,
+  wrench: IconWrench,
+  users: IconUsers,
+  pencil: IconPencil,
+  person: IconPerson,
+  plus: IconPlus,
   pin: IconPin,
   "pin-filled": IconPinFilled,
   "more-vertical": IconMoreVertical,

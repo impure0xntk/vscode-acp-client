@@ -1,8 +1,8 @@
 import React from "react";
 import { useShallow } from "zustand/shallow";
-import { useSessionStore } from "../../../store/sessionStore"
-import type { SessionStoreState } from "../../../store/sessionStore"
-import { useMessageStore } from "../../../store/messageStore"
+import { useSessionStore } from "../../../store/sessionStore";
+import type { SessionStoreState } from "../../../store/sessionStore";
+import { useMessageStore } from "../../../store/messageStore";
 import { SessionSection } from "./SessionSection";
 import type { SessionHeaderProps } from "../SessionView";
 
@@ -73,7 +73,13 @@ export const GridSessionLayout = React.memo(function GridSessionLayout({
   const allMessages = useMessageStore.getState().perSession;
 
   const cols =
-    visibleKeys.length <= 1 ? 1 : visibleKeys.length <= 2 ? 2 : visibleKeys.length <= 4 ? 3 : 4;
+    visibleKeys.length <= 1
+      ? 1
+      : visibleKeys.length <= 2
+        ? 2
+        : visibleKeys.length <= 4
+          ? 3
+          : 4;
   const pct = 100 / cols;
 
   const renderSection = (key: string, isFocus: boolean) => {
@@ -107,10 +113,7 @@ export const GridSessionLayout = React.memo(function GridSessionLayout({
     );
   };
 
-  const containerClassName = [
-    "multi-session-view",
-    `multi-session-view--grid`,
-  ]
+  const containerClassName = ["multi-session-view", `multi-session-view--grid`]
     .filter(Boolean)
     .join(" ");
 

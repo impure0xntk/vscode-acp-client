@@ -1,12 +1,16 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { SessionChatContainer } from "../SessionChatContainer";
 import { SessionStatusBar } from "../SessionStatusBar";
-import { useSessionStore } from "../../../store/sessionStore"
-import { useMessageStore } from "../../../store/messageStore"
-import { useScrollStateStore } from "../../../store/scrollStateStore"
+import { useSessionStore } from "../../../store/sessionStore";
+import { useMessageStore } from "../../../store/messageStore";
+import { useScrollStateStore } from "../../../store/scrollStateStore";
 import { useMessages } from "../../../hooks/useMessages";
 import { useSessionInfo } from "../../../hooks/useSessionInfo";
-import type { ContextAttachment, SendTarget, ChatMessage } from "../../../types";
+import type {
+  ContextAttachment,
+  SendTarget,
+  ChatMessage,
+} from "../../../types";
 
 export interface SingleSessionLayoutProps {
   activeKey: string | null;
@@ -24,9 +28,10 @@ export interface SingleSessionLayoutProps {
   scrollToUnreadRef?: React.MutableRefObject<(() => void) | undefined>;
   turnStartedAtMap?: Record<string, string>;
   pendingMap?: Record<string, boolean>;
-  useActiveScrollState: (
-    key: string | null
-  ) => { isAtBottom: boolean; readUpToMessageId: string | null };
+  useActiveScrollState: (key: string | null) => {
+    isAtBottom: boolean;
+    readUpToMessageId: string | null;
+  };
   deriveUnread: (
     readUpToId: string | null,
     messages: ChatMessage[]
@@ -53,10 +58,24 @@ export const SingleSessionLayout = React.memo(function SingleSessionLayout({
     externalForceScrollToBottomRef ?? localForceScrollToBottomRef;
   const scrollToUnreadRef = externalScrollToUnreadRef ?? localScrollToUnreadRef;
 
-  const [turnStartedAt, setTurnStartedAt] = useState<string | undefined>(
-    undefined
-  );
-  const [pending, setPending] = useState(false);
+  const [localTurnStartedAt, setLocalTurnStartedAt] = useState<
+    string | undefined
+  >(undefined);
+  const [localPending, setLocalPending] = useState(false);
+
+  // In single mode, prefer map values (set by UnifiedMode) over local state.
+  // The main send path (Composer → handleSendWithTurnTracking) sets maps,
+  // not local state.  Local state is only used as a fallback.
+  const mapTurnStartedAt = turnStartedAtMap?.[activeKey ?? ""];
+  const mapPending = pendingMap?.[activeKey ?? ""] ?? false;
+  const turnStartedAt = mapTurnStartedAt ?? localTurnStartedAt;
+  const pending = mapPending || localPending;
+  const setTurnStartedAt = (v: string | undefined) => {
+    setLocalTurnStartedAt(v);
+  };
+  const setPending = (v: boolean) => {
+    setLocalPending(v);
+  };
 
   const { messages: activeMessages, isStreaming } = useMessages(
     activeKey ?? null
@@ -203,7 +222,10 @@ export const SingleSessionLayout = React.memo(function SingleSessionLayout({
   // when pending became true, or the status skipped "running" entirely),
   // leaving the "Sending…" indicator stuck.
   const isTerminal =
-    status === "completed" || (status as string) === "done" || status === "error" || status === "cancelled";
+    status === "completed" ||
+    (status as string) === "done" ||
+    status === "error" ||
+    status === "cancelled";
   useEffect(() => {
     if (isTerminal && pending) {
       setPending(false);

@@ -70,16 +70,19 @@ function makeTeamConfig(
   overrides: Partial<{
     id: string;
     name: string;
-    leadAgentId: string;
-    memberAgentIds: string[];
+    lead: { agentId: string; sessionId: string };
+    members: Array<{ agentId: string; sessionId: string }>;
   }> = {}
 ) {
   return {
     id: "team-1",
     name: "Test Team",
     description: "A test team",
-    leadAgentId: "agent-lead",
-    memberAgentIds: ["agent-a", "agent-b"],
+    lead: { agentId: "agent-lead", sessionId: "session-lead" },
+    members: [
+      { agentId: "agent-a", sessionId: "session-a" },
+      { agentId: "agent-b", sessionId: "session-b" },
+    ],
     ...overrides,
   };
 }
@@ -122,7 +125,7 @@ describe("MeshOrchestrator", () => {
       assert.strictEqual(team.id, "team-1");
       assert.strictEqual(team.name, "Test Team");
       assert.strictEqual(team.status, "active");
-      assert.strictEqual(team.memberAgentIds.length, 2);
+      assert.strictEqual(team.members.length, 2);
     });
 
     it("should register team members on message bus", async () => {
@@ -342,8 +345,8 @@ describe("MeshOrchestrator", () => {
         id: "cycle-team",
         name: "Cycle Team",
         description: "",
-        leadAgentId: "lead",
-        memberAgentIds: ["a"],
+        lead: { agentId: "lead", sessionId: "lead-s1" },
+        members: [{ agentId: "a", sessionId: "a-s1" }],
       });
 
       orch2.addTask("cycle-team", {

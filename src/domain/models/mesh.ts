@@ -128,12 +128,18 @@ export interface P2PMessageMetadata {
 // Mesh Team
 // ----------------------------------------------------------------------------
 
+/** Identifies a specific agent session within a team */
+export interface MeshSessionRef {
+  agentId: string;
+  sessionId: string;
+}
+
 export interface MeshTeam {
   id: string;
   name: string;
   description: string;
-  leadAgentId: string;
-  memberAgentIds: string[];
+  lead: MeshSessionRef;
+  members: MeshSessionRef[];
   taskBoardPath: string;
   createdAt: Date;
   status: "active" | "paused" | "completed";

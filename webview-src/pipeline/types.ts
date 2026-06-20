@@ -24,6 +24,8 @@ export type SystemKind =
 /** Classified message — systemKind assigned */
 export interface ClassifiedMessage extends RawMessage {
   systemKind: SystemKind;
+  /** Original role before merge promotion (set by mergeToolBatches when tool → agent) */
+  originalRole?: "user" | "agent" | "system" | "tool";
 }
 
 // ── Resolved tool call / attachment (display helpers) ──────────────────────
@@ -78,8 +80,10 @@ export interface ChatDisplayItem {
   key: string;
   /** Original timestamp */
   timestamp: number | undefined;
-  /** Role for styling */
+  /** Role for styling (may be "agent" for tool messages promoted by merge) */
   role: "user" | "agent" | "system" | "tool";
+  /** Original role before merge promotion — "tool" when a tool message was promoted to agent */
+  originalRole?: "user" | "agent" | "system" | "tool";
   /** Thinking content if present */
   thinking: { content: string; isStreaming: boolean } | undefined;
   /** True when this message is consecutive from the same source — header should be hidden */

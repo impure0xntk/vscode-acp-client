@@ -1,5 +1,5 @@
 import React from "react";
-import type { AgentInfo, SessionTabStatus } from "../../store/sessionStore"
+import type { AgentInfo, SessionTabStatus } from "../../store/sessionStore";
 import type { ToolbarMeta, ContextColor } from "../primitives/Chip";
 import { Chip } from "../primitives/Chip";
 import {
@@ -402,26 +402,28 @@ export const SessionFooter = React.memo(function SessionFooter(
         </div>
       </div>
 
-      {open && (
-        <DetailsPanel
-          mode={mode}
-          model={model}
-          cwd={cwd}
-          messageCount={messageCount}
-          tokenUsage={tokenUsage}
-          totalTokens={total}
-          sessionStatus={sessionStatus}
-          agentInfo={agentInfo}
-          meta={meta}
-          sessionId={sessionId}
-          sessionStartMs={sessionStartMs}
-          provider={provider}
-          maxTokens={maxTokens}
-          onForkSession={onForkSession}
-          lastTurnOutcome={lastTurnOutcome}
-          lastResponseAt={lastResponseAt}
-        />
-      )}
+      <div className={`collapsible ${open ? "collapsible--open" : ""}`}>
+        <div className="collapsible-body">
+          <DetailsPanel
+            mode={mode}
+            model={model}
+            cwd={cwd}
+            messageCount={messageCount}
+            tokenUsage={tokenUsage}
+            totalTokens={total}
+            sessionStatus={sessionStatus}
+            agentInfo={agentInfo}
+            meta={meta}
+            sessionId={sessionId}
+            sessionStartMs={sessionStartMs}
+            provider={provider}
+            maxTokens={maxTokens}
+            onForkSession={onForkSession}
+            lastTurnOutcome={lastTurnOutcome}
+            lastResponseAt={lastResponseAt}
+          />
+        </div>
+      </div>
     </header>
   );
 });

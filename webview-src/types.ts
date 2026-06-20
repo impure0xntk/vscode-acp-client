@@ -32,7 +32,13 @@ export interface SessionOverviewItem {
   sessionId: string;
   agentId: string;
   title: string;
-  status: "idle" | "running" | "cancelling" | "completed" | "error" | "cancelled";
+  status:
+    | "idle"
+    | "running"
+    | "cancelling"
+    | "completed"
+    | "error"
+    | "cancelled";
   lastTurnOutcome: "completed" | "error" | "cancelled" | null;
   model?: string;
   mode?: string;
@@ -183,9 +189,10 @@ export interface SuggestionItem {
     | "command"
     | "symbol"
     | "action"
-    | "session";
+    | "session"
+    | "team";
   label: string;
-  /** Relative path for files, command id for commands, symbol name for symbols, action id for actions, "agentId:sessionId" for sessions */
+  /** Relative path for files, command id for commands, symbol name for symbols, action id for actions, "agentId:sessionId" for sessions, team id for teams */
   value: string;
   /** Optional detail line (e.g. file path tail, symbol type, command description, agentId for sessions) */
   detail?: string;
@@ -196,7 +203,22 @@ export interface SuggestionItem {
   /** Session identifier — populated for session suggestions */
   sessionId?: string;
   /** Session status — populated for session suggestions (mirrors SessionInfoSnapshot.status) */
-  status?: "idle" | "running" | "cancelling" | "completed" | "error" | "cancelled";
+  status?:
+    | "idle"
+    | "running"
+    | "cancelling"
+    | "completed"
+    | "error"
+    | "cancelled";
+  /** Session color from the agent (via ConnectedAgentInfo.color) */
+  sessionColor?: string;
+}
+
+/** Selected team info — stored in meshStore when user picks a team via @team: picker */
+export interface SelectedTeam {
+  id: string;
+  name: string;
+  leadAgentId: string;
 }
 
 export interface SessionCompressionInfo {
@@ -247,7 +269,13 @@ export interface ToolbarMeta {
   value: string;
   icon?: React.ReactNode;
   category?: "session" | "runtime" | "metrics" | "workspace";
-  statusIndicator?: "idle" | "running" | "cancelling" | "completed" | "error" | "cancelled";
+  statusIndicator?:
+    | "idle"
+    | "running"
+    | "cancelling"
+    | "completed"
+    | "error"
+    | "cancelled";
   modeIcon?: string;
   contextColor?: ContextColor;
   barPct?: number;
@@ -282,7 +310,13 @@ export interface SendTarget {
   agentId: string;
   sessionId: string;
   label: string;
-  status?: "idle" | "running" | "completed" | "error" | "cancelled";
+  status?:
+    | "idle"
+    | "running"
+    | "cancelling"
+    | "completed"
+    | "error"
+    | "cancelled";
 }
 
 export interface MeshAgentStatus {
@@ -311,6 +345,21 @@ export interface MeshTaskEntry {
     | "failed";
   assignedTo?: string;
   progress?: number;
+}
+
+export interface MeshSessionRef {
+  agentId: string;
+  sessionId: string;
+}
+
+export interface MeshTeamEntry {
+  id: string;
+  name: string;
+  description: string;
+  lead: MeshSessionRef;
+  members: MeshSessionRef[];
+  status: "active" | "paused" | "completed";
+  createdAt: string;
 }
 
 export interface MeshRecentMessage {

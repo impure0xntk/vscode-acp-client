@@ -18,7 +18,13 @@ export interface SessionTabState {
   agentId: string;
   title: string;
   agentIcon?: string;
-  status?: "idle" | "running" | "cancelling" | "completed" | "error" | "cancelled";
+  status?:
+    | "idle"
+    | "running"
+    | "cancelling"
+    | "completed"
+    | "error"
+    | "cancelled";
 }
 
 export type SessionState =
@@ -350,7 +356,7 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
   // ── UnifiedChatPanel ─────────────────────────────────────────────────
   pinnedSessionKeys: [],
   layoutMode: "single",
-  splitDirection: "vertical",
+  splitDirection: "horizontal",
   splitRatios: [],
   currentPlan: null,
   planHistory: [],
@@ -808,7 +814,9 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
     set((s) => {
       if (!s.currentPlan) return s;
       const steps = s.currentPlan.steps.map((st) =>
-        st.id === failedStepId ? { ...st, status: "pending" as const, error: undefined } : st
+        st.id === failedStepId
+          ? { ...st, status: "pending" as const, error: undefined }
+          : st
       );
       return {
         ...s,

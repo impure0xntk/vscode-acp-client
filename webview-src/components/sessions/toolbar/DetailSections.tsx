@@ -1,5 +1,5 @@
 import React from "react";
-import type { AgentInfo } from "../../../store/sessionStore";
+import type { AgentInfo, SessionInfoDTO } from "../../../store/sessionStore";
 import { Icon } from "../../../lib/icons";
 import { fmtCaps, fmtDuration, fmtTimestamp } from "./formatting";
 
@@ -159,6 +159,69 @@ export function TurnSection({
         {turnDuration && <Row label="Turn Duration" value={turnDuration} />}
       </div>
     </section>
+  );
+}
+
+// ── SectionDetailsPanel ─────────────────────────────────────────────────────
+// Compact variant for Unified section header expansion.  Shows the same
+// information as the Classic SessionFooter DetailsPanel but without the
+// section/turn breakdown that is already visible as chips.
+
+export function SectionDetailsPanel({
+  info,
+  messageCount,
+  onForkSession,
+}: {
+  info: SessionInfoDTO;
+  messageCount: number;
+  onForkSession?: () => void;
+}): React.ReactElement {
+  const total = info.tokenUsage.inputTokens + info.tokenUsage.outputTokens;
+  const sessionStartMs = info.createdAt
+    ? new Date(info.createdAt).getTime()
+    : undefined;
+
+  return (
+    <div className="toolbar-details section-details-panel">
+      <section className="toolbar-details-section">
+        <h3 className="toolbar-details-section-title">Metrics</h3>
+        <div className="toolbar-details-grid">
+          <Row
+            label="Input"
+            value={`${info.tokenUsage.inputTokens.toLocaleString()} tokens`}
+          />
+          <Row
+            label="Output"
+            value={`${info.tokenUsage.outputTokens.toLocaleString()} tokens`}
+          />
+          <Row label="Total" value={`${total.toLocaleString()} tokens`} />
+          <Row label="Messages" value={String(messageCount)} />
+          {sessionStartMs && (
+            <Row
+              label="Duration"
+              value={`▸ ${fmtDuration(Date.now() - sessionStartMs)}`}
+            />
+          )}
+          {info.model && <Row label="Model" value={info.model} />}
+        </div>
+      </section>
+
+      {info.cwd && (
+        <section className="toolbar-details-section">
+          <h3 className="toolbar-details-section-title">Workspace</h3>
+          <div className="toolbar-details-grid">
+            <Row label="CWD" value={info.cwd} />
+          </div>
+        </section>
+      )}
+
+      <section className="toolbar-details-section">
+        <h3 className="toolbar-details-section-title">Session</h3>
+        <div className="toolbar-details-grid">
+          <SessionIdRow sessionId={info.sessionId} onFork={onForkSession} />
+        </div>
+      </section>
+    </div>
   );
 }
 

@@ -31,12 +31,14 @@ export function ThinkingBlock({
         </span>
         <span className={`thinking-chevron ${isOpen ? "open" : ""}`}>▸</span>
       </div>
-      {isOpen && (
-        <div className="thinking-body">
-          {content}
-          {isStreaming && <span className="cursor-blink">▋</span>}
+      <div className={`collapsible ${isOpen ? "collapsible--open" : ""}`}>
+        <div className="collapsible-body">
+          <div className="thinking-body">
+            {content}
+            {isStreaming && <span className="cursor-blink">▋</span>}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

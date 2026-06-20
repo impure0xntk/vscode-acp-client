@@ -18,11 +18,18 @@ export interface DisplayItemViewProps {
   items: PipelineItem[];
   sessionId?: string;
   agentId?: string;
+  /** Delay in ms for appear animation. Staggered per position. */
+  appearDelay?: number;
 }
 
 // ── Chat item ───────────────────────────────────────────────────────────────
 
-function RenderChat(item: ChatDisplayItem, sessionId?: string, agentId?: string) {
+function RenderChat(
+  item: ChatDisplayItem,
+  sessionId?: string,
+  agentId?: string,
+  appearDelay?: number
+) {
   return (
     <Message
       key={item.key}
@@ -30,6 +37,7 @@ function RenderChat(item: ChatDisplayItem, sessionId?: string, agentId?: string)
       isConsecutive={item.isConsecutive}
       sessionId={sessionId}
       agentId={agentId}
+      appearDelay={appearDelay}
     />
   );
 }
@@ -84,10 +92,11 @@ export function DisplayItemView({
   items: _items,
   sessionId,
   agentId,
+  appearDelay = 0,
 }: DisplayItemViewProps): React.ReactElement {
   switch (item.type) {
     case "chat":
-      return RenderChat(item, sessionId, agentId);
+      return RenderChat(item, sessionId, agentId, appearDelay);
     case "compression":
       return RenderCompression(item);
     case "mode_change":

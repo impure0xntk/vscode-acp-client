@@ -30,14 +30,22 @@ export interface UnifiedModeProps {
   onSendMessage: (
     text: string,
     attachments: ContextAttachment[],
-    targets?: SendTarget[]
+    targets?: SendTarget[],
+    mode?: import("../../../types").CommunicationMode | null,
+    teamId?: string
   ) => void;
   onCancel: () => void;
   onSwitchSession: (agentId: string, sessionId: string) => void;
   onRenameSession?: (agentId: string, sessionId: string, title: string) => void;
   onNewSession: () => void;
   disabled?: boolean;
-  status?: "idle" | "running" | "completed" | "error" | "cancelled";
+  status?:
+    | "idle"
+    | "running"
+    | "cancelling"
+    | "completed"
+    | "error"
+    | "cancelled";
   fetchFiles: (query: string, cwd?: string) => Promise<FileCandidate[]>;
   resolveFile: (path: string) => Promise<ContextAttachment>;
   resolveSelection: () => Promise<ContextAttachment | null>;
@@ -202,28 +210,51 @@ export const UnifiedMode = React.memo(function UnifiedMode({
     [handleClose]
   );
 
+  // Read activeSessionKey from store at call time to avoid stale closure.
+  // The closure value may be stale when the store updates (e.g., tab switch)
+  // but React hasn't re-rendered yet — causing "Sending…" to appear on
+  // the wrong session.
+  //
+  // When targets are provided (multi-@ or send-to-all-pinned), set pending
+  // for each target session — not the active session — so "Sending…"
+  // appears on the correct session(s).
   const handleSendWithTurnTracking = useCallback(
     (
       text: string,
       attachments: ContextAttachment[],
       targets?: SendTarget[]
     ) => {
-      const key = activeSessionKey;
-      if (key) {
-        setTurnStartedAtMap((prev) => ({
-          ...prev,
-          [key]: new Date().toISOString(),
-        }));
-        setPendingMap((prev) => ({ ...prev, [key]: true }));
+      const activeKey = useSessionStore.getState().activeSessionKey;
+      const now = new Date().toISOString();
+
+      // Determine which sessions should show "Sending…"
+      const targetKeys = targets?.length
+        ? targets.map((t) => `${t.agentId}:${t.sessionId}`)
+        : activeKey
+          ? [activeKey]
+          : [];
+
+      if (targetKeys.length > 0) {
+        setTurnStartedAtMap((prev) => {
+          const next = { ...prev };
+          for (const k of targetKeys) next[k] = now;
+          return next;
+        });
+        setPendingMap((prev) => {
+          const next = { ...prev };
+          for (const k of targetKeys) next[k] = true;
+          return next;
+        });
       }
       onSendMessage(text, attachments, targets);
     },
-    [onSendMessage, activeSessionKey]
+    [onSendMessage]
   );
 
   // Clear pending state for any session whose agent has acknowledged the turn
-  // (status became "running").  Previously only the active session was cleared,
-  // causing unfocused sessions to stay stuck on "Sending…" forever.
+  // (status became "running") or reached a terminal state (completed/error/
+  // cancelled).  Previously only "running" was checked, causing sessions that
+  // respond too fast (skipping "running") to stay stuck on "Sending…" forever.
   // Use a ref to always read the latest pendingMap inside the subscription.
   const pendingMapRef = useRef(pendingMap);
   pendingMapRef.current = pendingMap;
@@ -238,7 +269,15 @@ export const UnifiedMode = React.memo(function UnifiedMode({
       const nextPending = { ...currentPending };
       const nextTurn = { ...turnStartedAtMapRef.current };
       for (const [key, isPending] of Object.entries(currentPending)) {
-        if (isPending && infoMap[key]?.status === "running") {
+        if (!isPending) continue;
+        const info = infoMap[key];
+        if (!info) continue;
+        const shouldClear =
+          info.status === "running" ||
+          info.status === "completed" ||
+          info.status === "error" ||
+          info.status === "cancelled";
+        if (shouldClear) {
           nextPending[key] = false;
           delete nextTurn[key];
           pendingChanged = true;

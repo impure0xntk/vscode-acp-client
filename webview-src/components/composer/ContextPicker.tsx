@@ -24,20 +24,21 @@ const SUB_TRIGGER_LABELS: Record<string, string> = {
   file: "Files",
   symbol: "Symbols",
   switch: "Switch to session",
+  team: "Teams",
 };
 
 // ── Public API ──────────────────────────────────────────────────────
 
 export interface ContextPickerProps {
   trigger: TriggerType;
-  subTrigger?: "symbol" | "file" | "switch";
+  subTrigger?: "symbol" | "file" | "switch" | "team";
   query: string;
   onSelect: (item: SuggestionItem) => void;
   onClose: () => void;
   fetchItems: (
     trigger: TriggerType,
     query: string,
-    subTrigger?: "symbol" | "file" | "switch"
+    subTrigger?: "symbol" | "file" | "switch" | "team"
   ) => Promise<SuggestionItem[]>;
   selectedIndex: number;
   onSelectedIndexChange: (index: number) => void;
@@ -128,12 +129,16 @@ export function ContextPicker({
     trigger === "/"
       ? "No commands found"
       : trigger === "@"
-        ? "No sessions found"
+        ? subTrigger === "team"
+          ? "No teams found"
+          : "No sessions found"
         : subTrigger === "symbol"
           ? "No symbols found"
           : subTrigger === "switch"
             ? "No sessions found"
-            : "No files found";
+            : subTrigger === "team"
+              ? "No teams found"
+              : "No files found";
 
   // Check if we need a separator between main items and action items
   const firstActionIdx = items.findIndex((it) => it.kind === "action");
@@ -156,17 +161,23 @@ export function ContextPicker({
               onClick={() => onSelect(item)}
               onMouseEnter={() => onSelectedIndexChange(i)}
             >
+              {item.kind === "session" ? (
+                <span
+                  className="context-picker-session-dot"
+                  style={{
+                    backgroundColor: item.sessionColor ?? "var(--vscode-descriptionForeground)",
+                  }}
+                />
+              ) : item.icon ? (
+                <Icon
+                  name={item.icon}
+                  className="context-picker-icon"
+                  size="sm"
+                />
+              ) : null}
               {item.kind === "session" && item.status ? (
                 <StatusIcon status={item.status} />
-              ) : (
-                item.icon && (
-                  <Icon
-                    name={item.icon}
-                    className="context-picker-icon"
-                    size="sm"
-                  />
-                )
-              )}
+              ) : null}
               <span className="context-picker-label">{item.label}</span>
               {item.detail && (
                 <span className="context-picker-detail">{item.detail}</span>

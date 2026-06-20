@@ -113,7 +113,7 @@ export function registerSessionCommands(
           "Select agent for new session"
         );
         if (!agentId) return;
-        // Build workspace folder picker items + "Other…" option
+        // Build workspace folder picker items + "Browse…" option
         const wsFolders = vscode.workspace.workspaceFolders ?? [];
         type CwdItem = {
           label: string;
@@ -128,8 +128,8 @@ export function registerSessionCommands(
           cwd: f.uri.fsPath,
         }));
         items.push({
-          label: "$(file-directory) Other…",
-          description: "Enter a custom path",
+          label: "$(file-directory) Browse…",
+          description: "Choose a directory from the system",
           cwd: "",
         });
         const cwdPick = await vscode.window.showQuickPick(items, {
@@ -139,14 +139,19 @@ export function registerSessionCommands(
         if (!cwdPick) return;
         let cwd = cwdPick.cwd;
         if (!cwd) {
-          const fallback =
-            wsFolders.length > 0 ? wsFolders[0].uri.fsPath : process.cwd();
-          const input = await vscode.window.showInputBox({
-            prompt: "Working directory for new session",
-            value: fallback,
+          const defaultUri =
+            wsFolders.length > 0
+              ? wsFolders[0].uri
+              : vscode.Uri.file(process.cwd());
+          const selected = await vscode.window.showOpenDialog({
+            canSelectFiles: false,
+            canSelectFolders: true,
+            canSelectMany: false,
+            openLabel: "Select working directory",
+            defaultUri,
           });
-          if (!input) return;
-          cwd = input;
+          if (!selected?.length) return;
+          cwd = selected[0].fsPath;
         }
         try {
           const sessionId = await orchestrator.createSession(agentId, cwd);

@@ -103,10 +103,10 @@ export class AgentRegistry {
    */
   loadPreset(platform: PlatformAPI): PresetConfig | undefined {
     const cfg = platform.fs.getConfiguration("acp");
-    const presetsObj = cfg.get<{ default: string; configs: Record<string, PresetConfig> }>(
-      "presets",
-      { default: "", configs: {} }
-    ) ?? { default: "", configs: {} };
+    const presetsObj = cfg.get<{
+      default: string;
+      configs: Record<string, PresetConfig>;
+    }>("presets", { default: "", configs: {} }) ?? { default: "", configs: {} };
     const defaultName = presetsObj.default;
     if (!defaultName) return undefined;
 

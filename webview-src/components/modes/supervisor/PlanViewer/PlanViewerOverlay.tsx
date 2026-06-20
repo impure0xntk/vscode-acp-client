@@ -2,12 +2,21 @@ import React, { useCallback } from "react";
 import type { Plan } from "../../../../types";
 import { PlanViewer } from "./PlanViewer";
 import { getVsCodeApi } from "../../../../lib/vscodeApi";
+import { useSessionStore } from "../../../../store/sessionStore";
 
 interface PlanViewerOverlayProps {
   plan: Plan;
 }
 
-export function PlanViewerOverlay({ plan }: PlanViewerOverlayProps): React.ReactElement {
+export function PlanViewerOverlay({
+  plan,
+}: PlanViewerOverlayProps): React.ReactElement {
+  const setCurrentPlan = useSessionStore((s) => s.setCurrentPlan);
+
+  const handleClose = useCallback(() => {
+    setCurrentPlan(null);
+  }, [setCurrentPlan]);
+
   const handleApprove = useCallback(() => {
     getVsCodeApi().postMessage({ type: "plan.approve", planId: plan.id });
   }, [plan.id]);
@@ -73,6 +82,7 @@ export function PlanViewerOverlay({ plan }: PlanViewerOverlayProps): React.React
         plan={plan}
         onApprove={handleApprove}
         onReject={handleReject}
+        onClose={handleClose}
         onModifyStep={handleModifyStep}
         onAddStep={handleAddStep}
         onRemoveStep={handleRemoveStep}

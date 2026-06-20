@@ -4,17 +4,17 @@ import type {
   ToolbarMeta,
   ResponsePreview,
 } from "../../../types";
-import type { TurnOutcome } from "../../primitives/StatusIcon"
+import type { TurnOutcome } from "../../primitives/StatusIcon";
 import { Chip } from "../../primitives/Chip";
 import { AgentBadge } from "../../primitives/AgentBadge";
-import { StatusIcon } from "../../primitives/StatusIcon"
-import type { StatusIconType } from "../../primitives/StatusIcon"
+import { StatusIcon } from "../../primitives/StatusIcon";
+import type { StatusIconType } from "../../primitives/StatusIcon";
 import {
   ELAPSED_WARNING_MS,
   ELAPSED_CRITICAL_MS,
 } from "../../../shared/constants";
-import { Icon } from "../../../lib/icons"
-import { snapshotToOverviewItem } from "../../../store/sessionStore"
+import { Icon } from "../../../lib/icons";
+import { snapshotToOverviewItem } from "../../../store/sessionStore";
 export { snapshotToOverviewItem };
 
 // ============================================================================

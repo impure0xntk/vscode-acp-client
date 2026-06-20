@@ -53,6 +53,7 @@ function makeUI(): UIAPI {
     }),
     showNotification: async () => undefined,
     clipboardWriteText: async () => {},
+    getConfiguration: <T>(_section: string, _key: string, defaultValue: T) => defaultValue,
   } as unknown as UIAPI;
 }
 
@@ -111,7 +112,10 @@ interface OrchestratorInternals {
   agentInfoMap: Map<string, AgentInfo>;
   agentConfigs: Map<string, any>;
   historyStore: any;
-  getSessionInfo(agentId: string, sessionId: string): AppSessionInfo | undefined;
+  getSessionInfo(
+    agentId: string,
+    sessionId: string
+  ): AppSessionInfo | undefined;
   prompt(
     agentId: string,
     sessionId: string,

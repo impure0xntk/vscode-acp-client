@@ -15,4 +15,5 @@ export {
   MetricsSection,
   TurnSection,
   SessionIdRow,
+  SectionDetailsPanel,
 } from "./DetailSections";

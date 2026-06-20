@@ -103,20 +103,29 @@ describe("SingleSessionLayout: terminal status clears pending/turnStartedAt", ()
 
   describe("done status clears pending (the reported bug)", () => {
     it("clears pending when status is done and pending is true", () => {
-      const result = applyTerminalEffect("done", { pending: true, turnStartedAt: TS });
+      const result = applyTerminalEffect("done", {
+        pending: true,
+        turnStartedAt: TS,
+      });
       assert.strictEqual(result.pending, false);
       assert.strictEqual(result.turnStartedAt, undefined);
     });
 
     it("clears turnStartedAt when status is done and pending is true", () => {
-      const result = applyTerminalEffect("done", { pending: true, turnStartedAt: TS });
+      const result = applyTerminalEffect("done", {
+        pending: true,
+        turnStartedAt: TS,
+      });
       assert.strictEqual(result.turnStartedAt, undefined);
     });
   });
 
   describe("completed status clears pending", () => {
     it("clears pending when status is completed and pending is true", () => {
-      const result = applyTerminalEffect("completed", { pending: true, turnStartedAt: TS });
+      const result = applyTerminalEffect("completed", {
+        pending: true,
+        turnStartedAt: TS,
+      });
       assert.strictEqual(result.pending, false);
       assert.strictEqual(result.turnStartedAt, undefined);
     });
@@ -124,7 +133,10 @@ describe("SingleSessionLayout: terminal status clears pending/turnStartedAt", ()
 
   describe("error status clears pending", () => {
     it("clears pending when status is error and pending is true", () => {
-      const result = applyTerminalEffect("error", { pending: true, turnStartedAt: TS });
+      const result = applyTerminalEffect("error", {
+        pending: true,
+        turnStartedAt: TS,
+      });
       assert.strictEqual(result.pending, false);
       assert.strictEqual(result.turnStartedAt, undefined);
     });
@@ -132,7 +144,10 @@ describe("SingleSessionLayout: terminal status clears pending/turnStartedAt", ()
 
   describe("cancelled status clears pending", () => {
     it("clears pending when status is cancelled and pending is true", () => {
-      const result = applyTerminalEffect("cancelled", { pending: true, turnStartedAt: TS });
+      const result = applyTerminalEffect("cancelled", {
+        pending: true,
+        turnStartedAt: TS,
+      });
       assert.strictEqual(result.pending, false);
       assert.strictEqual(result.turnStartedAt, undefined);
     });
@@ -142,13 +157,19 @@ describe("SingleSessionLayout: terminal status clears pending/turnStartedAt", ()
 
   describe("non-terminal states do NOT clear pending", () => {
     it("keeps pending=true when status is running and pending is true", () => {
-      const result = applyTerminalEffect("running", { pending: true, turnStartedAt: TS });
+      const result = applyTerminalEffect("running", {
+        pending: true,
+        turnStartedAt: TS,
+      });
       assert.strictEqual(result.pending, true);
       assert.strictEqual(result.turnStartedAt, TS);
     });
 
     it("keeps pending=true when status is idle and pending is true", () => {
-      const result = applyTerminalEffect("idle", { pending: true, turnStartedAt: TS });
+      const result = applyTerminalEffect("idle", {
+        pending: true,
+        turnStartedAt: TS,
+      });
       assert.strictEqual(result.pending, true);
       assert.strictEqual(result.turnStartedAt, TS);
     });
@@ -158,19 +179,28 @@ describe("SingleSessionLayout: terminal status clears pending/turnStartedAt", ()
 
   describe("no-op when pending is already false", () => {
     it("does nothing when pending is false (done)", () => {
-      const result = applyTerminalEffect("done", { pending: false, turnStartedAt: TS });
+      const result = applyTerminalEffect("done", {
+        pending: false,
+        turnStartedAt: TS,
+      });
       assert.strictEqual(result.pending, false);
       assert.strictEqual(result.turnStartedAt, TS);
     });
 
     it("does nothing when pending is false (completed)", () => {
-      const result = applyTerminalEffect("completed", { pending: false, turnStartedAt: TS });
+      const result = applyTerminalEffect("completed", {
+        pending: false,
+        turnStartedAt: TS,
+      });
       assert.strictEqual(result.pending, false);
       assert.strictEqual(result.turnStartedAt, TS);
     });
 
     it("does nothing when pending is false (error)", () => {
-      const result = applyTerminalEffect("error", { pending: false, turnStartedAt: TS });
+      const result = applyTerminalEffect("error", {
+        pending: false,
+        turnStartedAt: TS,
+      });
       assert.strictEqual(result.pending, false);
       assert.strictEqual(result.turnStartedAt, TS);
     });
@@ -214,7 +244,10 @@ describe("SingleSessionLayout: terminal status clears pending/turnStartedAt", ()
 
   describe("done string literal (not in SessionStatus union)", () => {
     it("treats 'done' as terminal even though it's cast from string", () => {
-      const result = applyTerminalEffect("done", { pending: true, turnStartedAt: TS });
+      const result = applyTerminalEffect("done", {
+        pending: true,
+        turnStartedAt: TS,
+      });
       assert.strictEqual(result.pending, false);
       assert.strictEqual(result.turnStartedAt, undefined);
     });
@@ -358,7 +391,11 @@ describe("SingleSessionLayout: SessionStatusBar props derivation", () => {
         pending: true,
         turnStartedAt: TS,
       });
-      const props = deriveStatusBarProps("claude:session-1", "cancelling", cleared);
+      const props = deriveStatusBarProps(
+        "claude:session-1",
+        "cancelling",
+        cleared
+      );
       assert.strictEqual(props.pending, false);
       assert.strictEqual(props.turnStartedAt, undefined);
       assert.strictEqual(props.active, false);
@@ -386,7 +423,11 @@ describe("SingleSessionLayout: SessionStatusBar props derivation", () => {
         pending: true,
         turnStartedAt: TS,
       });
-      const props = deriveStatusBarProps("claude:session-1", "completed", cleared);
+      const props = deriveStatusBarProps(
+        "claude:session-1",
+        "completed",
+        cleared
+      );
       assert.strictEqual(props.active, false);
       assert.strictEqual(props.pending, false);
       assert.strictEqual(props.turnStartedAt, undefined);

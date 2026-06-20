@@ -72,8 +72,7 @@ export interface LoggerBackend {
 
 // ── Backends ────────────────────────────────────────────────────────────────
 
-const DEV =
-  (typeof __DEV__ !== "undefined" && __DEV__);
+const DEV = typeof __DEV__ !== "undefined" && __DEV__;
 
 /**
  * PostMessageBackend — sends log records to the extension host via postMessage.

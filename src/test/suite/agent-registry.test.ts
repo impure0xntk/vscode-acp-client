@@ -435,8 +435,17 @@ describe("AgentRegistry.loadPreset", () => {
           dev: {
             label: "dev",
             sessions: [
-              { agent: "claude", workspace: "../../", sessionName: "Backend 1" },
-              { agent: "goose", workspace: "/absolute/path", sessionName: "Frontend 1", mode: "review" },
+              {
+                agent: "claude",
+                workspace: "../../",
+                sessionName: "Backend 1",
+              },
+              {
+                agent: "goose",
+                workspace: "/absolute/path",
+                sessionName: "Frontend 1",
+                mode: "review",
+              },
             ],
           },
         },

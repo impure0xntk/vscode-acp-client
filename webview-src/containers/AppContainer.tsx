@@ -23,7 +23,7 @@ import { setPendingSwitch } from "../webviewMessageHandler";
 import { useShallow } from "zustand/shallow";
 import { useChatHandlers } from "../hooks/useChatHandlers";
 import { useOverviewHandlers } from "../hooks/useOverviewHandlers";
-import { ClassicMode, UnifiedMode } from "../components/modes";
+import { ClassicMode, UnifiedMode, SupervisorMode } from "../components/modes";
 import { PlanViewerOverlay } from "../components/modes/supervisor/PlanViewer";
 import type { ContextAttachment, SendTarget } from "../types";
 
@@ -130,7 +130,9 @@ export function AppContainer(): React.ReactElement {
       attachments: ContextAttachment[] = [],
       agentId?: string,
       sessionId?: string,
-      targets?: SendTarget[]
+      targets?: SendTarget[],
+      mode?: CommunicationMode | null,
+      teamId?: string
     ) => {
       const resolvedTargets: SendTarget[] = targets?.length
         ? targets
@@ -166,6 +168,8 @@ export function AppContainer(): React.ReactElement {
         text,
         attachments,
         targets: resolvedTargets,
+        mode,
+        teamId,
       });
     },
     [activeAgentId, activeSessionId, displayStatus]
@@ -241,7 +245,9 @@ export function AppContainer(): React.ReactElement {
     (
       text: string,
       attachments: ContextAttachment[],
-      targets?: SendTarget[]
+      targets?: SendTarget[],
+      mode?: CommunicationMode | null,
+      teamId?: string
     ) => {
       if (targets && targets.length > 0) {
         sendMessage(text, attachments, undefined, undefined, targets);
@@ -347,12 +353,19 @@ export function AppContainer(): React.ReactElement {
       };
       window.addEventListener("message", handler);
       // If cwd is not provided, fall back to the active session's cwd
-      const effectiveCwd = cwd ?? (() => {
-        const store = useSessionStore.getState();
-        const key = store.activeSessionKey;
-        return key ? store.sessionInfoMap[key]?.cwd : undefined;
-      })();
-      getVsCodeApi().postMessage({ type: "fetchFiles", query, reqId, cwd: effectiveCwd });
+      const effectiveCwd =
+        cwd ??
+        (() => {
+          const store = useSessionStore.getState();
+          const key = store.activeSessionKey;
+          return key ? store.sessionInfoMap[key]?.cwd : undefined;
+        })();
+      getVsCodeApi().postMessage({
+        type: "fetchFiles",
+        query,
+        reqId,
+        cwd: effectiveCwd,
+      });
     });
   }, []);
 
@@ -486,9 +499,35 @@ export function AppContainer(): React.ReactElement {
           >
             Unified
           </button>
+          <button
+            className={`panel-mode-btn${panelMode === "supervisor" ? " panel-mode-btn--active" : ""}`}
+            onClick={() =>
+              useUiStateStore.getState().setPanelMode("supervisor")
+            }
+            type="button"
+          >
+            Supervisor
+          </button>
         </div>
 
-        {panelMode === "unified" ? (
+        {panelMode === "supervisor" ? (
+          <SupervisorMode
+            onSendMessage={handleMeshSend}
+            onCancel={handleCancel}
+            onSwitchSession={switchTab}
+            onRenameSession={handleRenameSession}
+            onNewSession={handleNewSession}
+            disabled={!activeSessionId}
+            status={displayStatus}
+            fetchFiles={fetchFiles}
+            resolveFile={resolveFile}
+            resolveSelection={resolveSelection}
+            resolveDiff={resolveDiff}
+            fetchSymbols={fetchSymbols}
+            resolveSymbol={resolveSymbol}
+            availableCommands={availableCommands}
+          />
+        ) : panelMode === "unified" ? (
           <UnifiedMode
             onSendMessage={handleMeshSend}
             onCancel={handleCancel}
@@ -506,31 +545,27 @@ export function AppContainer(): React.ReactElement {
             availableCommands={availableCommands}
           />
         ) : (
-          <>
-            <ClassicMode
-              activeSessionKey={activeSessionKey}
-              disabled={!activeSessionId}
-              onSend={handleMeshSend}
-              onCancel={handleCancel}
-              onSwitchSession={switchTab}
-              onRenameSession={handleRenameSession}
-              onNewSession={handleNewSession}
-              fetchFiles={fetchFiles}
-              resolveFile={resolveFile}
-              resolveSelection={resolveSelection}
-              resolveDiff={resolveDiff}
-              fetchSymbols={fetchSymbols}
-              resolveSymbol={resolveSymbol}
-              availableCommands={availableCommands}
-              scrollToMessageRef={scrollToMessageRef}
-            />
-          </>
+          <ClassicMode
+            activeSessionKey={activeSessionKey}
+            disabled={!activeSessionId}
+            onSend={handleMeshSend}
+            onCancel={handleCancel}
+            onSwitchSession={switchTab}
+            onRenameSession={handleRenameSession}
+            onNewSession={handleNewSession}
+            fetchFiles={fetchFiles}
+            resolveFile={resolveFile}
+            resolveSelection={resolveSelection}
+            resolveDiff={resolveDiff}
+            fetchSymbols={fetchSymbols}
+            resolveSymbol={resolveSymbol}
+            availableCommands={availableCommands}
+            scrollToMessageRef={scrollToMessageRef}
+          />
         )}
       </div>
 
-      {currentPlan && (
-        <PlanViewerOverlay plan={currentPlan} />
-      )}
+      {currentPlan && <PlanViewerOverlay plan={currentPlan} />}
 
       {meshPanelVisible && (
         <MeshPanel onClose={() => setMeshPanelVisible(false)} />

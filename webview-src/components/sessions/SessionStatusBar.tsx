@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Icon } from "../../lib/icons"
+import { Icon } from "../../lib/icons";
 import { elapsedColor } from "../../shared/elapsedColor";
 import { useSessionInfo } from "../../hooks/useSessionInfo";
 import type { QueuedPrompt } from "../../types";
@@ -135,11 +135,7 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
           role="status"
           aria-live="polite"
         >
-          <Icon
-            name="loading"
-            size="sm"
-            className="streaming-status-spinner"
-          />
+          <Icon name="loading" size="sm" className="streaming-status-spinner" />
           <span className="streaming-status-text">Cancelling…</span>
         </div>
       ) : effectiveAction ? (
@@ -213,11 +209,7 @@ function formatElapsed(sec: number): string {
 
 // ── Exported pure logic for testing ────────────────────────────────
 
-export type StreamingPhase =
-  | "idle"
-  | "sending"
-  | "waiting"
-  | "cancelling";
+export type StreamingPhase = "idle" | "sending" | "waiting" | "cancelling";
 
 export interface StreamingState {
   phase: StreamingPhase;

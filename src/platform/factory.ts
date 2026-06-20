@@ -6,7 +6,7 @@ import type { LogLevelValue } from "./backends/types";
 export type PlatformType = "vscode" | "node" | "electron";
 
 export interface CreatePlatformOptions {
-  context?: import('vscode').ExtensionContext;
+  context?: import("vscode").ExtensionContext;
   logLevel?: LogLevelValue;
   [key: string]: unknown;
 }

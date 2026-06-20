@@ -191,12 +191,7 @@ describe("meshStore: SendTarget operations", () => {
         "sess-aaa",
         "running"
       );
-      targets = updateSendTargetStatus(
-        targets,
-        "codex",
-        "sess-bbb",
-        "running"
-      );
+      targets = updateSendTargetStatus(targets, "codex", "sess-bbb", "running");
       assert.strictEqual(targets[0].status, "running");
       assert.strictEqual(targets[1].status, "running");
       assert.strictEqual(targets[2].status, "idle"); // gemini still idle
@@ -251,7 +246,9 @@ describe("Mesh command snippet processing", () => {
     }
 
     // /mesh with mode
-    const modeMatch = trimmed.match(/^\/mesh\s+(fanout|supervisor|pipeline|status|task)$/);
+    const modeMatch = trimmed.match(
+      /^\/mesh\s+(fanout|supervisor|pipeline|status|task)$/
+    );
     if (modeMatch) {
       return {
         command: null,
@@ -385,9 +382,7 @@ describe("Prompt snippet text transformation (@-target selection)", () => {
         : triggerState.subTrigger
           ? 1 +
             triggerState.subTrigger.length +
-            (triggerState.query.length > 0
-              ? 1 + triggerState.query.length
-              : 0)
+            (triggerState.query.length > 0 ? 1 + triggerState.query.length : 0)
           : 1 + triggerState.query.length;
 
     const before = text.slice(0, triggerState.caretOffset);
@@ -820,8 +815,7 @@ describe("Mesh task board operations", () => {
     const pending = tasks.filter(
       (t) => t.status === "pending" || t.status === "assigned"
     ).length;
-    const overallPct =
-      total > 0 ? Math.round((completed / total) * 100) : 0;
+    const overallPct = total > 0 ? Math.round((completed / total) * 100) : 0;
 
     return { total, completed, failed, inProgress, pending, overallPct };
   }
@@ -881,9 +875,7 @@ describe("Mesh recent message log", () => {
     messages: MeshRecentMessage[],
     agentId: string
   ): MeshRecentMessage[] {
-    return messages.filter(
-      (m) => m.from === agentId || m.to === agentId
-    );
+    return messages.filter((m) => m.from === agentId || m.to === agentId);
   }
 
   function filterMessagesByType(

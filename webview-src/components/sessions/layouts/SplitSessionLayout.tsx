@@ -1,9 +1,9 @@
 import React, { useCallback, useRef, useEffect } from "react";
 import { useShallow } from "zustand/shallow";
-import { useSessionStore } from "../../../store/sessionStore"
-import type { SessionStoreState } from "../../../store/sessionStore"
-import { useMessageStore } from "../../../store/messageStore"
-import { getLogger } from "../../../lib/logger"
+import { useSessionStore } from "../../../store/sessionStore";
+import type { SessionStoreState } from "../../../store/sessionStore";
+import { useMessageStore } from "../../../store/messageStore";
+import { getLogger } from "../../../lib/logger";
 import { SessionSection } from "./SessionSection";
 import type { SessionHeaderProps } from "../SessionView";
 
@@ -149,7 +149,10 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
 
   const allMessages = useMessageStore.getState().perSession;
 
-  const effectiveRatios = computeEffectiveRatios(splitRatios, visibleKeys.length);
+  const effectiveRatios = computeEffectiveRatios(
+    splitRatios,
+    visibleKeys.length
+  );
 
   /**
    * Compute effective split ratios for the current visible sections.
@@ -159,10 +162,7 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
    * equal distribution so remaining sections always fill 100 % of the
    * container.
    */
-  function computeEffectiveRatios(
-    ratios: number[],
-    count: number
-  ): number[] {
+  function computeEffectiveRatios(ratios: number[], count: number): number[] {
     if (count <= 0) return [];
     if (ratios.length === count) {
       const sum = ratios.reduce((a, b) => a + b, 0);

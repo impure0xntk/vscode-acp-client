@@ -1,8 +1,6 @@
 import * as assert from "assert";
 import { describe, it } from "mocha";
-import {
-  deriveStreamingState,
-} from "../../../components/sessions/SessionStatusBar";
+import { deriveStreamingState } from "../../../components/sessions/SessionStatusBar";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 

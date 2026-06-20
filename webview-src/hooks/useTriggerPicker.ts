@@ -60,7 +60,7 @@ export interface TriggerState {
   trigger: TriggerType;
   query: string;
   caretOffset: number;
-  subTrigger?: "symbol" | "file" | "switch";
+  subTrigger?: "symbol" | "file" | "switch" | "team";
   /** Multi-@ mode: picker stays open after selecting a session */
   multiMode?: boolean;
 }
@@ -93,7 +93,7 @@ export interface UseTriggerPickerOptions {
   fetchSuggestions: (
     trigger: TriggerType,
     query: string,
-    subTrigger?: "symbol" | "file" | "switch"
+    subTrigger?: "symbol" | "file" | "switch" | "team"
   ) => Promise<SuggestionItem[]>;
   resolveItem: (item: SelectInput) => Promise<SelectOutput>;
 }
@@ -133,7 +133,16 @@ export function useTriggerPicker(
   // ── Consumed length ──────────────────────────────────────────────
 
   const getConsumedLength = useCallback((ts: ConsumedLengthInput): number => {
-    if (ts.trigger === "/" || ts.trigger === "@") return 1 + ts.query.length;
+    if (ts.trigger === "/") return 1 + ts.query.length;
+    // @ without subTrigger (session picker) → 1 + query
+    // @ with subTrigger (e.g. @team:) → 1 + subTrigger.length + 1 + query
+    if (ts.trigger === "@") {
+      if (ts.subTrigger) {
+        const base = 1 + ts.subTrigger.length + 1; // @ + subTrigger + ":"
+        return ts.query.length > 0 ? base + ts.query.length : base;
+      }
+      return 1 + ts.query.length;
+    }
     if (ts.subTrigger) {
       const base = 1 + ts.subTrigger.length;
       return ts.query.length > 0 ? base + 1 + ts.query.length : base;
@@ -195,6 +204,20 @@ export function useTriggerPicker(
           // PrecededBy word char → not a trigger (e.g. "user@host")
           if (idx > 0 && isWordChar(beforeCaret.charCodeAt(idx - 1))) continue;
           if (hasWhitespace) continue;
+
+          // Check for @team: prefix — team picker
+          const teamPrefix = "team:";
+          if (afterTrigger.toLowerCase().startsWith(teamPrefix)) {
+            const teamQuery = afterTrigger.slice(teamPrefix.length);
+            return {
+              active: true,
+              trigger: "@",
+              subTrigger: "team",
+              query: teamQuery,
+              caretOffset: idx,
+            };
+          }
+
           return {
             active: true,
             trigger: "@",

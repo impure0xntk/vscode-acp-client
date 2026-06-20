@@ -84,15 +84,23 @@ function resolveFile(
   filePath: string,
   cwd?: string
 ): Promise<ContextAttachmentDTO> {
-  return resolveFilePlatform(platform.fs, filePath, cwd) as Promise<ContextAttachmentDTO>;
+  return resolveFilePlatform(
+    platform.fs,
+    filePath,
+    cwd
+  ) as Promise<ContextAttachmentDTO>;
 }
 
 function resolveSelection(): Promise<ContextAttachmentDTO | null> {
-  return resolveSelectionPlatform(platform.editor) as Promise<ContextAttachmentDTO | null>;
+  return resolveSelectionPlatform(
+    platform.editor
+  ) as Promise<ContextAttachmentDTO | null>;
 }
 
 function resolveDiff(): Promise<ContextAttachmentDTO | null> {
-  return resolveDiffPlatform(platform.editor) as Promise<ContextAttachmentDTO | null>;
+  return resolveDiffPlatform(
+    platform.editor
+  ) as Promise<ContextAttachmentDTO | null>;
 }
 
 function searchFiles(query: string, cwd?: string) {
@@ -104,7 +112,11 @@ function searchSymbols(query: string) {
 }
 
 function resolveSymbolByName(name: string): Promise<ContextAttachmentDTO> {
-  return resolveSymbolByNamePlatform(platform.editor, platform.fs, name) as Promise<ContextAttachmentDTO>;
+  return resolveSymbolByNamePlatform(
+    platform.editor,
+    platform.fs,
+    name
+  ) as Promise<ContextAttachmentDTO>;
 }
 
 // TreeView adaptor: maps AgentTreeItem → vscode.TreeItem
@@ -834,12 +846,30 @@ function registerCommands(context: vscode.ExtensionContext): void {
     }
   );
 
+  const startTeamCmd = vscode.commands.registerCommand(
+    "acp.startTeam",
+    async () => {
+      // Open the chat panel first so the user can interact with the webview
+      ensureChatPanel(
+        getChatPanel,
+        setChatPanel,
+        extensionContext.extensionUri,
+        sendTabsToChatPanel,
+        wireChatPanelEventsLocal,
+        orchestrator
+      );
+      // The actual team creation is driven by the webview (TeamCreateDialog)
+      // This command is a shortcut to open the panel; the webview sends mesh:startTeam
+    }
+  );
+
   for (const d of [
     ...connectDisposables,
     ...sessionDisposables,
     setModeCmd,
     showTrafficCmd,
     toggleOverviewCmd,
+    startTeamCmd,
     clearLogsCmd,
     exportDebugLogCmd,
   ]) {

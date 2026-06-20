@@ -3,7 +3,6 @@ import { renderMarkdown } from "../../lib/markdown";
 import { getVsCodeApi } from "../../lib/vscodeApi";
 import { Icon } from "../../lib/icons";
 import { ToolBatchSummary } from "./ToolBatchSummary";
-import { ToolCallCard } from "./ToolCallCard";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { MessageActions } from "./MessageActions";
 import { usePathResolutionStore } from "../../store/pathResolutionStore";
@@ -16,6 +15,8 @@ export interface MessageProps {
   isConsecutive: boolean;
   sessionId?: string;
   agentId?: string;
+  /** Delay in ms for appear animation. Staggered per position. */
+  appearDelay?: number;
 }
 
 function openFileFromLink(e: React.MouseEvent<HTMLElement>): void {
@@ -134,9 +135,17 @@ export const Message = React.memo(function Message({
   isConsecutive,
   sessionId,
   agentId,
+  appearDelay = 0,
 }: MessageProps): React.ReactElement {
-  const { role, content, timestamp, resolvedToolCalls, attachments, thinking, renderContext } =
-    item;
+  const {
+    role,
+    content,
+    timestamp,
+    resolvedToolCalls,
+    attachments,
+    thinking,
+    renderContext,
+  } = item;
 
   // Use sessionKey (agentId:sessionId) for path resolution lookup
   const sk = agentId && sessionId ? sessionKeyOf(agentId, sessionId) : "";
@@ -144,14 +153,14 @@ export const Message = React.memo(function Message({
     (state) => state.resolvedPaths[sk]
   );
 
+  // Only use verified (resolved) paths — never unverified candidates from renderContext.
+  // renderContext.filePaths contains speculative candidates extracted by pattern matching;
+  // without FS verification they may point to non-existent files.
   const mergedContext = useMemo(
     () => ({
-      filePaths: new Set<string>([
-        ...(renderContext?.filePaths ?? []),
-        ...(rawResolved ?? []),
-      ]),
+      filePaths: new Set<string>(rawResolved ?? []),
     }),
-    [renderContext?.filePaths, rawResolved]
+    [rawResolved]
   );
 
   const time = new Date(timestamp ?? 0).toLocaleTimeString();
@@ -181,6 +190,7 @@ export const Message = React.memo(function Message({
       className={`message ${isSystem ? "message-system" : isUser ? "message-user" : "message-agent"}`}
       data-role={role}
       data-message-id={item.key}
+      style={{ animationDelay: `${appearDelay}ms` }}
     >
       {!isConsecutive && (
         <div className="message-header">
@@ -236,11 +246,7 @@ export const Message = React.memo(function Message({
       )}
       {hasToolCalls && resolvedToolCalls && (
         <div className="message-tool-batch">
-          {resolvedToolCalls.length === 1 ? (
-            <ToolCallCard {...resolvedToolCalls[0]} />
-          ) : (
-            <ToolBatchSummary calls={resolvedToolCalls} />
-          )}
+          <ToolBatchSummary calls={resolvedToolCalls} />
         </div>
       )}
       {thinking && (

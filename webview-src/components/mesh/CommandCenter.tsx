@@ -85,34 +85,38 @@ export const CommandCenter = React.memo(function CommandCenter({
       </button>
 
       {/* Card strip — horizontal scroll */}
-      {commandCenterExpanded && (
-        <div className="command-center-body">
-          <div className="command-center-cards">
-            {entries.map(([key, info]) => {
-              const agent = agentMap.get(info.agentId);
-              return (
-                <AgentCard
-                  key={key}
-                  sessionInfo={info}
-                  agent={agent}
-                  isSelected={key === commandCenterSelectedKey}
-                  onSelect={() => handleSelect(info.agentId, info.sessionId)}
-                  onCancel={() => handleCancel(info.agentId, info.sessionId)}
-                  onClose={() => handleClose(info.agentId, info.sessionId)}
-                />
-              );
-            })}
-          </div>
+      <div
+        className={`collapsible ${commandCenterExpanded ? "collapsible--open" : ""}`}
+      >
+        <div className="collapsible-body">
+          <div className="command-center-body">
+            <div className="command-center-cards">
+              {entries.map(([key, info]) => {
+                const agent = agentMap.get(info.agentId);
+                return (
+                  <AgentCard
+                    key={key}
+                    sessionInfo={info}
+                    agent={agent}
+                    isSelected={key === commandCenterSelectedKey}
+                    onSelect={() => handleSelect(info.agentId, info.sessionId)}
+                    onCancel={() => handleCancel(info.agentId, info.sessionId)}
+                    onClose={() => handleClose(info.agentId, info.sessionId)}
+                  />
+                );
+              })}
+            </div>
 
-          {/* Summary row */}
-          <div className="command-center-summary">
-            <span className="command-center-summary-tokens">
-              <Icon name="brain" size="sm" />
-              Total: {fmt(totalTokens)}
-            </span>
+            {/* Summary row */}
+            <div className="command-center-summary">
+              <span className="command-center-summary-tokens">
+                <Icon name="brain" size="sm" />
+                Total: {fmt(totalTokens)}
+              </span>
+            </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 });

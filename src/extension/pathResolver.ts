@@ -48,17 +48,20 @@ export class BatchedPathResolver {
     const results = await Promise.all(
       limited.map(async (filePath) => {
         const cached = this.cache.get(filePath);
-        if (cached !== undefined) return { path: filePath, exists: cached };
         const fullPath = path.resolve(this.cwd, filePath);
+        if (cached !== undefined)
+          return { path: filePath, fullPath, exists: cached };
         try {
-          const stat = await vscode.workspace.fs.stat(vscode.Uri.file(fullPath));
+          const stat = await vscode.workspace.fs.stat(
+            vscode.Uri.file(fullPath)
+          );
           // Only link files, not directories
           const isFile = (stat.type & vscode.FileType.File) !== 0;
           this.cache.set(filePath, isFile);
-          return { path: filePath, exists: isFile };
+          return { path: filePath, fullPath, exists: isFile };
         } catch {
           this.cache.set(filePath, false);
-          return { path: filePath, exists: false };
+          return { path: filePath, fullPath, exists: false };
         }
       })
     );

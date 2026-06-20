@@ -19,9 +19,7 @@ function makeMemento(): Memento {
   };
 }
 
-function makePlatform(
-  configValues: Record<string, unknown>
-): PlatformAPI {
+function makePlatform(configValues: Record<string, unknown>): PlatformAPI {
   const fsStub: FileSystemAPI = {
     readFile: async () => "",
     writeFile: async () => {},
@@ -31,8 +29,20 @@ function makePlatform(
     findFilesInDirectory: async () => [],
     watchFiles: () => () => {},
     captureSnapshot: async () => ({ path: "", content: "", mtime: 0 }),
-    uri: () => ({ scheme: "file", fsPath: "", path: "", with: () => ({} as any), toString: () => "" }),
-    joinPath: () => ({ scheme: "file", fsPath: "", path: "", with: () => ({} as any), toString: () => "" }),
+    uri: () => ({
+      scheme: "file",
+      fsPath: "",
+      path: "",
+      with: () => ({}) as any,
+      toString: () => "",
+    }),
+    joinPath: () => ({
+      scheme: "file",
+      fsPath: "",
+      path: "",
+      with: () => ({}) as any,
+      toString: () => "",
+    }),
     basename: () => "",
     dirname: () => "",
     relativePath: () => "",
@@ -57,7 +67,7 @@ function makePlatform(
       scheme: "file",
       fsPath: "",
       path: "",
-      with: () => ({} as any),
+      with: () => ({}) as any,
       toString: () => "",
     },
     addSubscription: () => {},

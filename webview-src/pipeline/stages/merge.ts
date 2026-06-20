@@ -56,7 +56,7 @@ export function mergeToolBatches(
     if (msg.systemKind !== "info") {
       if (pendingTool) {
         // Flush pending tool before the boundary so its card is rendered.
-        result.push({ ...pendingTool, role: "agent" as const });
+        result.push({ ...pendingTool, role: "agent" as const, originalRole: "tool" as const });
         pendingTool = null;
       }
       result.push(msg);
@@ -84,11 +84,13 @@ export function mergeToolBatches(
         result[idx] = merged;
       } else {
         // Case 2: no preceding agent — hold as pending.
-        // Don't push yet; if an agent follows, we merge into it.
-        // Only flush at boundary or end if no agent follows.
+        // Don't push yet; if an agent follows, flush before it so the
+        // promoted tool and the agent are separate items.
         if (pendingTool) {
-          // Already holding a pending tool — flush the old one first.
-          result.push({ ...pendingTool, role: "agent" as const });
+          // Already holding a pending tool — flush the old one first,
+          // promoted to "agent" role so it renders as a tool-call card.
+          // Mark originalRole so annotate can keep it as intermediate (tool) group.
+          result.push({ ...pendingTool, role: "agent" as const, originalRole: "tool" as const });
         }
         // Inherit agentId from the nearest preceding non-tool message so
         // that the annotate stage produces the same groupKey as subsequent
@@ -97,18 +99,15 @@ export function mergeToolBatches(
         const inheritedAgentId = lastNonTool?.agentId ?? msg.agentId;
         pendingTool = {
           ...msg,
-          role: "agent" as const,
           agentId: inheritedAgentId,
         };
       }
     } else if (msg.role === "agent" && pendingTool) {
-      // Case 3: agent after a promoted tool — flush the pending tool as its
-      // own agent-role message first, then push the agent message separately.
-      // This ensures tool calls are rendered as a distinct card (User -> Tool
-      // -> Agent) rather than being merged into the agent message, which would
-      // change the visual order when the pipeline is rebuilt from scratch
-      // (e.g. on session switch).
-      result.push({ ...pendingTool, role: "agent" as const });
+      // Case 3: agent after a pending tool — flush the pending tool first
+      // (promoted to agent role), then push the agent message separately.
+      // Mark originalRole so annotate keeps the promoted tool in the "tool"
+      // group (intermediate), not the "agent" group (final response).
+      result.push({ ...pendingTool, role: "agent" as const, originalRole: "tool" as const });
       result.push(msg);
       pendingTool = null;
     } else {
@@ -118,9 +117,11 @@ export function mergeToolBatches(
     }
   }
 
-  // Flush any remaining pending tool as its own agent message.
+  // Flush any remaining pending tool, promoted to "agent" role so it
+  // renders as a tool-call card. Mark originalRole so annotate keeps it
+  // in the "tool" group (intermediate), not the "agent" group (final).
   if (pendingTool) {
-    result.push({ ...pendingTool, role: "agent" as const });
+    result.push({ ...pendingTool, role: "agent" as const, originalRole: "tool" as const });
   }
 
   return result;

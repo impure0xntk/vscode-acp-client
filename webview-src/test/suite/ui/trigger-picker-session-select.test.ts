@@ -53,7 +53,10 @@ describe("useTriggerPicker: @session selection does not insert label into text",
       const result = simulateSessionSelect(text, triggerState, sessionItem);
       assert.strictEqual(result, "");
       assert.ok(!result.includes("@"), "result should not contain @");
-      assert.ok(!result.includes("My Session"), "result should not contain session label");
+      assert.ok(
+        !result.includes("My Session"),
+        "result should not contain session label"
+      );
     });
   });
 
@@ -69,7 +72,10 @@ describe("useTriggerPicker: @session selection does not insert label into text",
       const result = simulateSessionSelect(text, triggerState, sessionItem);
       assert.strictEqual(result, "hello  world");
       assert.ok(!result.includes("@"), "result should not contain @");
-      assert.ok(!result.includes("My Session"), "result should not contain session label");
+      assert.ok(
+        !result.includes("My Session"),
+        "result should not contain session label"
+      );
     });
   });
 

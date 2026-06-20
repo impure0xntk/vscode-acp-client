@@ -11,6 +11,15 @@
         { "workspace": "../../", "sessionName": "2" }
       ],
       "openChat": true
+    },
+    "Goose(deepseek-v4-pro-think)": {
+      "args": [
+        "acp"
+      ],
+      "command": "goose",
+      "env": {
+        "GOOSE_MODEL": "deepseek-v4-pro-think"
+      },
     }
   },
   "acp.presets": {

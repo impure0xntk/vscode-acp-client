@@ -23,7 +23,7 @@ import type {
   FileCandidate,
   SuggestionItem,
 } from "../../../types";
-import type { TurnOutcome } from "../../primitives/StatusIcon"
+import type { TurnOutcome } from "../../primitives/StatusIcon";
 
 export interface ClassicModeProps {
   activeSessionKey: string | null;
@@ -31,7 +31,9 @@ export interface ClassicModeProps {
   onSend: (
     text: string,
     attachments: ContextAttachment[],
-    targets?: SendTarget[]
+    targets?: SendTarget[],
+    mode?: import("../../../types").CommunicationMode | null,
+    teamId?: string
   ) => void;
   onCancel: () => void;
   onSwitchSession: (agentId: string, sessionId: string) => void;

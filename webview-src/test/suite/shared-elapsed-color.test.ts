@@ -1,7 +1,10 @@
 import * as assert from "assert";
 import { describe, it } from "mocha";
 import { elapsedColor } from "../../shared/elapsedColor";
-import { ELAPSED_WARNING_MS, ELAPSED_CRITICAL_MS } from "../../shared/constants";
+import {
+  ELAPSED_WARNING_MS,
+  ELAPSED_CRITICAL_MS,
+} from "../../shared/constants";
 
 describe("elapsedColor", () => {
   it("returns 'normal' for 0ms", () => {

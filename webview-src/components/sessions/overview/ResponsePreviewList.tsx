@@ -1,6 +1,6 @@
 import React from "react";
 import type { ResponsePreview } from "../../../types";
-import { Icon } from "../../../lib/icons"
+import { Icon } from "../../../lib/icons";
 
 interface Props {
   responses: ResponsePreview[];

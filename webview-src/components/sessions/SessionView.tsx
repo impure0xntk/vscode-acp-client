@@ -1,9 +1,12 @@
 import React, { useCallback, useEffect, useRef } from "react";
 import { useSyncExternalStore, useCallback as useCallbackReact } from "react";
-import { useSessionStore } from "../../store/sessionStore"
-import type { SessionInfoDTO } from "../../store/sessionStore"
-import { useMessageStore } from "../../store/messageStore"
-import { useScrollStateStore, type SessionScrollState } from "../../store/scrollStateStore"
+import { useSessionStore } from "../../store/sessionStore";
+import type { SessionInfoDTO } from "../../store/sessionStore";
+import { useMessageStore } from "../../store/messageStore";
+import {
+  useScrollStateStore,
+  type SessionScrollState,
+} from "../../store/scrollStateStore";
 import type { ContextAttachment, SendTarget, ChatMessage } from "../../types";
 import type { TurnOutcome } from "../primitives/StatusIcon";
 import { SingleSessionLayout } from "./layouts/SingleSessionLayout";
@@ -154,7 +157,7 @@ function deriveUnread(
 export const SessionView = React.memo(function SessionView({
   sessionKey,
   layoutMode,
-  splitDirection = "vertical",
+  splitDirection = "horizontal",
   splitRatios = [],
   disabled,
   pinnedKeys = [],
