@@ -21,7 +21,7 @@ import { setPendingSwitch } from "../webviewMessageHandler";
 import { useShallow } from "zustand/shallow";
 import { useChatHandlers } from "../hooks/useChatHandlers";
 import { useOverviewHandlers } from "../hooks/useOverviewHandlers";
-import { ClassicMode, UnifiedMode, SupervisorMode } from "../components/modes";
+import { UnifiedMode, SupervisorMode } from "../components/modes";
 import { PlanViewerOverlay } from "../components/modes/supervisor/PlanViewer";
 import type { CommunicationMode, ContextAttachment, SendTarget } from "../types";
 
@@ -495,13 +495,6 @@ export function AppContainer(): React.ReactElement {
         {/* Panel mode toggle */}
         <div className="flex items-center gap-0.5 px-2 py-0.5 bg-[var(--bg-secondary)] border-b border-[var(--border)] flex-shrink-0">
           <button
-            className={`panel-mode-btn${panelMode === "classic" ? " panel-mode-btn--active" : ""}`}
-            onClick={() => useUiStateStore.getState().setPanelMode("classic")}
-            type="button"
-          >
-            Classic
-          </button>
-          <button
             className={`panel-mode-btn${panelMode === "unified" ? " panel-mode-btn--active" : ""}`}
             onClick={() => useUiStateStore.getState().setPanelMode("unified")}
             type="button"
@@ -538,7 +531,7 @@ export function AppContainer(): React.ReactElement {
             onCancelQueuedPrompt={cancelQueuedPrompt}
             onClearQueue={clearQueue}
           />
-        ) : panelMode === "unified" ? (
+        ) : (
           <UnifiedMode
             onSendMessage={handleMeshSend}
             onCancel={handleCancel}
@@ -554,26 +547,6 @@ export function AppContainer(): React.ReactElement {
             fetchSymbols={fetchSymbols}
             resolveSymbol={resolveSymbol}
             availableCommands={availableCommands}
-            onCancelQueuedPrompt={cancelQueuedPrompt}
-            onClearQueue={clearQueue}
-          />
-        ) : (
-          <ClassicMode
-            activeSessionKey={activeSessionKey}
-            disabled={!activeSessionId}
-            onSend={handleMeshSend}
-            onCancel={handleCancel}
-            onSwitchSession={switchTab}
-            onRenameSession={handleRenameSession}
-            onNewSession={handleNewSession}
-            fetchFiles={fetchFiles}
-            resolveFile={resolveFile}
-            resolveSelection={resolveSelection}
-            resolveDiff={resolveDiff}
-            fetchSymbols={fetchSymbols}
-            resolveSymbol={resolveSymbol}
-            availableCommands={availableCommands}
-            scrollToMessageRef={scrollToMessageRef}
             onCancelQueuedPrompt={cancelQueuedPrompt}
             onClearQueue={clearQueue}
           />

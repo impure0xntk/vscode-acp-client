@@ -892,7 +892,7 @@ async function applyPreset(preset: PresetConfig): Promise<void> {
       ? "unified"
       : vscode.workspace
           .getConfiguration("acp")
-          .get<string>("defaultChatPanel", "classic");
+          .get<string>("defaultChatPanel", "unified");
 
   // Collect all workspace folders for relative path resolution
   const wsFolders = (vscode.workspace.workspaceFolders ?? []).map(

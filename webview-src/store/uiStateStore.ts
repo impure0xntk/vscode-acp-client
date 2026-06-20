@@ -7,8 +7,8 @@ import type { SessionOverviewFilter, SessionOverviewState } from "../types";
 // Zustand → useSyncExternalStore → infinite re-render loops.
 
 interface UiStateStore {
-  // Panel mode: "classic" | "unified" | "supervisor" (multi-agent lead-worker)
-  panelMode: "classic" | "unified" | "supervisor";
+  // Panel mode: "unified" | "supervisor"
+  panelMode: "unified" | "supervisor";
 
   // Overview panel chrome
   overviewVisible: boolean;
@@ -21,7 +21,7 @@ interface UiStateStore {
 
   // ── Panel mode ─────────────────────────────────────────────────────────
 
-  setPanelMode: (mode: "classic" | "unified" | "supervisor") => void;
+  setPanelMode: (mode: "unified" | "supervisor") => void;
 
   // ── Overview chrome actions ────────────────────────────────────────────
 
@@ -41,7 +41,7 @@ interface UiStateStore {
 }
 
 export const useUiStateStore = create<UiStateStore>((set) => ({
-  panelMode: "classic",
+  panelMode: "unified",
 
   setPanelMode: (mode) =>
     set((state) => (state.panelMode === mode ? state : { panelMode: mode })),

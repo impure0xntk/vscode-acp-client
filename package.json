@@ -347,11 +347,10 @@
         "acp.defaultChatPanel": {
           "type": "string",
           "enum": [
-            "classic",
             "unified"
           ],
-          "default": "classic",
-          "description": "Default chat panel mode: classic (single-session) or unified (multi-session)"
+          "default": "unified",
+          "description": "Default chat panel mode: unified (multi-session)"
         },
         "acp.unifiedChat.layoutMode": {
           "type": "string",
