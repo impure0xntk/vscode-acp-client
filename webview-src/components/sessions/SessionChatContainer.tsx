@@ -473,7 +473,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
   // ── Scroll to bottom handler ──────────────────────────────────────
   const handleScrollToBottom = useCallback(() => {
     const wrapper = wrapperRef.current?.querySelector(
-      ".chat-container"
+      "[data-messages-scroll-container]"
     ) as HTMLDivElement | null;
     if (wrapper) {
       wrapper.scrollTop = wrapper.scrollHeight;
@@ -542,11 +542,11 @@ export const SessionChatContainer = memo(function SessionChatContainer({
     : "";
 
   return (
-    <div className="section-chat-container-wrapper" ref={wrapperRef}>
+    <div className="flex-1 min-h-0 overflow-hidden flex flex-col relative" ref={wrapperRef}>
       {/* Sticky user message bar */}
       {showStickyBar && stickyUserMessage && (
         <div
-          className="sticky-user-message-bar"
+          className="sticky top-0 z-10 flex-shrink-0 bg-[var(--bg-secondary)] border-b border-[var(--border)] px-[14px] py-1.5 cursor-pointer transition-colors duration-150 animate-[sticky-user-bar-in_0.12s_ease-out]"
           onClick={handleStickyClick}
           role="button"
           tabIndex={0}
@@ -558,17 +558,17 @@ export const SessionChatContainer = memo(function SessionChatContainer({
             }
           }}
         >
-          <div className="sticky-user-message-header">
-            <span className="sticky-user-role">You</span>
-            <span className="sticky-user-time">{stickyTime}</span>
+          <div className="flex items-center gap-1 mb-0.5">
+            <span className="text-[11px] font-medium text-[var(--fg-secondary)]">You</span>
+            <span className="text-[10px] text-[var(--fg-muted)] opacity-50">{stickyTime}</span>
           </div>
-          <div className="sticky-user-message-content">
+          <div className="text-xs text-[var(--fg-primary)] whitespace-nowrap overflow-hidden text-ellipsis leading-[1.4]">
             {stickyUserMessage.content}
           </div>
           {stickyUserMessage.attachments.length > 0 && (
-            <div className="sticky-user-attachments">
+            <div className="flex flex-wrap gap-1 mt-1">
               {stickyUserMessage.attachments.map((a) => (
-                <span key={a.id} className="sticky-user-attachment-chip">
+                <span key={a.id} className="inline-flex items-center gap-0.5 px-1 py-px rounded-[3px] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--fg-secondary)] text-[9px] font-mono">
                   {a.label}
                 </span>
               ))}
@@ -578,15 +578,15 @@ export const SessionChatContainer = memo(function SessionChatContainer({
       )}
 
       <div
-        className={`chat-container${showStickyBar ? " chat-container--has-sticky" : ""}`}
+        className={`flex flex-1 min-h-0 overflow-y-auto px-[14px] py-4 flex-col relative${showStickyBar ? " pt-0" : ""}`}
         ref={containerRef}
         onScroll={handleScrollWithSticky}
         data-messages-scroll-container="true"
       >
         {isEmpty ? (
-          <div className="empty-state">
-            <p className="empty-title">ACP Chat</p>
-            <p className="empty-hint">
+          <div className="flex-1 flex flex-col items-center justify-center gap-2 text-[var(--fg-muted)]">
+            <p className="text-base font-medium text-[var(--fg-secondary)]">ACP Chat</p>
+            <p className="text-xs">
               {sessionId
                 ? "Send a message to start the conversation."
                 : "Connect to an agent and create a session to start."}
@@ -594,7 +594,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
           </div>
         ) : (
           <div
-            className={`message-list${isStreaming ? " message-list--streaming" : ""}`}
+            className={`flex flex-col gap-1.5${isStreaming ? " message-list--streaming" : ""}`}
             data-new-count={newCount > 0 ? newCount : undefined}
           >
             {/* Past groups */}
@@ -709,8 +709,8 @@ export const SessionChatContainer = memo(function SessionChatContainer({
             ))}
 
             {isStreaming && (
-              <div className="streaming-cursor">
-                <span className="cursor-blink">▋</span>
+              <div className="py-1">
+                <span className="inline-block animate-[blink_1s_step-end_infinite] text-[var(--accent)] font-bold">▋</span>
               </div>
             )}
           </div>
@@ -719,15 +719,15 @@ export const SessionChatContainer = memo(function SessionChatContainer({
       </div>
       {showScrollButton && (
         <button
-          className="scroll-to-bottom-button"
+          className="absolute bottom-4 right-4 z-10 pointer-events-auto flex items-center justify-center w-8 h-8 p-0 border border-[var(--border)] rounded-full bg-[var(--bg-secondary)] text-[var(--fg-primary)] shadow-[0_2px_8px_rgba(0,0,0,0.3)] cursor-pointer transition-all duration-150 hover:bg-[var(--accent-hover)] hover:border-[var(--accent)] hover:scale-105 active:scale-95"
           onClick={handleScrollToBottom}
           type="button"
           title="Scroll to bottom"
           aria-label="Scroll to bottom"
         >
-          <span className="scroll-to-bottom-icon">↓</span>
+          <span className="text-sm leading-none">↓</span>
           {unreadCount > 0 && (
-            <span className="scroll-to-bottom-badge">{unreadCount}</span>
+            <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-4 h-4 px-[3px] rounded-lg bg-[var(--accent)] text-[var(--user-fg)] text-[9px] font-semibold leading-none">{unreadCount}</span>
           )}
         </button>
       )}

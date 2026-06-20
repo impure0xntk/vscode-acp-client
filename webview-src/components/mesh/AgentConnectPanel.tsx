@@ -53,20 +53,20 @@ function getStatusIcon(state: AgentInfo["state"]): string {
   }
 }
 
-function getStatusClass(state: AgentInfo["state"]): string {
+function getStatusColor(state: AgentInfo["state"]): string {
   switch (state) {
     case "connected":
-      return "status-connected";
+      return "var(--success)";
     case "busy":
-      return "status-busy";
+      return "#4fc3f7";
     case "error":
-      return "status-error";
+      return "var(--error)";
     case "connecting":
-      return "status-connecting";
+      return "var(--warning)";
     case "idle":
     case "disconnected":
     default:
-      return "status-disconnected";
+      return "var(--fg-muted)";
   }
 }
 
@@ -163,72 +163,90 @@ export default function AgentConnectPanel({ onClose }: AgentConnectPanelProps) {
   // Render
   // ------------------------------------------------------------------
   return (
-    <div className="session-history-panel">
+    <div className="flex flex-col h-screen overflow-hidden bg-[var(--bg-primary)] text-[var(--fg-primary)] text-xs">
       {/* Header */}
-      <div className="history-header">
-        <h3 className="history-title">Agent Connections</h3>
-        <button className="history-close-btn" onClick={onClose} title="Close">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border)] shrink-0">
+        <h3 className="m-0 text-[13px] font-semibold">Agent Connections</h3>
+        <button
+          className="flex items-center justify-center w-6 h-6 p-0 border-none rounded bg-transparent text-[var(--fg-secondary)] text-base cursor-pointer transition-colors duration-150 hover:bg-[var(--error)] hover:text-[var(--user-fg)]"
+          onClick={onClose}
+          title="Close"
+        >
           ×
         </button>
       </div>
 
       {/* Agent list */}
-      <div className="history-list">
+      <div className="flex-1 overflow-y-auto min-h-0">
         {agents.length === 0 ? (
-          <div className="history-empty">No agents configured yet.</div>
+          <div className="flex items-center justify-center p-8 text-[var(--fg-muted)] text-xs">
+            No agents configured yet.
+          </div>
         ) : (
           agents.map((agent) => (
-            <div key={agent.agentId} className="agent-item">
-              <div className="agent-item-left">
+            <div
+              key={agent.agentId}
+              className="flex flex-col border-b border-[var(--border)] p-3 gap-2"
+            >
+              <div className="flex items-center gap-2">
+                {/* Left: status + info */}
                 <span
-                  className={`agent-status-icon ${getStatusClass(agent.state)}`}
+                  className="shrink-0 text-[14px] leading-none"
+                  style={{ color: getStatusColor(agent.state) }}
                   title={agent.state}
                 >
                   {getStatusIcon(agent.state)}
                 </span>
-                <div className="agent-item-main">
-                  <span className="agent-item-name">{agent.agentId}</span>
-                  <span className="agent-item-command">{agent.command}</span>
+                <div className="flex flex-col min-w-0 flex-1">
+                  <span className="text-[var(--fg-primary)] text-xs font-semibold truncate">
+                    {agent.agentId}
+                  </span>
+                  <span className="text-[var(--fg-muted)] text-[11px] font-mono truncate">
+                    {agent.command}
+                  </span>
+                </div>
+
+                {/* Right: session count + actions */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-[var(--fg-muted)] text-[10px]">
+                    {agent.sessionCount}{" "}
+                    {agent.sessionCount === 1 ? "session" : "sessions"}
+                  </span>
+
+                  {canConnect(agent.state) && (
+                    <button
+                      className="px-2 py-0.5 border border-[var(--accent)] rounded bg-[var(--accent)] text-[var(--user-fg)] text-[11px] cursor-pointer whitespace-nowrap hover:bg-[color-mix(in_srgb,var(--accent)_80%,white)]"
+                      onClick={() => handleConnect(agent.agentId)}
+                      title="Connect"
+                    >
+                      Connect
+                    </button>
+                  )}
+
+                  {canDisconnect(agent.state) && (
+                    <button
+                      className="px-2 py-0.5 border border-[var(--border)] rounded bg-[var(--bg-input)] text-[var(--fg-primary)] text-[11px] cursor-pointer whitespace-nowrap hover:bg-[var(--accent-hover)]"
+                      onClick={() => handleDisconnect(agent.agentId)}
+                      title="Disconnect"
+                    >
+                      Disconnect
+                    </button>
+                  )}
+
+                  <button
+                    className="inline-flex items-center justify-center w-5 h-5 p-0 border border-transparent rounded bg-transparent text-[var(--fg-muted)] text-xs cursor-pointer transition-colors duration-150 hover:bg-[color-mix(in_srgb,var(--error)_15%,transparent)] hover:text-[var(--error)]"
+                    onClick={() => handleRemoveAgent(agent.agentId)}
+                    title="Remove agent"
+                  >
+                    ×
+                  </button>
                 </div>
               </div>
 
-              <div className="agent-item-right">
-                <span className="agent-session-count">
-                  {agent.sessionCount}{" "}
-                  {agent.sessionCount === 1 ? "session" : "sessions"}
-                </span>
-
-                {canConnect(agent.state) && (
-                  <button
-                    className="agent-connect-btn"
-                    onClick={() => handleConnect(agent.agentId)}
-                    title="Connect"
-                  >
-                    Connect
-                  </button>
-                )}
-
-                {canDisconnect(agent.state) && (
-                  <button
-                    className="agent-disconnect-btn"
-                    onClick={() => handleDisconnect(agent.agentId)}
-                    title="Disconnect"
-                  >
-                    Disconnect
-                  </button>
-                )}
-
-                <button
-                  className="agent-remove-btn"
-                  onClick={() => handleRemoveAgent(agent.agentId)}
-                  title="Remove agent"
-                >
-                  ×
-                </button>
-              </div>
-
               {agent.lastError && (
-                <div className="agent-item-error">{agent.lastError}</div>
+                <div className="text-[11px] text-[var(--error)] bg-[color-mix(in_srgb,var(--error)_10%,transparent)] border-l-2 border-l-[var(--error)] rounded p-1.5">
+                  {agent.lastError}
+                </div>
               )}
             </div>
           ))
@@ -236,38 +254,34 @@ export default function AgentConnectPanel({ onClose }: AgentConnectPanelProps) {
       </div>
 
       {/* Add Agent form */}
-      <div className="agent-add-section">
-        <div className="agent-add-title">Add Agent</div>
-        <div className="agent-add-row">
+      <div className="border-t border-[var(--border)] p-3 shrink-0">
+        <div className="text-[11px] font-semibold text-[var(--fg-secondary)] mb-2">
+          Add Agent
+        </div>
+        <div className="flex flex-col gap-2">
           <input
             type="text"
-            className="agent-add-input"
+            className="w-full px-2 py-1 border border-[var(--border)] rounded bg-[var(--bg-input)] text-[var(--fg-primary)] text-xs outline-none focus:border-[var(--accent)]"
             placeholder="Agent name"
             value={newAgentId}
             onChange={(e) => setNewAgentId(e.target.value)}
           />
-        </div>
-        <div className="agent-add-row">
           <input
             type="text"
-            className="agent-add-input"
+            className="w-full px-2 py-1 border border-[var(--border)] rounded bg-[var(--bg-input)] text-[var(--fg-primary)] text-xs outline-none focus:border-[var(--accent)]"
             placeholder="Command (e.g. npx)"
             value={newCommand}
             onChange={(e) => setNewCommand(e.target.value)}
           />
-        </div>
-        <div className="agent-add-row">
           <input
             type="text"
-            className="agent-add-input"
+            className="w-full px-2 py-1 border border-[var(--border)] rounded bg-[var(--bg-input)] text-[var(--fg-primary)] text-xs outline-none focus:border-[var(--accent)]"
             placeholder="Arguments (space-separated, optional)"
             value={newArgs}
             onChange={(e) => setNewArgs(e.target.value)}
           />
-        </div>
-        <div className="agent-add-row">
           <button
-            className="agent-add-btn"
+            className="self-start px-3 py-1 border border-[var(--accent)] rounded bg-[var(--accent)] text-[var(--user-fg)] text-xs cursor-pointer hover:bg-[color-mix(in_srgb,var(--accent)_80%,white)] disabled:opacity-40 disabled:cursor-not-allowed"
             onClick={handleAddAgent}
             disabled={!newAgentId.trim() || !newCommand.trim()}
           >

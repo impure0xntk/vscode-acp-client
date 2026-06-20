@@ -61,19 +61,23 @@ export function PlanStepView({
   }, [step.description]);
 
   return (
-    <div className={`plan-step plan-step--${step.status}`}>
-      <div className="plan-step-header">
+    <div
+      className={`plan-step flex flex-col gap-1 px-2 py-1 rounded-[3px] bg-[var(--bg-primary)] border-l-2${step.status === "pending" ? " border-l-[var(--fg-muted)]" : step.status === "assigned" ? " border-l-[var(--accent)]" : step.status === "in_progress" ? " border-l-[#4fc3f7]" : step.status === "completed" ? " border-l-[var(--success)]" : step.status === "failed" ? " border-l-[var(--error)]" : step.status === "skipped" ? " border-l-[var(--fg-muted)] opacity-50" : " border-l-transparent"}`}
+    >
+      <div className="flex items-center gap-1.5">
         <Icon
           name={STATUS_ICON[step.status]}
           size="sm"
           style={{ color: STATUS_COLOR[step.status] }}
         />
-        <span className="plan-step-index">{index + 1}.</span>
+        <span className="text-[10px] text-[var(--fg-muted)] font-mono flex-shrink-0 w-5">
+          {index + 1}.
+        </span>
 
         {editing ? (
-          <div className="plan-step-edit-inline">
+          <div className="flex items-center gap-1 flex-1">
             <input
-              className="plan-step-edit-input"
+              className="flex-1 px-1.5 py-0.5 border border-[var(--accent)] rounded-[3px] bg-[var(--bg-input)] text-[var(--fg-primary)] text-[11px] outline-none"
               value={editText}
               onChange={(e) => setEditText(e.target.value)}
               autoFocus
@@ -83,14 +87,14 @@ export function PlanStepView({
               }}
             />
             <button
-              className="plan-step-edit-confirm"
+              className="inline-flex items-center justify-center w-5 h-5 p-0 border-none rounded-[3px] bg-transparent text-[var(--fg-muted)] cursor-pointer hover:bg-[var(--success)] hover:text-[var(--user-fg)]"
               onClick={handleCommitEdit}
               type="button"
             >
               <Icon name="check" size="sm" />
             </button>
             <button
-              className="plan-step-edit-cancel"
+              className="inline-flex items-center justify-center w-5 h-5 p-0 border-none rounded-[3px] bg-transparent text-[var(--fg-muted)] cursor-pointer hover:bg-[var(--error)] hover:text-[var(--user-fg)]"
               onClick={handleCancelEdit}
               type="button"
             >
@@ -98,42 +102,44 @@ export function PlanStepView({
             </button>
           </div>
         ) : (
-          <span className="plan-step-description">{step.description}</span>
+          <span className="flex-1 text-[11px] text-[var(--fg-primary)]">
+            {step.description}
+          </span>
         )}
       </div>
 
       {step.assignedTo && (
-        <div className="plan-step-assignee">
+        <div className="flex items-center gap-1 text-[10px] text-[var(--fg-muted)] pl-6">
           <Icon name="person" size="sm" />
           <span>{step.assignedTo.agentId}</span>
         </div>
       )}
 
       {step.toolCall && (
-        <div className="plan-step-tool">
+        <div className="flex items-center gap-1 text-[10px] text-[var(--fg-muted)] pl-6">
           <Icon name="tools" size="sm" />
           <span>{step.toolCall.title}</span>
         </div>
       )}
 
       {step.error && (
-        <div className="plan-step-error">
+        <div className="flex items-center gap-1 text-[10px] text-[var(--error)] pl-6">
           <Icon name="circle-filled" size="sm" />
           <span>{step.error}</span>
         </div>
       )}
 
       {step.result && step.status === "completed" && (
-        <div className="plan-step-result">
+        <div className="flex items-center gap-1 text-[10px] text-[var(--success)] pl-6">
           <Icon name="pass-filled" size="sm" />
           <span>{step.result}</span>
         </div>
       )}
 
       {canModify && !editing && (
-        <div className="plan-step-actions">
+        <div className="flex items-center gap-1 pl-6">
           <button
-            className="plan-step-modify"
+            className="inline-flex items-center gap-[3px] px-1.5 py-px border border-[var(--border)] rounded-[3px] bg-transparent text-[var(--fg-muted)] text-[10px] cursor-pointer transition-colors duration-150 hover:bg-[var(--accent-hover)] hover:text-[var(--fg-primary)]"
             onClick={handleStartEdit}
             type="button"
           >
@@ -142,7 +148,7 @@ export function PlanStepView({
           </button>
           {onStartAddAfter && (
             <button
-              className="plan-step-add-after"
+              className="inline-flex items-center gap-[3px] px-1.5 py-px border border-[var(--border)] rounded-[3px] bg-transparent text-[var(--fg-muted)] text-[10px] cursor-pointer transition-colors duration-150 hover:bg-[var(--accent-hover)] hover:text-[var(--fg-primary)]"
               onClick={onStartAddAfter}
               type="button"
             >
@@ -152,7 +158,7 @@ export function PlanStepView({
           )}
           {onRemove && (
             <button
-              className="plan-step-remove"
+              className="inline-flex items-center gap-[3px] px-1.5 py-px border border-[var(--border)] rounded-[3px] bg-transparent text-[var(--fg-muted)] text-[10px] cursor-pointer transition-colors duration-150 hover:bg-[var(--error)] hover:text-[var(--user-fg)]"
               onClick={onRemove}
               type="button"
             >
@@ -164,8 +170,12 @@ export function PlanStepView({
       )}
 
       {step.status === "failed" && onReplan && (
-        <div className="plan-step-actions">
-          <button className="plan-step-replan" onClick={onReplan} type="button">
+        <div className="flex items-center gap-1 pl-6">
+          <button
+            className="inline-flex items-center gap-[3px] px-1.5 py-px border border-[var(--border)] rounded-[3px] bg-transparent text-[var(--fg-muted)] text-[10px] cursor-pointer transition-colors duration-150 hover:bg-[var(--accent-hover)] hover:text-[var(--fg-primary)]"
+            onClick={onReplan}
+            type="button"
+          >
             <Icon name="sync" size="sm" />
             Replan
           </button>

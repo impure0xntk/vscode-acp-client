@@ -469,7 +469,7 @@ export function AppContainer(): React.ReactElement {
 
   return (
     <div
-      className={`app-container${overviewVisible ? " with-overview" : ""}${overviewOnLeft ? " overview-left" : ""}`}
+      className={`flex flex-col h-screen overflow-hidden relative${overviewVisible ? " with-overview" : ""}${overviewOnLeft ? " overview-left" : ""}`}
     >
       {overviewOnLeft && overviewVisible && (
         <ResizableSessionOverviewPanel
@@ -493,7 +493,7 @@ export function AppContainer(): React.ReactElement {
       )}
       <div className="main-content">
         {/* Panel mode toggle */}
-        <div className="panel-mode-toggle">
+        <div className="flex items-center gap-0.5 px-2 py-0.5 bg-[var(--bg-secondary)] border-b border-[var(--border)] flex-shrink-0">
           <button
             className={`panel-mode-btn${panelMode === "classic" ? " panel-mode-btn--active" : ""}`}
             onClick={() => useUiStateStore.getState().setPanelMode("classic")}

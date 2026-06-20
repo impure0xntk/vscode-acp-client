@@ -63,7 +63,7 @@ function highlightMatch(text: string, query: string): React.ReactNode {
   const parts = text.split(re);
   return parts.map((part, i) =>
     re.test(part) ? (
-      <mark key={i} className="history-highlight">
+      <mark key={i} className="bg-[color-mix(in_srgb,var(--accent)_30%,transparent)] text-[var(--fg-primary)] rounded-[2px] px-0.5">
         {part}
       </mark>
     ) : (
@@ -85,7 +85,7 @@ function StatusDot({ status }: { status: string }): React.ReactElement {
           : "var(--vscode-terminal-ansiBlue)";
   return (
     <span
-      className="history-status-dot"
+      className="shrink-0 w-2 h-2 rounded-full mt-1"
       style={{ backgroundColor: color }}
       title={status}
     />
@@ -110,12 +110,15 @@ function TokenBar({
         : "var(--vscode-terminal-ansiGreen)";
 
   return (
-    <div className="history-token-bar" title={`${pct}% of context window used`}>
+    <div
+      className="relative h-[3px] rounded-[2px] mt-[3px] bg-[color-mix(in_srgb,var(--fg-muted)_15%,transparent)]"
+      title={`${pct}% of context window used`}
+    >
       <div
-        className="history-token-bar-fill"
+        className="h-full rounded-[2px] transition-[width] duration-300"
         style={{ width: `${pct}%`, backgroundColor: color }}
       />
-      <span className="history-token-bar-label">
+      <span className="absolute right-0 -top-3 text-[9px] text-[var(--fg-muted)] opacity-0 transition-opacity duration-150 group-hover:opacity-100">
         {pct}% · {formatTokens(entry.tokenUsage.total)}/
         {formatTokens(entry.contextWindowMax)}
       </span>
@@ -140,41 +143,55 @@ function SessionRow({
 }): React.ReactElement {
   return (
     <div
-      className={`history-item ${entry.isArchived ? "history-item-archived" : ""}`}
+      className={`group flex items-start gap-2 px-2.5 py-1.5 cursor-pointer transition-colors duration-100 hover:bg-[var(--accent-hover)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-[-1px] ${
+        entry.isArchived ? "opacity-50" : ""
+      }`}
       onClick={onClick}
     >
       <StatusDot status={entry.status} />
-      <div className="history-item-main">
-        <div className="history-item-title" title={entry.title}>
+      <div className="flex-1 min-w-0 overflow-hidden">
+        <div
+          className={`text-xs font-medium text-[var(--fg-primary)] overflow-hidden text-ellipsis whitespace-nowrap ${
+            entry.isArchived ? "line-through" : ""
+          }`}
+          title={entry.title}
+        >
           {highlightMatch(entry.title, query)}
         </div>
-        <div className="history-item-meta">
-          <span className="history-item-agent">{entry.agentId}</span>
+        <div className="flex items-center gap-1.5 mt-px">
+          <span className="text-[10px] text-[var(--fg-secondary)]">
+            {entry.agentId}
+          </span>
           <span
-            className="history-item-date"
+            className="text-[10px] text-[var(--fg-muted)]"
             title={formatDate(entry.createdAt)}
           >
             {formatRelativeTime(entry.lastResponseAt ?? entry.createdAt)}
           </span>
         </div>
         {entry.workspaceName && (
-          <div className="history-item-workspace" title={entry.cwd}>
+          <div
+            className="text-[10px] text-[var(--fg-muted)] overflow-hidden text-ellipsis whitespace-nowrap"
+            title={entry.cwd}
+          >
             <Icon name="folder-opened" size="sm" />{" "}
             {highlightMatch(entry.workspaceName, query)}
           </div>
         )}
         <TokenBar entry={entry} />
       </div>
-      <div className="history-item-stats">
-        <span className="history-item-msgs">{entry.messageCount} msgs</span>
-        <span className="history-item-tokens">
+      <div className="flex flex-col items-end gap-px shrink-0">
+        <span className="whitespace-nowrap text-[10px] text-[var(--fg-muted)]">
+          {entry.messageCount} msgs
+        </span>
+        <span className="whitespace-nowrap font-[var(--font-mono)] text-[9px] text-[var(--fg-muted)]">
           ↑{formatTokens(entry.tokenUsage.input)} ↓
           {formatTokens(entry.tokenUsage.output)}
         </span>
       </div>
-      <div className="history-item-actions">
+      <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
         <button
-          className="history-item-action-btn"
+          className="flex items-center justify-center w-5 h-5 p-0 border-none rounded bg-transparent text-[var(--fg-muted)] cursor-pointer transition-colors duration-150 hover:bg-[var(--accent-hover)] hover:text-[var(--fg-primary)]"
           onClick={(e) => {
             e.stopPropagation();
             onArchive();
@@ -188,7 +205,7 @@ function SessionRow({
           )}
         </button>
         <button
-          className="history-item-action-btn history-item-delete"
+          className="flex items-center justify-center w-5 h-5 p-0 border-none rounded bg-transparent text-[var(--fg-muted)] cursor-pointer transition-colors duration-150 hover:!bg-[var(--error)] hover:!text-[var(--user-fg)]"
           onClick={onDelete}
           title="Delete session"
         >
@@ -217,12 +234,14 @@ export function SessionList({
   onDelete,
 }: SessionListProps): React.ReactElement {
   return (
-    <div className="history-list">
+    <div className="flex-1 overflow-y-auto min-h-0">
       {Array.from(grouped.entries()).map(([groupLabel, groupEntries]) => (
-        <div key={groupLabel} className="history-group">
-          <div className="history-group-header">
+        <div key={groupLabel} className="py-0.5">
+          <div className="flex items-center justify-between px-3 py-1 text-[10px] text-[var(--fg-muted)]">
             {groupLabel}
-            <span className="history-group-count">{groupEntries.length}</span>
+            <span className="text-[var(--fg-muted)] opacity-60 font-normal">
+              {groupEntries.length}
+            </span>
           </div>
           {groupEntries.map((entry) => (
             <SessionRow

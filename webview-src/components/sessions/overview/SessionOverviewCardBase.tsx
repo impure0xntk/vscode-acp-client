@@ -15,7 +15,8 @@ import {
 } from "../../../shared/constants";
 import { Icon } from "../../../lib/icons";
 import { snapshotToOverviewItem } from "../../../store/sessionStore";
-export { snapshotToOverviewItem };
+import { ResponsePreviewList } from "./ResponsePreviewList";
+export { snapshotToOverviewItem, ResponsePreviewList };
 
 // ============================================================================
 // Shared helpers
@@ -197,14 +198,20 @@ export function SessionOverviewHeader({
   agentColor?: string;
 }): React.ReactElement {
   return (
-    <div className={`soc-title-row ${className}`.trim()}>
+    <div className={`flex items-center gap-1 min-w-0 overflow-hidden ${className}`.trim()}>
       <AgentBadge
         agentId={session.agentId}
         agentColor={agentColor}
-        className="soc-agent"
+        className="shrink-0 text-[9px] font-normal text-[var(--fg-muted)] font-[var(--font-ui)] max-w-[80px] overflow-hidden text-ellipsis whitespace-nowrap opacity-70"
       />
-      <span className="soc-title">{session.title}</span>
-      {session.model && <span className="soc-model">{session.model}</span>}
+      <span className="flex-1 min-w-0 text-[11px] font-medium text-[var(--fg-primary)] overflow-hidden text-ellipsis whitespace-nowrap">
+        {session.title}
+      </span>
+      {session.model && (
+        <span className="shrink-0 text-[9px] text-[var(--fg-muted)] font-[var(--font-mono)] max-w-[60px] overflow-hidden text-ellipsis whitespace-nowrap">
+          {session.model}
+        </span>
+      )}
     </div>
   );
 }
@@ -217,9 +224,9 @@ export function SessionOverviewChips({
 }): React.ReactElement {
   const chips = sessionToChips(session);
   return (
-    <div className="session-overview-chips">
+    <div className="flex flex-wrap gap-0.5 mt-1">
       {chips.map((c) => (
-        <Chip key={c.key} meta={c} />
+        <Chip key={c.key} meta={c} className="text-[10px] px-1 py-0.5" />
       ))}
     </div>
   );
@@ -233,55 +240,10 @@ export function SessionOverviewFooter({
 }): React.ReactElement {
   const ts = session.lastResponseAt ?? session.createdAt;
   return (
-    <div className="session-overview-card-footer">
-      <span className="session-overview-card-timestamp">
+    <div className="flex items-center justify-between mt-1 pt-1 border-t border-[color-mix(in_srgb,var(--border)_30%,transparent)]">
+      <span className="text-[9px] text-[var(--fg-muted)] font-[var(--font-mono)]">
         {new Date(ts).toLocaleTimeString()}
       </span>
-    </div>
-  );
-}
-
-// ============================================================================
-// Response Preview — compact inline list (card & popup)
-// ============================================================================
-
-const STATUS_ICON: Record<string, string> = {
-  completed: "pass-filled",
-  loading: "loading",
-  failed: "error",
-};
-
-export function ResponsePreviewList({
-  responses,
-  maxItems = 5,
-  className = "",
-}: {
-  responses: ResponsePreview[];
-  maxItems?: number;
-  className?: string;
-}): React.ReactElement | null {
-  if (responses.length === 0) return null;
-  const items = responses.slice(-maxItems);
-
-  return (
-    <div className={`response-preview-list ${className}`.trim()}>
-      {items.map((r) => (
-        <div
-          key={r.messageId}
-          className={`response-preview-item response-preview-item--${r.role}`}
-        >
-          {r.status && (
-            <Icon
-              name={STATUS_ICON[r.status] ?? "loading"}
-              className="response-preview-status"
-              size="sm"
-            />
-          )}
-          <span className="response-preview-text" title={r.preview}>
-            {r.preview}
-          </span>
-        </div>
-      ))}
     </div>
   );
 }

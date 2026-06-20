@@ -52,21 +52,24 @@ export function CompareBar({
   );
 
   return (
-    <div className="history-compare">
-      <div className="history-compare-header">
+    <div className="border-b border-[var(--border)] px-2.5 py-2 bg-[var(--bg-secondary)] shrink-0">
+      <div className="flex items-center justify-between mb-1.5 text-[11px] text-[var(--fg-secondary)]">
         <span>Comparing {sessions.length} sessions</span>
-        <button className="history-btn history-btn-sm" onClick={onClear}>
+        <button
+          className="px-1.5 py-0.5 text-[10px] border border-[var(--border)] rounded bg-[var(--bg-input)] text-[var(--fg-primary)] cursor-pointer whitespace-nowrap hover:bg-[var(--accent-hover)]"
+          onClick={onClear}
+        >
           Clear
         </button>
       </div>
-      <table className="history-compare-table">
+      <table className="w-full border-collapse text-[11px]">
         <thead>
           <tr>
-            <th>Title</th>
-            <th>Agent</th>
-            <th>Messages</th>
-            <th>Tokens</th>
-            <th>Context %</th>
+            <th className="text-left p-1.5 text-[10px] text-[var(--fg-muted)] font-semibold uppercase tracking-wider border-b border-[var(--border)]">Title</th>
+            <th className="text-left p-1.5 text-[10px] text-[var(--fg-muted)] font-semibold uppercase tracking-wider border-b border-[var(--border)]">Agent</th>
+            <th className="text-left p-1.5 text-[10px] text-[var(--fg-muted)] font-semibold uppercase tracking-wider border-b border-[var(--border)]">Messages</th>
+            <th className="text-left p-1.5 text-[10px] text-[var(--fg-muted)] font-semibold uppercase tracking-wider border-b border-[var(--border)]">Tokens</th>
+            <th className="text-left p-1.5 text-[10px] text-[var(--fg-muted)] font-semibold uppercase tracking-wider border-b border-[var(--border)]">Context %</th>
           </tr>
         </thead>
         <tbody>
@@ -77,36 +80,36 @@ export function CompareBar({
             );
             return (
               <tr key={s.sessionId}>
-                <td title={s.title} className="history-compare-title">
+                <td title={s.title} className="p-1.5 text-[var(--fg-primary)] max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap font-medium">
                   {s.title}
                 </td>
-                <td>{s.agentId}</td>
+                <td className="p-1.5 text-[var(--fg-primary)]">{s.agentId}</td>
                 <td>
-                  <div className="history-compare-bar-cell">
+                  <div className="flex items-center gap-1 relative pl-[60px] min-w-0">
                     <div
-                      className="history-compare-bar"
+                      className="absolute left-0 top-1/2 -translate-y-1/2 h-1.5 rounded-[3px] bg-[var(--accent)] opacity-50 max-w-[56px]"
                       style={{
                         width: `${maxMsgs > 0 ? (s.messageCount / maxMsgs) * 100 : 0}%`,
                       }}
                     />
-                    <span>{s.messageCount}</span>
+                    <span className="text-[10px] text-[var(--fg-muted)] shrink-0 z-10">{s.messageCount}</span>
                   </div>
                 </td>
                 <td>
-                  <div className="history-compare-bar-cell">
+                  <div className="flex items-center gap-1 relative pl-[60px] min-w-0">
                     <div
-                      className="history-compare-bar"
+                      className="absolute left-0 top-1/2 -translate-y-1/2 h-1.5 rounded-[3px] bg-[var(--accent)] opacity-50 max-w-[56px]"
                       style={{
                         width: `${maxTokens > 0 ? (s.tokenUsage.total / maxTokens) * 100 : 0}%`,
                       }}
                     />
-                    <span>{formatTokens(s.tokenUsage.total)}</span>
+                    <span className="text-[10px] text-[var(--fg-muted)] shrink-0 z-10">{formatTokens(s.tokenUsage.total)}</span>
                   </div>
                 </td>
                 <td>
-                  <div className="history-compare-bar-cell">
+                  <div className="flex items-center gap-1 relative pl-[60px] min-w-0">
                     <div
-                      className="history-compare-bar"
+                      className="absolute left-0 top-1/2 -translate-y-1/2 h-1.5 rounded-[3px] opacity-50 max-w-[56px]"
                       style={{
                         width: `${maxCtx > 0 ? (ctxPct / (maxCtx * 100)) * 100 : 0}%`,
                         backgroundColor:
@@ -117,7 +120,7 @@ export function CompareBar({
                               : "var(--vscode-terminal-ansiGreen)",
                       }}
                     />
-                    <span>{ctxPct}%</span>
+                    <span className="text-[10px] text-[var(--fg-muted)] shrink-0 z-10">{ctxPct}%</span>
                   </div>
                 </td>
               </tr>

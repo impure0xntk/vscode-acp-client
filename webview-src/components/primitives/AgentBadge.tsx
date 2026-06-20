@@ -24,9 +24,9 @@ export function AgentBadge({
   const dotColor = agentColor ?? "var(--vscode-descriptionForeground)";
   const displayName = agentName ?? agentId;
   return (
-    <span className={`agent-badge ${className}`.trim()}>
-      <span className="agent-badge-dot" style={{ backgroundColor: dotColor }} />
-      <span className="agent-badge-name" title={agentId}>
+    <span className={`inline-flex items-center gap-1 ${className}`.trim()}>
+      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
+      <span className="text-[11px] font-medium text-[var(--fg-primary)] truncate" title={agentId}>
         {displayName}
       </span>
     </span>

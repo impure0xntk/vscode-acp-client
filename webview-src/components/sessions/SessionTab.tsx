@@ -123,17 +123,17 @@ export function SessionTab({
 
   return (
     <div
-      className={`session-tab${isActive ? " session-tab-active" : ""}${isHovered ? " session-tab-hovered" : ""}`}
+      className={`flex flex-col justify-center px-2.5 py-1 min-w-[120px] max-w-[280px] min-h-[48px] cursor-pointer select-none bg-transparent transition-colors duration-150 relative overflow-hidden border-r border-[var(--border)]${isActive ? " session-tab-active bg-[var(--bg-primary)]" : ""}${isHovered ? " session-tab-hovered bg-[var(--bg-secondary)]" : ""}`}
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       style={{ borderTop: `2px solid ${agentColor ?? "transparent"}` }}
     >
       {/* Row 1: Status + Agent name — mirrors SessionOverviewCard header */}
-      <div className="session-tab-row session-tab-row-agent">
+      <div className="flex items-center gap-1 min-w-0 h-[18px]">
         <StatusIcon status={status} elapsedMs={elapsedMs} />
         <span
-          className="session-tab-agent-name"
+          className="text-[10px] font-semibold font-mono text-[var(--fg-secondary)] overflow-hidden text-ellipsis whitespace-nowrap leading-none"
           style={{ color: agentColor ?? "var(--vscode-descriptionForeground)" }}
           title={tab.agentId}
         >
@@ -143,7 +143,7 @@ export function SessionTab({
 
       {/* Row 2: Session title — compact, no chips/preview/footer */}
       <div
-        className="session-tab-row session-tab-row-session"
+        className="flex items-center gap-1 min-w-0 h-[20px] mt-[2px]"
         onDoubleClick={(e) => {
           if (onRename && !isRenaming) {
             e.stopPropagation();
@@ -156,7 +156,7 @@ export function SessionTab({
         {isRenaming ? (
           <input
             ref={renameInputRef}
-            className="session-tab-rename-input"
+            className="text-[11px] bg-transparent border-none outline-none text-[var(--fg-primary)] w-full"
             value={renameValue}
             onChange={(e) => setRenameValue(e.target.value)}
             onBlur={handleRenameSubmit}
@@ -164,7 +164,7 @@ export function SessionTab({
             onClick={(e) => e.stopPropagation()}
           />
         ) : (
-          <span className="session-tab-title">{tab.title}</span>
+          <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-[var(--fg-primary)] leading-[1.2]">{tab.title}</span>
         )}
       </div>
 
@@ -172,15 +172,15 @@ export function SessionTab({
       <UnreadBadge
         count={unreadCount}
         hidden={isActive}
-        className="session-tab-badge"
+        className="absolute top-1.5 right-1 z-10 inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-lg bg-[var(--accent)] text-[var(--user-fg)] text-[9px] font-bold leading-none shadow-[0_1px_3px_rgba(0,0,0,0.35)] pointer-events-none"
       />
 
       {/* Close button — visible on hover or active (not always, unlike card) */}
       <div
-        className={`session-tab-actions${showCloseButton ? " session-tab-actions-visible" : ""}`}
+        className={`absolute top-1 right-1 flex items-center gap-0.5 z-10 transition-opacity duration-150 ${showCloseButton ? "opacity-100" : "opacity-0"}`}
       >
         <button
-          className="session-tab-close"
+          className="shrink-0 flex items-center justify-center w-[18px] h-[18px] p-0 border-none rounded-[3px] bg-[var(--bg-secondary)] text-[var(--fg-secondary)] text-xs leading-none cursor-pointer transition-colors duration-150 hover:bg-[var(--error)] hover:text-[var(--user-fg)]"
           onClick={(e) => {
             e.stopPropagation();
             onClose();

@@ -41,11 +41,12 @@ function PickerContextBar({ item }: { item: SuggestionItem }): React.ReactElemen
 
   return (
     <span
-      className={`ctx-bar ctx-bar--${color}`}
+      className={`inline-flex flex-col-reverse w-[3px] h-[14px] rounded-[1.5px] overflow-hidden shrink-0 ml-1`}
+      style={{ background: `color-mix(in srgb, var(--fg-muted) 15%, transparent)` }}
       title={title}
     >
       <span
-        className="ctx-bar-fill"
+        className="w-full rounded-[1.5px] transition-[height] duration-300"
         style={{ height: `${fillHeight}%` }}
       />
     </span>
@@ -197,18 +198,24 @@ export function ContextPicker({
   const hasSeparator = firstActionIdx > 0;
 
   return (
-    <div className="context-picker">
-      <div className="context-picker-list" ref={listRef}>
+    <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded-md shadow-[0_4px_16px_rgba(0,0,0,0.35)] overflow-hidden mb-1 max-h-[220px] flex flex-col">
+      <div className="overflow-y-auto flex-1 min-h-0" ref={listRef}>
         {items.length === 0 && (
-          <div className="context-picker-empty">{placeholder}</div>
+          <div className="p-3 text-center text-[var(--fg-muted)] text-xs">
+            {placeholder}
+          </div>
         )}
         {items.map((item, i) => (
           <React.Fragment key={item.id}>
             {hasSeparator && i === firstActionIdx && (
-              <div className="context-picker-separator" />
+              <div className="h-px mx-2 my-1 bg-[var(--border)]" />
             )}
             <div
-              className={`context-picker-item ${i === selectedIndex ? "selected" : ""}`}
+              className={`flex items-center gap-1.5 px-2.5 py-[5px] cursor-pointer text-xs transition-colors duration-100 min-w-0 ${
+                i === selectedIndex
+                  ? "bg-[var(--accent-hover)]"
+                  : "hover:bg-[var(--accent-hover)]"
+              }`}
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => onSelect(item)}
               onMouseEnter={() => onSelectedIndexChange(i)}
@@ -216,7 +223,7 @@ export function ContextPicker({
               {item.icon && item.kind !== "session" ? (
                 <Icon
                   name={item.icon}
-                  className="context-picker-icon"
+                  className="shrink-0 text-[13px] w-[18px] text-center"
                   size="sm"
                 />
               ) : null}
@@ -226,9 +233,13 @@ export function ContextPicker({
               {item.kind === "session" ? (
                 <PickerContextBar item={item} />
               ) : null}
-              <span className="context-picker-label">{item.label}</span>
+              <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[var(--fg-primary)]">
+                {item.label}
+              </span>
               {item.detail && (
-                <span className="context-picker-detail">{item.detail}</span>
+                <span className="shrink-0 text-[10px] text-[var(--fg-muted)] max-w-[40%] overflow-hidden text-ellipsis whitespace-nowrap">
+                  {item.detail}
+                </span>
               )}
             </div>
           </React.Fragment>

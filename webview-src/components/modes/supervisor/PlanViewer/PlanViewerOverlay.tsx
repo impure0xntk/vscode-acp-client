@@ -77,7 +77,7 @@ export function PlanViewerOverlay({
   );
 
   return (
-    <div className="plan-viewer-overlay">
+    <div className="flex-shrink-0 bg-[var(--bg-secondary)] border-b border-[var(--border)] max-h-[40vh] overflow-y-auto">
       <PlanViewer
         plan={plan}
         onApprove={handleApprove}

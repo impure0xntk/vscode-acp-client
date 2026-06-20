@@ -60,12 +60,12 @@ export function SessionOverviewPopup({
       <ResponsePreviewList
         responses={liveItem.recentResponses}
         maxItems={5}
-        className="so-popup-previews"
+        className="flex flex-col gap-1"
       />
 
       {/* Footer: last-response timestamp */}
-      <div className="so-popup-footer">
-        <span className="so-popup-timestamp">
+      <div className="flex justify-end border-t border-[color-mix(in_srgb,var(--border)_40%,transparent)] pt-1 mt-0.5">
+        <span className="text-[9px] text-[var(--fg-muted)] font-[var(--font-mono)]">
           {new Date(
             liveItem.lastResponseAt ?? liveItem.createdAt
           ).toLocaleTimeString()}

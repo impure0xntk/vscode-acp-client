@@ -68,7 +68,10 @@ function tryFormatJson(raw: string): string {
 
 function Chevron({ open }: { open: boolean }): React.ReactElement {
   return (
-    <span className={`tool-chevron ${open ? "open" : ""}`} aria-hidden="true">
+    <span
+      className={`tool-chevron${open ? " open" : ""} flex-shrink-0 text-[9px] opacity-60 transition-transform duration-150`}
+      aria-hidden="true"
+    >
       ▶
     </span>
   );
@@ -101,20 +104,20 @@ export function DiffView({
   }
 
   return (
-    <div className="diff-view">
-      <pre className="diff-content">
+    <div className="mb-2">
+      <pre className="mt-1 p-2 bg-[color-mix(in_srgb,var(--bg-primary)_50%,transparent)] rounded font-mono text-[11px] leading-[1.5] overflow-x-auto max-h-[300px] overflow-y-auto">
         {lines.map((l, i) => (
           <div
             key={i}
             className={
               l.prefix === "-"
-                ? "diff-line-removed"
+                ? "bg-[rgba(241,76,76,0.15)] text-[#f48771]"
                 : l.prefix === "+"
-                  ? "diff-line-added"
-                  : "diff-line-meta"
+                  ? "bg-[rgba(78,201,176,0.15)] text-[#89d185]"
+                  : "text-[var(--fg-secondary)]"
             }
           >
-            <span className="diff-prefix">{l.prefix}</span>
+            <span className="inline-block w-4 select-none">{l.prefix}</span>
             <span>{l.text}</span>
           </div>
         ))}
@@ -173,23 +176,29 @@ export function ToolCallCard({
   };
 
   return (
-    <div className={`tool-call tool-call-${status}`}>
+    <div
+      className={`mt-0 max-w-full ml-3 mr-3 rounded overflow-hidden text-[10px] bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]${status === "completed" ? " tool-call-completed" : ""}`}
+    >
       <button
-        className="tool-call-header tool-call-header-clickable"
+        className={`tool-call-header-clickable flex items-center gap-[3px] px-[6px] font-mono text-[10px] text-[var(--fg-muted)] w-fit max-w-full border-none bg-transparent text-left transition-colors duration-150 hover:bg-[var(--accent-hover)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-[-1px]${hasBody ? " cursor-pointer" : ""}`}
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
       >
         {hasBody && <Chevron open={expanded} />}
-        <span className="tool-status-icon">
+        <span className="text-xs flex-shrink-0">
           <StatusIcon status={status} variant="tool" />
         </span>
         <Icon
           name={iconForToolKind(kind ?? "tool_call")}
           size="sm"
-          className="tool-kind-icon"
+          className="inline-flex items-center flex-shrink-0 opacity-80"
         />
-        <span className="tool-kind">{(kind ?? "TOOL_CALL").toUpperCase()}</span>
-        <span className="tool-title">{title}</span>
+        <span className="text-[var(--fg-muted)] text-[9px] uppercase flex-shrink-0 whitespace-nowrap opacity-70">
+          {(kind ?? "TOOL_CALL").toUpperCase()}
+        </span>
+        <span className="font-normal text-[10px] text-[var(--fg-muted)] flex-shrink-0 whitespace-nowrap">
+          {title}
+        </span>
         {hasLocations &&
           locations.map((loc, idx) => {
             const basename = loc.path.split("/").pop() ?? loc.path;
@@ -220,16 +229,18 @@ export function ToolCallCard({
               </span>
             );
           })}
-        <span className="tool-duration">{formatDuration(durationMs ?? 0)}</span>
+        <span className="font-mono text-[9px] text-[var(--fg-muted)] whitespace-nowrap flex-shrink-0">
+          {formatDuration(durationMs ?? 0)}
+        </span>
       </button>
 
-      <div className={`collapsible ${expanded ? "collapsible--open" : ""}`}>
-        <div className="collapsible-body">
-          <div className="tool-call-body">
+      <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+        <div className="overflow-hidden">
+          <div className="px-[6px] pb-[2px] pt-[1px] bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)]">
             {hasDiff && (
-              <div className="tool-section">
+              <div className="mt-[1px] first:mt-0">
                 <button
-                  className="tool-section-toggle"
+                  className="inline-flex items-center gap-[3px] px-[3px] py-[1px] rounded border-none bg-transparent text-[var(--fg-muted)] text-[10px] font-[var(--font-ui)] cursor-pointer leading-[1.3] transition-colors duration-150 hover:text-[var(--fg-secondary)] hover:bg-[var(--accent-hover)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-1"
                   onClick={(e) => {
                     e.stopPropagation();
                     setDiffOpen(!diffOpen);
@@ -237,21 +248,21 @@ export function ToolCallCard({
                   aria-expanded={diffOpen}
                 >
                   <Chevron open={diffOpen} />
-                  <span className="tool-section-label">Diff</span>
+                  <span className="text-[10px]">Diff</span>
                 </button>
                 <div
-                  className={`collapsible ${diffOpen ? "collapsible--open" : ""}`}
+                  className={`grid transition-[grid-template-rows] duration-200 ease-out ${diffOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
                 >
-                  <div className="collapsible-body">
+                  <div className="overflow-hidden">
                     <DiffView diff={diffContent} />
                   </div>
                 </div>
               </div>
             )}
             {hasInput && (
-              <div className="tool-section">
+              <div className="mt-[1px] first:mt-0">
                 <button
-                  className="tool-section-toggle"
+                  className="inline-flex items-center gap-[3px] px-[3px] py-[1px] rounded border-none bg-transparent text-[var(--fg-muted)] text-[10px] font-[var(--font-ui)] cursor-pointer leading-[1.3] transition-colors duration-150 hover:text-[var(--fg-secondary)] hover:bg-[var(--accent-hover)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-1"
                   onClick={(e) => {
                     e.stopPropagation();
                     setInputOpen(!inputOpen);
@@ -259,13 +270,13 @@ export function ToolCallCard({
                   aria-expanded={inputOpen}
                 >
                   <Chevron open={inputOpen} />
-                  <span className="tool-section-label">Input</span>
+                  <span className="text-[10px]">Input</span>
                 </button>
                 <div
-                  className={`collapsible ${inputOpen ? "collapsible--open" : ""}`}
+                  className={`grid transition-[grid-template-rows] duration-200 ease-out ${inputOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
                 >
-                  <div className="collapsible-body">
-                    <pre className="tool-content">
+                  <div className="overflow-hidden">
+                    <pre className="font-mono text-[10px] whitespace-pre-wrap text-[var(--fg-secondary)] mt-[1px] mb-0 p-[3px_6px] bg-[color-mix(in_srgb,var(--bg-primary)_50%,transparent)] rounded">
                       <code>
                         {typeof input === "string"
                           ? tryFormatJson(input)
@@ -277,9 +288,9 @@ export function ToolCallCard({
               </div>
             )}
             {hasOutput && (
-              <div className="tool-section">
+              <div className="mt-[1px] first:mt-0">
                 <button
-                  className="tool-section-toggle"
+                  className="inline-flex items-center gap-[3px] px-[3px] py-[1px] rounded border-none bg-transparent text-[var(--fg-muted)] text-[10px] font-[var(--font-ui)] cursor-pointer leading-[1.3] transition-colors duration-150 hover:text-[var(--fg-secondary)] hover:bg-[var(--accent-hover)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-1"
                   onClick={(e) => {
                     e.stopPropagation();
                     setOutputOpen(!outputOpen);
@@ -287,13 +298,13 @@ export function ToolCallCard({
                   aria-expanded={outputOpen}
                 >
                   <Chevron open={outputOpen} />
-                  <span className="tool-section-label">Output</span>
+                  <span className="text-[10px]">Output</span>
                 </button>
                 <div
-                  className={`collapsible ${outputOpen ? "collapsible--open" : ""}`}
+                  className={`grid transition-[grid-template-rows] duration-200 ease-out ${outputOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
                 >
-                  <div className="collapsible-body">
-                    <pre className="tool-content">
+                  <div className="overflow-hidden">
+                    <pre className="font-mono text-[10px] whitespace-pre-wrap text-[var(--fg-secondary)] mt-[1px] mb-0 p-[3px_6px] bg-[color-mix(in_srgb,var(--bg-primary)_50%,transparent)] rounded">
                       <code>
                         {typeof output === "string"
                           ? tryFormatJson(output)

@@ -31,9 +31,11 @@ const MODE_ICON: Record<string, string> = {
 export function Chip({
   meta,
   onClick,
+  className = "",
 }: {
   meta: ToolbarMeta;
   onClick?: () => void;
+  className?: string;
 }): React.ReactElement {
   const cat = meta.category ?? "";
   const dot = meta.statusIndicator ? STATUS_DOT[meta.statusIndicator] : null;
@@ -47,9 +49,38 @@ export function Chip({
     ? ` toolbar-chip--ctx-${meta.contextColor}`
     : "";
 
+  const catBorderMap: Record<string, string> = {
+    session: "border-l-[var(--accent)]",
+    runtime: "border-l-[var(--warning)]",
+    metrics: "border-l-[var(--success)]",
+    workspace: "border-l-[var(--fg-muted)]",
+  };
+  const turnBorderMap: Record<string, string> = {
+    completed: "border-l-[var(--success)]",
+    error: "border-l-[var(--error)]",
+    cancelled: "border-l-[var(--fg-muted)]",
+    running: "border-l-[#4fc3f7]",
+  };
+  const ctxBorderMap: Record<string, string> = {
+    normal: "border-l-[#4fc3f7]",
+    warning: "border-l-[#ffd54f]",
+    critical: "border-l-[#ef5350]",
+  };
+  const ctxValueColorMap: Record<string, string> = {
+    normal: "text-[#4fc3f7]",
+    warning: "text-[#ffd54f]",
+    critical: "text-[#ef5350]",
+  };
+
+  const borderCls = catBorderMap[cat] ?? "";
+  const turnBorderCls = turnBorderMap[turnKey ?? ""] ?? "";
+  const ctxBorderCls = ctxBorderMap[meta.contextColor ?? ""] ?? "";
+  const ctxValueCls = ctxValueColorMap[meta.contextColor ?? ""] ?? "";
+  const criticalAnim = meta.contextColor === "critical" ? "animate-[context-pulse_1.2s_ease-in-out_infinite]" : "";
+
   return (
     <span
-      className={`toolbar-chip toolbar-chip--${cat}${turnCls}${ctxColor}${onClick ? " toolbar-chip--clickable" : ""}`}
+      className={`inline-flex items-center gap-[3px] px-[6px] py-[1px] rounded-[3px] bg-[var(--accent-hover)] text-[10.5px] leading-[1.4] whitespace-nowrap shrink-0 border-l-2 ${borderCls} ${turnBorderCls} ${ctxBorderCls} ${criticalAnim}${onClick ? " cursor-pointer hover:bg-[var(--bg-input)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-1" : ""} ${className}`.trim()}
       title={`${meta.label}: ${meta.value}`}
       aria-label={`${meta.label}: ${meta.value}`}
       onClick={onClick}
@@ -59,32 +90,32 @@ export function Chip({
       {dot && (
         <Icon
           name={dot.icon}
-          className="toolbar-chip-dot"
+          className="inline-flex items-center justify-center text-[8px] leading-none shrink-0 mr-[2px]"
           style={{ color: dot.color }}
           size="sm"
         />
       )}
       {turnIconName && !dot && (
-        <Icon name={turnIconName} className="toolbar-chip-icon" size="sm" />
+        <Icon name={turnIconName} className="inline-flex items-center text-[10px] leading-none shrink-0 mr-[2px]" size="sm" />
       )}
       {resolvedModeIcon && (
-        <Icon name={resolvedModeIcon} className="toolbar-chip-icon" size="sm" />
+        <Icon name={resolvedModeIcon} className="inline-flex items-center text-[10px] leading-none shrink-0 mr-[2px]" size="sm" />
       )}
       {meta.icon && !(typeof meta.icon === "string") && (
-        <span className="toolbar-chip-icon">{meta.icon}</span>
+        <span className="inline-flex items-center text-[10px] leading-none shrink-0 mr-[2px]">{meta.icon}</span>
       )}
       {meta.barPct !== undefined ? (
-        <span className="toolbar-chip-ctx-wrap">
-          <span className={`ctx-bar ctx-bar--${meta.contextColor ?? 'normal'}`}>
+        <span className="inline-flex items-center gap-[4px] min-w-[60px]">
+          <span className="inline-block w-[40px] h-[4px] rounded-[2px] bg-[color-mix(in_srgb,var(--fg-muted)_20%,transparent)] shrink-0 overflow-hidden">
             <span
-              className="ctx-bar-fill"
-              style={{ height: `${meta.barPct}%` }}
+              className="block h-full rounded-[2px] bg-current transition-[width] duration-300"
+              style={{ width: `${meta.barPct}%` }}
             />
           </span>
-          <span className="toolbar-chip-value">{meta.value}</span>
+          <span className={`font-mono ${ctxValueCls}`}>{meta.value}</span>
         </span>
       ) : (
-        <span className="toolbar-chip-value">{meta.value}</span>
+        <span className="font-mono text-[var(--fg-secondary)]">{meta.value}</span>
       )}
     </span>
   );

@@ -177,7 +177,7 @@ export const UnifiedMode = React.memo(function UnifiedMode({
 
   const handleClose = useCallback(
     (key: string) => {
-      log.info("close section", { key });
+      log.info("close session", { key });
       const [agentId, sessionId] = key.split(":");
       togglePin(key); // unpin first
       removeTab(key);
@@ -307,7 +307,9 @@ export const UnifiedMode = React.memo(function UnifiedMode({
     : [];
 
   return (
-    <div className={`unified-mode unified-mode--${layoutMode}`}>
+    <div
+      className={`unified-mode flex flex-col flex-1 min-h-0 overflow-hidden h-full${layoutMode === "split" ? " unified-mode--split" : layoutMode === "grid" ? " unified-mode--grid" : ""}`}
+    >
       <SessionTabBar
         tabs={tabs}
         activeSessionKey={activeSessionKey}

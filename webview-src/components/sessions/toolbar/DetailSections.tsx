@@ -13,9 +13,9 @@ export function Row({
   value: string;
 }): React.ReactElement {
   return (
-    <div className="toolbar-detail-item">
-      <span className="toolbar-detail-label">{label}</span>
-      <span className="toolbar-detail-value" title={value}>
+    <div className="flex items-baseline justify-between gap-2 py-px">
+      <span className="text-[10px] text-[var(--fg-muted)] shrink-0">{label}</span>
+      <span className="text-[11px] text-[var(--fg-primary)] text-right truncate font-[var(--font-mono)]" title={value}>
         {value}
       </span>
     </div>
@@ -44,9 +44,9 @@ export function AgentSection({
     caps.push("embedded ctx");
 
   return (
-    <section className="toolbar-details-section">
-      <h3 className="toolbar-details-section-title">Agent</h3>
-      <div className="toolbar-details-grid">
+    <section className="mb-3">
+      <h3 className="text-[10px] font-semibold text-[var(--fg-muted)] mb-1">Agent</h3>
+      <div className="flex flex-col gap-0.5">
         <Row label="Name" value={info.title ?? info.name} />
         {info.version && <Row label="Version" value={info.version} />}
         <Row label="Protocol" value={`v${info.protocolVersion}`} />
@@ -76,9 +76,9 @@ export function MetricsSection({
     : "—";
 
   return (
-    <section className="toolbar-details-section">
-      <h3 className="toolbar-details-section-title">Metrics</h3>
-      <div className="toolbar-details-grid">
+    <section className="mb-0">
+      <h3 className="text-[10px] font-semibold text-[var(--fg-muted)] uppercase tracking-[0.4px] mb-1">Metrics</h3>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-x-3.5 gap-y-1">
         <Row
           label="Input"
           value={`${tokenUsage.inputTokens.toLocaleString()} tokens`}
@@ -129,15 +129,6 @@ export function TurnSection({
           ? "ban"
           : "circle-outline";
 
-  const outcomeClass =
-    outcome === "completed"
-      ? "turn-section-outcome--completed"
-      : outcome === "error"
-        ? "turn-section-outcome--error"
-        : outcome === "cancelled"
-          ? "turn-section-outcome--cancelled"
-          : "turn-section-outcome--active";
-
   // Compute turn duration from session start to last response
   const turnDuration =
     lastResponseAt && sessionStartMs
@@ -145,13 +136,18 @@ export function TurnSection({
       : null;
 
   return (
-    <section className="toolbar-details-section">
-      <h3 className="toolbar-details-section-title">Turn</h3>
-      <div className="toolbar-details-grid">
-        <div className={`toolbar-detail-item ${outcomeClass}`}>
-          <span className="toolbar-detail-label">Outcome</span>
-          <span className="toolbar-detail-value">
-            <Icon name={outcomeIcon} size="sm" className="turn-section-icon" />
+    <section className="mb-0">
+      <h3 className="text-[10px] font-semibold text-[var(--fg-muted)] uppercase tracking-[0.4px] mb-1">Turn</h3>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-x-3.5 gap-y-1">
+        <div className="flex flex-col gap-px min-w-0">
+          <span className="text-[10px] text-[var(--fg-muted)] uppercase">Outcome</span>
+          <span className={`text-xs text-[var(--fg-primary)] font-[var(--font-mono)] overflow-hidden text-ellipsis whitespace-nowrap ${
+            outcome === "completed" ? "!text-[var(--success)]" :
+            outcome === "error" ? "!text-[var(--error)]" :
+            outcome === "cancelled" ? "!text-[var(--fg-muted)] opacity-70" :
+            "!text-[#4fc3f7]"
+          }`}>
+            <Icon name={outcomeIcon} size="sm" className="inline-flex items-center mr-1 shrink-0" />
             {outcomeLabel}
           </span>
         </div>
@@ -182,10 +178,10 @@ export function SectionDetailsPanel({
     : undefined;
 
   return (
-    <div className="toolbar-details section-details-panel">
-      <section className="toolbar-details-section">
-        <h3 className="toolbar-details-section-title">Metrics</h3>
-        <div className="toolbar-details-grid">
+    <div className="px-2.5 py-2 bg-[var(--bg-primary)] flex flex-col gap-2 animate-[toolbar-details-in_0.12s_ease-out]">
+      <section className="mb-0">
+        <h3 className="text-[10px] font-semibold text-[var(--fg-muted)] uppercase tracking-[0.4px] mb-1">Metrics</h3>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-x-3.5 gap-y-1">
           <Row
             label="Input"
             value={`${info.tokenUsage.inputTokens.toLocaleString()} tokens`}
@@ -207,17 +203,17 @@ export function SectionDetailsPanel({
       </section>
 
       {info.cwd && (
-        <section className="toolbar-details-section">
-          <h3 className="toolbar-details-section-title">Workspace</h3>
-          <div className="toolbar-details-grid">
+        <section className="mb-0">
+          <h3 className="text-[10px] font-semibold text-[var(--fg-muted)] uppercase tracking-[0.4px] mb-1">Workspace</h3>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-x-3.5 gap-y-1">
             <Row label="CWD" value={info.cwd} />
           </div>
         </section>
       )}
 
-      <section className="toolbar-details-section">
-        <h3 className="toolbar-details-section-title">Session</h3>
-        <div className="toolbar-details-grid">
+      <section className="mb-0">
+        <h3 className="text-[10px] font-semibold text-[var(--fg-muted)] uppercase tracking-[0.4px] mb-1">Session</h3>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-x-3.5 gap-y-1">
           <SessionIdRow sessionId={info.sessionId} onFork={onForkSession} />
         </div>
       </section>
@@ -255,14 +251,14 @@ export function SessionIdRow({
     sessionId.length > 12 ? `${sessionId.slice(0, 12)}...` : sessionId;
 
   return (
-    <div className="toolbar-detail-item toolbar-detail-item--full">
-      <span className="toolbar-detail-label">Session ID</span>
-      <div className="toolbar-session-id-row">
-        <span className="toolbar-detail-value" title={sessionId}>
+    <div className="flex flex-col gap-px min-w-0 col-span-full">
+      <span className="text-[10px] text-[var(--fg-muted)] uppercase">Session ID</span>
+      <div className="flex items-center gap-1">
+        <span className="text-xs text-[var(--fg-primary)] font-[var(--font-mono)] overflow-hidden text-ellipsis whitespace-nowrap" title={sessionId}>
           {shortId}
         </span>
         <button
-          className="toolbar-session-action"
+          className="inline-flex items-center justify-center w-5 h-5 p-0 border-0 rounded-[3px] bg-transparent text-[var(--fg-secondary)] hover:bg-[var(--accent-hover)] hover:text-[var(--fg-primary)] cursor-pointer"
           onClick={handleCopy}
           title="Copy session ID"
         >
@@ -270,7 +266,7 @@ export function SessionIdRow({
         </button>
         {onFork && (
           <button
-            className="toolbar-session-action"
+            className="inline-flex items-center justify-center w-5 h-5 p-0 border-0 rounded-[3px] bg-transparent text-[var(--fg-secondary)] hover:bg-[var(--accent-hover)] hover:text-[var(--fg-primary)] cursor-pointer"
             onClick={onFork}
             title="Fork session"
           >

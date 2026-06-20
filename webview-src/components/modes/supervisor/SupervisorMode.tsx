@@ -181,9 +181,9 @@ export const SupervisorMode = React.memo(function SupervisorMode({
     : [];
 
   return (
-    <div className="supervisor-mode">
+    <div className="flex flex-row flex-1 min-h-0 overflow-hidden h-full">
       {/* Left: Chat area (session tabs + messages + composer) */}
-      <div className="supervisor-mode-chat">
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         <SessionTabBar
           tabs={tabs}
           activeSessionKey={activeSessionKey}
@@ -258,7 +258,7 @@ export const SupervisorMode = React.memo(function SupervisorMode({
       </div>
 
       {/* Right: Mesh panel (persistent in supervisor mode) */}
-      <div className="supervisor-mode-mesh">
+      <div className="w-[280px] shrink-0 border-l border-[var(--border)] flex flex-col min-h-0 overflow-hidden">
         <MeshPanel
           onClose={() => setMeshPanelVisible(false)}
           onOpenTeamCreate={() => setShowTeamCreate(true)}

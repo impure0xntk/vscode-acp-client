@@ -1049,7 +1049,7 @@ export function Composer({
     : "Message (Enter to send, Shift+Enter for newline, # file / command, @ session)";
 
   return (
-    <div className="composer">
+    <div className="flex-shrink-0 px-[14px] pt-2 pb-1">
       <ContextBar
         attachments={attachments}
         onRemove={handleRemoveAttachment}
@@ -1062,13 +1062,13 @@ export function Composer({
 
       {/* Mesh mode badge — shown when /mesh fanout|supervisor|pipeline is active */}
       {communicationMode && (
-        <div className="mesh-mode-badge">
+        <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-[var(--bg-secondary)] border border-[var(--border)] text-xs mb-1">
           <Icon name={MODE_META[communicationMode].icon} size="sm" />
-          <span className="mesh-mode-badge-label">
+          <span className="text-[var(--fg-secondary)] font-medium">
             {MODE_META[communicationMode].label}
           </span>
           <button
-            className="mesh-mode-badge-remove"
+            className="ml-auto flex items-center justify-center w-4 h-4 rounded bg-transparent text-[var(--fg-muted)] hover:bg-[var(--error)] hover:text-[var(--user-fg)] cursor-pointer border-none text-xs"
             onClick={() => setCommunicationMode(null)}
             title="Clear mode"
           >
@@ -1079,14 +1079,14 @@ export function Composer({
 
       {/* Queue panel — shown when there are queued messages */}
       {queue.length > 0 && (
-        <div className="composer-queue">
-          <div className="composer-queue-header">
-            <span className="composer-queue-title">
+        <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded-md mb-1 overflow-hidden">
+          <div className="flex items-center justify-between px-2 py-1 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]">
+            <span className="text-[10px] font-semibold text-[var(--fg-secondary)] font-mono uppercase tracking-wider">
               {queue.length} queued message{queue.length !== 1 ? "s" : ""}
             </span>
             {onClearQueue && (
               <button
-                className="composer-queue-clear-all"
+                className="inline-flex items-center justify-center px-1.5 py-px rounded-[3px] bg-transparent text-[var(--fg-muted)] text-[10px] cursor-pointer border border-transparent hover:bg-[var(--error)] hover:text-[var(--user-fg)] hover:border-[var(--error)] transition-all"
                 onClick={onClearQueue}
                 title="Clear all queued messages"
                 aria-label="Clear all queued messages"
@@ -1095,12 +1095,12 @@ export function Composer({
               </button>
             )}
           </div>
-          <ul className="composer-queue-list">
+          <ul className="list-none m-0 p-0 max-h-[120px] overflow-y-auto">
             {queue.map((entry) => (
-              <li key={entry.id} className="composer-queue-item">
-                <div className="composer-queue-item-content">
+              <li key={entry.id} className="flex items-center justify-between gap-1 px-2 py-[3px] border-b border-[color-mix(in_srgb,var(--border)_30%,transparent)] last:border-b-0">
+                <div className="flex-1 min-w-0 overflow-hidden">
                   <span
-                    className="composer-queue-item-text"
+                    className="text-[11px] text-[var(--fg-secondary)] whitespace-nowrap overflow-hidden text-ellipsis block"
                     title={entry.text}
                   >
                     {entry.text.length > 80
@@ -1108,10 +1108,10 @@ export function Composer({
                       : entry.text}
                   </span>
                 </div>
-                <div className="composer-queue-item-actions">
+                <div className="flex items-center gap-0.5 flex-shrink-0">
                   {onSendNow && entry.status === "pending" && (
                     <button
-                      className="composer-queue-item-send-now"
+                      className="inline-flex items-center justify-center w-[18px] h-[18px] p-0 rounded-[3px] bg-transparent text-[var(--fg-muted)] text-[10px] cursor-pointer border-none hover:bg-[var(--accent)] hover:text-[var(--user-fg)] transition-all flex-shrink-0"
                       onClick={() => onSendNow(entry.id)}
                       title="Send now (bypass queue)"
                       aria-label="Send now"
@@ -1121,7 +1121,7 @@ export function Composer({
                   )}
                   {onRemoveQueueItem && entry.status === "pending" && (
                     <button
-                      className="composer-queue-item-remove"
+                      className="inline-flex items-center justify-center w-[18px] h-[18px] p-0 rounded-[3px] bg-transparent text-[var(--fg-muted)] text-[10px] cursor-pointer border-none hover:bg-[var(--error)] hover:text-[var(--user-fg)] transition-all flex-shrink-0"
                       onClick={() => onRemoveQueueItem(entry.id)}
                       title="Remove from queue"
                       aria-label="Remove from queue"
@@ -1159,7 +1159,7 @@ export function Composer({
           }}
         />
       )}
-      <div className="composer-inner">
+      <div className="flex items-end gap-2 bg-[var(--bg-input)] border border-transparent rounded-md px-2.5 py-[6px] focus-within:border-[var(--accent)]">
         <textarea
           ref={textareaRef}
           value={text}
@@ -1168,10 +1168,11 @@ export function Composer({
           placeholder={placeholder}
           disabled={disabled}
           rows={1}
+          className="flex-1 bg-transparent border-none outline-none text-[var(--fg-primary)] text-[13px] leading-[1.5] resize-none max-h-[160px] min-h-[20px] placeholder:text-[var(--fg-muted)]"
         />
         {status === "running" || status === "cancelling" ? (
           <button
-            className={`stop-button ${status === "cancelling" ? "stop-button--cancelling" : ""}`}
+            className={`bg-transparent border-none cursor-pointer text-sm w-6 h-6 rounded flex-shrink-0 flex items-center justify-center p-0 leading-none ${status === "cancelling" ? "text-[var(--fg-muted)] cursor-not-allowed" : "text-[var(--fg-secondary)] hover:text-[var(--error)]"}`}
             onClick={status === "running" ? onCancel : undefined}
             disabled={status === "cancelling"}
             title={status === "cancelling" ? "Cancelling…" : "Stop generation"}
@@ -1181,7 +1182,7 @@ export function Composer({
         ) : (
           <>
             <button
-              className="send-button"
+              className="bg-transparent border-none cursor-pointer text-sm w-6 h-6 rounded flex-shrink-0 flex items-center justify-center p-0 leading-none text-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:text-[var(--fg-muted)] disabled:cursor-not-allowed"
               onClick={handleSend}
               disabled={disabled || (!text.trim() && attachments.length === 0)}
               title="Send to active session"
@@ -1190,7 +1191,7 @@ export function Composer({
             </button>
             {hasPinnedSessions && (
               <button
-                className="send-all-button"
+                className="bg-transparent border-none cursor-pointer text-sm w-6 h-6 rounded flex-shrink-0 flex items-center justify-center p-0 leading-none text-[var(--accent)] opacity-80 hover:opacity-100 hover:bg-[var(--accent-hover)] disabled:text-[var(--fg-muted)] disabled:cursor-not-allowed disabled:opacity-40"
                 onClick={handleSendToAllPinned}
                 disabled={
                   disabled || (!text.trim() && attachments.length === 0)

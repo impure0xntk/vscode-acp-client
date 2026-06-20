@@ -62,15 +62,15 @@ export function PlanViewer({
   const failedSteps = plan.steps.filter((s) => s.status === "failed");
 
   return (
-    <div className="plan-viewer">
-      <div className="plan-viewer-header">
-        <div className="plan-viewer-title">
+    <div className="flex flex-col px-3.5 py-2 gap-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--fg-primary)]">
           <Icon name="list-tree" size="sm" />
           <span>Execution Plan</span>
         </div>
-        <div className="plan-viewer-header-right">
+        <div className="flex items-center gap-1.5">
           <span
-            className={`plan-viewer-status plan-viewer-status--${plan.status}`}
+            className={`text-[10px] px-1.5 py-px rounded font-mono whitespace-nowrap${plan.status === "pending" ? " bg-[color-mix(in_srgb,var(--warning)_15%,transparent)] text-[var(--warning)]" : plan.status === "approved" ? " bg-[color-mix(in_srgb,var(--accent)_15%,transparent)] text-[var(--accent)]" : plan.status === "executing" ? " bg-[color-mix(in_srgb,#4fc3f7_15%,transparent)] text-[#4fc3f7]" : plan.status === "completed" ? " bg-[color-mix(in_srgb,var(--success)_15%,transparent)] text-[var(--success)]" : plan.status === "failed" ? " bg-[color-mix(in_srgb,var(--error)_15%,transparent)] text-[var(--error)]" : plan.status === "rejected" || plan.status === "cancelled" ? " bg-[color-mix(in_srgb,var(--fg-muted)_15%,transparent)] text-[var(--fg-muted)]" : plan.status === "draft" ? " bg-[color-mix(in_srgb,var(--fg-muted)_10%,transparent)] text-[var(--fg-muted)]" : ""}`}
           >
             {plan.status === "executing"
               ? `Executing (${completedCount}/${totalSteps})`
@@ -89,7 +89,7 @@ export function PlanViewer({
                           : "Pending approval"}
           </span>
           <button
-            className="plan-viewer-close"
+            className="inline-flex items-center justify-center w-5 h-5 p-0 border-none rounded-[3px] bg-transparent text-[var(--fg-muted)] cursor-pointer transition-colors duration-150 hover:bg-[var(--error)] hover:text-[var(--user-fg)]"
             onClick={onClose}
             type="button"
             aria-label="Close plan"
@@ -100,20 +100,20 @@ export function PlanViewer({
       </div>
 
       {(plan.status === "executing" || plan.status === "approved") && (
-        <div className="plan-viewer-progress-bar">
-          <div className="plan-viewer-progress-track">
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-1 rounded-sm bg-[var(--border)] overflow-hidden">
             <div
-              className="plan-viewer-progress-fill"
+              className="h-full rounded-sm bg-[var(--accent)] transition-[width] duration-300"
               style={{ width: `${progressPct}%` }}
             />
           </div>
-          <span className="plan-viewer-progress-text">
+          <span className="text-[10px] text-[var(--fg-muted)] font-mono whitespace-nowrap">
             {completedCount}/{totalSteps} steps
           </span>
         </div>
       )}
 
-      <div className="plan-viewer-steps">
+      <div className="flex flex-col gap-[2px]">
         {plan.steps.map((step) => (
           <React.Fragment key={step.id}>
             <PlanStepView
@@ -134,9 +134,9 @@ export function PlanViewer({
               }
             />
             {addingAfter === step.id && (
-              <div className="plan-step-add-form">
+              <div className="plan-step-add-form flex items-center gap-1 p-1 ml-6">
                 <input
-                  className="plan-step-add-input"
+                  className="plan-step-add-input flex-1 px-1.5 py-0.5 border border-[var(--border)] rounded-[3px] bg-[var(--bg-input)] text-[var(--fg-primary)] text-[11px] outline-none focus:border-[var(--accent)]"
                   value={newStepText}
                   onChange={(e) => setNewStepText(e.target.value)}
                   placeholder="Step description..."
@@ -147,14 +147,14 @@ export function PlanViewer({
                   }}
                 />
                 <button
-                  className="plan-step-add-confirm"
+                  className="inline-flex items-center justify-center w-5 h-5 p-0 border-none rounded-[3px] bg-transparent text-[var(--fg-muted)] cursor-pointer hover:bg-[var(--success)] hover:text-[var(--user-fg)]"
                   onClick={handleCommitAdd}
                   type="button"
                 >
                   <Icon name="check" size="sm" />
                 </button>
                 <button
-                  className="plan-step-add-cancel"
+                  className="inline-flex items-center justify-center w-5 h-5 p-0 border-none rounded-[3px] bg-transparent text-[var(--fg-muted)] cursor-pointer hover:bg-[var(--error)] hover:text-[var(--user-fg)]"
                   onClick={handleCancelAdd}
                   type="button"
                 >
@@ -168,9 +168,9 @@ export function PlanViewer({
         {plan.status === "pending" && (
           <>
             {addingAfter === "" ? (
-              <div className="plan-step-add-form">
+              <div className="plan-step-add-form flex items-center gap-1 p-1 ml-6">
                 <input
-                  className="plan-step-add-input"
+                  className="plan-step-add-input flex-1 px-1.5 py-0.5 border border-[var(--border)] rounded-[3px] bg-[var(--bg-input)] text-[var(--fg-primary)] text-[11px] outline-none focus:border-[var(--accent)]"
                   value={newStepText}
                   onChange={(e) => setNewStepText(e.target.value)}
                   placeholder="Step description..."
@@ -181,14 +181,14 @@ export function PlanViewer({
                   }}
                 />
                 <button
-                  className="plan-step-add-confirm"
+                  className="inline-flex items-center justify-center w-5 h-5 p-0 border-none rounded-[3px] bg-transparent text-[var(--fg-muted)] cursor-pointer hover:bg-[var(--success)] hover:text-[var(--user-fg)]"
                   onClick={handleCommitAdd}
                   type="button"
                 >
                   <Icon name="check" size="sm" />
                 </button>
                 <button
-                  className="plan-step-add-cancel"
+                  className="inline-flex items-center justify-center w-5 h-5 p-0 border-none rounded-[3px] bg-transparent text-[var(--fg-muted)] cursor-pointer hover:bg-[var(--error)] hover:text-[var(--user-fg)]"
                   onClick={handleCancelAdd}
                   type="button"
                 >
@@ -197,7 +197,7 @@ export function PlanViewer({
               </div>
             ) : (
               <button
-                className="plan-step-add-trigger"
+                className="plan-step-add-trigger inline-flex items-center gap-1 px-2 py-0.5 border border-dashed border-[var(--border)] rounded-[3px] bg-transparent text-[var(--fg-muted)] text-[10px] cursor-pointer ml-6 transition-colors duration-150 hover:bg-[var(--accent-hover)] hover:text-[var(--fg-primary)] hover:border-[var(--accent)]"
                 onClick={() => handleStartAdd()}
                 type="button"
               >
@@ -210,9 +210,9 @@ export function PlanViewer({
       </div>
 
       {plan.status === "pending" && (
-        <div className="plan-viewer-actions">
+        <div className="flex items-center gap-2 pt-1 border-t border-[var(--border)]">
           <button
-            className="plan-viewer-approve"
+            className="inline-flex items-center gap-1 px-3 py-1 border border-[var(--success)] rounded-md text-[11px] cursor-pointer transition-colors duration-150 bg-[var(--success)] text-[var(--bg-primary)] hover:bg-[color-mix(in_srgb,var(--success)_80%,white)]"
             onClick={onApprove}
             type="button"
           >
@@ -220,7 +220,7 @@ export function PlanViewer({
             Approve & Execute
           </button>
           <button
-            className="plan-viewer-reject"
+            className="inline-flex items-center gap-1 px-3 py-1 border border-[var(--border)] rounded-md text-[11px] cursor-pointer transition-colors duration-150 bg-transparent text-[var(--fg-muted)] hover:bg-[var(--error)] hover:text-[var(--user-fg)] hover:border-[var(--error)]"
             onClick={onReject}
             type="button"
           >
@@ -231,9 +231,9 @@ export function PlanViewer({
       )}
 
       {plan.status === "executing" && (
-        <div className="plan-viewer-actions">
+        <div className="flex items-center gap-2 pt-1 border-t border-[var(--border)]">
           <button
-            className="plan-viewer-cancel"
+            className="inline-flex items-center gap-1 px-3 py-1 border border-[var(--border)] rounded-md text-[11px] cursor-pointer transition-colors duration-150 bg-transparent text-[var(--fg-muted)] hover:bg-[var(--error)] hover:text-[var(--user-fg)] hover:border-[var(--error)]"
             onClick={onCancel}
             type="button"
           >
@@ -246,9 +246,9 @@ export function PlanViewer({
       {(plan.status === "completed" || plan.status === "failed") &&
         failedSteps.length > 0 &&
         onReplan && (
-          <div className="plan-viewer-actions">
+          <div className="flex items-center gap-2 pt-1 border-t border-[var(--border)]">
             <button
-              className="plan-viewer-replan"
+              className="inline-flex items-center gap-1 px-3 py-1 border border-[var(--accent)] rounded-md text-[11px] cursor-pointer transition-colors duration-150 bg-transparent text-[var(--accent)] hover:bg-[var(--accent)] hover:text-[var(--user-fg)]"
               onClick={() =>
                 onReplan(
                   failedSteps[0].id,

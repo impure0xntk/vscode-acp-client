@@ -83,7 +83,7 @@ function AttachmentChip({
 
   return (
     <span
-      className="file-chip file-chip-inline"
+      className="inline-flex items-center gap-[2px] px-[3px] py-[1px] rounded-[3px] bg-[var(--bg-secondary)] text-[9px] cursor-pointer select-none shrink-0 hover:bg-[var(--accent-hover)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-1"
       onClick={isNavigable ? handleClick : undefined}
       title={
         attachment.type === "diff"
@@ -105,15 +105,15 @@ function AttachmentChip({
       }
     >
       {attachment.type === "diff" ? (
-        <Icon name="diff-single" size="sm" className="file-chip-icon" />
+        <Icon name="diff-single" size="sm" className="text-[12px]" />
       ) : attachment.type === "selection" ? (
-        <Icon name="selection" size="sm" className="file-chip-icon" />
+        <Icon name="selection" size="sm" className="text-[12px]" />
       ) : attachment.type === "symbol" ? (
-        <Icon name="symbol-class" size="sm" className="file-chip-icon" />
+        <Icon name="symbol-class" size="sm" className="text-[12px]" />
       ) : (
-        <span className="file-chip-ext">{"•"}</span>
+        <span className="inline-flex items-center justify-center w-[14px] h-[11px] rounded-[2px] font-mono text-[7px] font-bold leading-[-0.3px] shrink-0 bg-[color-mix(in_srgb,var(--accent)_20%,transparent)] text-[var(--fg-secondary)]">{"•"}</span>
       )}
-      <span className="file-chip-label">
+      <span className="leading-none text-[var(--fg-primary)]">
         {attachment.type === "selection"
           ? "selection"
           : attachment.type === "symbol"
@@ -123,11 +123,11 @@ function AttachmentChip({
               : (attachment.path.split("/").pop() ?? attachment.path)}
       </span>
       {attachment.type === "selection" && attachment.lineRange && (
-        <span className="file-chip-detail">
+        <span className="text-[var(--fg-muted)] text-[9px] ml-[2px]">
           :{attachment.lineRange[0]}-{attachment.lineRange[1]}
         </span>
       )}
-      <span className="file-chip-tokens">{attachment.tokenCount}t</span>
+      <span className="text-[var(--fg-muted)] text-[9px] ml-[2px]">{attachment.tokenCount}t</span>
     </span>
   );
 }
@@ -192,21 +192,21 @@ export const Message = React.memo(function Message({
 
   return (
     <div
-      className={`message ${isSystem ? "message-system" : isUser ? "message-user" : "message-agent"} ${animationClass}`}
+      className={`flex flex-col gap-[2px] pt-[4px] pb-[2px] relative overflow-visible ${isSystem ? "opacity-70" : ""} ${animationClass}`}
       data-role={role}
       data-message-id={item.key}
     >
       {(!isConsecutive || forceHeader) && (
-        <div className="message-header">
-          <span className="message-role">
+        <div className={`flex items-center gap-[6px] text-[11px] text-[var(--fg-muted)] mb-[2px] ${isUser ? "justify-end" : ""}`}>
+          <span className="font-medium text-[var(--fg-secondary)]">
             {isSystem ? "System" : isUser ? "You" : "Agent"}
           </span>
-          <span className="message-time">{time}</span>
+          <span className="text-[10px] opacity-50">{time}</span>
         </div>
       )}
-      <div className={isUser ? "message-body-row" : ""}>
+      <div className={`flex items-center gap-[6px] ${isUser ? "justify-end" : ""}`}>
         {isUser && (
-          <div className="message-user-actions">
+          <div className="inline-flex items-center gap-[2px] opacity-0 invisible transition-opacity transition-visibility pointer-events-none shrink-0 self-center order-first group-hover:opacity-100 group-hover:visible group-hover:pointer-events-auto">
             <MessageActions
               messageId={item.key}
               content={content}
@@ -216,13 +216,13 @@ export const Message = React.memo(function Message({
           </div>
         )}
         {!isToolOnlyAgent && (
-          <div className="message-body">
+          <div className={`max-w-full ${isUser ? "bg-[color-mix(in_srgb,var(--user-bubble)_12%,transparent)] text-[var(--fg-primary)] px-[10px] py-[6px] rounded-[6px] border border-[color-mix(in_srgb,var(--user-bubble)_20%,transparent)] self-end max-w-[80%]" : "text-[var(--fg-primary)]"}`}>
             {isUser ? (
-              <div className="message-text">{content}</div>
+              <div className="whitespace-pre-wrap break-words">{content}</div>
             ) : (
-              <div className="message-markdown-wrap">
+              <div className="flex items-center gap-[4px]">
                 <div
-                  className={`message-markdown${isSystem ? " message-system-markdown" : ""}`}
+                  className={`leading-[1.6] min-w-0 flex-1${isSystem ? " text-[var(--fg-secondary)]" : ""}`}
                   dangerouslySetInnerHTML={{
                     __html: renderMarkdown(content, mergedContext),
                   }}
@@ -242,14 +242,14 @@ export const Message = React.memo(function Message({
         )}
       </div>
       {hasAttachments && (
-        <div className="user-attach-row">
+        <div className="flex flex-wrap gap-[4px] justify-end pt-[4px]">
           {attachments.map((a) => (
             <AttachmentChip key={a.id} attachment={a} />
           ))}
         </div>
       )}
       {hasToolCalls && resolvedToolCalls && (
-        <div className="message-tool-batch">
+        <div className="mx-[12px] mb-0">
           <ToolBatchSummary
             calls={resolvedToolCalls}
             isNew={isNew}

@@ -75,19 +75,27 @@ export function SendTargetChip({
 }: SendTargetChipProps): React.ReactElement {
   const status = target.status ?? "idle";
 
+  const statusBorderMap: Record<string, string> = {
+    running: "border-l-[#4fc3f7]",
+    completed: "border-l-[var(--success)]",
+    error: "border-l-[var(--error)]",
+    cancelled: "border-l-[var(--fg-muted)]",
+    idle: "border-l-transparent",
+  };
+
   return (
     <span
-      className={`send-target-chip send-target-chip--${status}`}
+      className={`inline-flex items-center gap-[3px] px-[6px] py-[2px] rounded-[4px] bg-[var(--bg-secondary)] border border-[var(--border)] border-l-2 ${statusBorderMap[status] ?? "border-l-transparent"} text-[11px] whitespace-nowrap shrink-0${onClick ? " cursor-pointer" : ""}`.trim()}
       onClick={onClick}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
       title={`${target.agentId}:${target.sessionId}`}
     >
       <StatusIcon status={status} size="sm" />
-      <span className="send-target-chip-label">{target.label}</span>
+      <span className="text-[var(--fg-primary)] max-w-[120px] truncate">{target.label}</span>
       <ContextBar target={target} />
       <button
-        className="send-target-chip-remove"
+        className="inline-flex items-center justify-center w-[14px] h-[14px] p-0 rounded-[2px] bg-transparent text-[var(--fg-muted)] text-[12px] leading-none shrink-0 ml-[1px] hover:bg-[var(--error)] hover:text-[var(--user-fg)]"
         onClick={(e) => {
           e.stopPropagation();
           onRemove();

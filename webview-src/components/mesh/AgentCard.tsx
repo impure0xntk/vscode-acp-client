@@ -92,46 +92,46 @@ export function AgentCard({
 
   return (
     <button
-      className={`agent-card${isSelected ? " agent-card--selected" : ""}`}
+      className={`flex flex-col gap-0.5 p-2 border border-transparent rounded-[4px] bg-[var(--bg-primary)] cursor-pointer text-left hover:bg-[var(--accent-hover)] focus-visible:outline focus-visible:outline-[var(--accent)] focus-visible:outline-offset-1 min-w-[140px] max-w-[200px] flex-shrink-0 ${isSelected ? "bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] border-[color-mix(in_srgb,var(--accent)_20%,transparent)]" : ""}`}
       data-status={status}
       data-color-group={colorGroup}
       onClick={onSelect}
       type="button"
     >
       {/* Header: status icon + agent name */}
-      <div className="agent-card-header">
+      <div className="flex items-center gap-1 min-w-0">
         <StatusIcon status={status} size="sm" elapsedMs={elapsedMs} />
-        <span className="agent-card-name">
+        <span className="flex-1 min-w-0 text-[10px] font-semibold font-mono text-[var(--fg-primary)] overflow-hidden text-ellipsis whitespace-nowrap">
           {agent?.name ?? sessionInfo.agentId}
         </span>
       </div>
 
       {/* Status label */}
-      <div className="agent-card-status">{STATUS_LABEL[status] ?? status}</div>
+      <div className="flex-shrink-0 text-[9px] text-[var(--fg-muted)]">{STATUS_LABEL[status] ?? status}</div>
 
       {/* Progress bar (only when running) */}
       {status === "running" && (
-        <div className="agent-card-progress">
-          <div className="agent-card-progress-track">
+        <div className="flex items-center gap-1">
+          <div className="flex-1 h-[3px] rounded-[1.5px] bg-[color-mix(in_srgb,var(--fg-muted)_15%,transparent)] overflow-hidden">
             <div
-              className="agent-card-progress-fill"
+              className="h-full rounded-[1.5px]"
               style={{
                 width: `${Math.min(ctxPct ?? 60, 100)}%`,
                 background: barColor,
               }}
             />
           </div>
-          <span className="agent-card-elapsed">{fmtDuration(elapsedMs)}</span>
+          <span className="flex-shrink-0 text-[9px] text-[var(--fg-muted)] font-mono">{fmtDuration(elapsedMs)}</span>
         </div>
       )}
 
       {/* Token usage */}
-      <div className="agent-card-tokens">
+      <div className="flex items-center gap-[3px] text-[9px] text-[var(--fg-muted)] font-mono">
         <Icon name="brain" size="sm" />
         <span>{fmt(tokenTotal)}</span>
         {ctxPct !== null && (
           <span
-            className={`agent-card-ctx-pct${ctxPct >= 85 ? " agent-card-ctx-pct--critical" : ctxPct >= 70 ? " agent-card-ctx-pct--warning" : ""}`}
+            className={`ml-auto text-[9px] font-mono ${ctxPct >= 85 ? "text-[#ef5350]" : ctxPct >= 70 ? "text-[#ffd54f]" : "text-[var(--fg-muted)]"}`}
           >
             {ctxPct}%
           </span>
@@ -139,10 +139,10 @@ export function AgentCard({
       </div>
 
       {/* Quick actions */}
-      <div className="agent-card-actions">
+      <div className="flex items-center gap-0.5 mt-px">
         {isCancelable && (
           <span
-            className="agent-card-action-btn"
+            className="inline-flex items-center justify-center w-[18px] h-[18px] p-0 border-none rounded-[3px] bg-transparent text-[var(--fg-muted)] cursor-pointer hover:bg-[var(--accent-hover)] hover:text-[var(--fg-primary)]"
             onClick={handleCancel}
             title="Cancel"
             role="button"
@@ -153,7 +153,7 @@ export function AgentCard({
         )}
         {isTerminal && (
           <span
-            className="agent-card-action-btn"
+            className="inline-flex items-center justify-center w-[18px] h-[18px] p-0 border-none rounded-[3px] bg-transparent text-[var(--fg-muted)] cursor-pointer hover:bg-[var(--accent-hover)] hover:text-[var(--fg-primary)]"
             onClick={handleClose}
             title="Close"
             role="button"

@@ -51,9 +51,9 @@ function AgentStatusRow({
             : "Idle";
 
   return (
-    <div className="mesh-agent-row">
+    <div className="rounded-[3px] overflow-hidden">
       <div
-        className="mesh-agent-header"
+        className="flex items-center gap-1 py-1 px-2 cursor-pointer select-none hover:bg-[var(--accent-hover)]"
         onClick={onToggle}
         role="button"
         tabIndex={0}
@@ -61,25 +61,25 @@ function AgentStatusRow({
         <Icon
           name={isExpanded ? "chevron-down" : "chevron-right"}
           size="sm"
-          className="mesh-agent-toggle"
+          className="flex-shrink-0 text-[var(--fg-muted)]"
         />
         <StatusIcon status={agent.state} size="sm" />
-        <span className="mesh-agent-name">{agent.agentId}</span>
+        <span className="text-[11px] font-semibold font-mono text-[var(--fg-primary)] flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{agent.agentId}</span>
         {agent.role && (
-          <span className={`mesh-agent-role mesh-agent-role--${agent.role}`}>
+          <span className={`text-[9px] px-1 rounded-[2px] uppercase font-semibold flex-shrink-0 ${agent.role === "lead" ? "bg-[color-mix(in_srgb,var(--warning)_20%,transparent)] text-[var(--warning)]" : "bg-[color-mix(in_srgb,var(--accent)_15%,transparent)] text-[var(--accent)]"}`}>
             {agent.role}
           </span>
         )}
-        <span className="mesh-agent-state">{stateLabel}</span>
+        <span className="text-[9px] text-[var(--fg-muted)] flex-shrink-0">{stateLabel}</span>
         {agent.progress !== undefined && (
-          <span className="mesh-agent-progress">{agent.progress}%</span>
+          <span className="text-[9px] text-[var(--fg-muted)] font-mono flex-shrink-0">{agent.progress}%</span>
         )}
       </div>
 
       {isExpanded && (
-        <div className="mesh-agent-sessions">
+        <div className="py-0.5 px-2 pb-1 flex flex-col gap-0.5">
           {agent.sessions.map((s) => (
-            <div key={s.sessionId} className="mesh-session-item">
+            <div key={s.sessionId} className="flex items-center gap-1 py-0.5 px-1 text-[10px] text-[var(--fg-secondary)]">
               <StatusIcon
                 status={
                   s.status as
@@ -91,12 +91,12 @@ function AgentStatusRow({
                 }
                 size="sm"
               />
-              <span className="mesh-session-title">{s.title}</span>
-              <span className="mesh-session-id">{s.sessionId.slice(0, 8)}</span>
+              <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{s.title}</span>
+              <span className="font-mono text-[9px] text-[var(--fg-muted)]">{s.sessionId.slice(0, 8)}</span>
             </div>
           ))}
           {agent.currentTask && (
-            <div className="mesh-current-task">
+            <div className="flex items-center gap-1 py-0.5 px-1 text-[10px] text-[var(--fg-secondary)]">
               <Icon name="tools" size="sm" />
               <span>{agent.currentTask}</span>
             </div>
@@ -148,19 +148,19 @@ function AddMemberDialog({
   }, [selected, team.id, onClose]);
 
   return (
-    <div className="team-add-member-overlay" onClick={onClose}>
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50" onClick={onClose}>
       <div
-        className="team-add-member-dialog"
+        className="w-[360px] max-w-[90vw] max-h-[60vh] flex flex-col bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label="Add Member"
       >
-        <div className="team-add-member-header">
+        <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-[var(--border)] flex-shrink-0 text-[13px] font-semibold text-[var(--fg-primary)]">
           <Icon name="plus" size="sm" />
           <span>Add Member to {team.name}</span>
           <button
-            className="team-add-member-close"
+            className="ml-auto inline-flex items-center justify-center w-5.5 h-5.5 p-0 border-none rounded-[4px] bg-transparent text-[var(--fg-muted)] cursor-pointer hover:bg-[var(--error)] hover:text-[var(--user-fg)]"
             onClick={onClose}
             type="button"
             aria-label="Close"
@@ -168,14 +168,14 @@ function AddMemberDialog({
             <Icon name="close" size="sm" />
           </button>
         </div>
-        <div className="team-add-member-body">
+        <div className="flex-1 overflow-y-auto px-3.5 py-3">
           {candidates.length === 0 ? (
-            <div className="team-add-member-empty">
+            <div className="flex items-center gap-1.5 p-3 text-[var(--fg-muted)] text-[12px] italic">
               <Icon name="info" size="sm" />
               <span>No available sessions to add</span>
             </div>
           ) : (
-            <div className="team-add-member-list">
+            <div className="flex flex-col gap-1">
               {candidates.map((s) => {
                 const isSelected =
                   selected?.agentId === s.agentId &&
@@ -183,7 +183,7 @@ function AddMemberDialog({
                 return (
                   <button
                     key={`${s.agentId}:${s.sessionId}`}
-                    className={`team-add-member-option${isSelected ? " team-add-member-option--selected" : ""}`}
+                    className={`flex items-center gap-2 py-1.5 px-2.5 border rounded-[4px] bg-transparent text-[var(--fg-primary)] text-[12px] cursor-pointer text-left hover:bg-[var(--accent-hover)] ${isSelected ? "bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] border-[color-mix(in_srgb,var(--accent)_30%,transparent)]" : "border-transparent"}`}
                     onClick={() =>
                       setSelected({
                         agentId: s.agentId,
@@ -197,7 +197,7 @@ function AddMemberDialog({
                       size="sm"
                     />
                     <span>{s.label}</span>
-                    <span className="team-add-member-session-id">
+                    <span className="font-mono text-[10px] text-[var(--fg-muted)] flex-shrink-0 max-w-[60px] overflow-hidden text-ellipsis">
                       {s.sessionId.slice(0, 8)}
                     </span>
                   </button>
@@ -206,16 +206,16 @@ function AddMemberDialog({
             </div>
           )}
         </div>
-        <div className="team-add-member-footer">
+        <div className="flex items-center justify-end gap-2 px-3.5 py-2.5 border-t border-[var(--border)] flex-shrink-0">
           <button
-            className="team-add-member-cancel"
+            className="py-1.5 px-3 border border-[var(--border)] rounded-[4px] bg-transparent text-[var(--fg-secondary)] text-[12px] cursor-pointer hover:bg-[var(--accent-hover)] hover:text-[var(--fg-primary)]"
             onClick={onClose}
             type="button"
           >
             Cancel
           </button>
           <button
-            className="team-add-member-submit"
+            className="inline-flex items-center gap-1.5 py-1.5 px-3.5 border-none rounded-[4px] bg-[var(--accent)] text-[var(--user-fg)] text-[12px] font-medium cursor-pointer hover:bg-[color-mix(in_srgb,var(--accent)_80%,white)] disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={handleAdd}
             disabled={!selected}
             type="button"
@@ -263,25 +263,25 @@ function TeamSessionCard({
 
   return (
     <div
-      className="mesh-team-session-card"
+      className="flex flex-col gap-1 py-1 px-2 rounded-[3px] bg-[var(--bg-primary)] border border-transparent border-l-2 border-l-transparent"
       data-color-group={colorGroup}
       data-status={status}
     >
-      <div className="mesh-team-session-card-header">
+      <div className="flex items-center gap-1 min-w-0">
         <StatusIcon status={effective} size="sm" colorGroup={colorGroup} />
-        <span className="mesh-team-session-card-agent">{agentId}</span>
-        <span className="mesh-team-session-card-sessionid">
+        <span className="text-[10px] font-semibold font-mono text-[var(--fg-primary)] flex-shrink-0">{agentId}</span>
+        <span className="text-[9px] font-mono text-[var(--fg-muted)] flex-shrink-0">
           {sessionId.slice(0, 8)}
         </span>
         {isLead && (
-          <span className="mesh-team-session-card-lead">
+          <span className="inline-flex items-center gap-0.5 text-[8px] px-1 rounded-[2px] bg-[color-mix(in_srgb,var(--warning)_20%,transparent)] text-[var(--warning)] font-semibold uppercase flex-shrink-0">
             <Icon name="crown" size="xs" />
             Lead
           </span>
         )}
         {onRemove && !isLead && (
           <button
-            className="mesh-team-session-card-remove"
+            className="inline-flex items-center justify-center w-3.5 h-3.5 p-0 border-none rounded-[2px] bg-transparent text-[var(--fg-muted)] cursor-pointer ml-auto opacity-0 hover:bg-[var(--error)] hover:text-[var(--user-fg)] focus-visible:opacity-100"
             onClick={(e) => {
               e.stopPropagation();
               onRemove();
@@ -293,14 +293,14 @@ function TeamSessionCard({
           </button>
         )}
       </div>
-      <div className="mesh-team-session-card-chips">
-        <span className="mesh-team-session-chip">
+      <div className="flex items-center gap-1">
+        <span className="inline-flex items-center gap-0.5 text-[9px] font-mono text-[var(--fg-muted)] px-1 rounded-[2px] bg-[color-mix(in_srgb,var(--bg-secondary)_50%,transparent)]">
           <Icon name="arrow-up" size="xs" />
           {inputTokens >= 1000
             ? `${(inputTokens / 1000).toFixed(1)}k`
             : inputTokens}
         </span>
-        <span className="mesh-team-session-chip">
+        <span className="inline-flex items-center gap-0.5 text-[9px] font-mono text-[var(--fg-muted)] px-1 rounded-[2px] bg-[color-mix(in_srgb,var(--bg-secondary)_50%,transparent)]">
           <Icon name="arrow-down" size="xs" />
           {outputTokens >= 1000
             ? `${(outputTokens / 1000).toFixed(1)}k`
@@ -308,7 +308,7 @@ function TeamSessionCard({
         </span>
         {contextPct !== undefined && (
           <span
-            className={`mesh-team-session-chip mesh-team-session-chip--ctx-${contextPct >= 85 ? "critical" : contextPct >= 70 ? "warning" : "normal"}`}
+            className={`inline-flex items-center gap-0.5 text-[9px] font-mono px-1 rounded-[2px] bg-[color-mix(in_srgb,var(--bg-secondary)_50%,transparent)] ${contextPct >= 85 ? "text-[#ef5350]" : contextPct >= 70 ? "text-[#ffd54f]" : "text-[#4fc3f7]"}`}
           >
             <Icon name="symbol-key" size="xs" />
             {contextPct}%
@@ -380,9 +380,9 @@ function TeamRow({
   }, [team.lead, team.members]);
 
   return (
-    <div className="mesh-team-row">
+    <div className="rounded-[3px] overflow-hidden">
       <div
-        className="mesh-team-header"
+        className="flex items-center gap-1.5 py-1.5 px-2 cursor-pointer select-none hover:bg-[var(--accent-hover)]"
         onClick={() => setExpanded(!expanded)}
         role="button"
         tabIndex={0}
@@ -390,25 +390,25 @@ function TeamRow({
         <Icon
           name={expanded ? "chevron-down" : "chevron-right"}
           size="sm"
-          className="mesh-team-toggle"
+          className="flex-shrink-0 text-[var(--fg-muted)]"
         />
         <span
-          className="mesh-team-status-dot"
+          className="w-[7px] h-[7px] rounded-full flex-shrink-0"
           style={{ background: statusColor }}
         />
-        <Icon name="users" size="sm" className="mesh-team-icon" />
-        <span className="mesh-team-name">{team.name}</span>
-        <span className="mesh-team-member-count">{team.members.length}</span>
+        <Icon name="users" size="sm" className="flex-shrink-0 text-[var(--fg-muted)]" />
+        <span className="flex-1 min-w-0 text-[11px] font-semibold text-[var(--fg-primary)] overflow-hidden text-ellipsis whitespace-nowrap">{team.name}</span>
+        <span className="text-[10px] text-[var(--fg-muted)] font-mono flex-shrink-0 px-1 rounded-[3px] bg-[color-mix(in_srgb,var(--fg-muted)_12%,transparent)]">{team.members.length}</span>
       </div>
 
       {expanded && (
-        <div className="mesh-team-body">
+        <div className="py-1 pl-6 pr-2 pb-1.5 flex flex-col gap-1">
           {team.description && (
-            <div className="mesh-team-desc">{team.description}</div>
+            <div className="text-[10px] text-[var(--fg-secondary)] leading-relaxed">{team.description}</div>
           )}
 
           {/* Session status cards */}
-          <div className="mesh-team-session-cards">
+          <div className="flex flex-col gap-1 mt-0.5">
             {allSessions.map((s) => (
               <TeamSessionCard
                 key={`${s.agentId}:${s.sessionId}`}
@@ -426,9 +426,9 @@ function TeamRow({
           </div>
 
           {/* Action buttons */}
-          <div className="mesh-team-actions">
+          <div className="flex items-center gap-1.5 mt-1 pt-1 border-t border-[color-mix(in_srgb,var(--border)_30%,transparent)]">
             <button
-              className="mesh-team-action-btn"
+              className="inline-flex items-center gap-1 py-1 px-2 border border-[var(--border)] rounded-[4px] bg-transparent text-[var(--fg-secondary)] text-[10px] cursor-pointer hover:bg-[var(--accent-hover)] hover:text-[var(--fg-primary)] hover:border-[var(--accent)]"
               onClick={(e) => {
                 e.stopPropagation();
                 setShowAddMember(true);
@@ -440,7 +440,7 @@ function TeamRow({
               <span>Add Member</span>
             </button>
             <button
-              className="mesh-team-action-btn mesh-team-action-btn--primary"
+              className="inline-flex items-center gap-1 py-1 px-2 border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] rounded-[4px] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)] text-[10px] cursor-pointer hover:bg-[var(--accent)] hover:text-[var(--user-fg)] hover:border-[var(--accent)]"
               onClick={(e) => {
                 e.stopPropagation();
                 onPlanTeam(team.id);
@@ -453,9 +453,9 @@ function TeamRow({
             </button>
           </div>
 
-          <div className="mesh-team-meta">
-            <span className="mesh-team-id">ID: {team.id.slice(0, 12)}</span>
-            <span className="mesh-team-created">
+          <div className="flex items-center gap-2 mt-1 pt-1 border-t border-[color-mix(in_srgb,var(--border)_30%,transparent)]">
+            <span className="text-[9px] text-[var(--fg-muted)] font-mono">ID: {team.id.slice(0, 12)}</span>
+            <span className="text-[9px] text-[var(--fg-muted)] font-mono">
               {new Date(team.createdAt).toLocaleDateString()}
             </span>
           </div>
@@ -512,7 +512,7 @@ function TaskBoard({ tasks }: { tasks: MeshTaskEntry[] }): React.ReactElement {
 
   if (tasks.length === 0) {
     return (
-      <div className="mesh-task-board-empty">
+      <div className="flex items-center justify-center gap-1.5 p-4 text-[var(--fg-muted)] text-[11px]">
         <Icon name="output" size="md" />
         <span>No tasks</span>
       </div>
@@ -520,22 +520,22 @@ function TaskBoard({ tasks }: { tasks: MeshTaskEntry[] }): React.ReactElement {
   }
 
   return (
-    <div className="mesh-task-board">
+    <div className="flex flex-col gap-0.5 px-1">
       {tasks.map((task) => (
-        <div key={task.id} className="mesh-task-item">
+        <div key={task.id} className="flex items-center gap-1.5 py-1 px-2 rounded-[3px] bg-[var(--bg-primary)]">
           <Icon
             name={statusIcon(task.status)}
             size="sm"
             style={{ color: statusColor(task.status) }}
           />
-          <span className="mesh-task-title">{task.title}</span>
+          <span className="flex-1 min-w-0 text-[11px] text-[var(--fg-primary)] overflow-hidden text-ellipsis whitespace-nowrap">{task.title}</span>
           {task.assignedTo && (
-            <span className="mesh-task-assigned">{task.assignedTo}</span>
+            <span className="text-[9px] text-[var(--fg-muted)] font-mono flex-shrink-0">{task.assignedTo}</span>
           )}
           {task.progress !== undefined && (
-            <div className="mesh-task-progress-bar">
+            <div className="w-10 h-[3px] rounded-[1.5px] bg-[var(--border)] overflow-hidden flex-shrink-0">
               <div
-                className="mesh-task-progress-fill"
+                className="h-full rounded-[1.5px] bg-[var(--accent)]"
                 style={{ width: `${task.progress}%` }}
               />
             </div>
@@ -555,26 +555,26 @@ function RecentMessages({
 }): React.ReactElement {
   if (messages.length === 0) {
     return (
-      <div className="mesh-messages-empty">
+      <div className="flex items-center justify-center p-4 text-[var(--fg-muted)] text-[11px]">
         <span>No recent messages</span>
       </div>
     );
   }
 
   return (
-    <div className="mesh-recent-messages">
+    <div className="flex flex-col gap-px px-1">
       {messages.slice(-20).map((msg) => (
-        <div key={msg.messageId} className="mesh-message-item">
-          <span className="mesh-message-time">
+        <div key={msg.messageId} className="flex items-center gap-1 py-0.5 px-2 text-[10px] text-[var(--fg-secondary)] rounded-[2px] hover:bg-[var(--accent-hover)]">
+          <span className="font-mono text-[9px] text-[var(--fg-muted)] flex-shrink-0">
             {new Date(msg.timestamp).toLocaleTimeString([], {
               hour: "2-digit",
               minute: "2-digit",
             })}
           </span>
-          <span className="mesh-message-from">{msg.from}</span>
-          <Icon name="chevron-right" size="sm" className="mesh-message-arrow" />
-          <span className="mesh-message-to">{msg.to}</span>
-          <span className="mesh-message-summary">{msg.summary}</span>
+          <span className="font-semibold text-[var(--fg-primary)] flex-shrink-0">{msg.from}</span>
+          <Icon name="chevron-right" size="sm" className="text-[var(--fg-muted)] flex-shrink-0" />
+          <span className="text-[var(--fg-muted)] flex-shrink-0">{msg.to}</span>
+          <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{msg.summary}</span>
         </div>
       ))}
     </div>
@@ -651,15 +651,15 @@ export function MeshPanel({
   }, [agentStatuses]);
 
   return (
-    <div className="mesh-panel">
-      <div className="mesh-panel-header">
-        <div className="mesh-panel-title">
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-[var(--border)] flex-shrink-0">
+        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--fg-secondary)]">
           <Icon name="list-tree" size="sm" />
           <span>Mesh</span>
         </div>
         {onClose && (
           <button
-            className="mesh-panel-close"
+            className="inline-flex items-center justify-center w-5 h-5 p-0 border-none rounded-[3px] bg-transparent text-[var(--fg-muted)] cursor-pointer hover:bg-[var(--error)] hover:text-[var(--user-fg)]"
             onClick={onClose}
             title="Close Mesh Panel"
           >
@@ -670,7 +670,7 @@ export function MeshPanel({
 
       {/* Team create button — prominent CTA */}
       <button
-        className="mesh-panel-create-team"
+        className="flex items-center gap-1.5 w-full px-2.5 py-1.5 border-none border-b border-[var(--border)] bg-transparent text-[var(--fg-secondary)] text-[11px] font-medium cursor-pointer hover:bg-[var(--accent-hover)] hover:text-[var(--fg-primary)] flex-shrink-0"
         onClick={() => onOpenTeamCreate?.()}
         title="Create a new team"
         type="button"
@@ -679,56 +679,56 @@ export function MeshPanel({
         <span>Create Team</span>
       </button>
 
-      <div className="mesh-panel-tabs">
+      <div className="flex border-b border-[var(--border)] flex-shrink-0">
         <button
-          className={`mesh-panel-tab ${activeTab === "teams" ? "mesh-panel-tab--active" : ""}`}
+          className={`flex-1 py-1.5 px-2 border-none bg-transparent text-[var(--fg-muted)] text-[11px] cursor-pointer text-center hover:text-[var(--fg-secondary)] hover:bg-[var(--accent-hover)] ${activeTab === "teams" ? "text-[var(--fg-primary)] bg-[var(--bg-primary)] shadow-[inset_0_-2px_0_var(--accent)]" : ""}`}
           onClick={() => setActiveTab("teams")}
         >
           <Icon name="users" size="sm" />
           Teams
           {teams.length > 0 && (
-            <span className="mesh-panel-tab-badge">{teams.length}</span>
+            <span className="inline-flex items-center justify-center min-w-[14px] h-[14px] px-1 ml-1 rounded-[7px] bg-[var(--accent)] text-[var(--user-fg)] text-[9px] font-bold">{teams.length}</span>
           )}
         </button>
         <button
-          className={`mesh-panel-tab ${activeTab === "agents" ? "mesh-panel-tab--active" : ""}`}
+          className={`flex-1 py-1.5 px-2 border-none bg-transparent text-[var(--fg-muted)] text-[11px] cursor-pointer text-center hover:text-[var(--fg-secondary)] hover:bg-[var(--accent-hover)] ${activeTab === "agents" ? "text-[var(--fg-primary)] bg-[var(--bg-primary)] shadow-[inset_0_-2px_0_var(--accent)]" : ""}`}
           onClick={() => setActiveTab("agents")}
         >
           Agents
           {agentStatuses.length > 0 && (
-            <span className="mesh-panel-tab-badge">{agentStatuses.length}</span>
+            <span className="inline-flex items-center justify-center min-w-[14px] h-[14px] px-1 ml-1 rounded-[7px] bg-[var(--accent)] text-[var(--user-fg)] text-[9px] font-bold">{agentStatuses.length}</span>
           )}
         </button>
         <button
-          className={`mesh-panel-tab ${activeTab === "tasks" ? "mesh-panel-tab--active" : ""}`}
+          className={`flex-1 py-1.5 px-2 border-none bg-transparent text-[var(--fg-muted)] text-[11px] cursor-pointer text-center hover:text-[var(--fg-secondary)] hover:bg-[var(--accent-hover)] ${activeTab === "tasks" ? "text-[var(--fg-primary)] bg-[var(--bg-primary)] shadow-[inset_0_-2px_0_var(--accent)]" : ""}`}
           onClick={() => setActiveTab("tasks")}
         >
           Tasks
           {tasks.length > 0 && (
-            <span className="mesh-panel-tab-badge">{tasks.length}</span>
+            <span className="inline-flex items-center justify-center min-w-[14px] h-[14px] px-1 ml-1 rounded-[7px] bg-[var(--accent)] text-[var(--user-fg)] text-[9px] font-bold">{tasks.length}</span>
           )}
         </button>
         <button
-          className={`mesh-panel-tab ${activeTab === "messages" ? "mesh-panel-tab--active" : ""}`}
+          className={`flex-1 py-1.5 px-2 border-none bg-transparent text-[var(--fg-muted)] text-[11px] cursor-pointer text-center hover:text-[var(--fg-secondary)] hover:bg-[var(--accent-hover)] ${activeTab === "messages" ? "text-[var(--fg-primary)] bg-[var(--bg-primary)] shadow-[inset_0_-2px_0_var(--accent)]" : ""}`}
           onClick={() => setActiveTab("messages")}
         >
           Log
           {recentMessages.length > 0 && (
-            <span className="mesh-panel-tab-badge">
+            <span className="inline-flex items-center justify-center min-w-[14px] h-[14px] px-1 ml-1 rounded-[7px] bg-[var(--accent)] text-[var(--user-fg)] text-[9px] font-bold">
               {recentMessages.length}
             </span>
           )}
         </button>
       </div>
 
-      <div className="mesh-panel-content">
+      <div className="flex-1 overflow-y-auto py-1">
         {activeTab === "teams" && (
-          <div className="mesh-team-list">
+          <div className="flex flex-col gap-0.5 px-1">
             {teams.length === 0 ? (
-              <div className="mesh-empty-state">
+              <div className="flex items-center justify-center p-4 text-[var(--fg-muted)] text-[11px]">
                 <Icon name="users" size="md" />
                 <span>No teams yet</span>
-                <span className="mesh-empty-hint">
+                <span className="text-[10px] text-[var(--fg-muted)] mt-0.5">
                   Create a team to coordinate multi-agent work
                 </span>
               </div>
@@ -746,9 +746,9 @@ export function MeshPanel({
         )}
 
         {activeTab === "agents" && (
-          <div className="mesh-agent-list">
+          <div className="flex flex-col gap-0.5 px-1">
             {agentStatuses.length === 0 ? (
-              <div className="mesh-empty-state">
+              <div className="flex items-center justify-center p-4 text-[var(--fg-muted)] text-[11px]">
                 <span>No agents connected</span>
               </div>
             ) : (

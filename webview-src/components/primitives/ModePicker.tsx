@@ -124,22 +124,36 @@ export function ModePicker({
   }, [selectedIndex]);
 
   return (
-    <div className="context-picker mode-picker">
-      <div className="context-picker-list" ref={listRef}>
+    <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded-md shadow-[0_4px_16px_rgba(0,0,0,0.35)] overflow-hidden mb-1 max-h-[220px] flex flex-col">
+      <div className="overflow-y-auto flex-1 min-h-0" ref={listRef}>
         {filtered.length === 0 && (
-          <div className="context-picker-empty">No matching mesh commands</div>
+          <div className="p-3 text-center text-[var(--fg-muted)] text-xs">
+            No matching mesh commands
+          </div>
         )}
         {filtered.map((mode, i) => (
           <div
             key={mode.mode}
-            className={`context-picker-item ${i === selectedIndex ? "selected" : ""}`}
+            className={`flex items-center gap-1.5 px-2.5 py-[5px] cursor-pointer text-xs transition-colors duration-100 min-w-0 ${
+              i === selectedIndex
+                ? "bg-[var(--accent-hover)]"
+                : "hover:bg-[var(--accent-hover)]"
+            }`}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => onSelect(mode.mode)}
             onMouseEnter={() => onSelectedIndexChange(i)}
           >
-            <Icon name={mode.icon} className="context-picker-icon" size="sm" />
-            <span className="context-picker-label">{mode.label}</span>
-            <span className="context-picker-detail">{mode.description}</span>
+            <Icon
+              name={mode.icon}
+              className="shrink-0 text-[13px] w-[18px] text-center"
+              size="sm"
+            />
+            <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[var(--fg-primary)]">
+              {mode.label}
+            </span>
+            <span className="shrink-0 text-[10px] text-[var(--fg-muted)] max-w-[40%] overflow-hidden text-ellipsis whitespace-nowrap">
+              {mode.description}
+            </span>
           </div>
         ))}
       </div>

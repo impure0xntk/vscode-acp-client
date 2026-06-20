@@ -99,7 +99,7 @@ export const SessionSection = React.memo(function SessionSection({
     isFocus
       ? "unified-session-section--focus"
       : "unified-session-section--pinned",
-    info.isStreaming ? "unified-session-section--streaming" : "",
+    info.isStreaming ? "[box-shadow:inset_0_0_0_1px_color-mix(in_srgb,#4fc3f7_30%,transparent)]" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -177,7 +177,7 @@ export const SessionSection = React.memo(function SessionSection({
         />
       )}
       <div
-        className="unified-section-chat-wrapper"
+        className="flex-1 min-h-0 min-w-0 overflow-hidden flex flex-col"
         onClick={() => onFocusChange(sessionKey)}
       >
         <SessionChatContainer

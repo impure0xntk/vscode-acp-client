@@ -114,45 +114,45 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
   if (!effectiveAction && !showSending && queue.length === 0) return null;
 
   return (
-    <div className="session-status-bar">
+    <div className="bg-[var(--bg-secondary)] border-b border-[var(--border)] shrink-0">
       {/* Streaming status section */}
       {showSending ? (
         <div
-          className="streaming-status streaming-status--pending"
+          className="flex items-center gap-[6px] px-[14px] py-1 text-[11px] font-mono bg-[var(--bg-secondary)] border-b border-[var(--border)] shrink-0 text-[var(--fg-muted)]"
           role="status"
           aria-live="polite"
         >
-          <span className="streaming-status-spinner" aria-hidden="true">
-            <span className="streaming-status-dot" />
-            <span className="streaming-status-dot" />
-            <span className="streaming-status-dot" />
+          <span className="shrink-0" aria-hidden="true">
+            <span className="inline-block w-1 h-1 rounded-full bg-[var(--fg-muted)]" />
+            <span className="inline-block w-1 h-1 rounded-full bg-[var(--fg-muted)]" />
+            <span className="inline-block w-1 h-1 rounded-full bg-[var(--fg-muted)]" />
           </span>
-          <span className="streaming-status-text">Sending…</span>
+          <span className="whitespace-nowrap overflow-hidden text-ellipsis">Sending…</span>
         </div>
       ) : isCancelling ? (
         <div
-          className="streaming-status streaming-status--cancelling"
+          className="flex items-center gap-[6px] px-[14px] py-1 text-[11px] font-mono bg-[var(--bg-secondary)] border-b border-[var(--border)] shrink-0 text-[var(--error)]"
           role="status"
           aria-live="polite"
         >
-          <Icon name="loading" size="sm" className="streaming-status-spinner" />
-          <span className="streaming-status-text">Cancelling…</span>
+          <Icon name="loading" size="sm" className="shrink-0" />
+          <span className="whitespace-nowrap overflow-hidden text-ellipsis">Cancelling…</span>
         </div>
       ) : effectiveAction ? (
         (() => {
           const tierColour = elapsedColor(elapsedSec * 1000);
           return (
             <div
-              className={`streaming-status streaming-status--${tierColour}`}
+              className={`flex items-center gap-[6px] px-[14px] py-1 text-[11px] font-mono bg-[var(--bg-secondary)] border-b border-[var(--border)] shrink-0 text-[var(--${tierColour})]`}
               role="status"
               aria-live="polite"
             >
               <Icon
                 name="loading"
                 size="sm"
-                className="streaming-status-spinner"
+                className="shrink-0"
               />
-              <span className="streaming-status-text">
+              <span className="whitespace-nowrap overflow-hidden text-ellipsis">
                 {effectiveAction} · {formatElapsed(elapsedSec)}
               </span>
             </div>
@@ -162,18 +162,18 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
 
       {/* Queued prompt list section */}
       {queue.length > 0 && (
-        <div className="queued-prompt-list">
-          <div className="queued-prompt-list-header">
-            <span className="queued-prompt-list-title">
+        <div className="bg-[var(--bg-secondary)] border-b border-[var(--border)]">
+          <div className="flex items-center justify-between px-[14px] py-0.5 bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]">
+            <span className="text-[10px] font-semibold text-[var(--fg-secondary)] font-mono uppercase tracking-wider">
               {queue.length} queued message{queue.length !== 1 ? "s" : ""}
             </span>
           </div>
-          <ul className="queued-prompt-list-items">
+          <ul className="list-none m-0 p-0 max-h-[120px] overflow-y-auto">
             {queue.map((entry) => (
-              <li key={entry.id} className="queued-prompt-item">
-                <div className="queued-prompt-item-content">
+              <li key={entry.id} className="flex items-center justify-between gap-1 px-2 py-[3px] border-b border-[color-mix(in_srgb,var(--border)_30%,transparent)] last:border-b-0">
+                <div className="flex flex-1 items-center gap-1.5 min-w-0 overflow-hidden">
                   <StatusBadge status={entry.status} />
-                  <span className="queued-prompt-item-text" title={entry.text}>
+                  <span className="text-[11px] text-[var(--fg-secondary)] whitespace-nowrap overflow-hidden text-ellipsis block" title={entry.text}>
                     {entry.text.length > 60
                       ? entry.text.slice(0, 60) + "\u2026"
                       : entry.text}
@@ -181,7 +181,7 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
                 </div>
                 {entry.status === "pending" && (
                   <button
-                    className="queued-prompt-item-cancel"
+                    className="inline-flex items-center justify-center w-[18px] h-[18px] p-0 rounded-[3px] bg-transparent text-[var(--fg-muted)] text-[10px] cursor-pointer border-none hover:bg-[var(--error)] hover:text-[var(--user-fg)] transition-all flex-shrink-0"
                     onClick={() => onCancelQueue(entry.id)}
                     title="Remove from queue"
                     aria-label="Remove from queue"

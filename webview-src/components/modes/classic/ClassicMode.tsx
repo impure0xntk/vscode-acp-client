@@ -195,7 +195,7 @@ export const ClassicMode = React.memo(function ClassicMode({
   }, []);
 
   return (
-    <div className="classic-mode">
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden h-full">
       <SessionTabBar
         tabs={tabs}
         activeSessionKey={activeSessionKey}

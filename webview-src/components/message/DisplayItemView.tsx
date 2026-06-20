@@ -58,8 +58,11 @@ function RenderCompression(item: CompressionDisplayItem) {
 
 function RenderModeChange(item: ModeChangeDisplayItem) {
   return (
-    <div key={item.key} className="message message-system message-mode-change">
-      <span className="message-mode-change-label">{item.content}</span>
+    <div
+      key={item.key}
+      className="flex items-center justify-center py-2 px-4 text-[11px] text-[var(--fg-muted)] italic border-b border-[color-mix(in_srgb,var(--border)_40%,transparent)]"
+    >
+      {item.content}
     </div>
   );
 }
@@ -68,8 +71,11 @@ function RenderModeChange(item: ModeChangeDisplayItem) {
 
 function RenderErrorNotice(item: ErrorNoticeDisplayItem) {
   return (
-    <div key={item.key} className="message message-system message-error-notice">
-      <span className="message-error-notice-label">{item.content}</span>
+    <div
+      key={item.key}
+      className="flex items-center justify-center py-2 px-4 text-[11px] text-[var(--error)] bg-[color-mix(in_srgb,var(--error)_8%,transparent)] border-b border-[color-mix(in_srgb,var(--error)_15%,transparent)]"
+    >
+      {item.content}
     </div>
   );
 }
@@ -78,8 +84,11 @@ function RenderErrorNotice(item: ErrorNoticeDisplayItem) {
 
 function RenderCustom(item: CustomSystemDisplayItem) {
   return (
-    <div key={item.key} className="message message-system message-custom">
-      <span className="message-custom-label">{item.content}</span>
+    <div
+      key={item.key}
+      className="flex items-center justify-center py-2 px-4 text-[11px] text-[var(--fg-secondary)] italic border-b border-[color-mix(in_srgb,var(--border)_40%,transparent)]"
+    >
+      {item.content}
     </div>
   );
 }

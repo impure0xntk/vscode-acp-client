@@ -35,17 +35,19 @@ export function ContextBar({
   if (!hasAttachments && !hasTargets && !hasTeam) return null;
 
   return (
-    <div className="context-bar">
-      <div className="context-bar-chips">
+    <div className="flex items-center gap-1 py-1 overflow-x-auto flex-shrink-0">
+      <div className="flex flex-nowrap gap-1 flex-shrink-0 min-w-0">
         {selectedTeam && (
           <span
-            className="context-chip context-chip--team"
+            className="inline-flex items-center gap-[3px] px-[6px] py-[2px] rounded-[4px] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] text-[11px] whitespace-nowrap shrink-0"
             title={`Team: ${selectedTeam.name} (${selectedTeam.id})`}
           >
-            <Icon name="users" className="context-chip-icon" size="sm" />
-            <span className="context-chip-label">{selectedTeam.name}</span>
+            <Icon name="users" className="text-[11px] shrink-0" size="sm" />
+            <span className="text-[var(--fg-primary)] max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap">
+              {selectedTeam.name}
+            </span>
             <button
-              className="context-chip-remove"
+              className="inline-flex items-center justify-center w-[14px] h-[14px] p-0 border-none rounded-[2px] bg-transparent text-[var(--fg-muted)] text-[12px] leading-none cursor-pointer shrink-0 ml-[1px] hover:bg-[var(--error)] hover:text-[var(--user-fg)]"
               onClick={onRemoveSelectedTeam}
               title="Remove team"
             >

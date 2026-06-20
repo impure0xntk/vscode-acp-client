@@ -17,6 +17,13 @@ const FILTER_LABELS: Record<SessionOverviewFilter, string> = {
   cancelled: "Cancelled",
 };
 
+const STATUS_DOT_COLORS: Record<string, string> = {
+  running: "#4fc3f7",
+  completed: "var(--success)",
+  error: "var(--error)",
+  cancelled: "var(--fg-muted)",
+};
+
 export function SessionOverviewToolbar({
   filter,
   sessionCount,
@@ -57,24 +64,32 @@ export function SessionOverviewToolbar({
   const isActive = filter !== "all";
 
   return (
-    <div className="session-overview-toolbar">
-      <span className="session-overview-toolbar-title">Sessions</span>
-      <span className="session-overview-toolbar-count">{sessionCount}</span>
+    <div className="flex items-center gap-1.5 px-2 py-1 border-b border-[var(--border)] shrink-0 min-h-[32px]">
+      <span className="text-[10px] font-semibold text-[var(--fg-secondary)]">
+        Sessions
+      </span>
+      <span className="text-[9px] text-[var(--fg-muted)] font-[var(--font-mono)]">
+        {sessionCount}
+      </span>
 
-      <div className="session-overview-toolbar-actions">
-        <div className="session-overview-filter" ref={ref}>
+      <div className="flex items-center gap-1 ml-auto">
+        <div className="relative" ref={ref}>
           <button
-            className={`session-overview-filter-trigger${isActive ? " active" : ""}`}
+            className={`inline-flex items-center gap-[3px] text-[10px] px-[5px] py-px border rounded-[3px] bg-transparent cursor-pointer transition-colors duration-150 ${
+              isActive
+                ? "border-[var(--accent)] text-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]"
+                : "border-transparent text-[var(--fg-muted)] hover:bg-[var(--accent-hover)] hover:text-[var(--fg-secondary)]"
+            }`}
             onClick={() => setOpen(!open)}
             aria-haspopup="listbox"
             aria-expanded={open}
             title="Filter sessions by status"
           >
-            <span className="session-overview-filter-label">
-              {isActive ? FILTER_LABELS[filter] : "Filter"}
-            </span>
+            {isActive ? FILTER_LABELS[filter] : "Filter"}
             <span
-              className={`session-overview-filter-arrow${open ? " open" : ""}`}
+              className={`text-[8px] transition-transform duration-150 ${
+                open ? "rotate-180" : ""
+              }`}
             >
               ▾
             </span>
@@ -82,32 +97,41 @@ export function SessionOverviewToolbar({
 
           {open && (
             <div
-              className="session-overview-filter-dropdown"
+              className="absolute top-full right-0 mt-[3px] min-w-[130px] bg-[var(--bg-secondary)] border border-[var(--border)] rounded shadow-[0_4px_16px_rgba(0,0,0,0.35)] z-50"
               role="listbox"
               aria-label="Session status filter"
             >
               <button
-                className={`session-overview-filter-option${filter === "all" ? " selected" : ""}`}
+                className={`flex items-center gap-[5px] w-full px-2.5 py-1 border-none bg-transparent text-[var(--fg-primary)] text-xs cursor-pointer hover:bg-[var(--accent-hover)] ${
+                  filter === "all" ? "bg-[var(--accent-hover)]" : ""
+                }`}
                 role="option"
                 aria-selected={filter === "all"}
                 onClick={() => onFilterChange("all")}
               >
-                <span className="session-overview-filter-check">
+                <span className="shrink-0 w-3 text-[10px] text-center text-[var(--accent)]">
                   {filter === "all" ? "✓" : ""}
                 </span>
                 {FILTER_LABELS.all}
               </button>
-              <div className="session-overview-filter-sep" />
+              <div className="h-px mx-1.5 my-0.5 bg-[var(--border)]" />
               {FILTERABLE_STATUSES.map((s) => (
                 <button
                   key={s}
-                  className={`session-overview-filter-option filter-${s}${filter === s ? " selected" : ""}`}
+                  className={`flex items-center gap-[5px] w-full px-2.5 py-1 border-none bg-transparent text-[var(--fg-primary)] text-xs cursor-pointer hover:bg-[var(--accent-hover)] ${
+                    filter === s ? "bg-[var(--accent-hover)]" : ""
+                  }`}
                   role="option"
                   aria-selected={filter === s}
                   onClick={() => handleSelect(s)}
                 >
-                  <span className={`session-overview-filter-dot dot-${s}`} />
-                  <span className="session-overview-filter-check">
+                  <span
+                    className="shrink-0 w-[6px] h-[6px] rounded-full"
+                    style={{
+                      backgroundColor: STATUS_DOT_COLORS[s] ?? "var(--fg-muted)",
+                    }}
+                  />
+                  <span className="shrink-0 w-3 text-[10px] text-center text-[var(--accent)]">
                     {filter === s ? "✓" : ""}
                   </span>
                   {FILTER_LABELS[s]}
@@ -119,7 +143,7 @@ export function SessionOverviewToolbar({
 
         {onNewSession && (
           <button
-            className="session-new-btn"
+            className="shrink-0 flex items-center justify-center w-7 h-full min-h-[28px] border border-[var(--border)] rounded bg-[var(--bg-input)] text-[var(--fg-secondary)] text-base cursor-pointer transition-colors duration-150 hover:bg-[var(--accent-hover)] hover:text-[var(--fg-primary)]"
             onClick={onNewSession}
             title="New session"
           >

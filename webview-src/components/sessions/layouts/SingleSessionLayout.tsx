@@ -277,7 +277,7 @@ export const SingleSessionLayout = React.memo(function SingleSessionLayout({
 
   return (
     <>
-      <div className="chat-container-wrapper">
+      <div className="flex flex-1 flex-col relative min-h-0 h-full">
         <SessionChatContainer
           key={activeKey ?? "none"}
           sessionKey={activeKey}
@@ -292,7 +292,7 @@ export const SingleSessionLayout = React.memo(function SingleSessionLayout({
         />
         {unreadCount > 0 && (
           <button
-            className="scroll-to-bottom-button"
+            className="absolute bottom-4 right-4 z-10 pointer-events-auto flex items-center justify-center w-8 h-8 p-0 border border-[var(--border)] rounded-full bg-[var(--bg-secondary)] text-[var(--fg-primary)] shadow-[0_2px_8px_rgba(0,0,0,0.3)] cursor-pointer transition-[background,border-color,transform,opacity] duration-150 ease-in-out"
             onClick={handleScrollToBottomClick}
             aria-label="Scroll to unread"
           >

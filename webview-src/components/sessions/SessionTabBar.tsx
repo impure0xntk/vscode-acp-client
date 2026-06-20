@@ -229,8 +229,8 @@ function ClassicTabBar({
   }, [tabKeys]);
 
   return (
-    <div className="session-tabs-bar">
-      <div className="session-tabs-scroll">
+    <div className="flex items-stretch bg-[var(--bg-secondary)] shrink-0 overflow-hidden">
+      <div className="flex items-stretch overflow-x-auto flex-1">
         {tabs.map((tab, index) => {
           const key = sessionKeyOf(tab.agentId, tab.sessionId);
           const isActive = key === activeSessionKey;
@@ -284,7 +284,7 @@ function ClassicTabBar({
         })}
       </div>
       <button
-        className="session-new-btn"
+        className="shrink-0 flex items-center justify-center w-7 h-full min-h-[32px] border-none bg-transparent text-[var(--fg-secondary)] text-base cursor-pointer transition-colors duration-150"
         onClick={onNewSession}
         title="New session"
       >
@@ -370,7 +370,7 @@ const UnifiedTab = React.memo(function UnifiedTab({
 
   return (
     <div
-      className={`unified-session-bar-tab${isActive ? " unified-session-bar-tab--active" : ""}${isHovered ? " unified-session-bar-tab--hovered" : ""}`}
+      className={`inline-flex items-center gap-1 px-2 py-1 border border-transparent rounded bg-transparent text-[var(--fg-secondary)] text-[11px] whitespace-nowrap cursor-pointer shrink-0 transition-all duration-150${isActive ? " bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] text-[var(--fg-primary)]" : ""}${isHovered ? " bg-[var(--accent-hover)]" : ""}`}
       onClick={onClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -383,18 +383,18 @@ const UnifiedTab = React.memo(function UnifiedTab({
     >
       <StatusIcon status={status} elapsedMs={elapsedMs} />
       <span
-        className="unified-session-bar-tab-agent"
+        className="font-semibold font-mono text-[11px] shrink-0"
         style={{ color: agentColor ?? "var(--vscode-descriptionForeground)" }}
         title={tab.agentId}
       >
         {tab.agentId}
       </span>
-      <span className="unified-session-bar-tab-title" title={tab.title}>
+      <span className="max-w-[80px] overflow-hidden text-ellipsis whitespace-nowrap shrink min-w-0 text-[11px] text-[var(--fg-secondary)]" title={tab.title}>
         {tab.title.length > 12 ? `${tab.title.slice(0, 12)}…` : tab.title}
       </span>
       {/* Pin button — clickable, toggles pin state */}
       <button
-        className="unified-session-bar-tab-pin-btn"
+        className="shrink-0 w-[18px] h-[18px] inline-flex items-center justify-center p-0 border-none rounded-[3px] bg-transparent text-[var(--fg-muted)] cursor-pointer transition-all duration-150 opacity-70 hover:bg-[var(--accent-hover)] hover:text-[var(--fg-primary)]"
         onClick={(e) => {
           e.stopPropagation();
           onTogglePin();
@@ -405,17 +405,17 @@ const UnifiedTab = React.memo(function UnifiedTab({
         {isPinned ? (
           <IconPinFilled size={12} />
         ) : (
-          <IconPin size={12} className="unified-session-bar-tab-pin--empty" />
+          <IconPin size={12} className="opacity-25" />
         )}
       </button>
       <UnreadBadge
         count={unreadCount}
         hidden={isActive}
-        className="unified-session-bar-tab-badge"
+        className="shrink-0"
       />
       {/* Close button — always reserves space; visibility toggled via CSS */}
       <button
-        className={`unified-session-bar-tab-close${isActive || isHovered ? " unified-session-bar-tab-close--visible" : ""}`}
+        className={`inline-flex items-center justify-center w-[18px] h-[18px] p-0 border-none rounded-[3px] bg-transparent text-[var(--fg-muted)] cursor-pointer shrink-0 transition-all duration-150 hover:bg-[color-mix(in_srgb,var(--error)_15%,transparent)] hover:text-[var(--error)] ${isActive || isHovered ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
         onClick={(e) => {
           e.stopPropagation();
           onClose();
@@ -459,8 +459,8 @@ function UnifiedTabBar({
   onSplitDirectionChange,
 }: UnifiedTabBarProps): React.ReactElement {
   return (
-    <div className="unified-session-bar">
-      <div className="unified-session-bar-scroll">
+    <div className="unified-session-bar flex items-center gap-1 px-2 py-1 bg-[var(--bg-secondary)] border-b border-[var(--border)] shrink-0 overflow-x-auto scrollbar-thin">
+      <div className="unified-session-bar-scroll flex items-center gap-1 flex-1 min-w-0 overflow-x-auto scrollbar-thin">
         {tabs.map((tab) => {
           const key = sessionKeyOf(tab.agentId, tab.sessionId);
           const isActive = key === activeSessionKey;
@@ -485,12 +485,12 @@ function UnifiedTabBar({
 
       {/* Layout mode toggle — right edge of session bar */}
       <div
-        className="unified-session-bar-layout"
+        className="unified-session-bar-layout inline-flex items-center gap-px shrink-0 ml-1 border-l border-[var(--border)] pl-1"
         role="group"
         aria-label="Layout mode"
       >
         <button
-          className={`unified-session-bar-layout-btn${layoutMode === "single" ? " unified-session-bar-layout-btn--active" : ""}`}
+          className={`inline-flex items-center justify-center w-[22px] h-[22px] p-0 border border-transparent rounded-[3px] bg-transparent text-[var(--fg-muted)] text-xs leading-none cursor-pointer shrink-0 transition-all duration-150 hover:bg-[var(--accent-hover)] hover:text-[var(--fg-secondary)]${layoutMode === "single" ? " text-[var(--fg-primary)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] border-[color-mix(in_srgb,var(--accent)_20%,transparent)] hover:bg-[color-mix(in_srgb,var(--accent)_18%,transparent)]" : ""}`}
           onClick={() => onLayoutChange("single")}
           type="button"
           title="Single view"
@@ -498,7 +498,7 @@ function UnifiedTabBar({
           1
         </button>
         <button
-          className={`unified-session-bar-layout-btn${layoutMode === "split" && splitDirection === "horizontal" ? " unified-session-bar-layout-btn--active" : ""}`}
+          className={`inline-flex items-center justify-center w-[22px] h-[22px] p-0 border border-transparent rounded-[3px] bg-transparent text-[var(--fg-muted)] text-xs leading-none cursor-pointer shrink-0 transition-all duration-150 hover:bg-[var(--accent-hover)] hover:text-[var(--fg-secondary)]${layoutMode === "split" && splitDirection === "horizontal" ? " text-[var(--fg-primary)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] border-[color-mix(in_srgb,var(--accent)_20%,transparent)] hover:bg-[color-mix(in_srgb,var(--accent)_18%,transparent)]" : ""}`}
           onClick={() => {
             onLayoutChange("split");
             onSplitDirectionChange("horizontal");
@@ -509,7 +509,7 @@ function UnifiedTabBar({
           ║
         </button>
         <button
-          className={`unified-session-bar-layout-btn${layoutMode === "split" && splitDirection === "vertical" ? " unified-session-bar-layout-btn--active" : ""}`}
+          className={`inline-flex items-center justify-center w-[22px] h-[22px] p-0 border border-transparent rounded-[3px] bg-transparent text-[var(--fg-muted)] text-xs leading-none cursor-pointer shrink-0 transition-all duration-150 hover:bg-[var(--accent-hover)] hover:text-[var(--fg-secondary)]${layoutMode === "split" && splitDirection === "vertical" ? " text-[var(--fg-primary)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] border-[color-mix(in_srgb,var(--accent)_20%,transparent)] hover:bg-[color-mix(in_srgb,var(--accent)_18%,transparent)]" : ""}`}
           onClick={() => {
             onLayoutChange("split");
             onSplitDirectionChange("vertical");
@@ -520,7 +520,7 @@ function UnifiedTabBar({
           ═
         </button>
         <button
-          className={`unified-session-bar-layout-btn${layoutMode === "grid" ? " unified-session-bar-layout-btn--active" : ""}`}
+          className={`inline-flex items-center justify-center w-[22px] h-[22px] p-0 border border-transparent rounded-[3px] bg-transparent text-[var(--fg-muted)] text-xs leading-none cursor-pointer shrink-0 transition-all duration-150 hover:bg-[var(--accent-hover)] hover:text-[var(--fg-secondary)]${layoutMode === "grid" ? " text-[var(--fg-primary)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] border-[color-mix(in_srgb,var(--accent)_20%,transparent)] hover:bg-[color-mix(in_srgb,var(--accent)_18%,transparent)]" : ""}`}
           onClick={() => onLayoutChange("grid")}
           type="button"
           title="Grid view"
@@ -530,11 +530,11 @@ function UnifiedTabBar({
       </div>
 
       {/* Separator between layout toggle and session actions */}
-      <div className="unified-session-bar-sep" aria-hidden="true" />
+      <div className="unified-session-bar-sep w-px h-4 shrink-0 bg-[var(--border)] mx-1" aria-hidden="true" />
 
       {/* New session button */}
       <button
-        className="unified-session-bar-new-btn"
+        className="shrink-0 flex items-center justify-center w-7 h-full min-h-[32px] border-none bg-transparent text-[var(--fg-secondary)] text-base cursor-pointer transition-colors duration-150"
         onClick={onNewSession}
         type="button"
         title="New session"

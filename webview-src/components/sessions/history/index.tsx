@@ -285,26 +285,30 @@ export function SessionHistoryPanel({
   );
 
   return (
-    <div className="session-history-panel">
+    <div className="flex flex-col h-screen overflow-hidden bg-[var(--bg-primary)] text-[var(--fg-primary)] text-xs">
       {/* Header */}
-      <div className="history-header">
-        <h3 className="history-title">Session History</h3>
-        <div className="history-header-actions">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border)] shrink-0">
+        <h3 className="text-[13px] font-semibold m-0">Session History</h3>
+        <div className="flex items-center gap-1">
           <button
-            className="history-btn"
+            className="px-2 py-[3px] border border-[var(--border)] rounded bg-[var(--bg-input)] text-[var(--fg-primary)] text-[11px] cursor-pointer transition-colors duration-150 whitespace-nowrap"
             onClick={handleExportJson}
             title="Export as JSON"
           >
             <Icon name="desktop-download" size="sm" /> JSON
           </button>
           <button
-            className="history-btn"
+            className="px-2 py-[3px] border border-[var(--border)] rounded bg-[var(--bg-input)] text-[var(--fg-primary)] text-[11px] cursor-pointer transition-colors duration-150 whitespace-nowrap"
             onClick={handleExportMarkdown}
             title="Export as Markdown"
           >
             <Icon name="file" size="sm" /> MD
           </button>
-          <button className="history-close-btn" onClick={onClose} title="Close">
+          <button
+            className="flex items-center justify-center w-6 h-6 p-0 border-none rounded bg-transparent text-[var(--fg-secondary)] text-base cursor-pointer transition-colors duration-150 hover:bg-[var(--error)] hover:text-[var(--user-fg)]"
+            onClick={onClose}
+            title="Close"
+          >
             <Icon name="close" size="sm" />
           </button>
         </div>
@@ -329,15 +333,15 @@ export function SessionHistoryPanel({
       />
 
       {/* Stats + Archive toggle */}
-      <div className="history-stats">
+      <div className="flex items-center gap-2.5 px-2.5 py-1 border-b border-[var(--border)] text-[10px] text-[var(--fg-muted)] shrink-0">
         <span>{stats?.totalSessions ?? 0} sessions</span>
         <span>{stats?.totalMessages ?? 0} messages</span>
         {stats?.oldestSession && (
-          <span className="history-stats-oldest">
+          <span className="opacity-70">
             Since {new Date(stats.oldestSession).toLocaleDateString()}
           </span>
         )}
-        <label className="history-archive-toggle">
+        <label className="flex items-center gap-1 ml-auto cursor-pointer text-[10px]">
           <input
             type="checkbox"
             checked={showArchived}
@@ -345,6 +349,7 @@ export function SessionHistoryPanel({
               setShowArchived(e.target.checked);
               setPage(1);
             }}
+            style={{ accentColor: "var(--accent)" }}
           />
           Show archived ({archivedCount})
         </label>
@@ -360,7 +365,7 @@ export function SessionHistoryPanel({
 
       {/* Results */}
       {paged.length === 0 ? (
-        <div className="history-empty">
+        <div className="flex items-center justify-center p-8 text-xs text-[var(--fg-muted)]">
           {query ? "No matching sessions found." : "No session history yet."}
         </div>
       ) : (
@@ -375,34 +380,34 @@ export function SessionHistoryPanel({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="history-pagination">
+        <div className="flex items-center justify-center gap-2 px-2.5 py-1.5 border-t border-[var(--border)] shrink-0">
           <button
-            className="history-page-btn"
+            className="flex items-center justify-center w-7 h-6 p-0 border border-[var(--border)] rounded bg-[var(--bg-input)] text-[var(--fg-primary)] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--accent-hover)]"
             disabled={page <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             ←
           </button>
-          <span className="history-page-info">
+          <span className="text-[11px] text-[var(--fg-muted)] font-[var(--font-mono)]">
             {page} / {totalPages}
           </span>
           <button
-            className="history-page-btn"
+            className="flex items-center justify-center w-7 h-6 p-0 border border-[var(--border)] rounded bg-[var(--bg-input)] text-[var(--fg-primary)] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--accent-hover)]"
             disabled={page >= totalPages}
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
           >
             →
           </button>
-          <span className="history-page-total">
+          <span className="text-[10px] text-[var(--fg-muted)] opacity-60">
             {sorted.length} sessions total
           </span>
         </div>
       )}
 
       {/* Footer */}
-      <div className="history-footer">
-        <div className="history-footer-actions">
-          <button className="history-btn" onClick={handleCleanup}>
+      <div className="flex items-center justify-between px-2.5 py-1 border-t border-[var(--border)] shrink-0">
+        <div className="flex gap-1">
+          <button className="px-2 py-[3px] border border-[var(--border)] rounded bg-[var(--bg-input)] text-[var(--fg-primary)] text-[11px] cursor-pointer transition-colors duration-150 whitespace-nowrap" onClick={handleCleanup}>
             Cleanup old
           </button>
         </div>
