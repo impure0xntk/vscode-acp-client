@@ -41,11 +41,11 @@ function PickerContextBar({ item }: { item: SuggestionItem }): React.ReactElemen
 
   return (
     <span
-      className={`picker-context-bar picker-context-bar--${color}`}
+      className={`ctx-bar ctx-bar--${color}`}
       title={title}
     >
       <span
-        className="picker-context-bar-fill"
+        className="ctx-bar-fill"
         style={{ height: `${fillHeight}%` }}
       />
     </span>

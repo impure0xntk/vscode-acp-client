@@ -147,6 +147,32 @@ function selectFinalResponse(
   return null;
 }
 
+/**
+ * Split the latest group's intermediate items for rendering.
+ *
+ * Before final response (hasFinal=false): peel the last intermediate step
+ * out of the banner so the user sees the most recent progress without
+ * opening the banner. With 0 or 1 intermediate, nothing is peeled.
+ *
+ * After final response (hasFinal=true): move ALL intermediates into the
+ * banner, show only the final response outside.
+ */
+export function splitLatestIntermediate(
+  allIntermediate: PipelineItem[],
+  hasFinal: boolean
+): { olderIntermediate: PipelineItem[]; lastIntermediate: PipelineItem | null } {
+  if (hasFinal) {
+    return { olderIntermediate: allIntermediate, lastIntermediate: null };
+  }
+  if (allIntermediate.length === 0) {
+    return { olderIntermediate: [], lastIntermediate: null };
+  }
+  return {
+    olderIntermediate: allIntermediate.slice(0, -1),
+    lastIntermediate: allIntermediate[allIntermediate.length - 1],
+  };
+}
+
 function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
   const userIndices: number[] = [];
   for (let i = 0; i < items.length; i++) {
@@ -613,20 +639,11 @@ export const SessionChatContainer = memo(function SessionChatContainer({
             {latestGroup &&
               (() => {
                 const expanded = isGroupExpanded(latestGroup);
-                // Split intermediate items: when there are 3+, peel the
-                // last one out of the folded banner so the user always
-                // sees the most recent intermediate step without opening
-                // the banner. With 2 or fewer, keep them all in the
-                // banner — only the final response renders outside.
-                const allIntermediate = latestGroup.items;
-                const olderIntermediate =
-                  allIntermediate.length > 2
-                    ? allIntermediate.slice(0, -1)
-                    : allIntermediate;
-                const lastIntermediate =
-                  allIntermediate.length > 2
-                    ? allIntermediate[allIntermediate.length - 1]
-                    : null;
+                const { olderIntermediate, lastIntermediate } =
+                  splitLatestIntermediate(
+                    latestGroup.items,
+                    latestGroup.finalResponse != null
+                  );
                 return (
                   <React.Fragment key="latest-group">
                     <DisplayItemView

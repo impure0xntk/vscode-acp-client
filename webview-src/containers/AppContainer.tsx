@@ -23,7 +23,7 @@ import { useChatHandlers } from "../hooks/useChatHandlers";
 import { useOverviewHandlers } from "../hooks/useOverviewHandlers";
 import { ClassicMode, UnifiedMode, SupervisorMode } from "../components/modes";
 import { PlanViewerOverlay } from "../components/modes/supervisor/PlanViewer";
-import type { ContextAttachment, SendTarget } from "../types";
+import type { CommunicationMode, ContextAttachment, SendTarget } from "../types";
 
 export function AppContainer(): React.ReactElement {
   const log = useLogger("AppContainer");

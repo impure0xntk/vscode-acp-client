@@ -1,6 +1,7 @@
 import * as assert from "assert";
 import { describe, it } from "mocha";
 import type { PipelineItem, ChatDisplayItem } from "../../../pipeline/types";
+import { splitLatestIntermediate } from "../../../components/sessions/SessionChatContainer";
 
 // ── Re-implementation of groupByUserBoundary for unit testing ───────────────
 // (mirrors the pure function from SessionChatContainer.tsx, including
@@ -328,7 +329,7 @@ describe("groupByUserBoundary", () => {
 
   // ── Edge: all consecutive agent messages (no non-consecutive) ─────────
 
-  it("all consecutive agent msgs → no finalResponse, all in items", () => {
+  it("all consecutive agent msgs → fallback picks last agent as finalResponse", () => {
     const items: PipelineItem[] = [
       userMsg("hello"),
       agentMsg("a", { isConsecutive: true }),
@@ -336,9 +337,18 @@ describe("groupByUserBoundary", () => {
     ];
     const result = groupByUserBoundary(items);
     assert.ok(result.latestGroup);
-    // No non-consecutive agent → finalResponse is null, all in items
-    assert.strictEqual(result.latestGroup.finalResponse, null);
-    assert.strictEqual(result.latestGroup.items.length, 2);
+    // No non-consecutive agent → fallback selects last agent chat as finalResponse
+    assert.ok(result.latestGroup.finalResponse);
+    assert.strictEqual(
+      (result.latestGroup.finalResponse.item as ChatDisplayItem).content,
+      "b"
+    );
+    // Only "a" remains as intermediate
+    assert.strictEqual(result.latestGroup.items.length, 1);
+    assert.strictEqual(
+      (result.latestGroup.items[0] as ChatDisplayItem).content,
+      "a"
+    );
   });
 
   // ── IntermediateStepsBanner only gets intermediate items ─────────────
@@ -429,7 +439,7 @@ describe("groupByUserBoundary", () => {
 
   // ── Cancel scenario: no final response, all agent msgs are consecutive ──
 
-  it("cancel: all consecutive agent msgs → no finalResponse, all folded into banner", () => {
+  it("cancel: all consecutive agent msgs → fallback picks last as finalResponse", () => {
     const items: PipelineItem[] = [
       userMsg("do something"),
       thinkingItem("thinking..."),
@@ -438,9 +448,14 @@ describe("groupByUserBoundary", () => {
     ];
     const result = groupByUserBoundary(items);
     assert.ok(result.latestGroup);
-    // All consecutive -> no non-consecutive agent -> finalResponse is null, all in items
-    assert.strictEqual(result.latestGroup.finalResponse, null);
-    assert.strictEqual(result.latestGroup.items.length, 3);
+    // All consecutive -> no non-consecutive -> fallback picks last agent chat
+    assert.ok(result.latestGroup.finalResponse);
+    assert.strictEqual(
+      (result.latestGroup.finalResponse.item as ChatDisplayItem).content,
+      "step 2"
+    );
+    // thinking + step 1 are intermediate
+    assert.strictEqual(result.latestGroup.items.length, 2);
   });
 
   it("cancel after final response: finalResponse preserved, new turn starts", () => {
@@ -460,10 +475,15 @@ describe("groupByUserBoundary", () => {
       (result.groups[0].finalResponse?.item as ChatDisplayItem).content,
       "a1"
     );
-    // Latest turn: all consecutive -> no finalResponse
+    // Latest turn: all consecutive -> fallback picks last agent chat as finalResponse
     assert.ok(result.latestGroup);
-    assert.strictEqual(result.latestGroup.finalResponse, null);
-    assert.strictEqual(result.latestGroup.items.length, 2);
+    assert.ok(result.latestGroup.finalResponse);
+    assert.strictEqual(
+      (result.latestGroup.finalResponse.item as ChatDisplayItem).content,
+      "partial..."
+    );
+    // thinking is intermediate
+    assert.strictEqual(result.latestGroup.items.length, 1);
   });
 
   // ── stopReason-based final response selection ────────────────────────
@@ -593,7 +613,7 @@ describe("groupByUserBoundary", () => {
       );
     });
 
-    it("all consecutive with no stopReason → no finalResponse", () => {
+    it("all consecutive with no stopReason → fallback picks last as finalResponse", () => {
       const items: PipelineItem[] = [
         userMsg("q"),
         agentMsg("a", { isConsecutive: true }),
@@ -601,76 +621,267 @@ describe("groupByUserBoundary", () => {
       ];
       const result = groupByUserBoundary(items);
       assert.ok(result.latestGroup);
-      assert.strictEqual(result.latestGroup.finalResponse, null);
-      assert.strictEqual(result.latestGroup.items.length, 2);
+      // Fallback selects last agent chat as finalResponse
+      assert.ok(result.latestGroup.finalResponse);
+      assert.strictEqual(
+        (result.latestGroup.finalResponse.item as ChatDisplayItem).content,
+        "b"
+      );
+      // "a" is intermediate
+      assert.strictEqual(result.latestGroup.items.length, 1);
     });
   });
 
-  // ── Latest group: peel-last-intermediate logic ───────────────────────
+  // ── Latest group: splitLatestIntermediate (render-time logic) ────────
 
-  describe("latest group: peel-last-intermediate for banner", () => {
-    // Simulates the render-time split in SessionChatContainer:
-    // allIntermediate = latestGroup.items (already excludes finalResponse)
-    // olderIntermediate = allIntermediate.length > 2 ? slice(0, -1) : allIntermediate
-    // lastIntermediate  = allIntermediate.length > 2 ? last item : null
+  describe("splitLatestIntermediate", () => {
+    // ── No final response (streaming in progress) ─────────────────────
+    // Before final response: peel the last intermediate out so the user
+    // sees the most recent progress without opening the banner.
 
-    function splitForBanner(intermediate: PipelineItem[]): {
-      older: PipelineItem[];
-      last: PipelineItem | null;
-    } {
-      const older =
-        intermediate.length > 2 ? intermediate.slice(0, -1) : intermediate;
-      const last =
-        intermediate.length > 2
-          ? intermediate[intermediate.length - 1]
-          : null;
-      return { older, last };
-    }
+    describe("before final response (hasFinal=false)", () => {
+      it("0 intermediate → older=[], last=null", () => {
+        const { olderIntermediate, lastIntermediate } =
+          splitLatestIntermediate([], false);
+        assert.strictEqual(olderIntermediate.length, 0);
+        assert.strictEqual(lastIntermediate, null);
+      });
 
-    it("0 intermediate → older=[], last=null", () => {
-      const { older, last } = splitForBanner([]);
-      assert.strictEqual(older.length, 0);
-      assert.strictEqual(last, null);
+      it("1 intermediate → older=[], last=A (last peeled out)", () => {
+        const A = thinkingItem("t");
+        const { olderIntermediate, lastIntermediate } =
+          splitLatestIntermediate([A], false);
+        assert.strictEqual(olderIntermediate.length, 0);
+        assert.strictEqual(lastIntermediate, A);
+      });
+
+      it("2 intermediates → older=[A], last=B (last peeled out)", () => {
+        const A = thinkingItem("t1");
+        const B = agentMsg("step", { isConsecutive: true });
+        const { olderIntermediate, lastIntermediate } =
+          splitLatestIntermediate([A, B], false);
+        assert.strictEqual(olderIntermediate.length, 1);
+        assert.deepStrictEqual(olderIntermediate, [A]);
+        assert.strictEqual(lastIntermediate, B);
+      });
+
+      it("3 intermediates → older=[A,B], last=C (last peeled out)", () => {
+        const A = thinkingItem("t1");
+        const B = agentMsg("step1", { isConsecutive: true });
+        const C = agentMsg("step2", { isConsecutive: true });
+        const { olderIntermediate, lastIntermediate } =
+          splitLatestIntermediate([A, B, C], false);
+        assert.strictEqual(olderIntermediate.length, 2);
+        assert.deepStrictEqual(olderIntermediate, [A, B]);
+        assert.strictEqual(lastIntermediate, C);
+      });
+
+      it("4 intermediates → older=[A,B,C], last=D", () => {
+        const items = [
+          thinkingItem("t"),
+          agentMsg("s1", { isConsecutive: true }),
+          agentMsg("s2", { isConsecutive: true }),
+          agentMsg("s3", { isConsecutive: true }),
+        ];
+        const { olderIntermediate, lastIntermediate } =
+          splitLatestIntermediate(items, false);
+        assert.strictEqual(olderIntermediate.length, 3);
+        assert.deepStrictEqual(olderIntermediate, items.slice(0, 3));
+        assert.strictEqual(lastIntermediate, items[3]);
+      });
     });
 
-    it("1 intermediate → older=[A], last=null (all in banner)", () => {
-      const A = thinkingItem("t");
-      const { older, last } = splitForBanner([A]);
-      assert.strictEqual(older.length, 1);
-      assert.deepStrictEqual(older, [A]);
-      assert.strictEqual(last, null);
+    // ── After final response (turn complete) ──────────────────────────
+    // After final response: move ALL intermediates into the banner, show
+    // only the final response outside.
+
+    describe("after final response (hasFinal=true)", () => {
+      it("0 intermediate → older=[], last=null", () => {
+        const { olderIntermediate, lastIntermediate } =
+          splitLatestIntermediate([], true);
+        assert.strictEqual(olderIntermediate.length, 0);
+        assert.strictEqual(lastIntermediate, null);
+      });
+
+      it("1 intermediate → older=[A], last=null (all in banner)", () => {
+        const A = thinkingItem("t");
+        const { olderIntermediate, lastIntermediate } =
+          splitLatestIntermediate([A], true);
+        assert.strictEqual(olderIntermediate.length, 1);
+        assert.deepStrictEqual(olderIntermediate, [A]);
+        assert.strictEqual(lastIntermediate, null);
+      });
+
+      it("2 intermediates → older=[A,B], last=null (all in banner)", () => {
+        const A = thinkingItem("t1");
+        const B = agentMsg("step", { isConsecutive: true });
+        const { olderIntermediate, lastIntermediate } =
+          splitLatestIntermediate([A, B], true);
+        assert.strictEqual(olderIntermediate.length, 2);
+        assert.deepStrictEqual(olderIntermediate, [A, B]);
+        assert.strictEqual(lastIntermediate, null);
+      });
+
+      it("3 intermediates → older=[A,B,C], last=null (all in banner)", () => {
+        const A = thinkingItem("t1");
+        const B = agentMsg("step1", { isConsecutive: true });
+        const C = agentMsg("step2", { isConsecutive: true });
+        const { olderIntermediate, lastIntermediate } =
+          splitLatestIntermediate([A, B, C], true);
+        assert.strictEqual(olderIntermediate.length, 3);
+        assert.deepStrictEqual(olderIntermediate, [A, B, C]);
+        assert.strictEqual(lastIntermediate, null);
+      });
     });
 
-    it("2 intermediates → older=[A,B], last=null (all in banner)", () => {
-      const A = thinkingItem("t1");
-      const B = agentMsg("step", { isConsecutive: true });
-      const { older, last } = splitForBanner([A, B]);
-      assert.strictEqual(older.length, 2);
-      assert.deepStrictEqual(older, [A, B]);
-      assert.strictEqual(last, null);
-    });
+    // ── Integration: groupByUserBoundary + splitLatestIntermediate ────
 
-    it("3 intermediates → older=[A,B], last=C (last peeled out)", () => {
-      const A = thinkingItem("t1");
-      const B = agentMsg("step1", { isConsecutive: true });
-      const C = agentMsg("step2", { isConsecutive: true });
-      const { older, last } = splitForBanner([A, B, C]);
-      assert.strictEqual(older.length, 2);
-      assert.deepStrictEqual(older, [A, B]);
-      assert.strictEqual(last, C);
-    });
+    describe("integration: groupByUserBoundary → splitLatestIntermediate", () => {
+      it("no final response, 2 intermediates → last peeled out", () => {
+        // Streaming in progress: thinking + tool call, no final yet.
+        // Both are consecutive → selectFinalResponse picks last as fallback final,
+        // so latestGroup.items has 1 item and finalResponse is set.
+        const items: PipelineItem[] = [
+          userMsg("do stuff"),
+          thinkingItem("thinking..."),
+          agentMsg("working...", { isConsecutive: true }),
+        ];
+        const { latestGroup } = groupByUserBoundary(items);
+        assert.ok(latestGroup);
+        // selectFinalResponse fallback picks "working..." as final (last agent chat)
+        // thinking is consecutive so it stays in items
+        assert.ok(latestGroup.finalResponse);
+        assert.strictEqual(
+          (latestGroup.finalResponse.item as ChatDisplayItem).content,
+          "working..."
+        );
+        assert.strictEqual(latestGroup.items.length, 1);
 
-    it("4 intermediates → older=[A,B,C], last=D", () => {
-      const items = [
-        thinkingItem("t"),
-        agentMsg("s1", { isConsecutive: true }),
-        agentMsg("s2", { isConsecutive: true }),
-        agentMsg("s3", { isConsecutive: true }),
-      ];
-      const { older, last } = splitForBanner(items);
-      assert.strictEqual(older.length, 3);
-      assert.deepStrictEqual(older, items.slice(0, 3));
-      assert.strictEqual(last, items[3]);
+        const { olderIntermediate, lastIntermediate } =
+          splitLatestIntermediate(
+            latestGroup.items,
+            latestGroup.finalResponse != null
+          );
+        // hasFinal=true → all intermediates in banner, nothing peeled out
+        assert.strictEqual(olderIntermediate.length, 1);
+        assert.strictEqual(
+          (olderIntermediate[0] as ChatDisplayItem).thinking?.content,
+          "thinking..."
+        );
+        assert.strictEqual(lastIntermediate, null);
+      });
+
+      it("final response arrived, 2 intermediates → all in banner", () => {
+        // Turn complete: thinking + tool call + final response
+        const items: PipelineItem[] = [
+          userMsg("do stuff"),
+          thinkingItem("thinking..."),
+          agentMsg("working...", { isConsecutive: true }),
+          agentMsg("done!", { isConsecutive: false }),
+        ];
+        const { latestGroup } = groupByUserBoundary(items);
+        assert.ok(latestGroup);
+        assert.strictEqual(latestGroup.items.length, 2);
+        assert.ok(latestGroup.finalResponse);
+
+        const { olderIntermediate, lastIntermediate } =
+          splitLatestIntermediate(
+            latestGroup.items,
+            latestGroup.finalResponse != null
+          );
+        // All intermediates in banner, nothing peeled out
+        assert.strictEqual(olderIntermediate.length, 2);
+        assert.strictEqual(lastIntermediate, null);
+      });
+
+      it("no final response, 1 intermediate → last peeled out, banner empty", () => {
+        // thinkingItem is consecutive, so selectFinalResponse picks it as
+        // fallback final (last agent chat). latestGroup.items is empty.
+        const items: PipelineItem[] = [
+          userMsg("hello"),
+          thinkingItem("thinking..."),
+        ];
+        const { latestGroup } = groupByUserBoundary(items);
+        assert.ok(latestGroup);
+        // thinking is consecutive → fallback picks it as finalResponse
+        assert.ok(latestGroup.finalResponse);
+        assert.strictEqual(latestGroup.items.length, 0);
+
+        const { olderIntermediate, lastIntermediate } =
+          splitLatestIntermediate(
+            latestGroup.items,
+            latestGroup.finalResponse != null
+          );
+        assert.strictEqual(olderIntermediate.length, 0);
+        assert.strictEqual(lastIntermediate, null);
+      });
+
+      it("final response with stopReason, 3 intermediates → all in banner", () => {
+        const items: PipelineItem[] = [
+          userMsg("q"),
+          thinkingItem("t"),
+          agentMsg("s1", { isConsecutive: true }),
+          agentMsg("s2", { isConsecutive: true }),
+          agentMsg("final", { isConsecutive: true, stopReason: "end_turn" }),
+        ];
+        const { latestGroup } = groupByUserBoundary(items);
+        assert.ok(latestGroup);
+        // stopReason message is the final response, rest are intermediate
+        assert.strictEqual(latestGroup.items.length, 3);
+        assert.ok(latestGroup.finalResponse);
+
+        const { olderIntermediate, lastIntermediate } =
+          splitLatestIntermediate(
+            latestGroup.items,
+            latestGroup.finalResponse != null
+          );
+        assert.strictEqual(olderIntermediate.length, 3);
+        assert.strictEqual(lastIntermediate, null);
+      });
+
+      it("cancel: no final, 0 intermediates → older=[], last=null", () => {
+        const items: PipelineItem[] = [userMsg("q")];
+        const { latestGroup } = groupByUserBoundary(items);
+        assert.ok(latestGroup);
+        assert.strictEqual(latestGroup.items.length, 0);
+        assert.strictEqual(latestGroup.finalResponse, null);
+
+        const { olderIntermediate, lastIntermediate } =
+          splitLatestIntermediate(
+            latestGroup.items,
+            latestGroup.finalResponse != null
+          );
+        assert.strictEqual(olderIntermediate.length, 0);
+        assert.strictEqual(lastIntermediate, null);
+      });
+
+      it("non-consecutive after consecutive: final picked, rest intermediate → split", () => {
+        // thinking (consecutive) + working (consecutive) + done (non-consecutive)
+        // → final = done, intermediate = [thinking, working]
+        const items: PipelineItem[] = [
+          userMsg("do stuff"),
+          thinkingItem("thinking..."),
+          agentMsg("working...", { isConsecutive: true }),
+          agentMsg("done!", { isConsecutive: false }),
+        ];
+        const { latestGroup } = groupByUserBoundary(items);
+        assert.ok(latestGroup);
+        assert.ok(latestGroup.finalResponse);
+        assert.strictEqual(
+          (latestGroup.finalResponse.item as ChatDisplayItem).content,
+          "done!"
+        );
+        assert.strictEqual(latestGroup.items.length, 2);
+
+        // hasFinal=true → all in banner
+        const { olderIntermediate, lastIntermediate } =
+          splitLatestIntermediate(
+            latestGroup.items,
+            latestGroup.finalResponse != null
+          );
+        assert.strictEqual(olderIntermediate.length, 2);
+        assert.strictEqual(lastIntermediate, null);
+      });
     });
   });
 

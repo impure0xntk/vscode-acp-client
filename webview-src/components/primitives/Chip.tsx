@@ -75,9 +75,9 @@ export function Chip({
       )}
       {meta.barPct !== undefined ? (
         <span className="toolbar-chip-ctx-wrap">
-          <span className="toolbar-chip-ctx-bar">
+          <span className={`ctx-bar ctx-bar--${meta.contextColor ?? 'normal'}`}>
             <span
-              className="toolbar-chip-ctx-fill"
+              className="ctx-bar-fill"
               style={{ height: `${meta.barPct}%` }}
             />
           </span>

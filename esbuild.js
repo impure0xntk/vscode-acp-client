@@ -2,8 +2,6 @@ const esbuild = require("esbuild");
 const path = require("path");
 const fs = require("fs");
 const postcss = require("postcss");
-const tailwindcss = require("@tailwindcss/postcss");
-const autoprefixer = require("autoprefixer");
 
 const isWatch = process.argv.includes("--watch");
 
@@ -15,7 +13,8 @@ function ensureDir(dirPath) {
 
 async function processCss(inputFile, outputFile) {
   const css = fs.readFileSync(inputFile, "utf8");
-  const result = await postcss([tailwindcss(), autoprefixer]).process(css, {
+  const postcssConfig = require("./postcss.config.js");
+  const result = await postcss(postcssConfig.plugins).process(css, {
     from: inputFile,
     to: outputFile,
   });

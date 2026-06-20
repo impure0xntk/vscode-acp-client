@@ -37,11 +37,11 @@ function ContextBar({ target }: { target: SendTarget }): React.ReactElement | nu
 
   return (
     <span
-      className={`send-target-context-bar send-target-context-bar--${color}`}
+      className={`ctx-bar ctx-bar--${color}`}
       title={title}
     >
       <span
-        className="send-target-context-bar-fill"
+        className="ctx-bar-fill"
         style={{ height: `${fillHeight}%` }}
       />
     </span>

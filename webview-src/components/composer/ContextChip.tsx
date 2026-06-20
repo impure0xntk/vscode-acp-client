@@ -24,8 +24,8 @@ export function ContextChip({
       className={`context-chip ${colorClass}`}
       title={`${attachment.path}\n${attachment.tokenCount} tokens`}
     >
-      <span className="context-chip-bar">
-        <span className="context-chip-bar-fill" />
+      <span className={`ctx-bar ctx-bar--${contextColor}`}>
+        <span className="ctx-bar-fill" />
       </span>
       <span className="context-chip-label">{attachment.label}</span>
       <span className="context-chip-tokens">{attachment.tokenCount}</span>
