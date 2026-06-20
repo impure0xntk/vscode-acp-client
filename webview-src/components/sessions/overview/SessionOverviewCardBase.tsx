@@ -202,13 +202,13 @@ export function SessionOverviewHeader({
       <AgentBadge
         agentId={session.agentId}
         agentColor={agentColor}
-        className="shrink-0 text-[9px] font-normal text-[var(--fg-muted)] font-[var(--font-ui)] max-w-[80px] overflow-hidden text-ellipsis whitespace-nowrap opacity-70"
+        className="shrink-0 text-[9px] font-normal text-fg-muted font-[var(--font-ui)] max-w-[80px] overflow-hidden text-ellipsis whitespace-nowrap opacity-70"
       />
-      <span className="flex-1 min-w-0 text-[11px] font-medium text-[var(--fg-primary)] overflow-hidden text-ellipsis whitespace-nowrap">
+      <span className="flex-1 min-w-0 text-[11px] font-medium text-fg-primary overflow-hidden text-ellipsis whitespace-nowrap">
         {session.title}
       </span>
       {session.model && (
-        <span className="shrink-0 text-[9px] text-[var(--fg-muted)] font-[var(--font-mono)] max-w-[60px] overflow-hidden text-ellipsis whitespace-nowrap">
+        <span className="shrink-0 text-[9px] text-fg-muted font-[var(--font-mono)] max-w-[60px] overflow-hidden text-ellipsis whitespace-nowrap">
           {session.model}
         </span>
       )}
@@ -241,7 +241,7 @@ export function SessionOverviewFooter({
   const ts = session.lastResponseAt ?? session.createdAt;
   return (
     <div className="flex items-center justify-between mt-1 pt-1 border-t border-[color-mix(in_srgb,var(--border)_30%,transparent)]">
-      <span className="text-[9px] text-[var(--fg-muted)] font-[var(--font-mono)]">
+      <span className="text-[9px] text-fg-muted font-[var(--font-mono)]">
         {new Date(ts).toLocaleTimeString()}
       </span>
     </div>

@@ -122,11 +122,11 @@ export function DetailsPanel(p: DetailsPanelProps): React.ReactElement {
   }
 
   return (
-    <div className="px-[10px] py-2 bg-[var(--bg-primary)] flex flex-col gap-[10px]">
+    <div className="px-[10px] py-2 bg-bg-primary flex flex-col gap-[10px]">
       {p.agentInfo && <AgentSection info={p.agentInfo} />}
 
       <section className="mb-0">
-        <h3 className="text-[10px] font-semibold text-[var(--fg-muted)] uppercase tracking-[0.4px] mb-1">Session</h3>
+        <h3 className="text-[10px] font-semibold text-fg-muted uppercase tracking-[0.4px] mb-1">Session</h3>
         <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-x-[14px] gap-y-1">
           {[...grouped.entries()]
             .filter(([c]) => c === "Session")
@@ -148,7 +148,7 @@ export function DetailsPanel(p: DetailsPanelProps): React.ReactElement {
 
       {runtime.length > 0 && (
         <section className="mb-0">
-          <h3 className="text-[10px] font-semibold text-[var(--fg-muted)] uppercase tracking-[0.4px] mb-1">Runtime</h3>
+          <h3 className="text-[10px] font-semibold text-fg-muted uppercase tracking-[0.4px] mb-1">Runtime</h3>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-x-[14px] gap-y-1">
             {runtime.map((m) => (
               <Row key={m.key} label={m.label} value={m.value} />
@@ -167,7 +167,7 @@ export function DetailsPanel(p: DetailsPanelProps): React.ReactElement {
 
       {workspace.length > 0 && (
         <section className="mb-0">
-          <h3 className="text-[10px] font-semibold text-[var(--fg-muted)] uppercase tracking-[0.4px] mb-1">Workspace</h3>
+          <h3 className="text-[10px] font-semibold text-fg-muted uppercase tracking-[0.4px] mb-1">Workspace</h3>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-x-[14px] gap-y-1">
             {workspace.map((m) => (
               <Row key={m.key} label={m.label} value={m.value} />
@@ -184,8 +184,8 @@ export function DetailsPanel(p: DetailsPanelProps): React.ReactElement {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-[1px] min-w-0">
-      <span className="text-[10px] text-[var(--fg-muted)] uppercase tracking-[0.3px] whitespace-nowrap overflow-hidden text-ellipsis">{label}</span>
-      <span className="text-xs text-[var(--fg-primary)] font-mono overflow-hidden text-ellipsis whitespace-nowrap" title={value}>
+      <span className="text-[10px] text-fg-muted uppercase tracking-[0.3px] whitespace-nowrap overflow-hidden text-ellipsis">{label}</span>
+      <span className="text-xs text-fg-primary font-mono overflow-hidden text-ellipsis whitespace-nowrap" title={value}>
         {value}
       </span>
     </div>
@@ -364,11 +364,11 @@ export const SessionFooter = React.memo(function SessionFooter(
   })();
 
   return (
-    <header className="flex flex-col bg-[var(--bg-secondary)] shrink-0 border-t border-[var(--border)]">
+    <header className="flex flex-col bg-bg-secondary shrink-0 border-t border-border">
       <div className="flex items-center justify-between px-[14px] py-1 gap-[10px] min-h-[28px]">
         <div className="flex items-center gap-2 flex-1 justify-start min-w-0 overflow-hidden">
           {prefix && (
-            <span className="text-[11px] font-mono text-[var(--fg-muted)] whitespace-nowrap overflow-hidden text-ellipsis shrink-1 min-w-0 pr-[6px]">{prefix}</span>
+            <span className="text-[11px] font-mono text-fg-muted whitespace-nowrap overflow-hidden text-ellipsis shrink-1 min-w-0 pr-[6px]">{prefix}</span>
           )}
           <div className="flex items-center gap-1 flex-nowrap overflow-hidden">
             {slChips.map((c) => (
@@ -383,7 +383,7 @@ export const SessionFooter = React.memo(function SessionFooter(
         </div>
         <div className="flex items-center gap-[6px] shrink-0">
           <button
-            className={`flex items-center justify-center w-6 h-6 p-0 border-none rounded bg-transparent text-[var(--fg-secondary)] cursor-pointer shrink-0 transition-all duration-150 hover:bg-[var(--accent-hover)] hover:text-[var(--fg-primary)]${open ? " rotate-180" : ""}`}
+            className={`flex items-center justify-center w-6 h-6 p-0 border-none rounded bg-transparent text-fg-secondary cursor-pointer shrink-0 transition-all duration-150 hover:bg-accent-hover hover:text-fg-primary${open ? " rotate-180" : ""}`}
             onClick={() => setOpen((v) => !v)}
             title={open ? "Hide details" : "Show details"}
             aria-expanded={open}

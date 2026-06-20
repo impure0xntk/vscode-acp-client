@@ -65,7 +65,7 @@ export function SessionOverviewPopup({
 
       {/* Footer: last-response timestamp */}
       <div className="flex justify-end border-t border-[color-mix(in_srgb,var(--border)_40%,transparent)] pt-1 mt-0.5">
-        <span className="text-[9px] text-[var(--fg-muted)] font-[var(--font-mono)]">
+        <span className="text-[9px] text-fg-muted font-[var(--font-mono)]">
           {new Date(
             liveItem.lastResponseAt ?? liveItem.createdAt
           ).toLocaleTimeString()}

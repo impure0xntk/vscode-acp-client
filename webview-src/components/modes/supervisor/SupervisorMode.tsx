@@ -258,7 +258,7 @@ export const SupervisorMode = React.memo(function SupervisorMode({
       </div>
 
       {/* Right: Mesh panel (persistent in supervisor mode) */}
-      <div className="w-[280px] shrink-0 border-l border-[var(--border)] flex flex-col min-h-0 overflow-hidden">
+      <div className="w-[280px] shrink-0 border-l border-border flex flex-col min-h-0 overflow-hidden">
         <MeshPanel
           onClose={() => setMeshPanelVisible(false)}
           onOpenTeamCreate={() => setShowTeamCreate(true)}

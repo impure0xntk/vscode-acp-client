@@ -21,16 +21,16 @@ export function SearchBar({
   onSortChange: (field: SortField, dir: SortDir) => void;
 }): React.ReactElement {
   return (
-    <div className="flex items-center gap-1.5 px-2.5 py-1.5 border-b border-[var(--border)] shrink-0">
+    <div className="flex items-center gap-1.5 px-2.5 py-1.5 border-b border-border shrink-0">
       <input
-        className="flex-1 min-w-0 px-2 py-[3px] border border-[var(--border)] rounded bg-[var(--bg-input)] text-[var(--fg-primary)] text-xs outline-none focus:border-[var(--accent)]"
+        className="flex-1 min-w-0 px-2 py-[3px] border border-border rounded bg-bg-input text-fg-primary text-xs outline-none focus:border-accent"
         type="text"
         placeholder="Search sessions..."
         value={query}
         onChange={(e) => onQueryChange(e.target.value)}
       />
       <select
-        className="px-1.5 py-[3px] border border-[var(--border)] rounded bg-[var(--bg-input)] text-[var(--fg-primary)] text-xs outline-none focus:border-[var(--accent)]"
+        className="px-1.5 py-[3px] border border-border rounded bg-bg-input text-fg-primary text-xs outline-none focus:border-accent"
         value={selectedAgent}
         onChange={(e) => onAgentChange(e.target.value)}
       >
@@ -42,7 +42,7 @@ export function SearchBar({
       </select>
       <div className="flex items-center gap-0.5 shrink-0">
         <select
-          className="px-1.5 py-[3px] border border-[var(--border)] rounded bg-[var(--bg-input)] text-[var(--fg-primary)] text-xs outline-none"
+          className="px-1.5 py-[3px] border border-border rounded bg-bg-input text-fg-primary text-xs outline-none"
           value={sortField}
           onChange={(e) => onSortChange(e.target.value as SortField, sortDir)}
         >
@@ -52,7 +52,7 @@ export function SearchBar({
           <option value="title">Title</option>
         </select>
         <button
-          className="flex items-center justify-center w-6 h-[22px] p-0 border border-[var(--border)] rounded bg-[var(--bg-input)] text-[var(--fg-primary)] text-base cursor-pointer transition-colors duration-150 hover:bg-[var(--accent-hover)]"
+          className="flex items-center justify-center w-6 h-[22px] p-0 border border-border rounded bg-bg-input text-fg-primary text-base cursor-pointer transition-colors duration-150 hover:bg-accent-hover"
           onClick={() =>
             onSortChange(sortField, sortDir === "asc" ? "desc" : "asc")
           }

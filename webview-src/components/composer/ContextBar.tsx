@@ -16,7 +16,6 @@ export interface ContextBarProps {
   contextColor?: ContextColor;
 }
 
-// Re-export for convenience
 export type { SelectedTeam } from "../../types";
 
 export function ContextBar({
@@ -39,15 +38,15 @@ export function ContextBar({
       <div className="flex flex-nowrap gap-1 flex-shrink-0 min-w-0">
         {selectedTeam && (
           <span
-            className="inline-flex items-center gap-[3px] px-[6px] py-[2px] rounded-[4px] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] text-[11px] whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-0.75 px-1.5 py-0.5 rounded bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] text-[11px] whitespace-nowrap shrink-0"
             title={`Team: ${selectedTeam.name} (${selectedTeam.id})`}
           >
             <Icon name="users" className="text-[11px] shrink-0" size="sm" />
-            <span className="text-[var(--fg-primary)] max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap">
+            <span className="text-fg-primary max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap">
               {selectedTeam.name}
             </span>
             <button
-              className="inline-flex items-center justify-center w-[14px] h-[14px] p-0 border-none rounded-[2px] bg-transparent text-[var(--fg-muted)] text-[12px] leading-none cursor-pointer shrink-0 ml-[1px] hover:bg-[var(--error)] hover:text-[var(--user-fg)]"
+              className="inline-flex items-center justify-center w-3.5 h-3.5 p-0 border-none rounded-[2px] bg-transparent text-fg-muted text-[12px] leading-none cursor-pointer shrink-0 ml-0.5 hover:bg-error hover:text-user-fg"
               onClick={onRemoveSelectedTeam}
               title="Remove team"
             >

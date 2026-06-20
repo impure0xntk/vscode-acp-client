@@ -34,7 +34,7 @@ export function MessageActions({
       aria-label="Message actions"
     >
       <button
-        className="inline-flex items-center justify-center w-[22px] h-[22px] p-0 rounded-[4px] bg-[color-mix(in_srgb,var(--bg-secondary)_80%,transparent)] text-[var(--fg-muted)] cursor-pointer transition-colors hover:bg-[var(--accent-hover)] hover:text-[var(--fg-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-[-1px] shrink-0"
+        className="inline-flex items-center justify-center w-[22px] h-[22px] p-0 rounded-[4px] bg-[color-mix(in_srgb,var(--bg-secondary)_80%,transparent)] text-fg-muted cursor-pointer transition-colors hover:bg-accent-hover hover:text-fg-primary focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px] shrink-0"
         onClick={handleCopy}
         title={copied ? "Copied" : "Copy to clipboard"}
         aria-label={copied ? "Copied" : "Copy to clipboard"}

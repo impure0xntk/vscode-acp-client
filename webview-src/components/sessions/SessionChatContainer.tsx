@@ -546,7 +546,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
       {/* Sticky user message bar */}
       {showStickyBar && stickyUserMessage && (
         <div
-          className="sticky top-0 z-10 flex-shrink-0 bg-[var(--bg-secondary)] border-b border-[var(--border)] px-[14px] py-1.5 cursor-pointer transition-colors duration-150 animate-[sticky-user-bar-in_0.12s_ease-out]"
+          className="sticky top-0 z-10 flex-shrink-0 bg-bg-secondary border-b border-border px-[14px] py-1.5 cursor-pointer transition-colors duration-150 animate-[sticky-user-bar-in_0.12s_ease-out]"
           onClick={handleStickyClick}
           role="button"
           tabIndex={0}
@@ -559,16 +559,16 @@ export const SessionChatContainer = memo(function SessionChatContainer({
           }}
         >
           <div className="flex items-center gap-1 mb-0.5">
-            <span className="text-[11px] font-medium text-[var(--fg-secondary)]">You</span>
-            <span className="text-[10px] text-[var(--fg-muted)] opacity-50">{stickyTime}</span>
+            <span className="text-[11px] font-medium text-fg-secondary">You</span>
+            <span className="text-[10px] text-fg-muted opacity-50">{stickyTime}</span>
           </div>
-          <div className="text-xs text-[var(--fg-primary)] whitespace-nowrap overflow-hidden text-ellipsis leading-[1.4]">
+          <div className="text-xs text-fg-primary whitespace-nowrap overflow-hidden text-ellipsis leading-[1.4]">
             {stickyUserMessage.content}
           </div>
           {stickyUserMessage.attachments.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
               {stickyUserMessage.attachments.map((a) => (
-                <span key={a.id} className="inline-flex items-center gap-0.5 px-1 py-px rounded-[3px] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--fg-secondary)] text-[9px] font-mono">
+                <span key={a.id} className="inline-flex items-center gap-0.5 px-1 py-px rounded-[3px] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-fg-secondary text-[9px] font-mono">
                   {a.label}
                 </span>
               ))}
@@ -584,8 +584,8 @@ export const SessionChatContainer = memo(function SessionChatContainer({
         data-messages-scroll-container="true"
       >
         {isEmpty ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-2 text-[var(--fg-muted)]">
-            <p className="text-base font-medium text-[var(--fg-secondary)]">ACP Chat</p>
+          <div className="flex-1 flex flex-col items-center justify-center gap-2 text-fg-muted">
+            <p className="text-base font-medium text-fg-secondary">ACP Chat</p>
             <p className="text-xs">
               {sessionId
                 ? "Send a message to start the conversation."
@@ -710,7 +710,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
 
             {isStreaming && (
               <div className="py-1">
-                <span className="inline-block animate-[blink_1s_step-end_infinite] text-[var(--accent)] font-bold">▋</span>
+                <span className="inline-block animate-[blink_1s_step-end_infinite] text-accent font-bold">▋</span>
               </div>
             )}
           </div>
@@ -719,7 +719,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
       </div>
       {showScrollButton && (
         <button
-          className="absolute bottom-4 right-4 z-10 pointer-events-auto flex items-center justify-center w-8 h-8 p-0 border border-[var(--border)] rounded-full bg-[var(--bg-secondary)] text-[var(--fg-primary)] shadow-[0_2px_8px_rgba(0,0,0,0.3)] cursor-pointer transition-all duration-150 hover:bg-[var(--accent-hover)] hover:border-[var(--accent)] hover:scale-105 active:scale-95"
+          className="absolute bottom-4 right-4 z-10 pointer-events-auto flex items-center justify-center w-8 h-8 p-0 border border-border rounded-full bg-bg-secondary text-fg-primary shadow-[0_2px_8px_rgba(0,0,0,0.3)] cursor-pointer transition-all duration-150 hover:bg-accent-hover hover:border-accent hover:scale-105 active:scale-95"
           onClick={handleScrollToBottom}
           type="button"
           title="Scroll to bottom"
@@ -727,7 +727,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
         >
           <span className="text-sm leading-none">↓</span>
           {unreadCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-4 h-4 px-[3px] rounded-lg bg-[var(--accent)] text-[var(--user-fg)] text-[9px] font-semibold leading-none">{unreadCount}</span>
+            <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-4 h-4 px-[3px] rounded-lg bg-accent text-user-fg text-[9px] font-semibold leading-none">{unreadCount}</span>
           )}
         </button>
       )}

@@ -92,7 +92,7 @@ export function AgentCard({
 
   return (
     <button
-      className={`flex flex-col gap-0.5 p-2 border border-transparent rounded-[4px] bg-[var(--bg-primary)] cursor-pointer text-left hover:bg-[var(--accent-hover)] focus-visible:outline focus-visible:outline-[var(--accent)] focus-visible:outline-offset-1 min-w-[140px] max-w-[200px] flex-shrink-0 ${isSelected ? "bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] border-[color-mix(in_srgb,var(--accent)_20%,transparent)]" : ""}`}
+      className={`flex flex-col gap-0.5 p-2 border border-transparent rounded-[4px] bg-bg-primary cursor-pointer text-left hover:bg-accent-hover focus-visible:outline focus-visible:outline-accent focus-visible:outline-offset-1 min-w-[140px] max-w-[200px] flex-shrink-0 ${isSelected ? "bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] border-[color-mix(in_srgb,var(--accent)_20%,transparent)]" : ""}`}
       data-status={status}
       data-color-group={colorGroup}
       onClick={onSelect}
@@ -101,13 +101,13 @@ export function AgentCard({
       {/* Header: status icon + agent name */}
       <div className="flex items-center gap-1 min-w-0">
         <StatusIcon status={status} size="sm" elapsedMs={elapsedMs} />
-        <span className="flex-1 min-w-0 text-[10px] font-semibold font-mono text-[var(--fg-primary)] overflow-hidden text-ellipsis whitespace-nowrap">
+        <span className="flex-1 min-w-0 text-[10px] font-semibold font-mono text-fg-primary overflow-hidden text-ellipsis whitespace-nowrap">
           {agent?.name ?? sessionInfo.agentId}
         </span>
       </div>
 
       {/* Status label */}
-      <div className="flex-shrink-0 text-[9px] text-[var(--fg-muted)]">{STATUS_LABEL[status] ?? status}</div>
+      <div className="flex-shrink-0 text-[9px] text-fg-muted">{STATUS_LABEL[status] ?? status}</div>
 
       {/* Progress bar (only when running) */}
       {status === "running" && (
@@ -121,17 +121,17 @@ export function AgentCard({
               }}
             />
           </div>
-          <span className="flex-shrink-0 text-[9px] text-[var(--fg-muted)] font-mono">{fmtDuration(elapsedMs)}</span>
+          <span className="flex-shrink-0 text-[9px] text-fg-muted font-mono">{fmtDuration(elapsedMs)}</span>
         </div>
       )}
 
       {/* Token usage */}
-      <div className="flex items-center gap-[3px] text-[9px] text-[var(--fg-muted)] font-mono">
+      <div className="flex items-center gap-[3px] text-[9px] text-fg-muted font-mono">
         <Icon name="brain" size="sm" />
         <span>{fmt(tokenTotal)}</span>
         {ctxPct !== null && (
           <span
-            className={`ml-auto text-[9px] font-mono ${ctxPct >= 85 ? "text-[#ef5350]" : ctxPct >= 70 ? "text-[#ffd54f]" : "text-[var(--fg-muted)]"}`}
+            className={`ml-auto text-[9px] font-mono ${ctxPct >= 85 ? "text-[#ef5350]" : ctxPct >= 70 ? "text-[#ffd54f]" : "text-fg-muted"}`}
           >
             {ctxPct}%
           </span>
@@ -142,7 +142,7 @@ export function AgentCard({
       <div className="flex items-center gap-0.5 mt-px">
         {isCancelable && (
           <span
-            className="inline-flex items-center justify-center w-[18px] h-[18px] p-0 border-none rounded-[3px] bg-transparent text-[var(--fg-muted)] cursor-pointer hover:bg-[var(--accent-hover)] hover:text-[var(--fg-primary)]"
+            className="inline-flex items-center justify-center w-[18px] h-[18px] p-0 border-none rounded-[3px] bg-transparent text-fg-muted cursor-pointer hover:bg-accent-hover hover:text-fg-primary"
             onClick={handleCancel}
             title="Cancel"
             role="button"
@@ -153,7 +153,7 @@ export function AgentCard({
         )}
         {isTerminal && (
           <span
-            className="inline-flex items-center justify-center w-[18px] h-[18px] p-0 border-none rounded-[3px] bg-transparent text-[var(--fg-muted)] cursor-pointer hover:bg-[var(--accent-hover)] hover:text-[var(--fg-primary)]"
+            className="inline-flex items-center justify-center w-[18px] h-[18px] p-0 border-none rounded-[3px] bg-transparent text-fg-muted cursor-pointer hover:bg-accent-hover hover:text-fg-primary"
             onClick={handleClose}
             title="Close"
             role="button"

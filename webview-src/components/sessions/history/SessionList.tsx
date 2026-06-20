@@ -63,7 +63,7 @@ function highlightMatch(text: string, query: string): React.ReactNode {
   const parts = text.split(re);
   return parts.map((part, i) =>
     re.test(part) ? (
-      <mark key={i} className="bg-[color-mix(in_srgb,var(--accent)_30%,transparent)] text-[var(--fg-primary)] rounded-[2px] px-0.5">
+      <mark key={i} className="bg-[color-mix(in_srgb,var(--accent)_30%,transparent)] text-fg-primary rounded-[2px] px-0.5">
         {part}
       </mark>
     ) : (
@@ -118,7 +118,7 @@ function TokenBar({
         className="h-full rounded-[2px] transition-[width] duration-300"
         style={{ width: `${pct}%`, backgroundColor: color }}
       />
-      <span className="absolute right-0 -top-3 text-[9px] text-[var(--fg-muted)] opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+      <span className="absolute right-0 -top-3 text-[9px] text-fg-muted opacity-0 transition-opacity duration-150 group-hover:opacity-100">
         {pct}% · {formatTokens(entry.tokenUsage.total)}/
         {formatTokens(entry.contextWindowMax)}
       </span>
@@ -143,7 +143,7 @@ function SessionRow({
 }): React.ReactElement {
   return (
     <div
-      className={`group flex items-start gap-2 px-2.5 py-1.5 cursor-pointer transition-colors duration-100 hover:bg-[var(--accent-hover)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-[-1px] ${
+      className={`group flex items-start gap-2 px-2.5 py-1.5 cursor-pointer transition-colors duration-100 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px] ${
         entry.isArchived ? "opacity-50" : ""
       }`}
       onClick={onClick}
@@ -151,7 +151,7 @@ function SessionRow({
       <StatusDot status={entry.status} />
       <div className="flex-1 min-w-0 overflow-hidden">
         <div
-          className={`text-xs font-medium text-[var(--fg-primary)] overflow-hidden text-ellipsis whitespace-nowrap ${
+          className={`text-xs font-medium text-fg-primary overflow-hidden text-ellipsis whitespace-nowrap ${
             entry.isArchived ? "line-through" : ""
           }`}
           title={entry.title}
@@ -159,11 +159,11 @@ function SessionRow({
           {highlightMatch(entry.title, query)}
         </div>
         <div className="flex items-center gap-1.5 mt-px">
-          <span className="text-[10px] text-[var(--fg-secondary)]">
+          <span className="text-[10px] text-fg-secondary">
             {entry.agentId}
           </span>
           <span
-            className="text-[10px] text-[var(--fg-muted)]"
+            className="text-[10px] text-fg-muted"
             title={formatDate(entry.createdAt)}
           >
             {formatRelativeTime(entry.lastResponseAt ?? entry.createdAt)}
@@ -171,7 +171,7 @@ function SessionRow({
         </div>
         {entry.workspaceName && (
           <div
-            className="text-[10px] text-[var(--fg-muted)] overflow-hidden text-ellipsis whitespace-nowrap"
+            className="text-[10px] text-fg-muted overflow-hidden text-ellipsis whitespace-nowrap"
             title={entry.cwd}
           >
             <Icon name="folder-opened" size="sm" />{" "}
@@ -181,17 +181,17 @@ function SessionRow({
         <TokenBar entry={entry} />
       </div>
       <div className="flex flex-col items-end gap-px shrink-0">
-        <span className="whitespace-nowrap text-[10px] text-[var(--fg-muted)]">
+        <span className="whitespace-nowrap text-[10px] text-fg-muted">
           {entry.messageCount} msgs
         </span>
-        <span className="whitespace-nowrap font-[var(--font-mono)] text-[9px] text-[var(--fg-muted)]">
+        <span className="whitespace-nowrap font-[var(--font-mono)] text-[9px] text-fg-muted">
           ↑{formatTokens(entry.tokenUsage.input)} ↓
           {formatTokens(entry.tokenUsage.output)}
         </span>
       </div>
       <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
         <button
-          className="flex items-center justify-center w-5 h-5 p-0 border-none rounded bg-transparent text-[var(--fg-muted)] cursor-pointer transition-colors duration-150 hover:bg-[var(--accent-hover)] hover:text-[var(--fg-primary)]"
+          className="flex items-center justify-center w-5 h-5 p-0 border-none rounded bg-transparent text-fg-muted cursor-pointer transition-colors duration-150 hover:bg-accent-hover hover:text-fg-primary"
           onClick={(e) => {
             e.stopPropagation();
             onArchive();
@@ -205,7 +205,7 @@ function SessionRow({
           )}
         </button>
         <button
-          className="flex items-center justify-center w-5 h-5 p-0 border-none rounded bg-transparent text-[var(--fg-muted)] cursor-pointer transition-colors duration-150 hover:!bg-[var(--error)] hover:!text-[var(--user-fg)]"
+          className="flex items-center justify-center w-5 h-5 p-0 border-none rounded bg-transparent text-fg-muted cursor-pointer transition-colors duration-150 hover:!bg-error hover:!text-user-fg"
           onClick={onDelete}
           title="Delete session"
         >
@@ -237,9 +237,9 @@ export function SessionList({
     <div className="flex-1 overflow-y-auto min-h-0">
       {Array.from(grouped.entries()).map(([groupLabel, groupEntries]) => (
         <div key={groupLabel} className="py-0.5">
-          <div className="flex items-center justify-between px-3 py-1 text-[10px] text-[var(--fg-muted)]">
+          <div className="flex items-center justify-between px-3 py-1 text-[10px] text-fg-muted">
             {groupLabel}
-            <span className="text-[var(--fg-muted)] opacity-60 font-normal">
+            <span className="text-fg-muted opacity-60 font-normal">
               {groupEntries.length}
             </span>
           </div>

@@ -2,28 +2,15 @@ import React from "react";
 import { Icon } from "../../lib/icons";
 import type { SessionCompressionInfo } from "../../types";
 
-// ============================================================================
-// Props
-// ============================================================================
-
 interface ContextCompressionNoticeProps {
-  /** From CompressionDisplayItem.info — session compression metadata */
   compressionInfo: SessionCompressionInfo;
 }
-
-// ============================================================================
-// Helpers
-// ============================================================================
 
 function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
   return String(n);
 }
-
-// ============================================================================
-// ContextCompressionNotice Component
-// ============================================================================
 
 export function ContextCompressionNotice({
   compressionInfo,
@@ -46,29 +33,29 @@ export function ContextCompressionNotice({
       role="status"
       aria-live="polite"
     >
-      <div className="flex-shrink-0 flex items-center justify-center text-[var(--accent)]">
+      <div className="flex-shrink-0 flex items-center justify-center text-accent">
         <Icon name="compress" size="sm" className="text-[13px]" />
       </div>
       <div className="flex items-baseline gap-1.5 flex-wrap min-w-0">
-        <span className="font-medium text-[var(--fg-secondary)] whitespace-nowrap">Context compressed</span>
-        <span className="inline-flex items-baseline gap-0.5 font-mono text-[10px] text-[var(--fg-muted)]">
+        <span className="font-medium text-fg-secondary whitespace-nowrap">Context compressed</span>
+        <span className="inline-flex items-baseline gap-0.5 font-mono text-[10px] text-fg-muted">
           {beforePercentage !== null && (
-            <span className="text-[var(--warning)] line-through opacity-70">
+            <span className="text-warning line-through opacity-70">
               {beforePercentage}%
             </span>
           )}
           {beforePercentage !== null && (
-            <span className="text-[var(--fg-muted)] opacity-50 text-[10px]"> → </span>
+            <span className="text-fg-muted opacity-50 text-[10px]"> → </span>
           )}
-          <span className="text-[var(--fg-primary)] font-medium">{percentage}%</span>
-          <span className="text-[var(--fg-muted)] opacity-70">
+          <span className="text-fg-primary font-medium">{percentage}%</span>
+          <span className="text-fg-muted opacity-70">
             {" "}
             ({formatTokens(usedTokens)} / {formatTokens(contextWindowMax)}{" "}
             tokens)
           </span>
         </span>
         {saved > 0 && (
-          <span className="text-[10px] text-[var(--fg-muted)] opacity-60 whitespace-nowrap">
+          <span className="text-[10px] text-fg-muted opacity-60 whitespace-nowrap">
             {formatTokens(saved)} tokens freed
           </span>
         )}

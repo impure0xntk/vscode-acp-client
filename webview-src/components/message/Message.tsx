@@ -83,7 +83,7 @@ function AttachmentChip({
 
   return (
     <span
-      className="inline-flex items-center gap-[2px] px-[3px] py-[1px] rounded-[3px] bg-[var(--bg-secondary)] text-[9px] cursor-pointer select-none shrink-0 hover:bg-[var(--accent-hover)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-1"
+      className="inline-flex items-center gap-[2px] px-[3px] py-[1px] rounded-[3px] bg-bg-secondary text-[9px] cursor-pointer select-none shrink-0 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1"
       onClick={isNavigable ? handleClick : undefined}
       title={
         attachment.type === "diff"
@@ -111,9 +111,9 @@ function AttachmentChip({
       ) : attachment.type === "symbol" ? (
         <Icon name="symbol-class" size="sm" className="text-[12px]" />
       ) : (
-        <span className="inline-flex items-center justify-center w-[14px] h-[11px] rounded-[2px] font-mono text-[7px] font-bold leading-[-0.3px] shrink-0 bg-[color-mix(in_srgb,var(--accent)_20%,transparent)] text-[var(--fg-secondary)]">{"•"}</span>
+        <span className="inline-flex items-center justify-center w-[14px] h-[11px] rounded-[2px] font-mono text-[7px] font-bold leading-[-0.3px] shrink-0 bg-[color-mix(in_srgb,var(--accent)_20%,transparent)] text-fg-secondary">{"•"}</span>
       )}
-      <span className="leading-none text-[var(--fg-primary)]">
+      <span className="leading-none text-fg-primary">
         {attachment.type === "selection"
           ? "selection"
           : attachment.type === "symbol"
@@ -123,11 +123,11 @@ function AttachmentChip({
               : (attachment.path.split("/").pop() ?? attachment.path)}
       </span>
       {attachment.type === "selection" && attachment.lineRange && (
-        <span className="text-[var(--fg-muted)] text-[9px] ml-[2px]">
+        <span className="text-fg-muted text-[9px] ml-[2px]">
           :{attachment.lineRange[0]}-{attachment.lineRange[1]}
         </span>
       )}
-      <span className="text-[var(--fg-muted)] text-[9px] ml-[2px]">{attachment.tokenCount}t</span>
+      <span className="text-fg-muted text-[9px] ml-[2px]">{attachment.tokenCount}t</span>
     </span>
   );
 }
@@ -197,8 +197,8 @@ export const Message = React.memo(function Message({
       data-message-id={item.key}
     >
       {(!isConsecutive || forceHeader) && (
-        <div className={`flex items-center gap-[6px] text-[11px] text-[var(--fg-muted)] mb-[2px] ${isUser ? "justify-end" : ""}`}>
-          <span className="font-medium text-[var(--fg-secondary)]">
+        <div className={`flex items-center gap-[6px] text-[11px] text-fg-muted mb-[2px] ${isUser ? "justify-end" : ""}`}>
+          <span className="font-medium text-fg-secondary">
             {isSystem ? "System" : isUser ? "You" : "Agent"}
           </span>
           <span className="text-[10px] opacity-50">{time}</span>
@@ -216,13 +216,13 @@ export const Message = React.memo(function Message({
           </div>
         )}
         {!isToolOnlyAgent && (
-          <div className={`max-w-full ${isUser ? "bg-[color-mix(in_srgb,var(--user-bubble)_12%,transparent)] text-[var(--fg-primary)] px-[10px] py-[6px] rounded-[6px] border border-[color-mix(in_srgb,var(--user-bubble)_20%,transparent)] self-end max-w-[80%]" : "text-[var(--fg-primary)]"}`}>
+          <div className={`max-w-full ${isUser ? "bg-[color-mix(in_srgb,var(--user-bubble)_12%,transparent)] text-fg-primary px-[10px] py-[6px] rounded-[6px] border border-[color-mix(in_srgb,var(--user-bubble)_20%,transparent)] self-end max-w-[80%]" : "text-fg-primary"}`}>
             {isUser ? (
               <div className="whitespace-pre-wrap break-words">{content}</div>
             ) : (
               <div className="flex items-center gap-[4px]">
                 <div
-                  className={`leading-[1.6] min-w-0 flex-1${isSystem ? " text-[var(--fg-secondary)]" : ""}`}
+                  className={`leading-[1.6] min-w-0 flex-1${isSystem ? " text-fg-secondary" : ""}`}
                   dangerouslySetInnerHTML={{
                     __html: renderMarkdown(content, mergedContext),
                   }}

@@ -230,7 +230,7 @@ export function SessionOverviewPanel({
   }, [onNewSession]);
 
   return (
-    <div className="h-full border-l border-[var(--border)] bg-[var(--bg-secondary)] flex flex-col shrink-0" style={{ width, minWidth: width }}>
+    <div className="h-full border-l border-border bg-bg-secondary flex flex-col shrink-0" style={{ width, minWidth: width }}>
       <SessionOverviewToolbar
         filter={state.filter}
         sessionCount={filteredSessions.length}
@@ -240,15 +240,15 @@ export function SessionOverviewPanel({
 
       {/* Batch operations bar — visible whenever selection mode is active */}
       {selectionMode && (
-        <div className="flex items-center justify-between px-1.5 py-[3px] border-b border-[var(--border)] shrink-0 bg-[color-mix(in_srgb,var(--bg-input)_40%,transparent)] gap-1.5">
-          <span className="text-[10px] text-[var(--fg-secondary)]">
+        <div className="flex items-center justify-between px-1.5 py-[3px] border-b border-border shrink-0 bg-[color-mix(in_srgb,var(--bg-input)_40%,transparent)] gap-1.5">
+          <span className="text-[10px] text-fg-secondary">
             {selectedIds.length > 0
               ? `${selectedIds.length} selected`
               : "Tap sessions to select"}
           </span>
           <div className="flex gap-[3px]">
             <button
-              className="text-[10px] px-1.5 py-[1px] border border-[var(--border)] rounded-sm bg-[var(--bg-input)] text-[var(--fg-secondary)] cursor-pointer transition-all duration-150"
+              className="text-[10px] px-1.5 py-[1px] border border-border rounded-sm bg-bg-input text-fg-secondary cursor-pointer transition-all duration-150"
               onClick={handleCloseSelected}
               disabled={selectedCount === 0}
               title={`Close ${selectedCount} selected session(s)`}
@@ -256,7 +256,7 @@ export function SessionOverviewPanel({
               Close {selectedCount > 0 ? selectedCount : ""}
             </button>
             <button
-              className="text-[10px] px-1.5 py-[1px] border border-[var(--border)] rounded-sm bg-[var(--bg-input)] text-[var(--fg-secondary)] cursor-pointer transition-all duration-150"
+              className="text-[10px] px-1.5 py-[1px] border border-border rounded-sm bg-bg-input text-fg-secondary cursor-pointer transition-all duration-150"
               onClick={handleExitSelectionMode}
               title="Exit selection mode"
             >
@@ -301,8 +301,8 @@ export function SessionOverviewPanel({
           );
         })}
       </div>
-      <div className="px-2 py-1 border-t border-[var(--border)] shrink-0 text-right">
-        <span className="text-[10px] text-[var(--fg-muted)] font-[var(--font-mono)]">
+      <div className="px-2 py-1 border-t border-border shrink-0 text-right">
+        <span className="text-[10px] text-fg-muted font-[var(--font-mono)]">
           Total: {fmtTotal(filteredSessions)} tokens
         </span>
       </div>

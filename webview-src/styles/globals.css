@@ -4,6 +4,67 @@
 @import "highlight.js/styles/github-dark.css";
 
 /* ============================================================================
+   Tailwind v4 @theme — design tokens
+   ============================================================================ */
+
+@theme {
+  /* ── Colors ── */
+  --color-bg-primary: var(--bg-primary);
+  --color-bg-secondary: var(--bg-secondary);
+  --color-bg-input: var(--bg-input);
+  --color-bg-hover: var(--accent-hover);
+  --color-fg-primary: var(--fg-primary);
+  --color-fg-secondary: var(--fg-secondary);
+  --color-fg-muted: var(--fg-muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-border: var(--border);
+  --color-success: var(--success);
+  --color-error: var(--error);
+  --color-warning: var(--warning);
+  --color-user-bubble: var(--user-bubble);
+  --color-user-fg: var(--user-fg);
+  --color-code-bg: var(--code-bg);
+
+  /* ── Typography ── */
+  --font-mono: var(--font-mono);
+  --font-ui: var(--font-ui);
+
+  --font-size-2xs: 7px;
+  --font-size-3xs: 9px;
+
+  /* ── Spacing ── */
+  --spacing-0\.75: 3px;
+  --spacing-1\.25: 5px;
+  --spacing-2\.5: 10px;
+  --spacing-3\.5: 14px;
+  --spacing-18: 72px;
+
+  /* ── Border radius ── */
+  --radius-1: 1px;
+  --radius-1\.5: 6px;
+
+  /* ── Shadows ── */
+  --shadow-popup: 0 4px 16px rgba(0, 0, 0, 0.35);
+  --shadow-badge: 0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-dropdown: 0 2px 8px rgba(0, 0, 0, 0.15);
+
+  /* ── Animations ── */
+  --animate-context-pulse: context-pulse 1.2s ease-in-out infinite;
+  --animate-dot-blink: dot-blink 1.4s infinite both;
+  --animate-dot-pulse: dot-pulse 1.5s ease-in-out infinite;
+  --animate-dot-flash: dot-flash 1s ease-in-out infinite;
+  --animate-spin: spin 1s linear infinite;
+  --animate-soc-running-pulse: soc-running-pulse 2s ease-in-out infinite;
+  --animate-soc-waiting-pulse: soc-waiting-pulse 2s ease-in-out infinite;
+  --animate-soc-flash-border: soc-flash-border 2.5s ease-out forwards;
+  --animate-usec-flash-border: usec-flash-border 2.5s ease-out forwards;
+  --animate-tool-batch-expand: tool-batch-expand 0.15s ease-out;
+  --animate-so-popup-in: so-popup-in 0.12s ease-out;
+  --animate-token-pulse: token-pulse 1.5s ease-in-out infinite;
+}
+
+/* ============================================================================
    CSS Variables — bridge VS Code theme tokens
    ============================================================================ */
 

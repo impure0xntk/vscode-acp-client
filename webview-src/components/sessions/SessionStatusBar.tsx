@@ -114,24 +114,24 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
   if (!effectiveAction && !showSending && queue.length === 0) return null;
 
   return (
-    <div className="bg-[var(--bg-secondary)] border-b border-[var(--border)] shrink-0">
+    <div className="bg-bg-secondary border-b border-border shrink-0">
       {/* Streaming status section */}
       {showSending ? (
         <div
-          className="flex items-center gap-[6px] px-[14px] py-1 text-[11px] font-mono bg-[var(--bg-secondary)] border-b border-[var(--border)] shrink-0 text-[var(--fg-muted)]"
+          className="flex items-center gap-[6px] px-[14px] py-1 text-[11px] font-mono bg-bg-secondary border-b border-border shrink-0 text-fg-muted"
           role="status"
           aria-live="polite"
         >
           <span className="shrink-0" aria-hidden="true">
-            <span className="inline-block w-1 h-1 rounded-full bg-[var(--fg-muted)]" />
-            <span className="inline-block w-1 h-1 rounded-full bg-[var(--fg-muted)]" />
-            <span className="inline-block w-1 h-1 rounded-full bg-[var(--fg-muted)]" />
+            <span className="inline-block w-1 h-1 rounded-full bg-fg-muted" />
+            <span className="inline-block w-1 h-1 rounded-full bg-fg-muted" />
+            <span className="inline-block w-1 h-1 rounded-full bg-fg-muted" />
           </span>
           <span className="whitespace-nowrap overflow-hidden text-ellipsis">Sending…</span>
         </div>
       ) : isCancelling ? (
         <div
-          className="flex items-center gap-[6px] px-[14px] py-1 text-[11px] font-mono bg-[var(--bg-secondary)] border-b border-[var(--border)] shrink-0 text-[var(--error)]"
+          className="flex items-center gap-[6px] px-[14px] py-1 text-[11px] font-mono bg-bg-secondary border-b border-border shrink-0 text-error"
           role="status"
           aria-live="polite"
         >
@@ -143,7 +143,7 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
           const tierColour = elapsedColor(elapsedSec * 1000);
           return (
             <div
-              className={`flex items-center gap-[6px] px-[14px] py-1 text-[11px] font-mono bg-[var(--bg-secondary)] border-b border-[var(--border)] shrink-0 text-[var(--${tierColour})]`}
+              className={`flex items-center gap-[6px] px-[14px] py-1 text-[11px] font-mono bg-bg-secondary border-b border-border shrink-0 text-[var(--${tierColour})]`}
               role="status"
               aria-live="polite"
             >
@@ -162,9 +162,9 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
 
       {/* Queued prompt list section */}
       {queue.length > 0 && (
-        <div className="bg-[var(--bg-secondary)] border-b border-[var(--border)]">
+        <div className="bg-bg-secondary border-b border-border">
           <div className="flex items-center justify-between px-[14px] py-0.5 bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]">
-            <span className="text-[10px] font-semibold text-[var(--fg-secondary)] font-mono uppercase tracking-wider">
+            <span className="text-[10px] font-semibold text-fg-secondary font-mono uppercase tracking-wider">
               {queue.length} queued message{queue.length !== 1 ? "s" : ""}
             </span>
           </div>
@@ -173,7 +173,7 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
               <li key={entry.id} className="flex items-center justify-between gap-1 px-2 py-[3px] border-b border-[color-mix(in_srgb,var(--border)_30%,transparent)] last:border-b-0">
                 <div className="flex flex-1 items-center gap-1.5 min-w-0 overflow-hidden">
                   <StatusBadge status={entry.status} />
-                  <span className="text-[11px] text-[var(--fg-secondary)] whitespace-nowrap overflow-hidden text-ellipsis block" title={entry.text}>
+                  <span className="text-[11px] text-fg-secondary whitespace-nowrap overflow-hidden text-ellipsis block" title={entry.text}>
                     {entry.text.length > 60
                       ? entry.text.slice(0, 60) + "\u2026"
                       : entry.text}
@@ -181,7 +181,7 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
                 </div>
                 {entry.status === "pending" && (
                   <button
-                    className="inline-flex items-center justify-center w-[18px] h-[18px] p-0 rounded-[3px] bg-transparent text-[var(--fg-muted)] text-[10px] cursor-pointer border-none hover:bg-[var(--error)] hover:text-[var(--user-fg)] transition-all flex-shrink-0"
+                    className="inline-flex items-center justify-center w-[18px] h-[18px] p-0 rounded-[3px] bg-transparent text-fg-muted text-[10px] cursor-pointer border-none hover:bg-error hover:text-user-fg transition-all flex-shrink-0"
                     onClick={() => onCancelQueue(entry.id)}
                     title="Remove from queue"
                     aria-label="Remove from queue"

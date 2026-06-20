@@ -62,7 +62,7 @@ export function PlanStepView({
 
   return (
     <div
-      className={`plan-step flex flex-col gap-1 px-2 py-1 rounded-[3px] bg-[var(--bg-primary)] border-l-2${step.status === "pending" ? " border-l-[var(--fg-muted)]" : step.status === "assigned" ? " border-l-[var(--accent)]" : step.status === "in_progress" ? " border-l-[#4fc3f7]" : step.status === "completed" ? " border-l-[var(--success)]" : step.status === "failed" ? " border-l-[var(--error)]" : step.status === "skipped" ? " border-l-[var(--fg-muted)] opacity-50" : " border-l-transparent"}`}
+      className={`plan-step flex flex-col gap-1 px-2 py-1 rounded-[3px] bg-bg-primary border-l-2${step.status === "pending" ? " border-l-[var(--fg-muted)]" : step.status === "assigned" ? " border-l-[var(--accent)]" : step.status === "in_progress" ? " border-l-[#4fc3f7]" : step.status === "completed" ? " border-l-[var(--success)]" : step.status === "failed" ? " border-l-[var(--error)]" : step.status === "skipped" ? " border-l-[var(--fg-muted)] opacity-50" : " border-l-transparent"}`}
     >
       <div className="flex items-center gap-1.5">
         <Icon
@@ -70,14 +70,14 @@ export function PlanStepView({
           size="sm"
           style={{ color: STATUS_COLOR[step.status] }}
         />
-        <span className="text-[10px] text-[var(--fg-muted)] font-mono flex-shrink-0 w-5">
+        <span className="text-[10px] text-fg-muted font-mono flex-shrink-0 w-5">
           {index + 1}.
         </span>
 
         {editing ? (
           <div className="flex items-center gap-1 flex-1">
             <input
-              className="flex-1 px-1.5 py-0.5 border border-[var(--accent)] rounded-[3px] bg-[var(--bg-input)] text-[var(--fg-primary)] text-[11px] outline-none"
+              className="flex-1 px-1.5 py-0.5 border border-accent rounded-[3px] bg-bg-input text-fg-primary text-[11px] outline-none"
               value={editText}
               onChange={(e) => setEditText(e.target.value)}
               autoFocus
@@ -87,14 +87,14 @@ export function PlanStepView({
               }}
             />
             <button
-              className="inline-flex items-center justify-center w-5 h-5 p-0 border-none rounded-[3px] bg-transparent text-[var(--fg-muted)] cursor-pointer hover:bg-[var(--success)] hover:text-[var(--user-fg)]"
+              className="inline-flex items-center justify-center w-5 h-5 p-0 border-none rounded-[3px] bg-transparent text-fg-muted cursor-pointer hover:bg-success hover:text-user-fg"
               onClick={handleCommitEdit}
               type="button"
             >
               <Icon name="check" size="sm" />
             </button>
             <button
-              className="inline-flex items-center justify-center w-5 h-5 p-0 border-none rounded-[3px] bg-transparent text-[var(--fg-muted)] cursor-pointer hover:bg-[var(--error)] hover:text-[var(--user-fg)]"
+              className="inline-flex items-center justify-center w-5 h-5 p-0 border-none rounded-[3px] bg-transparent text-fg-muted cursor-pointer hover:bg-error hover:text-user-fg"
               onClick={handleCancelEdit}
               type="button"
             >
@@ -102,28 +102,28 @@ export function PlanStepView({
             </button>
           </div>
         ) : (
-          <span className="flex-1 text-[11px] text-[var(--fg-primary)]">
+          <span className="flex-1 text-[11px] text-fg-primary">
             {step.description}
           </span>
         )}
       </div>
 
       {step.assignedTo && (
-        <div className="flex items-center gap-1 text-[10px] text-[var(--fg-muted)] pl-6">
+        <div className="flex items-center gap-1 text-[10px] text-fg-muted pl-6">
           <Icon name="person" size="sm" />
           <span>{step.assignedTo.agentId}</span>
         </div>
       )}
 
       {step.toolCall && (
-        <div className="flex items-center gap-1 text-[10px] text-[var(--fg-muted)] pl-6">
+        <div className="flex items-center gap-1 text-[10px] text-fg-muted pl-6">
           <Icon name="tools" size="sm" />
           <span>{step.toolCall.title}</span>
         </div>
       )}
 
       {step.error && (
-        <div className="flex items-center gap-1 text-[10px] text-[var(--error)] pl-6">
+        <div className="flex items-center gap-1 text-[10px] text-error pl-6">
           <Icon name="circle-filled" size="sm" />
           <span>{step.error}</span>
         </div>
@@ -139,7 +139,7 @@ export function PlanStepView({
       {canModify && !editing && (
         <div className="flex items-center gap-1 pl-6">
           <button
-            className="inline-flex items-center gap-[3px] px-1.5 py-px border border-[var(--border)] rounded-[3px] bg-transparent text-[var(--fg-muted)] text-[10px] cursor-pointer transition-colors duration-150 hover:bg-[var(--accent-hover)] hover:text-[var(--fg-primary)]"
+            className="inline-flex items-center gap-[3px] px-1.5 py-px border border-border rounded-[3px] bg-transparent text-fg-muted text-[10px] cursor-pointer transition-colors duration-150 hover:bg-accent-hover hover:text-fg-primary"
             onClick={handleStartEdit}
             type="button"
           >
@@ -148,7 +148,7 @@ export function PlanStepView({
           </button>
           {onStartAddAfter && (
             <button
-              className="inline-flex items-center gap-[3px] px-1.5 py-px border border-[var(--border)] rounded-[3px] bg-transparent text-[var(--fg-muted)] text-[10px] cursor-pointer transition-colors duration-150 hover:bg-[var(--accent-hover)] hover:text-[var(--fg-primary)]"
+              className="inline-flex items-center gap-[3px] px-1.5 py-px border border-border rounded-[3px] bg-transparent text-fg-muted text-[10px] cursor-pointer transition-colors duration-150 hover:bg-accent-hover hover:text-fg-primary"
               onClick={onStartAddAfter}
               type="button"
             >
@@ -158,7 +158,7 @@ export function PlanStepView({
           )}
           {onRemove && (
             <button
-              className="inline-flex items-center gap-[3px] px-1.5 py-px border border-[var(--border)] rounded-[3px] bg-transparent text-[var(--fg-muted)] text-[10px] cursor-pointer transition-colors duration-150 hover:bg-[var(--error)] hover:text-[var(--user-fg)]"
+              className="inline-flex items-center gap-[3px] px-1.5 py-px border border-border rounded-[3px] bg-transparent text-fg-muted text-[10px] cursor-pointer transition-colors duration-150 hover:bg-error hover:text-user-fg"
               onClick={onRemove}
               type="button"
             >
@@ -172,7 +172,7 @@ export function PlanStepView({
       {step.status === "failed" && onReplan && (
         <div className="flex items-center gap-1 pl-6">
           <button
-            className="inline-flex items-center gap-[3px] px-1.5 py-px border border-[var(--border)] rounded-[3px] bg-transparent text-[var(--fg-muted)] text-[10px] cursor-pointer transition-colors duration-150 hover:bg-[var(--accent-hover)] hover:text-[var(--fg-primary)]"
+            className="inline-flex items-center gap-[3px] px-1.5 py-px border border-border rounded-[3px] bg-transparent text-fg-muted text-[10px] cursor-pointer transition-colors duration-150 hover:bg-accent-hover hover:text-fg-primary"
             onClick={onReplan}
             type="button"
           >

@@ -165,7 +165,7 @@ export function SessionOverviewCard({
 
   return (
     <div
-      className={`session-overview-card${isExpanded ? " session-overview-card-expanded" : ""}${isActive ? " bg-[color-mix(in_srgb,var(--accent)_12%,transparent)]" : ""}${isSelected ? " border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]" : ""}`}
+      className={`session-overview-card${isExpanded ? " session-overview-card-expanded" : ""}${isActive ? " bg-[color-mix(in_srgb,var(--accent)_12%,transparent)]" : ""}${isSelected ? " border-accent bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]" : ""}`}
       data-status={
         liveItem.status === "idle" && effectiveOutcome
           ? effectiveOutcome
@@ -220,7 +220,7 @@ export function SessionOverviewCard({
 
       {/* Footer: timestamp + unread badge (bottom-right) */}
       <div className="flex items-center justify-between mt-1 pt-1 border-t border-[color-mix(in_srgb,var(--border)_30%,transparent)]">
-        <span className="text-[9px] text-[var(--fg-muted)] font-[var(--font-mono)]">
+        <span className="text-[9px] text-fg-muted font-[var(--font-mono)]">
           {new Date(
             liveItem.lastResponseAt ?? liveItem.createdAt
           ).toLocaleTimeString()}
@@ -230,7 +230,7 @@ export function SessionOverviewCard({
           <UnreadBadge
             count={unreadCount}
             hidden={isActive}
-            className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-[8px] bg-[var(--accent)] text-[var(--user-fg)] text-[9px] font-bold leading-none shadow-[0_1px_3px_rgba(0,0,0,0.35)] pointer-events-none shrink-0 ml-1"
+            className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-[8px] bg-accent text-user-fg text-[9px] font-bold leading-none shadow-[0_1px_3px_rgba(0,0,0,0.35)] pointer-events-none shrink-0 ml-1"
           />
         </div>
       </div>

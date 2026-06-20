@@ -285,27 +285,27 @@ export function SessionHistoryPanel({
   );
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-[var(--bg-primary)] text-[var(--fg-primary)] text-xs">
+    <div className="flex flex-col h-screen overflow-hidden bg-bg-primary text-fg-primary text-xs">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border)] shrink-0">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
         <h3 className="text-[13px] font-semibold m-0">Session History</h3>
         <div className="flex items-center gap-1">
           <button
-            className="px-2 py-[3px] border border-[var(--border)] rounded bg-[var(--bg-input)] text-[var(--fg-primary)] text-[11px] cursor-pointer transition-colors duration-150 whitespace-nowrap"
+            className="px-2 py-[3px] border border-border rounded bg-bg-input text-fg-primary text-[11px] cursor-pointer transition-colors duration-150 whitespace-nowrap"
             onClick={handleExportJson}
             title="Export as JSON"
           >
             <Icon name="desktop-download" size="sm" /> JSON
           </button>
           <button
-            className="px-2 py-[3px] border border-[var(--border)] rounded bg-[var(--bg-input)] text-[var(--fg-primary)] text-[11px] cursor-pointer transition-colors duration-150 whitespace-nowrap"
+            className="px-2 py-[3px] border border-border rounded bg-bg-input text-fg-primary text-[11px] cursor-pointer transition-colors duration-150 whitespace-nowrap"
             onClick={handleExportMarkdown}
             title="Export as Markdown"
           >
             <Icon name="file" size="sm" /> MD
           </button>
           <button
-            className="flex items-center justify-center w-6 h-6 p-0 border-none rounded bg-transparent text-[var(--fg-secondary)] text-base cursor-pointer transition-colors duration-150 hover:bg-[var(--error)] hover:text-[var(--user-fg)]"
+            className="flex items-center justify-center w-6 h-6 p-0 border-none rounded bg-transparent text-fg-secondary text-base cursor-pointer transition-colors duration-150 hover:bg-error hover:text-user-fg"
             onClick={onClose}
             title="Close"
           >
@@ -333,7 +333,7 @@ export function SessionHistoryPanel({
       />
 
       {/* Stats + Archive toggle */}
-      <div className="flex items-center gap-2.5 px-2.5 py-1 border-b border-[var(--border)] text-[10px] text-[var(--fg-muted)] shrink-0">
+      <div className="flex items-center gap-2.5 px-2.5 py-1 border-b border-border text-[10px] text-fg-muted shrink-0">
         <span>{stats?.totalSessions ?? 0} sessions</span>
         <span>{stats?.totalMessages ?? 0} messages</span>
         {stats?.oldestSession && (
@@ -365,7 +365,7 @@ export function SessionHistoryPanel({
 
       {/* Results */}
       {paged.length === 0 ? (
-        <div className="flex items-center justify-center p-8 text-xs text-[var(--fg-muted)]">
+        <div className="flex items-center justify-center p-8 text-xs text-fg-muted">
           {query ? "No matching sessions found." : "No session history yet."}
         </div>
       ) : (
@@ -380,34 +380,34 @@ export function SessionHistoryPanel({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 px-2.5 py-1.5 border-t border-[var(--border)] shrink-0">
+        <div className="flex items-center justify-center gap-2 px-2.5 py-1.5 border-t border-border shrink-0">
           <button
-            className="flex items-center justify-center w-7 h-6 p-0 border border-[var(--border)] rounded bg-[var(--bg-input)] text-[var(--fg-primary)] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--accent-hover)]"
+            className="flex items-center justify-center w-7 h-6 p-0 border border-border rounded bg-bg-input text-fg-primary cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-accent-hover"
             disabled={page <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             ←
           </button>
-          <span className="text-[11px] text-[var(--fg-muted)] font-[var(--font-mono)]">
+          <span className="text-[11px] text-fg-muted font-[var(--font-mono)]">
             {page} / {totalPages}
           </span>
           <button
-            className="flex items-center justify-center w-7 h-6 p-0 border border-[var(--border)] rounded bg-[var(--bg-input)] text-[var(--fg-primary)] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--accent-hover)]"
+            className="flex items-center justify-center w-7 h-6 p-0 border border-border rounded bg-bg-input text-fg-primary cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-accent-hover"
             disabled={page >= totalPages}
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
           >
             →
           </button>
-          <span className="text-[10px] text-[var(--fg-muted)] opacity-60">
+          <span className="text-[10px] text-fg-muted opacity-60">
             {sorted.length} sessions total
           </span>
         </div>
       )}
 
       {/* Footer */}
-      <div className="flex items-center justify-between px-2.5 py-1 border-t border-[var(--border)] shrink-0">
+      <div className="flex items-center justify-between px-2.5 py-1 border-t border-border shrink-0">
         <div className="flex gap-1">
-          <button className="px-2 py-[3px] border border-[var(--border)] rounded bg-[var(--bg-input)] text-[var(--fg-primary)] text-[11px] cursor-pointer transition-colors duration-150 whitespace-nowrap" onClick={handleCleanup}>
+          <button className="px-2 py-[3px] border border-border rounded bg-bg-input text-fg-primary text-[11px] cursor-pointer transition-colors duration-150 whitespace-nowrap" onClick={handleCleanup}>
             Cleanup old
           </button>
         </div>

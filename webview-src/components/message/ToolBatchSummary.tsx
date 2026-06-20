@@ -68,7 +68,7 @@ function ErrorsGroup({
       {errors.map((call) => (
         <div
           key={call.id}
-          className="tool-batch-item flex items-center gap-1 px-[3px] py-[1px] text-[9px] font-mono text-[var(--fg-secondary)] rounded-[2px] hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]"
+          className="tool-batch-item flex items-center gap-1 px-[3px] py-[1px] text-[9px] font-mono text-fg-secondary rounded-[2px] hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]"
         >
           <ToolCallCard {...call} />
         </div>
@@ -95,7 +95,7 @@ export function ToolBatchSummary({
   if (calls.length === 1) {
     return (
       <div
-        className={`tool-batch-item flex items-center gap-1 px-[3px] py-[1px] text-[9px] font-mono text-[var(--fg-secondary)] rounded-[2px] hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)] ${appearClass}`}
+        className={`tool-batch-item flex items-center gap-1 px-[3px] py-[1px] text-[9px] font-mono text-fg-secondary rounded-[2px] hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)] ${appearClass}`}
       >
         <ToolCallCard {...calls[0]} />
       </div>
@@ -111,7 +111,7 @@ export function ToolBatchSummary({
         className={`tool-batch${expanded ? " tool-batch-expanded" : ""} tool-call-${status} ${appearClass} mt-[2px] rounded overflow-hidden text-[10px] bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]`}
       >
         <button
-          className="tool-batch-header flex items-center gap-[3px] px-[6px] w-fit max-w-full border-none bg-transparent text-[var(--fg-primary)] font-[var(--font-ui)] text-[10px] cursor-pointer text-left transition-colors duration-150 hover:bg-[var(--accent-hover)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-[-1px]"
+          className="tool-batch-header flex items-center gap-[3px] px-[6px] w-fit max-w-full border-none bg-transparent text-fg-primary font-[var(--font-ui)] text-[10px] cursor-pointer text-left transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]"
           onClick={() => setExpanded(!expanded)}
           aria-expanded={expanded}
         >
@@ -124,30 +124,30 @@ export function ToolBatchSummary({
           <span className="text-xs flex-shrink-0">
             <StatusIcon status={status} variant="tool" />
           </span>
-          <span className="font-semibold text-[9px] text-[var(--fg-secondary)] whitespace-nowrap flex-shrink-0 px-[3px] py-[1px] rounded bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]">
+          <span className="font-semibold text-[9px] text-fg-secondary whitespace-nowrap flex-shrink-0 px-[3px] py-[1px] rounded bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]">
             {totalOps} ops
           </span>
-          <span className="text-[var(--fg-secondary)] font-mono text-[10px] whitespace-nowrap">
+          <span className="text-fg-secondary font-mono text-[10px] whitespace-nowrap">
             {kindSummary.map((item) => (
               <span
                 key={item.kind}
-                className="inline-flex items-center gap-[2px] font-mono text-[9px] text-[var(--fg-secondary)] whitespace-nowrap mr-[3px] px-[3px] py-[1px] rounded bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]"
+                className="inline-flex items-center gap-[2px] font-mono text-[9px] text-fg-secondary whitespace-nowrap mr-[3px] px-[3px] py-[1px] rounded bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]"
               >
                 <Icon
                   name={item.icon}
                   size="sm"
                   className="inline-flex items-center flex-shrink-0 opacity-80"
                 />
-                <span className="uppercase font-semibold text-[9px] text-[var(--fg-secondary)]">
+                <span className="uppercase font-semibold text-[9px] text-fg-secondary">
                   {item.abbr}
                 </span>
-                <span className="font-semibold text-[var(--fg-muted)] text-[9px]">
+                <span className="font-semibold text-fg-muted text-[9px]">
                   ×{item.count}
                 </span>
               </span>
             ))}
           </span>
-          <span className="font-mono text-[9px] text-[var(--fg-muted)] whitespace-nowrap flex-shrink-0">
+          <span className="font-mono text-[9px] text-fg-muted whitespace-nowrap flex-shrink-0">
             {formatDuration(totalMs)}
           </span>
         </button>
@@ -158,7 +158,7 @@ export function ToolBatchSummary({
               {calls.map((call) => (
                 <div
                   key={call.id}
-                  className="tool-batch-item flex items-center gap-1 px-[3px] py-[1px] text-[9px] font-mono text-[var(--fg-secondary)] rounded-[2px] hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]"
+                  className="tool-batch-item flex items-center gap-1 px-[3px] py-[1px] text-[9px] font-mono text-fg-secondary rounded-[2px] hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]"
                 >
                   <ToolCallCard {...call} />
                 </div>
@@ -182,7 +182,7 @@ export function ToolBatchSummary({
     >
       {/* Top-level chevron toggles entire batch */}
       <button
-        className="tool-batch-header flex items-center gap-[3px] px-[6px] w-fit max-w-full border-none bg-transparent text-[var(--fg-primary)] font-[var(--font-ui)] text-[10px] cursor-pointer text-left transition-colors duration-150 hover:bg-[var(--accent-hover)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-[-1px]"
+        className="tool-batch-header flex items-center gap-[3px] px-[6px] w-fit max-w-full border-none bg-transparent text-fg-primary font-[var(--font-ui)] text-[10px] cursor-pointer text-left transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]"
         onClick={() => setAllExpanded(!allExpanded)}
         aria-expanded={allExpanded}
       >
@@ -195,30 +195,30 @@ export function ToolBatchSummary({
         <span className="text-xs flex-shrink-0">
           <StatusIcon status={status} variant="tool" />
         </span>
-        <span className="font-semibold text-[9px] text-[var(--fg-secondary)] whitespace-nowrap flex-shrink-0 px-[3px] py-[1px] rounded bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]">
+        <span className="font-semibold text-[9px] text-fg-secondary whitespace-nowrap flex-shrink-0 px-[3px] py-[1px] rounded bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]">
           {totalOps} ops
         </span>
-        <span className="text-[var(--fg-secondary)] font-mono text-[10px] whitespace-nowrap">
+        <span className="text-fg-secondary font-mono text-[10px] whitespace-nowrap">
           {kindSummary.map((item) => (
             <span
               key={item.kind}
-              className="inline-flex items-center gap-[2px] font-mono text-[9px] text-[var(--fg-secondary)] whitespace-nowrap mr-[3px] px-[3px] py-[1px] rounded bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]"
+              className="inline-flex items-center gap-[2px] font-mono text-[9px] text-fg-secondary whitespace-nowrap mr-[3px] px-[3px] py-[1px] rounded bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]"
             >
               <Icon
                 name={item.icon}
                 size="sm"
                 className="inline-flex items-center flex-shrink-0 opacity-80"
               />
-              <span className="uppercase font-semibold text-[9px] text-[var(--fg-secondary)]">
+              <span className="uppercase font-semibold text-[9px] text-fg-secondary">
                 {item.abbr}
               </span>
-              <span className="font-semibold text-[var(--fg-muted)] text-[9px]">
+              <span className="font-semibold text-fg-muted text-[9px]">
                 ×{item.count}
               </span>
             </span>
           ))}
         </span>
-        <span className="font-mono text-[9px] text-[var(--fg-muted)] whitespace-nowrap flex-shrink-0">
+        <span className="font-mono text-[9px] text-fg-muted whitespace-nowrap flex-shrink-0">
           {formatDuration(totalMs)}
         </span>
       </button>

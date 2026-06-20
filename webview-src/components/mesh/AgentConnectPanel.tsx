@@ -163,12 +163,12 @@ export default function AgentConnectPanel({ onClose }: AgentConnectPanelProps) {
   // Render
   // ------------------------------------------------------------------
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-[var(--bg-primary)] text-[var(--fg-primary)] text-xs">
+    <div className="flex flex-col h-screen overflow-hidden bg-bg-primary text-fg-primary text-xs">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border)] shrink-0">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
         <h3 className="m-0 text-[13px] font-semibold">Agent Connections</h3>
         <button
-          className="flex items-center justify-center w-6 h-6 p-0 border-none rounded bg-transparent text-[var(--fg-secondary)] text-base cursor-pointer transition-colors duration-150 hover:bg-[var(--error)] hover:text-[var(--user-fg)]"
+          className="flex items-center justify-center w-6 h-6 p-0 border-none rounded bg-transparent text-fg-secondary text-base cursor-pointer transition-colors duration-150 hover:bg-error hover:text-user-fg"
           onClick={onClose}
           title="Close"
         >
@@ -179,14 +179,14 @@ export default function AgentConnectPanel({ onClose }: AgentConnectPanelProps) {
       {/* Agent list */}
       <div className="flex-1 overflow-y-auto min-h-0">
         {agents.length === 0 ? (
-          <div className="flex items-center justify-center p-8 text-[var(--fg-muted)] text-xs">
+          <div className="flex items-center justify-center p-8 text-fg-muted text-xs">
             No agents configured yet.
           </div>
         ) : (
           agents.map((agent) => (
             <div
               key={agent.agentId}
-              className="flex flex-col border-b border-[var(--border)] p-3 gap-2"
+              className="flex flex-col border-b border-border p-3 gap-2"
             >
               <div className="flex items-center gap-2">
                 {/* Left: status + info */}
@@ -198,24 +198,24 @@ export default function AgentConnectPanel({ onClose }: AgentConnectPanelProps) {
                   {getStatusIcon(agent.state)}
                 </span>
                 <div className="flex flex-col min-w-0 flex-1">
-                  <span className="text-[var(--fg-primary)] text-xs font-semibold truncate">
+                  <span className="text-fg-primary text-xs font-semibold truncate">
                     {agent.agentId}
                   </span>
-                  <span className="text-[var(--fg-muted)] text-[11px] font-mono truncate">
+                  <span className="text-fg-muted text-[11px] font-mono truncate">
                     {agent.command}
                   </span>
                 </div>
 
                 {/* Right: session count + actions */}
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-[var(--fg-muted)] text-[10px]">
+                  <span className="text-fg-muted text-[10px]">
                     {agent.sessionCount}{" "}
                     {agent.sessionCount === 1 ? "session" : "sessions"}
                   </span>
 
                   {canConnect(agent.state) && (
                     <button
-                      className="px-2 py-0.5 border border-[var(--accent)] rounded bg-[var(--accent)] text-[var(--user-fg)] text-[11px] cursor-pointer whitespace-nowrap hover:bg-[color-mix(in_srgb,var(--accent)_80%,white)]"
+                      className="px-2 py-0.5 border border-accent rounded bg-accent text-user-fg text-[11px] cursor-pointer whitespace-nowrap hover:bg-[color-mix(in_srgb,var(--accent)_80%,white)]"
                       onClick={() => handleConnect(agent.agentId)}
                       title="Connect"
                     >
@@ -225,7 +225,7 @@ export default function AgentConnectPanel({ onClose }: AgentConnectPanelProps) {
 
                   {canDisconnect(agent.state) && (
                     <button
-                      className="px-2 py-0.5 border border-[var(--border)] rounded bg-[var(--bg-input)] text-[var(--fg-primary)] text-[11px] cursor-pointer whitespace-nowrap hover:bg-[var(--accent-hover)]"
+                      className="px-2 py-0.5 border border-border rounded bg-bg-input text-fg-primary text-[11px] cursor-pointer whitespace-nowrap hover:bg-accent-hover"
                       onClick={() => handleDisconnect(agent.agentId)}
                       title="Disconnect"
                     >
@@ -234,7 +234,7 @@ export default function AgentConnectPanel({ onClose }: AgentConnectPanelProps) {
                   )}
 
                   <button
-                    className="inline-flex items-center justify-center w-5 h-5 p-0 border border-transparent rounded bg-transparent text-[var(--fg-muted)] text-xs cursor-pointer transition-colors duration-150 hover:bg-[color-mix(in_srgb,var(--error)_15%,transparent)] hover:text-[var(--error)]"
+                    className="inline-flex items-center justify-center w-5 h-5 p-0 border border-transparent rounded bg-transparent text-fg-muted text-xs cursor-pointer transition-colors duration-150 hover:bg-[color-mix(in_srgb,var(--error)_15%,transparent)] hover:text-error"
                     onClick={() => handleRemoveAgent(agent.agentId)}
                     title="Remove agent"
                   >
@@ -244,7 +244,7 @@ export default function AgentConnectPanel({ onClose }: AgentConnectPanelProps) {
               </div>
 
               {agent.lastError && (
-                <div className="text-[11px] text-[var(--error)] bg-[color-mix(in_srgb,var(--error)_10%,transparent)] border-l-2 border-l-[var(--error)] rounded p-1.5">
+                <div className="text-[11px] text-error bg-[color-mix(in_srgb,var(--error)_10%,transparent)] border-l-2 border-l-[var(--error)] rounded p-1.5">
                   {agent.lastError}
                 </div>
               )}
@@ -254,34 +254,34 @@ export default function AgentConnectPanel({ onClose }: AgentConnectPanelProps) {
       </div>
 
       {/* Add Agent form */}
-      <div className="border-t border-[var(--border)] p-3 shrink-0">
-        <div className="text-[11px] font-semibold text-[var(--fg-secondary)] mb-2">
+      <div className="border-t border-border p-3 shrink-0">
+        <div className="text-[11px] font-semibold text-fg-secondary mb-2">
           Add Agent
         </div>
         <div className="flex flex-col gap-2">
           <input
             type="text"
-            className="w-full px-2 py-1 border border-[var(--border)] rounded bg-[var(--bg-input)] text-[var(--fg-primary)] text-xs outline-none focus:border-[var(--accent)]"
+            className="w-full px-2 py-1 border border-border rounded bg-bg-input text-fg-primary text-xs outline-none focus:border-accent"
             placeholder="Agent name"
             value={newAgentId}
             onChange={(e) => setNewAgentId(e.target.value)}
           />
           <input
             type="text"
-            className="w-full px-2 py-1 border border-[var(--border)] rounded bg-[var(--bg-input)] text-[var(--fg-primary)] text-xs outline-none focus:border-[var(--accent)]"
+            className="w-full px-2 py-1 border border-border rounded bg-bg-input text-fg-primary text-xs outline-none focus:border-accent"
             placeholder="Command (e.g. npx)"
             value={newCommand}
             onChange={(e) => setNewCommand(e.target.value)}
           />
           <input
             type="text"
-            className="w-full px-2 py-1 border border-[var(--border)] rounded bg-[var(--bg-input)] text-[var(--fg-primary)] text-xs outline-none focus:border-[var(--accent)]"
+            className="w-full px-2 py-1 border border-border rounded bg-bg-input text-fg-primary text-xs outline-none focus:border-accent"
             placeholder="Arguments (space-separated, optional)"
             value={newArgs}
             onChange={(e) => setNewArgs(e.target.value)}
           />
           <button
-            className="self-start px-3 py-1 border border-[var(--accent)] rounded bg-[var(--accent)] text-[var(--user-fg)] text-xs cursor-pointer hover:bg-[color-mix(in_srgb,var(--accent)_80%,white)] disabled:opacity-40 disabled:cursor-not-allowed"
+            className="self-start px-3 py-1 border border-accent rounded bg-accent text-user-fg text-xs cursor-pointer hover:bg-[color-mix(in_srgb,var(--accent)_80%,white)] disabled:opacity-40 disabled:cursor-not-allowed"
             onClick={handleAddAgent}
             disabled={!newAgentId.trim() || !newCommand.trim()}
           >

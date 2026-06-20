@@ -76,7 +76,7 @@ export function SessionSwitcher({
   return (
     <div className="relative shrink-0" ref={ref}>
       <button
-        className="flex items-center gap-[6px] px-[10px] py-1 border border-[var(--border)] rounded bg-[var(--bg-input)] text-[var(--fg-primary)] cursor-pointer text-xs whitespace-nowrap max-w-[220px]"
+        className="flex items-center gap-[6px] px-[10px] py-1 border border-border rounded bg-bg-input text-fg-primary cursor-pointer text-xs whitespace-nowrap max-w-[220px]"
         onClick={toggle}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
@@ -87,29 +87,29 @@ export function SessionSwitcher({
             <>
               <StatusIcon status={activeTab.status ?? "idle"} />
               <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{activeTab.title}</span>
-              <span className="text-[10px] text-[var(--fg-muted)] shrink-0">{activeTab.agentId}</span>
+              <span className="text-[10px] text-fg-muted shrink-0">{activeTab.agentId}</span>
             </>
           ) : (
-            <span className="text-[var(--fg-muted)]">No session</span>
+            <span className="text-fg-muted">No session</span>
           )}
         </span>
         <span className={`switcher-arrow ${isOpen ? "open" : ""}`}>▾</span>
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 min-w-[240px] mt-1 bg-[var(--bg-secondary)] border border-[var(--border)] rounded shadow-[0_4px_12px_rgba(0,0,0,0.3)] z-[100] max-h-[300px] overflow-y-auto" role="listbox">
+        <div className="absolute top-full left-0 right-0 min-w-[240px] mt-1 bg-bg-secondary border border-border rounded shadow-[0_4px_12px_rgba(0,0,0,0.3)] z-[100] max-h-[300px] overflow-y-auto" role="listbox">
           {grouped.size === 0 ? (
-            <div className="p-3 text-[var(--fg-muted)] text-center text-xs">No sessions available</div>
+            <div className="p-3 text-fg-muted text-center text-xs">No sessions available</div>
           ) : (
             Array.from(grouped.entries()).map(([agentId, sessions]) => (
               <div key={agentId} className="py-1">
-                <div className="px-3 py-1 text-[11px] font-semibold text-[var(--fg-muted)] uppercase tracking-[0.5px]">{agentId}</div>
+                <div className="px-3 py-1 text-[11px] font-semibold text-fg-muted uppercase tracking-[0.5px]">{agentId}</div>
                 {sessions.map((s) => {
                   const isActive = s.sessionId === activeSessionId;
                   return (
                     <div
                       key={`${s.agentId}:${s.sessionId}`}
-                      className={`${isActive ? "bg-[var(--bg-input)]" : ""}`}
+                      className={`${isActive ? "bg-bg-input" : ""}`}
                       role="option"
                       aria-selected={isActive}
                       onClick={() => handleSelect(s.sessionId, s.agentId)}
@@ -120,7 +120,7 @@ export function SessionSwitcher({
                       </span>
                       {(unreadMap.get(`${s.agentId}:${s.sessionId}`) ?? 0) >
                         0 && (
-                        <span className="shrink-0 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-[8px] bg-[var(--accent)] text-[var(--user-fg)] text-[10px] font-semibold leading-none">
+                        <span className="shrink-0 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-[8px] bg-accent text-user-fg text-[10px] font-semibold leading-none">
                           {unreadMap.get(`${s.agentId}:${s.sessionId}`) ?? 0}
                         </span>
                       )}

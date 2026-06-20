@@ -64,11 +64,11 @@ export function SessionOverviewToolbar({
   const isActive = filter !== "all";
 
   return (
-    <div className="flex items-center gap-1.5 px-2 py-1 border-b border-[var(--border)] shrink-0 min-h-[32px]">
-      <span className="text-[10px] font-semibold text-[var(--fg-secondary)]">
+    <div className="flex items-center gap-1.5 px-2 py-1 border-b border-border shrink-0 min-h-[32px]">
+      <span className="text-[10px] font-semibold text-fg-secondary">
         Sessions
       </span>
-      <span className="text-[9px] text-[var(--fg-muted)] font-[var(--font-mono)]">
+      <span className="text-[9px] text-fg-muted font-[var(--font-mono)]">
         {sessionCount}
       </span>
 
@@ -77,8 +77,8 @@ export function SessionOverviewToolbar({
           <button
             className={`inline-flex items-center gap-[3px] text-[10px] px-[5px] py-px border rounded-[3px] bg-transparent cursor-pointer transition-colors duration-150 ${
               isActive
-                ? "border-[var(--accent)] text-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]"
-                : "border-transparent text-[var(--fg-muted)] hover:bg-[var(--accent-hover)] hover:text-[var(--fg-secondary)]"
+                ? "border-accent text-accent bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]"
+                : "border-transparent text-fg-muted hover:bg-accent-hover hover:text-fg-secondary"
             }`}
             onClick={() => setOpen(!open)}
             aria-haspopup="listbox"
@@ -97,29 +97,29 @@ export function SessionOverviewToolbar({
 
           {open && (
             <div
-              className="absolute top-full right-0 mt-[3px] min-w-[130px] bg-[var(--bg-secondary)] border border-[var(--border)] rounded shadow-[0_4px_16px_rgba(0,0,0,0.35)] z-50"
+              className="absolute top-full right-0 mt-[3px] min-w-[130px] bg-bg-secondary border border-border rounded shadow-[0_4px_16px_rgba(0,0,0,0.35)] z-50"
               role="listbox"
               aria-label="Session status filter"
             >
               <button
-                className={`flex items-center gap-[5px] w-full px-2.5 py-1 border-none bg-transparent text-[var(--fg-primary)] text-xs cursor-pointer hover:bg-[var(--accent-hover)] ${
-                  filter === "all" ? "bg-[var(--accent-hover)]" : ""
+                className={`flex items-center gap-[5px] w-full px-2.5 py-1 border-none bg-transparent text-fg-primary text-xs cursor-pointer hover:bg-accent-hover ${
+                  filter === "all" ? "bg-accent-hover" : ""
                 }`}
                 role="option"
                 aria-selected={filter === "all"}
                 onClick={() => onFilterChange("all")}
               >
-                <span className="shrink-0 w-3 text-[10px] text-center text-[var(--accent)]">
+                <span className="shrink-0 w-3 text-[10px] text-center text-accent">
                   {filter === "all" ? "✓" : ""}
                 </span>
                 {FILTER_LABELS.all}
               </button>
-              <div className="h-px mx-1.5 my-0.5 bg-[var(--border)]" />
+              <div className="h-px mx-1.5 my-0.5 bg-border" />
               {FILTERABLE_STATUSES.map((s) => (
                 <button
                   key={s}
-                  className={`flex items-center gap-[5px] w-full px-2.5 py-1 border-none bg-transparent text-[var(--fg-primary)] text-xs cursor-pointer hover:bg-[var(--accent-hover)] ${
-                    filter === s ? "bg-[var(--accent-hover)]" : ""
+                  className={`flex items-center gap-[5px] w-full px-2.5 py-1 border-none bg-transparent text-fg-primary text-xs cursor-pointer hover:bg-accent-hover ${
+                    filter === s ? "bg-accent-hover" : ""
                   }`}
                   role="option"
                   aria-selected={filter === s}
@@ -131,7 +131,7 @@ export function SessionOverviewToolbar({
                       backgroundColor: STATUS_DOT_COLORS[s] ?? "var(--fg-muted)",
                     }}
                   />
-                  <span className="shrink-0 w-3 text-[10px] text-center text-[var(--accent)]">
+                  <span className="shrink-0 w-3 text-[10px] text-center text-accent">
                     {filter === s ? "✓" : ""}
                   </span>
                   {FILTER_LABELS[s]}
@@ -143,7 +143,7 @@ export function SessionOverviewToolbar({
 
         {onNewSession && (
           <button
-            className="shrink-0 flex items-center justify-center w-7 h-full min-h-[28px] border border-[var(--border)] rounded bg-[var(--bg-input)] text-[var(--fg-secondary)] text-base cursor-pointer transition-colors duration-150 hover:bg-[var(--accent-hover)] hover:text-[var(--fg-primary)]"
+            className="shrink-0 flex items-center justify-center w-7 h-full min-h-[28px] border border-border rounded bg-bg-input text-fg-secondary text-base cursor-pointer transition-colors duration-150 hover:bg-accent-hover hover:text-fg-primary"
             onClick={onNewSession}
             title="New session"
           >

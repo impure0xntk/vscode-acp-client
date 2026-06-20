@@ -50,15 +50,15 @@ export function Chip({
     : "";
 
   const catBorderMap: Record<string, string> = {
-    session: "border-l-[var(--accent)]",
-    runtime: "border-l-[var(--warning)]",
-    metrics: "border-l-[var(--success)]",
-    workspace: "border-l-[var(--fg-muted)]",
+    session: "border-l-accent",
+    runtime: "border-l-warning",
+    metrics: "border-l-success",
+    workspace: "border-l-fg-muted",
   };
   const turnBorderMap: Record<string, string> = {
-    completed: "border-l-[var(--success)]",
-    error: "border-l-[var(--error)]",
-    cancelled: "border-l-[var(--fg-muted)]",
+    completed: "border-l-success",
+    error: "border-l-error",
+    cancelled: "border-l-fg-muted",
     running: "border-l-[#4fc3f7]",
   };
   const ctxBorderMap: Record<string, string> = {
@@ -76,11 +76,11 @@ export function Chip({
   const turnBorderCls = turnBorderMap[turnKey ?? ""] ?? "";
   const ctxBorderCls = ctxBorderMap[meta.contextColor ?? ""] ?? "";
   const ctxValueCls = ctxValueColorMap[meta.contextColor ?? ""] ?? "";
-  const criticalAnim = meta.contextColor === "critical" ? "animate-[context-pulse_1.2s_ease-in-out_infinite]" : "";
+  const criticalAnim = meta.contextColor === "critical" ? "animate-context-pulse" : "";
 
   return (
     <span
-      className={`inline-flex items-center gap-[3px] px-[6px] py-[1px] rounded-[3px] bg-[var(--accent-hover)] text-[10.5px] leading-[1.4] whitespace-nowrap shrink-0 border-l-2 ${borderCls} ${turnBorderCls} ${ctxBorderCls} ${criticalAnim}${onClick ? " cursor-pointer hover:bg-[var(--bg-input)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-1" : ""} ${className}`.trim()}
+      className={`inline-flex items-center gap-0.75 px-1.5 py-0.5 rounded-[3px] bg-accent-hover text-[10.5px] leading-[1.4] whitespace-nowrap shrink-0 border-l-2 ${borderCls} ${turnBorderCls} ${ctxBorderCls} ${criticalAnim}${onClick ? " cursor-pointer hover:bg-bg-input focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1" : ""} ${className}`.trim()}
       title={`${meta.label}: ${meta.value}`}
       aria-label={`${meta.label}: ${meta.value}`}
       onClick={onClick}
@@ -115,7 +115,7 @@ export function Chip({
           <span className={`font-mono ${ctxValueCls}`}>{meta.value}</span>
         </span>
       ) : (
-        <span className="font-mono text-[var(--fg-secondary)]">{meta.value}</span>
+        <span className="font-mono text-fg-secondary">{meta.value}</span>
       )}
     </span>
   );

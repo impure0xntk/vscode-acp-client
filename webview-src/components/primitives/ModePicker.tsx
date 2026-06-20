@@ -58,13 +58,6 @@ export interface ModePickerProps {
 
 // ── Component ───────────────────────────────────────────────────────
 
-/**
- * ModePicker — /mesh subcommand picker.
- *
- * Triggered when user types /mesh and shows available mesh commands.
- * After selecting a mode, the Composer text is updated to /mesh <mode>
- * and additional pickers (agent selection, etc.) may be shown.
- */
 export function ModePicker({
   query,
   onSelect,
@@ -124,10 +117,10 @@ export function ModePicker({
   }, [selectedIndex]);
 
   return (
-    <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded-md shadow-[0_4px_16px_rgba(0,0,0,0.35)] overflow-hidden mb-1 max-h-[220px] flex flex-col">
+    <div className="bg-bg-secondary border border-border rounded-md shadow-popup overflow-hidden mb-1 max-h-[220px] flex flex-col">
       <div className="overflow-y-auto flex-1 min-h-0" ref={listRef}>
         {filtered.length === 0 && (
-          <div className="p-3 text-center text-[var(--fg-muted)] text-xs">
+          <div className="p-3 text-center text-fg-muted text-xs">
             No matching mesh commands
           </div>
         )}
@@ -136,8 +129,8 @@ export function ModePicker({
             key={mode.mode}
             className={`flex items-center gap-1.5 px-2.5 py-[5px] cursor-pointer text-xs transition-colors duration-100 min-w-0 ${
               i === selectedIndex
-                ? "bg-[var(--accent-hover)]"
-                : "hover:bg-[var(--accent-hover)]"
+                ? "bg-accent-hover"
+                : "hover:bg-accent-hover"
             }`}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => onSelect(mode.mode)}
@@ -148,10 +141,10 @@ export function ModePicker({
               className="shrink-0 text-[13px] w-[18px] text-center"
               size="sm"
             />
-            <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[var(--fg-primary)]">
+            <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-fg-primary">
               {mode.label}
             </span>
-            <span className="shrink-0 text-[10px] text-[var(--fg-muted)] max-w-[40%] overflow-hidden text-ellipsis whitespace-nowrap">
+            <span className="shrink-0 text-[10px] text-fg-muted max-w-[40%] overflow-hidden text-ellipsis whitespace-nowrap">
               {mode.description}
             </span>
           </div>

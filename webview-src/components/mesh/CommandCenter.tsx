@@ -69,14 +69,14 @@ export const CommandCenter = React.memo(function CommandCenter({
     >
       {/* Toggle bar */}
       <button
-        className="flex items-center gap-1.5 w-full py-1.5 px-3.5 border-none bg-transparent text-[var(--fg-muted)] text-[11px] cursor-pointer text-left hover:bg-[var(--accent-hover)] hover:text-[var(--fg-primary)] focus-visible:outline focus-visible:outline-[var(--accent)] focus-visible:outline-offset-[-1px]"
+        className="flex items-center gap-1.5 w-full py-1.5 px-3.5 border-none bg-transparent text-fg-muted text-[11px] cursor-pointer text-left hover:bg-accent-hover hover:text-fg-primary focus-visible:outline focus-visible:outline-accent focus-visible:outline-offset-[-1px]"
         onClick={toggleCommandCenter}
         type="button"
         aria-expanded={commandCenterExpanded}
       >
         <Icon name="layout-grid" size="sm" />
         <span className="flex-1 font-medium">Command Center</span>
-        <span className="inline-flex items-center justify-center min-w-[14px] h-[14px] px-1 rounded-[7px] bg-[var(--bg-input)] text-[var(--fg-secondary)] text-[10px] font-semibold font-mono">{entries.length}</span>
+        <span className="inline-flex items-center justify-center min-w-[14px] h-[14px] px-1 rounded-[7px] bg-bg-input text-fg-secondary text-[10px] font-semibold font-mono">{entries.length}</span>
         <Icon
           name="chevron-down"
           size="sm"
@@ -109,7 +109,7 @@ export const CommandCenter = React.memo(function CommandCenter({
 
             {/* Summary row */}
             <div className="flex items-center justify-end py-0.5 px-1 border-t border-[color-mix(in_srgb,var(--border)_40%,transparent)]">
-              <span className="inline-flex items-center gap-1 text-[10px] text-[var(--fg-muted)] font-mono">
+              <span className="inline-flex items-center gap-1 text-[10px] text-fg-muted font-mono">
                 <Icon name="brain" size="sm" />
                 Total: {fmt(totalTokens)}
               </span>

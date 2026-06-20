@@ -172,19 +172,19 @@ export const SessionHeader = React.memo(function SessionHeader({
 
     return (
       <div
-        className={`flex items-center gap-1 shrink-0 bg-[var(--bg-secondary)] border-b border-[var(--border)] min-h-[32px] relative${isActive ? " unified-section-header--active" : ""}`}
+        className={`flex items-center gap-1 shrink-0 bg-bg-secondary border-b border-border min-h-[32px] relative${isActive ? " unified-section-header--active" : ""}`}
         data-color={color}
         data-is-horizontal={isHorizontal ? "true" : undefined}
         style={{ "--section-accent-color": color } as React.CSSProperties}
       >
         <div className="absolute top-0 bottom-0 left-0 w-[3px] bg-[var(--section-accent-color,var(--accent))] shrink-0 z-10 pointer-events-none" aria-hidden="true" />
         <button
-          className="flex-1 flex items-center gap-2 px-2 py-1 border-none bg-transparent text-[var(--fg-primary)] text-[11px] cursor-pointer text-left min-w-0 transition-colors duration-150"
+          className="flex-1 flex items-center gap-2 px-2 py-1 border-none bg-transparent text-fg-primary text-[11px] cursor-pointer text-left min-w-0 transition-colors duration-150"
           onClick={handleClick}
           type="button"
           style={{ backgroundColor: activeBg }}
         >
-          <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-mono text-[var(--fg-primary)]">
+          <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-mono text-fg-primary">
             {agentId}: {title}
           </span>
           <span className="inline-flex items-center gap-[3px] ml-auto shrink-0 overflow-hidden">
@@ -201,7 +201,7 @@ export const SessionHeader = React.memo(function SessionHeader({
           />
           {onTogglePin && (
             <button
-              className={`inline-flex items-center justify-center w-6 h-6 p-0 border-none rounded bg-transparent text-[var(--fg-muted)] cursor-pointer hover:bg-[var(--accent-hover)] hover:text-[var(--fg-primary)]${isPinned ? " text-[var(--accent)]" : ""}`}
+              className={`inline-flex items-center justify-center w-6 h-6 p-0 border-none rounded bg-transparent text-fg-muted cursor-pointer hover:bg-accent-hover hover:text-fg-primary${isPinned ? " text-accent" : ""}`}
               onClick={handleTogglePin}
               type="button"
               title={isPinned ? "Unpin session" : "Pin session"}
@@ -211,7 +211,7 @@ export const SessionHeader = React.memo(function SessionHeader({
           )}
           {onClose && (
             <button
-              className="inline-flex items-center justify-center w-6 h-6 p-0 border-none rounded bg-transparent text-[var(--fg-muted)] cursor-pointer hover:bg-[color-mix(in_srgb,var(--error)_15%,transparent)] hover:text-[var(--error)]"
+              className="inline-flex items-center justify-center w-6 h-6 p-0 border-none rounded bg-transparent text-fg-muted cursor-pointer hover:bg-[color-mix(in_srgb,var(--error)_15%,transparent)] hover:text-error"
               onClick={handleClose}
               type="button"
               title="Close session"
@@ -249,7 +249,7 @@ export const SessionHeader = React.memo(function SessionHeader({
     return (
       <div className="relative inline-flex items-center">
         <button
-          className={`inline-flex items-center justify-center w-6 h-6 p-0 border-none rounded bg-transparent text-[var(--fg-muted)] cursor-pointer transition-transform duration-150 hover:bg-[var(--accent-hover)] hover:text-[var(--fg-primary)]${open ? " rotate-180" : ""}`}
+          className={`inline-flex items-center justify-center w-6 h-6 p-0 border-none rounded bg-transparent text-fg-muted cursor-pointer transition-transform duration-150 hover:bg-accent-hover hover:text-fg-primary${open ? " rotate-180" : ""}`}
           onClick={handleToggle}
           type="button"
           title={open ? "Hide details" : "Show details"}
@@ -267,7 +267,7 @@ export const SessionHeader = React.memo(function SessionHeader({
           </svg>
         </button>
         <div
-          className={`absolute top-full right-0 z-50 mt-1 bg-[var(--bg-secondary)] border border-[var(--border)] rounded shadow-[0_4px_16px_rgba(0,0,0,0.3)] min-w-[260px] transition-all duration-150${open ? " opacity-100 visible translate-y-0" : " opacity-0 invisible -translate-y-1"}`}
+          className={`absolute top-full right-0 z-50 mt-1 bg-bg-secondary border border-border rounded shadow-[0_4px_16px_rgba(0,0,0,0.3)] min-w-[260px] transition-all duration-150${open ? " opacity-100 visible translate-y-0" : " opacity-0 invisible -translate-y-1"}`}
         >
           <div className="px-[10px] py-2 max-h-[300px] overflow-y-auto">
             <SectionDetailsPanel
@@ -306,7 +306,7 @@ export const SessionHeader = React.memo(function SessionHeader({
       : undefined;
 
     return (
-      <div className="flex items-center justify-between px-[14px] py-0.5 min-h-[26px] bg-[var(--bg-secondary)] border-b border-[var(--border)] shrink-0">
+      <div className="flex items-center justify-between px-[14px] py-0.5 min-h-[26px] bg-bg-secondary border-b border-border shrink-0">
         <div className="flex items-center gap-1.5 shrink-0">
           {overviewOnLeft && overviewButton}
           <UserJumpNav
@@ -320,21 +320,21 @@ export const SessionHeader = React.memo(function SessionHeader({
               agentId={agentId}
               agentName={agentName}
               agentColor={agentColor}
-              className="text-[11px] font-medium font-mono max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap text-[var(--fg-muted)]"
+              className="text-[11px] font-medium font-mono max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap text-fg-muted"
             />
           )}
           {cwdLabel && (
-            <span className="inline-flex items-center gap-1 font-mono text-[11px] text-[var(--fg-muted)] max-w-[160px] overflow-hidden text-ellipsis whitespace-nowrap" title={displayCwd ?? ""}>
+            <span className="inline-flex items-center gap-1 font-mono text-[11px] text-fg-muted max-w-[160px] overflow-hidden text-ellipsis whitespace-nowrap" title={displayCwd ?? ""}>
               <Icon name="folder-opened" size="sm" /> {cwdLabel}
             </span>
           )}
           {model && status === "running" && (
-            <span className="font-mono text-[11px] text-[var(--fg-muted)] max-w-[100px] overflow-hidden text-ellipsis whitespace-nowrap" title={model}>
+            <span className="font-mono text-[11px] text-fg-muted max-w-[100px] overflow-hidden text-ellipsis whitespace-nowrap" title={model}>
               {model}
             </span>
           )}
           {mode && status === "running" && (
-            <span className="font-mono text-[11px] text-[var(--fg-muted)] max-w-[60px] overflow-hidden text-ellipsis whitespace-nowrap" title={mode}>
+            <span className="font-mono text-[11px] text-fg-muted max-w-[60px] overflow-hidden text-ellipsis whitespace-nowrap" title={mode}>
               {mode}
             </span>
           )}

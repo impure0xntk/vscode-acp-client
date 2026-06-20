@@ -52,11 +52,11 @@ export function CompareBar({
   );
 
   return (
-    <div className="border-b border-[var(--border)] px-2.5 py-2 bg-[var(--bg-secondary)] shrink-0">
-      <div className="flex items-center justify-between mb-1.5 text-[11px] text-[var(--fg-secondary)]">
+    <div className="border-b border-border px-2.5 py-2 bg-bg-secondary shrink-0">
+      <div className="flex items-center justify-between mb-1.5 text-[11px] text-fg-secondary">
         <span>Comparing {sessions.length} sessions</span>
         <button
-          className="px-1.5 py-0.5 text-[10px] border border-[var(--border)] rounded bg-[var(--bg-input)] text-[var(--fg-primary)] cursor-pointer whitespace-nowrap hover:bg-[var(--accent-hover)]"
+          className="px-1.5 py-0.5 text-[10px] border border-border rounded bg-bg-input text-fg-primary cursor-pointer whitespace-nowrap hover:bg-accent-hover"
           onClick={onClear}
         >
           Clear
@@ -65,11 +65,11 @@ export function CompareBar({
       <table className="w-full border-collapse text-[11px]">
         <thead>
           <tr>
-            <th className="text-left p-1.5 text-[10px] text-[var(--fg-muted)] font-semibold uppercase tracking-wider border-b border-[var(--border)]">Title</th>
-            <th className="text-left p-1.5 text-[10px] text-[var(--fg-muted)] font-semibold uppercase tracking-wider border-b border-[var(--border)]">Agent</th>
-            <th className="text-left p-1.5 text-[10px] text-[var(--fg-muted)] font-semibold uppercase tracking-wider border-b border-[var(--border)]">Messages</th>
-            <th className="text-left p-1.5 text-[10px] text-[var(--fg-muted)] font-semibold uppercase tracking-wider border-b border-[var(--border)]">Tokens</th>
-            <th className="text-left p-1.5 text-[10px] text-[var(--fg-muted)] font-semibold uppercase tracking-wider border-b border-[var(--border)]">Context %</th>
+            <th className="text-left p-1.5 text-[10px] text-fg-muted font-semibold uppercase tracking-wider border-b border-border">Title</th>
+            <th className="text-left p-1.5 text-[10px] text-fg-muted font-semibold uppercase tracking-wider border-b border-border">Agent</th>
+            <th className="text-left p-1.5 text-[10px] text-fg-muted font-semibold uppercase tracking-wider border-b border-border">Messages</th>
+            <th className="text-left p-1.5 text-[10px] text-fg-muted font-semibold uppercase tracking-wider border-b border-border">Tokens</th>
+            <th className="text-left p-1.5 text-[10px] text-fg-muted font-semibold uppercase tracking-wider border-b border-border">Context %</th>
           </tr>
         </thead>
         <tbody>
@@ -80,30 +80,30 @@ export function CompareBar({
             );
             return (
               <tr key={s.sessionId}>
-                <td title={s.title} className="p-1.5 text-[var(--fg-primary)] max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap font-medium">
+                <td title={s.title} className="p-1.5 text-fg-primary max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap font-medium">
                   {s.title}
                 </td>
-                <td className="p-1.5 text-[var(--fg-primary)]">{s.agentId}</td>
+                <td className="p-1.5 text-fg-primary">{s.agentId}</td>
                 <td>
                   <div className="flex items-center gap-1 relative pl-[60px] min-w-0">
                     <div
-                      className="absolute left-0 top-1/2 -translate-y-1/2 h-1.5 rounded-[3px] bg-[var(--accent)] opacity-50 max-w-[56px]"
+                      className="absolute left-0 top-1/2 -translate-y-1/2 h-1.5 rounded-[3px] bg-accent opacity-50 max-w-[56px]"
                       style={{
                         width: `${maxMsgs > 0 ? (s.messageCount / maxMsgs) * 100 : 0}%`,
                       }}
                     />
-                    <span className="text-[10px] text-[var(--fg-muted)] shrink-0 z-10">{s.messageCount}</span>
+                    <span className="text-[10px] text-fg-muted shrink-0 z-10">{s.messageCount}</span>
                   </div>
                 </td>
                 <td>
                   <div className="flex items-center gap-1 relative pl-[60px] min-w-0">
                     <div
-                      className="absolute left-0 top-1/2 -translate-y-1/2 h-1.5 rounded-[3px] bg-[var(--accent)] opacity-50 max-w-[56px]"
+                      className="absolute left-0 top-1/2 -translate-y-1/2 h-1.5 rounded-[3px] bg-accent opacity-50 max-w-[56px]"
                       style={{
                         width: `${maxTokens > 0 ? (s.tokenUsage.total / maxTokens) * 100 : 0}%`,
                       }}
                     />
-                    <span className="text-[10px] text-[var(--fg-muted)] shrink-0 z-10">{formatTokens(s.tokenUsage.total)}</span>
+                    <span className="text-[10px] text-fg-muted shrink-0 z-10">{formatTokens(s.tokenUsage.total)}</span>
                   </div>
                 </td>
                 <td>
@@ -120,7 +120,7 @@ export function CompareBar({
                               : "var(--vscode-terminal-ansiGreen)",
                       }}
                     />
-                    <span className="text-[10px] text-[var(--fg-muted)] shrink-0 z-10">{ctxPct}%</span>
+                    <span className="text-[10px] text-fg-muted shrink-0 z-10">{ctxPct}%</span>
                   </div>
                 </td>
               </tr>

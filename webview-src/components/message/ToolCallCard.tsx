@@ -114,7 +114,7 @@ export function DiffView({
                 ? "bg-[rgba(241,76,76,0.15)] text-[#f48771]"
                 : l.prefix === "+"
                   ? "bg-[rgba(78,201,176,0.15)] text-[#89d185]"
-                  : "text-[var(--fg-secondary)]"
+                  : "text-fg-secondary"
             }
           >
             <span className="inline-block w-4 select-none">{l.prefix}</span>
@@ -180,7 +180,7 @@ export function ToolCallCard({
       className={`mt-0 max-w-full ml-3 mr-3 rounded overflow-hidden text-[10px] bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]${status === "completed" ? " tool-call-completed" : ""}`}
     >
       <button
-        className={`tool-call-header-clickable flex items-center gap-[3px] px-[6px] font-mono text-[10px] text-[var(--fg-muted)] w-fit max-w-full border-none bg-transparent text-left transition-colors duration-150 hover:bg-[var(--accent-hover)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-[-1px]${hasBody ? " cursor-pointer" : ""}`}
+        className={`tool-call-header-clickable flex items-center gap-[3px] px-[6px] font-mono text-[10px] text-fg-muted w-fit max-w-full border-none bg-transparent text-left transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]${hasBody ? " cursor-pointer" : ""}`}
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
       >
@@ -193,10 +193,10 @@ export function ToolCallCard({
           size="sm"
           className="inline-flex items-center flex-shrink-0 opacity-80"
         />
-        <span className="text-[var(--fg-muted)] text-[9px] uppercase flex-shrink-0 whitespace-nowrap opacity-70">
+        <span className="text-fg-muted text-[9px] uppercase flex-shrink-0 whitespace-nowrap opacity-70">
           {(kind ?? "TOOL_CALL").toUpperCase()}
         </span>
-        <span className="font-normal text-[10px] text-[var(--fg-muted)] flex-shrink-0 whitespace-nowrap">
+        <span className="font-normal text-[10px] text-fg-muted flex-shrink-0 whitespace-nowrap">
           {title}
         </span>
         {hasLocations &&
@@ -229,7 +229,7 @@ export function ToolCallCard({
               </span>
             );
           })}
-        <span className="font-mono text-[9px] text-[var(--fg-muted)] whitespace-nowrap flex-shrink-0">
+        <span className="font-mono text-[9px] text-fg-muted whitespace-nowrap flex-shrink-0">
           {formatDuration(durationMs ?? 0)}
         </span>
       </button>
@@ -240,7 +240,7 @@ export function ToolCallCard({
             {hasDiff && (
               <div className="mt-[1px] first:mt-0">
                 <button
-                  className="inline-flex items-center gap-[3px] px-[3px] py-[1px] rounded border-none bg-transparent text-[var(--fg-muted)] text-[10px] font-[var(--font-ui)] cursor-pointer leading-[1.3] transition-colors duration-150 hover:text-[var(--fg-secondary)] hover:bg-[var(--accent-hover)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-1"
+                  className="inline-flex items-center gap-[3px] px-[3px] py-[1px] rounded border-none bg-transparent text-fg-muted text-[10px] font-[var(--font-ui)] cursor-pointer leading-[1.3] transition-colors duration-150 hover:text-fg-secondary hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1"
                   onClick={(e) => {
                     e.stopPropagation();
                     setDiffOpen(!diffOpen);
@@ -262,7 +262,7 @@ export function ToolCallCard({
             {hasInput && (
               <div className="mt-[1px] first:mt-0">
                 <button
-                  className="inline-flex items-center gap-[3px] px-[3px] py-[1px] rounded border-none bg-transparent text-[var(--fg-muted)] text-[10px] font-[var(--font-ui)] cursor-pointer leading-[1.3] transition-colors duration-150 hover:text-[var(--fg-secondary)] hover:bg-[var(--accent-hover)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-1"
+                  className="inline-flex items-center gap-[3px] px-[3px] py-[1px] rounded border-none bg-transparent text-fg-muted text-[10px] font-[var(--font-ui)] cursor-pointer leading-[1.3] transition-colors duration-150 hover:text-fg-secondary hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1"
                   onClick={(e) => {
                     e.stopPropagation();
                     setInputOpen(!inputOpen);
@@ -276,7 +276,7 @@ export function ToolCallCard({
                   className={`grid transition-[grid-template-rows] duration-200 ease-out ${inputOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
                 >
                   <div className="overflow-hidden">
-                    <pre className="font-mono text-[10px] whitespace-pre-wrap text-[var(--fg-secondary)] mt-[1px] mb-0 p-[3px_6px] bg-[color-mix(in_srgb,var(--bg-primary)_50%,transparent)] rounded">
+                    <pre className="font-mono text-[10px] whitespace-pre-wrap text-fg-secondary mt-[1px] mb-0 p-[3px_6px] bg-[color-mix(in_srgb,var(--bg-primary)_50%,transparent)] rounded">
                       <code>
                         {typeof input === "string"
                           ? tryFormatJson(input)
@@ -290,7 +290,7 @@ export function ToolCallCard({
             {hasOutput && (
               <div className="mt-[1px] first:mt-0">
                 <button
-                  className="inline-flex items-center gap-[3px] px-[3px] py-[1px] rounded border-none bg-transparent text-[var(--fg-muted)] text-[10px] font-[var(--font-ui)] cursor-pointer leading-[1.3] transition-colors duration-150 hover:text-[var(--fg-secondary)] hover:bg-[var(--accent-hover)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-1"
+                  className="inline-flex items-center gap-[3px] px-[3px] py-[1px] rounded border-none bg-transparent text-fg-muted text-[10px] font-[var(--font-ui)] cursor-pointer leading-[1.3] transition-colors duration-150 hover:text-fg-secondary hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1"
                   onClick={(e) => {
                     e.stopPropagation();
                     setOutputOpen(!outputOpen);
@@ -304,7 +304,7 @@ export function ToolCallCard({
                   className={`grid transition-[grid-template-rows] duration-200 ease-out ${outputOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
                 >
                   <div className="overflow-hidden">
-                    <pre className="font-mono text-[10px] whitespace-pre-wrap text-[var(--fg-secondary)] mt-[1px] mb-0 p-[3px_6px] bg-[color-mix(in_srgb,var(--bg-primary)_50%,transparent)] rounded">
+                    <pre className="font-mono text-[10px] whitespace-pre-wrap text-fg-secondary mt-[1px] mb-0 p-[3px_6px] bg-[color-mix(in_srgb,var(--bg-primary)_50%,transparent)] rounded">
                       <code>
                         {typeof output === "string"
                           ? tryFormatJson(output)

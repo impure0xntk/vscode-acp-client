@@ -100,7 +100,7 @@ export function IntermediateStepsBanner({
       aria-label="Intermediate steps"
     >
       <button
-        className="flex items-center gap-1.5 w-full px-0.5 py-1 border-none bg-transparent text-[var(--fg-muted)] text-[11px] font-[var(--font-ui)] cursor-pointer text-left transition-colors duration-150 hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)] hover:text-[var(--fg-secondary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-[-1px]"
+        className="flex items-center gap-1.5 w-full px-0.5 py-1 border-none bg-transparent text-fg-muted text-[11px] font-[var(--font-ui)] cursor-pointer text-left transition-colors duration-150 hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)] hover:text-fg-secondary focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]"
         onClick={toggle}
         aria-expanded={!isCollapsed}
         type="button"
@@ -121,7 +121,7 @@ export function IntermediateStepsBanner({
             : "Hide intermediate steps"}
         </span>
         {isCollapsed && (
-          <span className="flex-shrink-0 text-[10px] font-mono text-[var(--fg-muted)] opacity-70 ml-auto">
+          <span className="flex-shrink-0 text-[10px] font-mono text-fg-muted opacity-70 ml-auto">
             {duration}
           </span>
         )}
