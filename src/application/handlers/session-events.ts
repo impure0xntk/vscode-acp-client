@@ -182,12 +182,29 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
   let turnActiveOverviewTimer: ReturnType<typeof setTimeout> | null = null;
   orchestrator.on(
     "sessionTurnActiveChanged",
-    ({ agentId, sessionId }: { agentId: string; sessionId: string }) => {
+    ({
+      agentId,
+      sessionId,
+      stopReason,
+    }: {
+      agentId: string;
+      sessionId: string;
+      stopReason?: string;
+    }) => {
       const cp = getChatPanel();
       const info = orchestrator.getSessionInfo(agentId, sessionId);
       if (info) {
         cp?.pushSessionInfo(agentId, sessionId, info);
         cp?.pushTurnActive(agentId, sessionId, info.status === "running");
+      }
+      // Notify webview of turn completion with stopReason
+      if (stopReason) {
+        cp?.postMessage({
+          type: "session/turnEnded",
+          agentId,
+          sessionId,
+          stopReason,
+        });
       }
       // Debounce overview updates — rapid turnActive changes during a turn
       // can flood the webview with sessionOverview:state messages.
@@ -302,16 +319,23 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
       agentId,
       sessionId,
       title,
+      stopReason,
     }: {
       agentId: string;
       sessionId: string;
       title: string;
+      stopReason: import("@agentclientprotocol/sdk").StopReason;
     }) => {
       const cp = getChatPanel();
       const activeSessionId = orchestrator.getActiveSessionId(agentId);
       if (sessionId !== activeSessionId) {
         cp?.postMessage(
-          deps.presenter.buildSessionCompleted(sessionId, agentId, title)
+          deps.presenter.buildSessionCompleted(
+            sessionId,
+            agentId,
+            title,
+            stopReason
+          )
         );
       }
       // Push updated sessionInfo so UI derives new status from model

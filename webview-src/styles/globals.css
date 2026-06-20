@@ -949,6 +949,10 @@ body {
   padding: 4px 0 2px;
   position: relative;
   overflow: visible;
+}
+
+/* Appear animation only for newly added messages */
+.message--appear {
   animation: message-appear 0.25s ease-out both;
 }
 
@@ -963,9 +967,65 @@ body {
   }
 }
 
-/* Streaming messages: skip appear animation to avoid re-triggering on chunks */
-.message-list--streaming .message {
-  animation: none;
+/* Stagger for newly-added messages.
+   Each successive .message--appear gets 30ms more delay so items
+   cascade in one after another.  The :nth-last-child trick selects only
+   the last N children (where N = total - offset), i.e. the newly added
+   ones when they're appended at the end.  Since we don't know the count
+   upfront, a safe upper bound of 20 covers typical batch sizes. */
+.message-list[data-new-count] .message--appear:nth-last-child(1) {
+  animation-delay: 0ms;
+}
+.message-list[data-new-count] .message--appear:nth-last-child(2) {
+  animation-delay: 30ms;
+}
+.message-list[data-new-count] .message--appear:nth-last-child(3) {
+  animation-delay: 60ms;
+}
+.message-list[data-new-count] .message--appear:nth-last-child(4) {
+  animation-delay: 90ms;
+}
+.message-list[data-new-count] .message--appear:nth-last-child(5) {
+  animation-delay: 120ms;
+}
+.message-list[data-new-count] .message--appear:nth-last-child(6) {
+  animation-delay: 150ms;
+}
+.message-list[data-new-count] .message--appear:nth-last-child(7) {
+  animation-delay: 180ms;
+}
+.message-list[data-new-count] .message--appear:nth-last-child(8) {
+  animation-delay: 210ms;
+}
+.message-list[data-new-count] .message--appear:nth-last-child(9) {
+  animation-delay: 240ms;
+}
+.message-list[data-new-count] .message--appear:nth-last-child(10) {
+  animation-delay: 270ms;
+}
+.message-list[data-new-count] .message--appear:nth-last-child(n+11) {
+  animation-delay: 300ms;
+}
+
+/* Streaming messages: keep appear animation for newly added messages. */
+.message-list--streaming .message--appear {
+  animation: message-appear 0.25s ease-out both;
+}
+
+/* Tool batch appear animation */
+.tool-batch--appear {
+  animation: tool-batch-appear 0.25s ease-out both;
+}
+
+@keyframes tool-batch-appear {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ============================================================================
@@ -2045,6 +2105,132 @@ body {
 }
 
 /* ============================================================================
+   Composer Queue — queued messages above the input
+   ============================================================================ */
+
+.composer-queue {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 4px;
+  overflow: hidden;
+}
+
+.composer-queue-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.composer-queue-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--fg-secondary);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.composer-queue-clear-all {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 6px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 10px;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.composer-queue-clear-all:hover {
+  background: var(--error);
+  color: var(--user-fg);
+  border-color: var(--error);
+}
+
+.composer-queue-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.composer-queue-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 3px 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
+}
+
+.composer-queue-item:last-child {
+  border-bottom: none;
+}
+
+.composer-queue-item-content {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.composer-queue-item-text {
+  font-size: 11px;
+  color: var(--fg-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.composer-queue-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.composer-queue-item-send-now,
+.composer-queue-item-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 10px;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.composer-queue-item-send-now:hover {
+  background: var(--accent);
+  color: var(--user-fg);
+}
+
+.composer-queue-item-remove:hover {
+  background: var(--error);
+  color: var(--user-fg);
+}
+
+/* ============================================================================
      Composer — minimal input,
      no visible container
    ============================================================================ */
@@ -2919,6 +3105,46 @@ body {
   white-space: nowrap;
 }
 
+/* ── Context usage bar (inside picker item) ── */
+
+.picker-context-bar {
+  display: inline-flex;
+  flex-direction: column-reverse;
+  width: 3px;
+  height: 14px;
+  border-radius: 1.5px;
+  background: color-mix(in srgb, var(--fg-muted) 15%, transparent);
+  overflow: hidden;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+.picker-context-bar-fill {
+  width: 100%;
+  border-radius: 1.5px;
+  transition: height 0.3s ease, background 0.3s ease;
+}
+
+.picker-context-bar--ctx-normal .picker-context-bar-fill {
+  background: #4fc3f7;
+}
+
+.picker-context-bar--ctx-warning .picker-context-bar-fill {
+  background: #ffd54f;
+}
+
+.picker-context-bar--ctx-critical {
+  animation: picker-ctx-pulse 1.2s ease-in-out infinite;
+}
+.picker-context-bar--ctx-critical .picker-context-bar-fill {
+  background: #ef5350;
+}
+
+@keyframes picker-ctx-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 /* ============================================================================
    Context Bar — attachment chips above the composer input
    ============================================================================ */
@@ -3022,6 +3248,53 @@ body {
   color: var(-- user-fg);
 }
 
+
+/* ── Context chip vertical bar indicator ─────────────────────────────── */
+.context-chip-bar {
+  display: inline-flex;
+  flex-direction: column-reverse;
+  width: 3px;
+  height: 12px;
+  border-radius: 1.5px;
+  background: color-mix(in srgb, var(--fg-muted) 15%, transparent);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.context-chip-bar-fill {
+  width: 100%;
+  border-radius: 1.5px;
+  background: var(--fg-muted);
+  transition: height 0.3s ease, background 0.3s ease;
+}
+
+/* Context chip color states (border-left accent + bar fill color) */
+.context-chip--ctx-normal {
+  border-left: 2px solid #4fc3f7;
+}
+.context-chip--ctx-normal .context-chip-bar-fill {
+  background: #4fc3f7;
+}
+
+.context-chip--ctx-warning {
+  border-left: 2px solid #ffd54f;
+}
+.context-chip--ctx-warning .context-chip-bar-fill {
+  background: #ffd54f;
+}
+
+.context-chip--ctx-critical {
+  border-left: 2px solid #ef5350;
+  animation: context-chip-pulse 1.2s ease-in-out infinite;
+}
+.context-chip--ctx-critical .context-chip-bar-fill {
+  background: #ef5350;
+}
+
+@keyframes context-chip-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
 /* ============================================================================
    Completion Notification — toast for background session completion
    ============================================================================ */
@@ -7692,6 +7965,111 @@ body {
 }
 
 /* ============================================================================
+   Send Target Chip — @session picker target chip with status + context
+   ============================================================================ */
+
+.send-target-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Status-based left border accent (mirrors session-overview-card pattern) */
+.send-target-chip--running {
+  border-left: 2px solid #4fc3f7;
+}
+.send-target-chip--completed {
+  border-left: 2px solid var(--success);
+}
+.send-target-chip--error {
+  border-left: 2px solid var(--error);
+}
+.send-target-chip--cancelled {
+  border-left: 2px solid var(--fg-muted);
+}
+.send-target-chip--idle {
+  border-left: 2px solid transparent;
+}
+
+.send-target-chip-label {
+  color: var(--fg-primary);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.send-target-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: 1px;
+}
+
+.send-target-chip-remove:hover {
+  background: var(--error);
+  color: var(--user-fg);
+}
+
+/* ── Context usage bar (inside send-target-chip) ── */
+
+.send-target-context-bar {
+  display: inline-flex;
+  flex-direction: column-reverse;
+  width: 3px;
+  height: 14px;
+  border-radius: 1.5px;
+  background: color-mix(in srgb, var(--fg-muted) 15%, transparent);
+  overflow: hidden;
+  flex-shrink: 0;
+  margin-left: 2px;
+}
+
+.send-target-context-bar-fill {
+  width: 100%;
+  border-radius: 1.5px;
+  transition: height 0.3s ease, background 0.3s ease;
+}
+
+.send-target-context-bar--ctx-normal .send-target-context-bar-fill {
+  background: #4fc3f7;
+}
+
+.send-target-context-bar--ctx-warning .send-target-context-bar-fill {
+  background: #ffd54f;
+}
+
+.send-target-context-bar--ctx-critical {
+  animation: send-target-ctx-pulse 1.2s ease-in-out infinite;
+}
+.send-target-context-bar--ctx-critical .send-target-context-bar-fill {
+  background: #ef5350;
+}
+
+@keyframes send-target-ctx-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ============================================================================
    Team Create Dialog — modal overlay for creating mesh teams
    ============================================================================ */
 
@@ -8574,7 +8952,7 @@ body {
   align-items: center;
   gap: 6px;
   width: 100%;
-  padding: 4px 10px;
+  padding: 4px 2px;
   border: none;
   background: transparent;
   color: var(--fg-muted);
@@ -8619,21 +8997,19 @@ body {
   white-space: nowrap;
 }
 
-.intermediate-steps-summary {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.intermediate-steps-duration {
+  flex-shrink: 0;
   font-size: 10px;
+  font-family: var(--font-mono);
   color: var(--fg-muted);
   opacity: 0.7;
+  margin-left: auto;
 }
 
 /* ── Expanded body ── */
 
 .intermediate-steps-body {
-  padding: 2px 10px 6px;
+  padding: 2px 0 6px;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -8777,4 +9153,92 @@ body {
   white-space: nowrap;
   font-size: 10px;
   color: var(--fg-muted);
+}
+
+/* ============================================================================
+   Sticky User Message Bar — VS Code-style sticky scroll for user messages
+   Appears at top of chat container when user scrolls past a user message.
+   ============================================================================ */
+
+.sticky-user-message-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  flex-shrink: 0;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.sticky-user-message-bar:hover {
+  background: color-mix(in srgb, var(--accent-hover) 60%, var(--bg-secondary));
+}
+
+.sticky-user-message-bar:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.sticky-user-message-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.sticky-user-role {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--fg-secondary);
+}
+
+.sticky-user-time {
+  font-size: 10px;
+  color: var(--fg-muted);
+  opacity: 0.5;
+}
+
+.sticky-user-message-content {
+  font-size: 12px;
+  color: var(--fg-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.4;
+}
+
+.sticky-user-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.sticky-user-attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--fg-secondary);
+  font-size: 9px;
+  font-family: var(--font-mono);
+}
+
+.sticky-user-message-bar {
+  animation: sticky-user-bar-in 0.12s ease-out;
+}
+
+@keyframes sticky-user-bar-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

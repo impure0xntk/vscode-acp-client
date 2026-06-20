@@ -27,36 +27,27 @@ export interface IntermediateStepsBannerProps {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-function itemLabel(item: PipelineItem): string {
-  switch (item.type) {
-    case "chat": {
-      if (item.thinking) return "Thinking";
-      if (item.resolvedToolCalls && item.resolvedToolCalls.length > 0) {
-        const kinds = new Set(item.resolvedToolCalls.map((tc) => tc.kind));
-        return `${kinds.size > 1 ? "Tool calls" : (kinds.values().next().value ?? "Tool")} ×${item.resolvedToolCalls.length}`;
-      }
-      return "Message";
+function totalDurationMs(items: PipelineItem[]): number {
+  let minTs: number | undefined;
+  let maxTs: number | undefined;
+  for (const item of items) {
+    const ts = item.timestamp;
+    if (ts != null) {
+      if (minTs == null || ts < minTs) minTs = ts;
+      if (maxTs == null || ts > maxTs) maxTs = ts;
     }
-    case "compression":
-      return "Context compressed";
-    case "mode_change":
-      return "Mode changed";
-    case "error_notice":
-      return "Error";
-    case "custom":
-      return "System";
   }
+  if (minTs != null && maxTs != null) return maxTs - minTs;
+  return 0;
 }
 
-function buildSummary(items: PipelineItem[]): string {
-  const counts: Record<string, number> = {};
-  for (const item of items) {
-    const label = itemLabel(item);
-    counts[label] = (counts[label] ?? 0) + 1;
-  }
-  return Object.entries(counts)
-    .map(([label, count]) => `${count > 1 ? `${count}× ` : ""}${label}`)
-    .join(", ");
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  const s = ms / 1000;
+  if (s < 60) return `${s.toFixed(1)}s`;
+  const m = Math.floor(s / 60);
+  const rem = s - m * 60;
+  return `${m}m ${rem.toFixed(0)}s`;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -100,7 +91,7 @@ export function IntermediateStepsBanner({
 
   if (items.length === 0) return null;
 
-  const summary = buildSummary(items);
+  const duration = formatDuration(totalDurationMs(items));
 
   return (
     <div
@@ -126,7 +117,7 @@ export function IntermediateStepsBanner({
             : "Hide intermediate steps"}
         </span>
         {isCollapsed && (
-          <span className="intermediate-steps-summary">{summary}</span>
+          <span className="intermediate-steps-duration">{duration}</span>
         )}
       </button>
       {!isCollapsed && (
@@ -139,6 +130,7 @@ export function IntermediateStepsBanner({
               items={items}
               sessionId={sessionId}
               agentId={agentId}
+              isNew={true}
             />
           ))}
         </div>

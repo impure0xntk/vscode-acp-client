@@ -212,6 +212,7 @@ function toPipelineItem(
           isConsecutive,
           groupKey: gk,
           originalRole: msg.originalRole,
+          stopReason: msg.stopReason,
         } satisfies ChatDisplayItem,
         groupKey: gk,
       };

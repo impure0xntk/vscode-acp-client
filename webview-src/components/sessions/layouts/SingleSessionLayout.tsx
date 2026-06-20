@@ -8,9 +8,14 @@ import { useMessages } from "../../../hooks/useMessages";
 import { useSessionInfo } from "../../../hooks/useSessionInfo";
 import type {
   ContextAttachment,
+  QueuedPrompt,
   SendTarget,
   ChatMessage,
 } from "../../../types";
+import { getVsCodeApi } from "../../../lib/vscodeApi";
+import { getLogger } from "../../../lib/logger";
+
+const log = getLogger("SingleSessionLayout");
 
 export interface SingleSessionLayoutProps {
   activeKey: string | null;
@@ -63,17 +68,14 @@ export const SingleSessionLayout = React.memo(function SingleSessionLayout({
   >(undefined);
   const [localPending, setLocalPending] = useState(false);
 
-  // In single mode, prefer map values (set by UnifiedMode) over local state.
-  // The main send path (Composer → handleSendWithTurnTracking) sets maps,
-  // not local state.  Local state is only used as a fallback.
   const mapTurnStartedAt = turnStartedAtMap?.[activeKey ?? ""];
   const mapPending = pendingMap?.[activeKey ?? ""] ?? false;
   const turnStartedAt = mapTurnStartedAt ?? localTurnStartedAt;
   const pending = mapPending || localPending;
-  const setTurnStartedAt = (v: string | undefined) => {
+  const setTurnStartedAtFn = (v: string | undefined) => {
     setLocalTurnStartedAt(v);
   };
-  const setPending = (v: boolean) => {
+  const setPendingFn = (v: boolean) => {
     setLocalPending(v);
   };
 
@@ -84,6 +86,12 @@ export const SingleSessionLayout = React.memo(function SingleSessionLayout({
   const prevStreamingRef = useRef(isStreaming);
 
   const { isAtBottom, readUpToMessageId } = scrollState;
+
+  const activeSessionInfo = useSessionInfo(activeKey);
+  const promptQueue = useSessionStore((s) => s.promptQueue);
+  const sessionQueue = activeKey ? (promptQueue[activeKey] ?? []) : [];
+  const status = activeSessionInfo?.status ?? "idle";
+  const isTurnActive = status === "running";
 
   const handleScroll = useCallback(
     (metrics: {
@@ -159,13 +167,55 @@ export const SingleSessionLayout = React.memo(function SingleSessionLayout({
             attachments.length > 0 ? JSON.stringify(attachments) : undefined,
         });
       }
-      setTurnStartedAt(new Date().toISOString());
-      setPending(true);
+      setTurnStartedAtFn(new Date().toISOString());
+      setPendingFn(true);
       onSend(text, attachments, targets);
       forceScrollToBottomRef.current?.();
     },
     [onSend, activeKey, forceScrollToBottomRef]
   );
+
+  // Auto-consume queue: when a turn completes, send the next pending prompt
+  const prevStatusRef = useRef(status);
+  useEffect(() => {
+    const wasActive = prevStatusRef.current === "running";
+    const isNowIdle =
+      status === "completed" ||
+      status === "error" ||
+      status === "cancelled" ||
+      status === "idle";
+    prevStatusRef.current = status;
+
+    if (wasActive && isNowIdle && activeKey) {
+      const store = useSessionStore.getState();
+      const q = store.promptQueue[activeKey] ?? [];
+      const next = q.find((e) => e.status === "pending");
+      if (next) {
+        log.info("auto-consume queue", { promptId: next.id });
+        store.removeQueuedPrompt(activeKey, next.id);
+        const [agentId, sessionId] = activeKey.split(":");
+        useMessageStore.getState().appendMessage(activeKey, {
+          id: crypto.randomUUID(),
+          role: "user",
+          content: next.text,
+          timestamp: Date.now(),
+          agentId,
+          sessionId,
+          attachments:
+            "attachments" in next && (next as QueuedPrompt & { attachments?: ContextAttachment[] }).attachments?.length
+              ? (next as QueuedPrompt & { attachments?: ContextAttachment[] }).attachments
+              : undefined,
+        });
+        onSend(
+          next.text,
+          ("attachments" in next
+            ? (next as QueuedPrompt & { attachments?: ContextAttachment[] }).attachments
+            : undefined) ?? []
+        );
+        forceScrollToBottomRef.current?.();
+      }
+    }
+  }, [status, activeKey, onSend, forceScrollToBottomRef]);
 
   const handleScrollToBottomClick = useCallback(() => {
     if (unreadCount > 0 && firstUnreadId) {
@@ -175,19 +225,11 @@ export const SingleSessionLayout = React.memo(function SingleSessionLayout({
     }
   }, [unreadCount, firstUnreadId, scrollToUnreadRef, forceScrollToBottomRef]);
 
-  const activeSessionInfo = useSessionInfo(activeKey);
-  const promptQueue = useSessionStore((s) => s.promptQueue);
-  const sessionQueue = activeKey ? (promptQueue[activeKey] ?? []) : [];
-  const status = activeSessionInfo?.status;
-  const isTurnActive = status === "running";
-
   // Clear pending only after the agent has been running for at least
   // MIN_DISPLAY_MS milliseconds, so that "Sending…" has time to render.
   const pendingClearedRef = useRef(false);
   const prevPendingRef = useRef(false);
   useEffect(() => {
-    // Reset the cleared flag whenever pending transitions from false→true
-    // (i.e. a new message was sent) so the timer can fire again.
     if (pending && !prevPendingRef.current) {
       pendingClearedRef.current = false;
     }
@@ -196,7 +238,7 @@ export const SingleSessionLayout = React.memo(function SingleSessionLayout({
     if (isTurnActive && pending && !pendingClearedRef.current) {
       pendingClearedRef.current = true;
       const timer = setTimeout(() => {
-        setPending(false);
+        setPendingFn(false);
       }, 400);
       return () => clearTimeout(timer);
     }
@@ -207,20 +249,15 @@ export const SingleSessionLayout = React.memo(function SingleSessionLayout({
 
   useEffect(() => {
     if (!isTurnActive && !pending && turnStartedAt) {
-      setTurnStartedAt(undefined);
+      setTurnStartedAtFn(undefined);
     }
     if (!isTurnActive && pending) {
-      setPending(false);
-      setTurnStartedAt(undefined);
+      setPendingFn(false);
+      setTurnStartedAtFn(undefined);
     }
   }, [isTurnActive, pending, turnStartedAt]);
 
   // Clear pending when session status transitions to a terminal state
-  // (completed/done).  Without this, if session/completed arrives before
-  // session/streamEnd, isTurnActive flips to false but the 400ms timer
-  // in the effect above was never armed (isTurnActive was already false
-  // when pending became true, or the status skipped "running" entirely),
-  // leaving the "Sending…" indicator stuck.
   const isTerminal =
     status === "completed" ||
     (status as string) === "done" ||
@@ -228,14 +265,14 @@ export const SingleSessionLayout = React.memo(function SingleSessionLayout({
     status === "cancelled";
   useEffect(() => {
     if (isTerminal && pending) {
-      setPending(false);
-      setTurnStartedAt(undefined);
+      setPendingFn(false);
+      setTurnStartedAtFn(undefined);
     }
   }, [isTerminal, pending]);
 
   useEffect(() => {
-    setTurnStartedAt(undefined);
-    setPending(false);
+    setTurnStartedAtFn(undefined);
+    setPendingFn(false);
   }, [activeKey]);
 
   return (
@@ -278,7 +315,7 @@ export const SingleSessionLayout = React.memo(function SingleSessionLayout({
         onCancelQueue={(promptId) => {
           if (!activeKey) return;
           const [agentId, sessionId] = activeKey.split(":");
-          const vscode = (window as any).acquireVsCodeApi?.();
+          const vscode = getVsCodeApi();
           vscode?.postMessage({
             type: "queue:cancel",
             agentId,

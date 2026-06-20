@@ -9,6 +9,49 @@ import type { SuggestionItem, TriggerType, FileCandidate } from "../../types";
 import { Icon } from "../../lib/icons";
 import { StatusIcon } from "../primitives/StatusIcon";
 
+// ── Context chip helper ────────────────────────────────────────────
+
+function formatTokens(n: number): string {
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  return String(n);
+}
+
+function PickerContextBar({ item }: { item: SuggestionItem }): React.ReactElement | null {
+  const { tokenUsage, contextWindowMax } = item;
+  if (!tokenUsage) return null;
+
+  const pct =
+    contextWindowMax && contextWindowMax > 0
+      ? Math.round((tokenUsage.totalTokens / contextWindowMax) * 100)
+      : null;
+
+  const color =
+    pct !== null
+      ? pct >= 90
+        ? "ctx-critical"
+        : pct >= 70
+          ? "ctx-warning"
+          : "ctx-normal"
+      : "ctx-normal";
+
+  const fillHeight = pct !== null ? Math.max(10, Math.min(100, pct)) : 0;
+  const title = pct !== null
+    ? `${pct}% (${formatTokens(tokenUsage.totalTokens)} / ${formatTokens(contextWindowMax ?? 0)})`
+    : `${formatTokens(tokenUsage.totalTokens)} tokens used`;
+
+  return (
+    <span
+      className={`picker-context-bar picker-context-bar--${color}`}
+      title={title}
+    >
+      <span
+        className="picker-context-bar-fill"
+        style={{ height: `${fillHeight}%` }}
+      />
+    </span>
+  );
+}
+
 // Re-export for backward compatibility
 export type { FileCandidate };
 
@@ -47,8 +90,10 @@ export interface ContextPickerProps {
    * Composer calls this so ArrowUp/Down/Enter/Escape land here.
    */
   registerKeyHandler: (
-    handler: ((e: React.KeyboardEvent<HTMLTextAreaElement>) => void) | null
+    handler: ((e: ReactKeyboardEvent<HTMLTextAreaElement>) => void) | null
   ) => void;
+  /** Called when items are fetched; used to asynchronously enrich session previews */
+  onItemsFetched?: (items: SuggestionItem[], setItems: (items: SuggestionItem[]) => void) => void;
 }
 
 // ── Component ───────────────────────────────────────────────────────
@@ -63,6 +108,7 @@ export function ContextPicker({
   selectedIndex,
   onSelectedIndexChange,
   registerKeyHandler,
+  onItemsFetched,
 }: ContextPickerProps): React.ReactElement {
   const [items, setItems] = useState<SuggestionItem[]>([]);
   const listRef = useRef<HTMLDivElement>(null);
@@ -100,17 +146,23 @@ export function ContextPicker({
 
   // ── Fetch items (debounced) ─────────────────────────────────────
 
-  // Keep latest fetchItems in a ref so the effect deps stay stable
+  // Keep latest callbacks in refs so the effect deps stay stable
   const fetchItemsRef = useRef(fetchItems);
   fetchItemsRef.current = fetchItems;
+  const onItemsFetchedRef = useRef(onItemsFetched);
+  onItemsFetchedRef.current = onItemsFetched;
 
   useEffect(() => {
-    // Empty query on file/symbol triggers → skip debounce, fetch immediately
-    const delay = query.length === 0 && subTrigger !== undefined ? 0 : 150;
+    // Empty query on file/symbol/switch triggers → skip debounce, fetch immediately
+    const delay =
+      query.length === 0 && (subTrigger !== undefined || trigger === "@")
+        ? 0
+        : 150;
     const timer = setTimeout(() => {
       fetchItemsRef.current(trigger, query, subTrigger).then((results) => {
         setItems(results);
         onSelectedIndexChange(0);
+        onItemsFetchedRef.current?.(results, setItems);
       });
     }, delay);
     return () => clearTimeout(timer);
@@ -161,14 +213,7 @@ export function ContextPicker({
               onClick={() => onSelect(item)}
               onMouseEnter={() => onSelectedIndexChange(i)}
             >
-              {item.kind === "session" ? (
-                <span
-                  className="context-picker-session-dot"
-                  style={{
-                    backgroundColor: item.sessionColor ?? "var(--vscode-descriptionForeground)",
-                  }}
-                />
-              ) : item.icon ? (
+              {item.icon && item.kind !== "session" ? (
                 <Icon
                   name={item.icon}
                   className="context-picker-icon"
@@ -177,6 +222,9 @@ export function ContextPicker({
               ) : null}
               {item.kind === "session" && item.status ? (
                 <StatusIcon status={item.status} />
+              ) : null}
+              {item.kind === "session" ? (
+                <PickerContextBar item={item} />
               ) : null}
               <span className="context-picker-label">{item.label}</span>
               {item.detail && (

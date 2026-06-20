@@ -19,6 +19,7 @@ import { useMessageStore } from "../../../store/messageStore";
 import { selectMessageCount } from "../../../store/selectors";
 import type {
   ContextAttachment,
+  QueuedPrompt,
   SendTarget,
   FileCandidate,
   SuggestionItem,
@@ -49,6 +50,8 @@ export interface ClassicModeProps {
   scrollToMessageRef?: React.MutableRefObject<
     ((id: string) => void) | undefined
   >;
+  onCancelQueuedPrompt?: (agentId: string, sessionId: string, promptId: string) => void;
+  onClearQueue?: (agentId: string, sessionId: string) => void;
 }
 
 export const ClassicMode = React.memo(function ClassicMode({
@@ -67,6 +70,8 @@ export const ClassicMode = React.memo(function ClassicMode({
   resolveSymbol,
   availableCommands,
   scrollToMessageRef,
+  onCancelQueuedPrompt,
+  onClearQueue,
 }: ClassicModeProps): React.ReactElement {
   const {
     tabOrder,
@@ -135,6 +140,12 @@ export const ClassicMode = React.memo(function ClassicMode({
     : undefined;
   const displayLastTurnOutcome = activeSessionInfo?.lastTurnOutcome ?? null;
   const displayLastResponseAt = activeSessionInfo?.lastResponseAt ?? null;
+
+  // Queue for the active session
+  const promptQueue = useSessionStore((s) => s.promptQueue);
+  const sessionQueue: QueuedPrompt[] = activeSessionKey
+    ? promptQueue[activeSessionKey] ?? []
+    : [];
 
   // Overview items map
   const overviewItemsMap = useMemo(() => {
@@ -234,6 +245,32 @@ export const ClassicMode = React.memo(function ClassicMode({
         fetchSymbols={fetchSymbols}
         resolveSymbol={resolveSymbol}
         availableCommands={availableCommands}
+        queue={sessionQueue}
+        onSendNow={(promptId) => {
+          const entry = sessionQueue.find((e) => e.id === promptId);
+          if (!entry) return;
+          if (onCancelQueuedPrompt) {
+            onCancelQueuedPrompt(entry.agentId, entry.sessionId, promptId);
+          }
+          onSend(entry.text, entry.attachments ?? []);
+          if (activeSessionKey) {
+            useSessionStore.getState().removeQueuedPrompt(activeSessionKey, promptId);
+          }
+        }}
+        onRemoveQueueItem={(promptId) => {
+          if (activeSessionKey) {
+            const [agentId, sessionId] = activeSessionKey.split(":");
+            onCancelQueuedPrompt?.(agentId, sessionId, promptId);
+            useSessionStore.getState().removeQueuedPrompt(activeSessionKey, promptId);
+          }
+        }}
+        onClearQueue={() => {
+          if (activeSessionKey) {
+            const [agentId, sessionId] = activeSessionKey.split(":");
+            onClearQueue?.(agentId, sessionId);
+            useSessionStore.getState().clearQueue(activeSessionKey);
+          }
+        }}
       />
     </div>
   );

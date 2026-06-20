@@ -53,6 +53,8 @@ function partitionErrors(calls: ToolCallCardProps[]): {
 
 export interface ToolBatchSummaryProps {
   calls: ToolCallCardProps[];
+  /** When true, apply appear animation */
+  isNew?: boolean;
 }
 
 /** Errors group — always expanded, no collapsible chrome */
@@ -74,6 +76,7 @@ function ErrorsGroup({
 
 export function ToolBatchSummary({
   calls,
+  isNew = false,
 }: ToolBatchSummaryProps): React.ReactElement {
   const hasErrors = calls.some((c) => c.status === "failed");
   const hasOnlyErrors = hasErrors && calls.every((c) => c.status === "failed");
@@ -83,10 +86,12 @@ export function ToolBatchSummary({
   const totalOps = calls.length;
   const totalMs = useMemo(() => totalDuration(calls), [calls]);
 
+  const appearClass = isNew ? "tool-batch--appear" : "";
+
   // ── Single call: render directly, no wrapper ──
   if (calls.length === 1) {
     return (
-      <div className="tool-batch-item">
+      <div className={`tool-batch-item ${appearClass}`}>
         <ToolCallCard {...calls[0]} />
       </div>
     );
@@ -98,7 +103,7 @@ export function ToolBatchSummary({
 
     return (
       <div
-        className={`tool-batch${expanded ? " tool-batch-expanded" : ""} tool-call-${status}`}
+        className={`tool-batch${expanded ? " tool-batch-expanded" : ""} tool-call-${status} ${appearClass}`}
       >
         <button
           className="tool-batch-header"
@@ -154,7 +159,7 @@ export function ToolBatchSummary({
 
   return (
     <div
-      className={`tool-batch${allExpanded ? " tool-batch-expanded" : ""} tool-call-${status}`}
+      className={`tool-batch${allExpanded ? " tool-batch-expanded" : ""} tool-call-${status} ${appearClass}`}
     >
       {/* Top-level chevron toggles entire batch */}
       <button

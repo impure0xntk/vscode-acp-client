@@ -13,6 +13,12 @@ export type { ContextAttachment, ToolCall, SessionCompressionInfo };
 /** Raw message — alias for ChatMessage from the store */
 export type RawMessage = ChatMessage;
 
+/**
+ * stopReason from ACP session/prompt response.
+ * Used to determine the final response boundary in the pipeline.
+ */
+export type StopReason = string;
+
 /** System message classification */
 export type SystemKind =
   | "compression"
@@ -26,6 +32,8 @@ export interface ClassifiedMessage extends RawMessage {
   systemKind: SystemKind;
   /** Original role before merge promotion (set by mergeToolBatches when tool → agent) */
   originalRole?: "user" | "agent" | "system" | "tool";
+  /** ACP stopReason from session/prompt response — signals end of turn */
+  stopReason?: string;
 }
 
 // ── Resolved tool call / attachment (display helpers) ──────────────────────
@@ -84,6 +92,8 @@ export interface ChatDisplayItem {
   role: "user" | "agent" | "system" | "tool";
   /** Original role before merge promotion — "tool" when a tool message was promoted to agent */
   originalRole?: "user" | "agent" | "system" | "tool";
+  /** ACP stopReason from session/prompt — marks this message as the final response of a turn */
+  stopReason?: string;
   /** Thinking content if present */
   thinking: { content: string; isStreaming: boolean } | undefined;
   /** True when this message is consecutive from the same source — header should be hidden */

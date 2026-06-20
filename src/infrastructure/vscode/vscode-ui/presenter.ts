@@ -224,14 +224,16 @@ export class ChatPresenter {
   buildSessionCompleted(
     sessionId: string,
     agentId: string,
-    title: string
+    title: string,
+    stopReason?: string
   ): {
     type: "session/completed";
     agentId: string;
     sessionId: string;
     title: string;
+    stopReason?: string;
   } {
-    return { type: "session/completed", agentId, sessionId, title };
+    return { type: "session/completed", agentId, sessionId, title, stopReason };
   }
 
   buildSessionUsage(

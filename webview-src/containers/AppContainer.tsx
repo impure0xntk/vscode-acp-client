@@ -6,8 +6,6 @@ import React, {
   useCallback,
 } from "react";
 import { useLogger } from "../hooks/useLogger";
-import { CompletionNotification } from "../components/message/CompletionNotification";
-import type { TurnOutcome } from "../components/primitives";
 import {
   SessionHistoryPanel,
   PersistentSessionEntry,
@@ -101,15 +99,6 @@ export function AppContainer(): React.ReactElement {
   const [showHistory, setShowHistory] = useState(false);
   const [selectedHistorySession, setSelectedHistorySession] =
     useState<PersistentSessionEntry | null>(null);
-  const [completedNotifications, setCompletedNotifications] = useState<
-    Array<{
-      agentId: string;
-      sessionId: string;
-      title: string;
-      outcome: TurnOutcome;
-    }>
-  >([]);
-
   const scrollToMessageRef = useRef<(id: string) => void>();
 
   // ── Mesh panel visibility ──────────────────────────────────────────
@@ -227,10 +216,6 @@ export function AppContainer(): React.ReactElement {
     useUiStateStore.getState().setOverviewSelectedSessionIds(sessionIds);
   }, []);
 
-  const dismissCompletedNotification = useCallback(() => {
-    setCompletedNotifications((prev) => prev.slice(1));
-  }, []);
-
   // ── Handlers via hooks ──────────────────────────────────────────────
   const forceScrollToBottomRef = useRef<() => void>();
   const { handleSend, handleCancel } = useChatHandlers({
@@ -295,6 +280,30 @@ export function AppContainer(): React.ReactElement {
     closeSession,
     sessionOverviewState: overviewState,
   });
+
+  // ── Queue operations ──────────────────────────────────────────────
+  const cancelQueuedPrompt = useCallback(
+    (agentId: string, sessionId: string, promptId: string) => {
+      getVsCodeApi().postMessage({
+        type: "queue:cancel",
+        agentId,
+        sessionId,
+        promptId,
+      });
+    },
+    []
+  );
+
+  const clearQueue = useCallback(
+    (agentId: string, sessionId: string) => {
+      getVsCodeApi().postMessage({
+        type: "queue:clear",
+        agentId,
+        sessionId,
+      });
+    },
+    []
+  );
 
   const handleRenameSession = useCallback(
     (agentId: string, sessionId: string, title: string) => {
@@ -526,6 +535,8 @@ export function AppContainer(): React.ReactElement {
             fetchSymbols={fetchSymbols}
             resolveSymbol={resolveSymbol}
             availableCommands={availableCommands}
+            onCancelQueuedPrompt={cancelQueuedPrompt}
+            onClearQueue={clearQueue}
           />
         ) : panelMode === "unified" ? (
           <UnifiedMode
@@ -543,6 +554,8 @@ export function AppContainer(): React.ReactElement {
             fetchSymbols={fetchSymbols}
             resolveSymbol={resolveSymbol}
             availableCommands={availableCommands}
+            onCancelQueuedPrompt={cancelQueuedPrompt}
+            onClearQueue={clearQueue}
           />
         ) : (
           <ClassicMode
@@ -561,6 +574,8 @@ export function AppContainer(): React.ReactElement {
             resolveSymbol={resolveSymbol}
             availableCommands={availableCommands}
             scrollToMessageRef={scrollToMessageRef}
+            onCancelQueuedPrompt={cancelQueuedPrompt}
+            onClearQueue={clearQueue}
           />
         )}
       </div>

@@ -15,8 +15,10 @@ export interface MessageProps {
   isConsecutive: boolean;
   sessionId?: string;
   agentId?: string;
-  /** Delay in ms for appear animation. Staggered per position. */
-  appearDelay?: number;
+  /** When true, always show the message header regardless of isConsecutive */
+  forceHeader?: boolean;
+  /** When true, apply appear animation (only for newly added messages) */
+  isNew?: boolean;
 }
 
 function openFileFromLink(e: React.MouseEvent<HTMLElement>): void {
@@ -135,7 +137,8 @@ export const Message = React.memo(function Message({
   isConsecutive,
   sessionId,
   agentId,
-  appearDelay = 0,
+  forceHeader = false,
+  isNew = false,
 }: MessageProps): React.ReactElement {
   const {
     role,
@@ -185,14 +188,15 @@ export const Message = React.memo(function Message({
     []
   );
 
+  const animationClass = isNew ? "message--appear" : "";
+
   return (
     <div
-      className={`message ${isSystem ? "message-system" : isUser ? "message-user" : "message-agent"}`}
+      className={`message ${isSystem ? "message-system" : isUser ? "message-user" : "message-agent"} ${animationClass}`}
       data-role={role}
       data-message-id={item.key}
-      style={{ animationDelay: `${appearDelay}ms` }}
     >
-      {!isConsecutive && (
+      {(!isConsecutive || forceHeader) && (
         <div className="message-header">
           <span className="message-role">
             {isSystem ? "System" : isUser ? "You" : "Agent"}
@@ -246,7 +250,10 @@ export const Message = React.memo(function Message({
       )}
       {hasToolCalls && resolvedToolCalls && (
         <div className="message-tool-batch">
-          <ToolBatchSummary calls={resolvedToolCalls} />
+          <ToolBatchSummary
+            calls={resolvedToolCalls}
+            isNew={isNew}
+          />
         </div>
       )}
       {thinking && (

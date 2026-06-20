@@ -58,6 +58,8 @@ export interface ChatMessage {
   sessionCwd?: string;
   /** File paths confirmed to exist — inline code matching these becomes clickable links */
   inlineFilePaths?: string[];
+  /** ACP stopReason from session/prompt response — signals end of turn */
+  stopReason?: string;
 }
 export interface TokenUsage {
   inputTokens: number;

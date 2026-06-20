@@ -25,49 +25,129 @@ import type { ChatDisplayItem } from "../../pipeline/types";
 
 const SCROLL_BOTTOM_THRESHOLD = 100;
 
+// ── Sticky User Message Types ──────────────────────────────────────────────
+
+interface StickyUserMessage {
+  key: string;
+  content: string;
+  timestamp: number | undefined;
+  attachments: ChatDisplayItem["attachments"];
+}
+
+// ── Sticky User Message Helpers ─────────────────────────────────────────────
+
+function findStickyUserMessage(
+  containerEl: HTMLDivElement,
+  userMessageEls: { key: string; el: HTMLElement }[]
+): StickyUserMessage | null {
+  const containerRect = containerEl.getBoundingClientRect();
+  const containerTop = containerRect.top;
+
+  const aboveViewport: { key: string; el: HTMLElement; bottom: number }[] = [];
+  for (const { key, el } of userMessageEls) {
+    const rect = el.getBoundingClientRect();
+    const bottom = rect.bottom;
+    if (bottom < containerTop - 4) {
+      aboveViewport.push({ key, el, bottom });
+    }
+  }
+
+  if (aboveViewport.length === 0) return null;
+
+  const lastAbove = aboveViewport[aboveViewport.length - 1];
+
+  const contentEl = lastAbove.el.querySelector(".message-text");
+  const content = contentEl?.textContent ?? "";
+
+  const timeEl = lastAbove.el.querySelector(".message-time");
+  const timeStr = timeEl?.textContent ?? "";
+  const timestamp = timeStr ? Date.parse(timeStr) : undefined;
+
+  const attachmentEls = lastAbove.el.querySelectorAll(".file-chip-inline");
+  const attachments: ChatDisplayItem["attachments"] = [];
+  attachmentEls.forEach((chip) => {
+    const label = chip.querySelector(".file-chip-label")?.textContent ?? "";
+    const path = chip.getAttribute("title") ?? label;
+    const tokens = chip.querySelector(".file-chip-tokens")?.textContent ?? "0t";
+    attachments.push({
+      id: `sticky-${lastAbove.key}-${attachments.length}`,
+      type: "file",
+      path,
+      label,
+      lineRange: undefined,
+      tokenCount: parseInt(tokens, 10) || 0,
+      isNavigable: true,
+      extension: path.split(".").pop() ?? "",
+      detail: "",
+    });
+  });
+
+  return {
+    key: lastAbove.key,
+    content,
+    timestamp,
+    attachments,
+  };
+}
+
 // ── Types ───────────────────────────────────────────────────────────────────
 
-/** Final response extracted from a turn (first non-consecutive agent chat) */
 interface FinalResponse {
-  /** The first agent chat message that starts the turn response (isConsecutive === false) */
   item: PipelineItem;
-  /** Index within the turn's items array */
   index: number;
 }
 
-/** Response group corresponding to a single user message */
 interface AgentResponseGroup {
-  /** The user message that starts this group (boundary) */
   userItem: PipelineItem;
-  /** Intermediate steps (thinking, tool calls, consecutive agent messages) — these get folded */
   items: PipelineItem[];
-  /** The final response of this turn (first agent chat with isConsecutive === false), if any */
   finalResponse: FinalResponse | null;
 }
 
 interface GroupedItems {
-  /** Groups before the last one (candidates for collapsing) */
   groups: AgentResponseGroup[];
-  /** The latest group (after the last user message, not collapsed) */
   latestGroup: AgentResponseGroup | null;
-  /** Non-agent items in the latest group (system notices, compression, etc.) */
   trailing: PipelineItem[];
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-/**
- * Groups items by user message boundaries.
- * Each user message starts a group; all items until the next user message belong to that group.
- * The last group is not collapsed (shown as the final response).
- * Earlier groups are each rendered as a collapsible IntermediateStepsBanner.
- *
- * Only agent-role messages qualify as final responses.
- * Tool-role messages are always treated as intermediate steps.
- * This ensures that when the first response is a tool call, subsequent agent messages display correctly.
- */
+function selectFinalResponse(
+  agentChats: PipelineItem[]
+): { item: PipelineItem; index: number } | null {
+  if (agentChats.length === 0) return null;
+
+  const stopReasonIdx = agentChats.findIndex(
+    (item) => item.type === "chat" && item.stopReason != null
+  );
+  if (stopReasonIdx !== -1) {
+    return { item: agentChats[stopReasonIdx], index: stopReasonIdx };
+  }
+
+  const isNonConsecutiveAgent = (item: PipelineItem) =>
+    item.type === "chat" &&
+    item.role === "agent" &&
+    (item as ChatDisplayItem).originalRole !== "tool" &&
+    !item.isConsecutive;
+  const ncIdx = agentChats.findIndex(isNonConsecutiveAgent);
+  if (ncIdx !== -1) {
+    return { item: agentChats[ncIdx], index: ncIdx };
+  }
+
+  for (let i = agentChats.length - 1; i >= 0; i--) {
+    const item = agentChats[i];
+    if (
+      item.type === "chat" &&
+      item.role === "agent" &&
+      (item as ChatDisplayItem).originalRole !== "tool"
+    ) {
+      return { item, index: i };
+    }
+  }
+
+  return null;
+}
+
 function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
-  // Collect user message indices
   const userIndices: number[] = [];
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
@@ -80,107 +160,45 @@ function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
     return { groups: [], latestGroup: null, trailing: [] };
   }
 
-  // Index of the last user message
   const lastUserIdx = userIndices[userIndices.length - 1];
-
-  // All items after the last user message
   const afterLastUser = items.slice(lastUserIdx + 1);
 
-  // Agent/tool response items: chat with agent or tool role.
-  // Promoted tool messages (role=agent, originalRole=tool) are included here
-  // but filtered out when selecting the final response.
   const isAgentOrToolLatest = (item: PipelineItem) =>
     item.type === "chat" && (item.role === "agent" || item.role === "tool");
 
   const latestAgentChats = afterLastUser.filter(isAgentOrToolLatest);
-
-  // Trailing: non-agent/tool chat items (system notices, compression, etc.)
   const trailing = afterLastUser.filter((item) => !isAgentOrToolLatest(item));
 
-  // Final response of the latest group: first agent chat with isConsecutive === false.
-  // Tool role is always treated as intermediate steps.
-  // Promoted tool messages (role=agent, originalRole=tool) are also intermediate.
-  // If all agent messages are consecutive (isConsecutive === true), fall back to
-  // the last non-promoted agent message as the final response — otherwise the
-  // turn would have no visible final response and only show intermediate steps.
-  const isFinalCandidate = (item: PipelineItem) =>
-    item.type === "chat" &&
-    item.role === "agent" &&
-    (item as ChatDisplayItem).originalRole !== "tool" &&
-    !item.isConsecutive;
-  let latestFinalIdx = latestAgentChats.findIndex(isFinalCandidate);
-  if (latestFinalIdx === -1) {
-    // All agent messages are consecutive — pick the last non-promoted one
-    for (let i = latestAgentChats.length - 1; i >= 0; i--) {
-      const item = latestAgentChats[i];
-      if (item.type === "chat" && item.role === "agent" &&
-          (item as ChatDisplayItem).originalRole !== "tool") {
-        latestFinalIdx = i;
-        break;
-      }
-    }
-  }
-  const latestFinal =
-    latestFinalIdx === -1 ? null : latestAgentChats[latestFinalIdx];
-  // Filter by key (not reference) because processIncremental creates new
-  // PipelineItem objects each time, so reference equality would fail and
-  // the final response would appear both inside the banner and as the
-  // standalone final display.
+  const latestFinal = selectFinalResponse(latestAgentChats);
   const latestIntermediate = latestFinal
-    ? latestAgentChats.filter((item) => item.key !== latestFinal.key)
+    ? latestAgentChats.filter((item) => item.key !== latestFinal.item.key)
     : latestAgentChats;
 
   const latestGroup: AgentResponseGroup = {
     userItem: items[lastUserIdx],
     items: latestIntermediate,
-    finalResponse: latestFinal
-      ? { item: latestFinal, index: latestFinalIdx }
-      : null,
+    finalResponse: latestFinal,
   };
 
-  // Groups before the last one
   const groups: AgentResponseGroup[] = [];
   for (let g = 0; g < userIndices.length - 1; g++) {
     const startIdx = userIndices[g];
     const endIdx = userIndices[g + 1];
     const groupItems = items.slice(startIdx + 1, endIdx);
 
-    // Identify the final response of each group (agent role only, not promoted tools)
     const isAgentOrToolInGroup = (item: PipelineItem) =>
       item.type === "chat" && (item.role === "agent" || item.role === "tool");
     const turnAgentChats = groupItems.filter(isAgentOrToolInGroup);
-    const isFinalCandidateGroup = (item: PipelineItem) =>
-      item.type === "chat" &&
-      item.role === "agent" &&
-      (item as ChatDisplayItem).originalRole !== "tool" &&
-      !item.isConsecutive;
-    let finalIdxInTurn = turnAgentChats.findIndex(isFinalCandidateGroup);
-    // Fallback: if all agent messages are consecutive, pick the last non-promoted one
-    if (finalIdxInTurn === -1) {
-      for (let i = turnAgentChats.length - 1; i >= 0; i--) {
-        const item = turnAgentChats[i];
-        if (item.type === "chat" && item.role === "agent" &&
-            (item as ChatDisplayItem).originalRole !== "tool") {
-          finalIdxInTurn = i;
-          break;
-        }
-      }
-    }
-    // Final response is rendered outside the banner
-    const finalItem =
-      finalIdxInTurn === -1 ? null : turnAgentChats[finalIdxInTurn];
-    // intermediate: all items except the final response
-    // Filter by key (not reference) for the same reason as above.
-    const intermediateItems = finalItem
-      ? groupItems.filter((item) => item.key !== finalItem.key)
+    const final = selectFinalResponse(turnAgentChats);
+
+    const intermediateItems = final
+      ? groupItems.filter((item) => item.key !== final.item.key)
       : groupItems;
 
     groups.push({
       userItem: items[startIdx],
       items: intermediateItems,
-      finalResponse: finalItem
-        ? { item: finalItem, index: finalIdxInTurn }
-        : null,
+      finalResponse: final,
     });
   }
 
@@ -211,7 +229,6 @@ export interface SessionChatContainerProps {
   scrollToUnreadRef?: React.MutableRefObject<
     ((firstUnreadId: string) => void) | undefined
   >;
-  /** Called on scroll events with raw DOM metrics. */
   onScroll?: (metrics: {
     scrollTop: number;
     scrollHeight: number;
@@ -243,15 +260,42 @@ export const SessionChatContainer = memo(function SessionChatContainer({
   const sessionKeyRef = useRef(sessionKey);
   sessionKeyRef.current = sessionKey;
 
-  // Unread count for badge
   const unreadCount = useSessionUnreadCount(sessionKey);
 
-  // Local isAtBottom state for scroll button visibility
   const [isAtBottom, setIsAtBottom] = useState(true);
   const isAtBottomRef = useRef(true);
 
-  // Process raw messages through the pipeline
   const items = useMessagePipeline(rawMessages, sessionId ?? "", agentId ?? "");
+
+  // ── Track new messages for appear animation ─────────────────────
+  const prevItemKeysRef = useRef(new Set<string>());
+  const [newKeys, setNewKeys] = useState<Set<string>>(new Set());
+  const isFirstRenderRef = useRef(true);
+
+  const currentKeys = useMemo(() => new Set(items.map((i) => i.key)), [items]);
+
+  useEffect(() => {
+    if (isFirstRenderRef.current) {
+      isFirstRenderRef.current = false;
+      prevItemKeysRef.current = currentKeys;
+      setNewKeys(new Set());
+      return;
+    }
+    const prev = prevItemKeysRef.current;
+    const added = new Set<string>();
+    for (const key of currentKeys) {
+      if (!prev.has(key)) added.add(key);
+    }
+    setNewKeys(added);
+    prevItemKeysRef.current = currentKeys;
+  }, [currentKeys]);
+
+  useEffect(() => {
+    isFirstRenderRef.current = true;
+  }, [sessionKey]);
+
+  // ── Count of new items for CSS stagger ──────────────────────────
+  const newCount = newKeys.size;
 
   // ── Group items by user boundary ─────────────────────────────────
   const { groups, latestGroup, trailing } = useMemo(
@@ -260,31 +304,19 @@ export const SessionChatContainer = memo(function SessionChatContainer({
   );
 
   // ── Per-group collapse state ─────────────────────────────────────────
-  // Read via dedicated hooks that use useSyncExternalStore with cached
-  // getSnapshot — the same pattern as useSessionUnreadCount.  This keeps
-  // the returned object referentially stable and prevents the
-  // store-update → new ref → effect re-fire loop.
   const collapsedMap = useIntermediateStepsCollapseMap(sessionKey ?? null);
   const toggleIntermediateSteps = useToggleIntermediateSteps();
 
   const prevStreamingRef = useRef(isStreaming);
   const prevRawLenRef = useRef(rawMessages.length);
 
-  // Keep refs to the latest collapsedMap and toggle so the effect below
-  // does NOT list them in its dependency array — preventing the
-  // store-update → new ref → effect re-fire → store-update loop.
   const collapsedMapRef = useRef(collapsedMap);
   collapsedMapRef.current = collapsedMap;
   const toggleRef = useRef(toggleIntermediateSteps);
   toggleRef.current = toggleIntermediateSteps;
 
-  // auto-collapse: when the latest group gains a final response (streaming just
-  // completed), render intermediate steps expanded for one frame then collapse.
   const [latestAutoCollapse, setLatestAutoCollapse] = useState(false);
   const prevHasFinalRef = useRef(false);
-  // Keep a ref to the latest group so the streaming→completed effect can
-  // read it without being in the dependency array (prevents spurious re-runs
-  // from useMemo producing new object references).
   const latestGroupRef = useRef(latestGroup);
   latestGroupRef.current = latestGroup;
 
@@ -294,23 +326,19 @@ export const SessionChatContainer = memo(function SessionChatContainer({
     const group = latestGroupRef.current;
     const hasFinal = group?.finalResponse != null;
 
-    // Streaming → completed transition: reset store collapse state to collapsed
-    // Read from refs — NOT from the store selector — to avoid re-fire.
     if (prev && !isStreaming && group && sessionKey) {
       const gid = group.userItem.key;
       if (!collapsedMapRef.current[gid]) {
-        toggleRef.current(sessionKey, gid); // ensure collapsed
+        toggleRef.current(sessionKey, gid);
       }
     }
 
-    // Detect the exact moment a final response appears for the first time.
     if (hasFinal && !prevHasFinalRef.current && !isStreaming) {
       setLatestAutoCollapse(true);
     }
     prevHasFinalRef.current = hasFinal;
   }, [isStreaming, sessionKey]);
 
-  // Reset auto-collapse when a new message is posted
   useEffect(() => {
     const currentLen = rawMessages.length;
     const prevLen = prevRawLenRef.current;
@@ -320,11 +348,9 @@ export const SessionChatContainer = memo(function SessionChatContainer({
     }
   }, [rawMessages.length]);
 
-  // Helper: is a group manually expanded?
   const isGroupExpanded = useCallback(
     (group: AgentResponseGroup): boolean => {
       const gid = group.userItem.key;
-      // If the user has toggled it expanded (store says false = not collapsed = expanded)
       return collapsedMap[gid] === false;
     },
     [collapsedMap]
@@ -353,7 +379,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
     if (scrollToUnreadRef) scrollToUnreadRef.current = scrollToUnread;
   }, [scrollToUnreadRef, scrollToUnread]);
 
-  // ── Save scroll position on unmount (session switch / close) ───────
+  // ── Save scroll position on unmount ───────────────────────────────
   useEffect(() => {
     const el = containerRef.current;
     return () => {
@@ -405,7 +431,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
     });
   }, []);
 
-  // ── Auto-advance readUpTo when at bottom and new messages arrive ───
+  // ── Auto-advance readUpTo when at bottom ──────────────────────────
   const msgCountRef = useRef(0);
   useEffect(() => {
     if (!sessionKey || !isAtBottom) return;
@@ -418,7 +444,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
     store.setReadUpTo(sessionKey, newestId);
   }, [sessionKey, isAtBottom, unreadCount]);
 
-  // ── Scroll to bottom handler (for button click) ────────────────────
+  // ── Scroll to bottom handler ──────────────────────────────────────
   const handleScrollToBottom = useCallback(() => {
     const wrapper = wrapperRef.current?.querySelector(
       ".chat-container"
@@ -430,16 +456,105 @@ export const SessionChatContainer = memo(function SessionChatContainer({
     }
   }, [forceScrollToBottomRef]);
 
+  // ── Sticky user message state ──────────────────────────────────────
+  const [stickyUserMessage, setStickyUserMessage] =
+    useState<StickyUserMessage | null>(null);
+  const stickyUserMessageRef = useRef<StickyUserMessage | null>(null);
+  stickyUserMessageRef.current = stickyUserMessage;
+
+  // ── Sticky scroll detection ────────────────────────────────────────
+  const updateStickyUserMessage = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const userMessageEls: { key: string; el: HTMLElement }[] = [];
+    const allMessages = container.querySelectorAll(
+      ".message-user[data-message-id]"
+    );
+    allMessages.forEach((el) => {
+      const key = (el as HTMLElement).dataset.messageId;
+      if (key) {
+        userMessageEls.push({ key, el: el as HTMLElement });
+      }
+    });
+
+    const found = findStickyUserMessage(container, userMessageEls);
+    if (found?.key !== stickyUserMessageRef.current?.key) {
+      setStickyUserMessage(found);
+    }
+  }, []);
+
+  const handleScrollWithSticky = useCallback(() => {
+    handleScroll();
+    updateStickyUserMessage();
+  }, [handleScroll, updateStickyUserMessage]);
+
+  useEffect(() => {
+    requestAnimationFrame(updateStickyUserMessage);
+  }, [items.length, updateStickyUserMessage]);
+
+  const handleStickyClick = useCallback(() => {
+    if (!stickyUserMessage) return;
+    const container = containerRef.current;
+    if (!container) return;
+
+    const msgEl = container.querySelector(
+      `[data-message-id="${stickyUserMessage.key}"]`
+    ) as HTMLElement | null;
+    if (msgEl) {
+      msgEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [stickyUserMessage]);
+
   // ── Render ──────────────────────────────────────────────────────────
   const isEmpty = items.length === 0;
   const showScrollButton = !isAtBottom;
+  const showStickyBar = stickyUserMessage !== null && !isEmpty;
+
+  const stickyTime = stickyUserMessage?.timestamp
+    ? new Date(stickyUserMessage.timestamp).toLocaleTimeString()
+    : "";
 
   return (
     <div className="section-chat-container-wrapper" ref={wrapperRef}>
+      {/* Sticky user message bar */}
+      {showStickyBar && stickyUserMessage && (
+        <div
+          className="sticky-user-message-bar"
+          onClick={handleStickyClick}
+          role="button"
+          tabIndex={0}
+          title="Click to scroll to this message"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              handleStickyClick();
+            }
+          }}
+        >
+          <div className="sticky-user-message-header">
+            <span className="sticky-user-role">You</span>
+            <span className="sticky-user-time">{stickyTime}</span>
+          </div>
+          <div className="sticky-user-message-content">
+            {stickyUserMessage.content}
+          </div>
+          {stickyUserMessage.attachments.length > 0 && (
+            <div className="sticky-user-attachments">
+              {stickyUserMessage.attachments.map((a) => (
+                <span key={a.id} className="sticky-user-attachment-chip">
+                  {a.label}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <div
-        className="chat-container"
+        className={`chat-container${showStickyBar ? " chat-container--has-sticky" : ""}`}
         ref={containerRef}
-        onScroll={handleScroll}
+        onScroll={handleScrollWithSticky}
         data-messages-scroll-container="true"
       >
         {isEmpty ? (
@@ -452,9 +567,12 @@ export const SessionChatContainer = memo(function SessionChatContainer({
             </p>
           </div>
         ) : (
-          <div className={`message-list${isStreaming ? " message-list--streaming" : ""}`}>
+          <div
+            className={`message-list${isStreaming ? " message-list--streaming" : ""}`}
+            data-new-count={newCount > 0 ? newCount : undefined}
+          >
             {/* Past groups */}
-            {groups.map((group, groupIdx) => {
+            {groups.map((group) => {
               const expanded = isGroupExpanded(group);
               return (
                 <React.Fragment key={group.userItem.key}>
@@ -464,7 +582,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                     items={[group.userItem]}
                     sessionId={sessionId}
                     agentId={agentId}
-                    appearDelay={groupIdx * 30}
+                    isNew={newKeys.has(group.userItem.key)}
                   />
                   <IntermediateStepsBanner
                     items={group.items}
@@ -476,21 +594,6 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                       toggleIntermediateSteps(sessionKey!, group.userItem.key)
                     }
                   />
-                  {expanded && group.items.length > 0 && (
-                    <div className="intermediate-steps-expanded-body">
-                      {group.items.map((item, idx) => (
-                        <DisplayItemView
-                          key={item.key}
-                          item={item}
-                          idx={idx}
-                          items={group.items}
-                          sessionId={sessionId}
-                          agentId={agentId}
-                          appearDelay={(groupIdx * 30) + (idx + 1) * 30}
-                        />
-                      ))}
-                    </div>
-                  )}
                   {group.finalResponse && (
                     <DisplayItemView
                       item={group.finalResponse.item}
@@ -498,7 +601,8 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                       items={[group.finalResponse.item]}
                       sessionId={sessionId}
                       agentId={agentId}
-                      appearDelay={(groupIdx * 30) + (group.items.length + 1) * 30}
+                      forceHeader={true}
+                      isNew={newKeys.has(group.finalResponse.item.key)}
                     />
                   )}
                 </React.Fragment>
@@ -508,8 +612,21 @@ export const SessionChatContainer = memo(function SessionChatContainer({
             {/* Latest group */}
             {latestGroup &&
               (() => {
-                const expanded = isStreaming || isGroupExpanded(latestGroup);
-                const baseDelay = groups.length * 30;
+                const expanded = isGroupExpanded(latestGroup);
+                // Split intermediate items: when there are 3+, peel the
+                // last one out of the folded banner so the user always
+                // sees the most recent intermediate step without opening
+                // the banner. With 2 or fewer, keep them all in the
+                // banner — only the final response renders outside.
+                const allIntermediate = latestGroup.items;
+                const olderIntermediate =
+                  allIntermediate.length > 2
+                    ? allIntermediate.slice(0, -1)
+                    : allIntermediate;
+                const lastIntermediate =
+                  allIntermediate.length > 2
+                    ? allIntermediate[allIntermediate.length - 1]
+                    : null;
                 return (
                   <React.Fragment key="latest-group">
                     <DisplayItemView
@@ -518,11 +635,11 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                       items={[latestGroup.userItem]}
                       sessionId={sessionId}
                       agentId={agentId}
-                      appearDelay={baseDelay}
+                      isNew={newKeys.has(latestGroup.userItem.key)}
                     />
-                    {latestGroup.items.length > 0 && (
+                    {olderIntermediate.length > 0 && (
                       <IntermediateStepsBanner
-                        items={latestGroup.items}
+                        items={olderIntermediate}
                         defaultCollapsed={true}
                         forceExpanded={expanded}
                         sessionId={sessionId}
@@ -536,20 +653,15 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                         }
                       />
                     )}
-                    {expanded && latestGroup.items.length > 0 && (
-                      <div className="intermediate-steps-expanded-body">
-                        {latestGroup.items.map((item, idx) => (
-                          <DisplayItemView
-                            key={item.key}
-                            item={item}
-                            idx={idx}
-                            items={latestGroup.items}
-                            sessionId={sessionId}
-                            agentId={agentId}
-                            appearDelay={baseDelay + (idx + 1) * 30}
-                          />
-                        ))}
-                      </div>
+                    {lastIntermediate && (
+                      <DisplayItemView
+                        item={lastIntermediate}
+                        idx={0}
+                        items={[lastIntermediate]}
+                        sessionId={sessionId}
+                        agentId={agentId}
+                        isNew={newKeys.has(lastIntermediate.key)}
+                      />
                     )}
                     {latestGroup.finalResponse && (
                       <DisplayItemView
@@ -558,7 +670,8 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                         items={[latestGroup.finalResponse.item]}
                         sessionId={sessionId}
                         agentId={agentId}
-                        appearDelay={baseDelay + (latestGroup.items.length + 1) * 30}
+                        forceHeader={true}
+                        isNew={newKeys.has(latestGroup.finalResponse.item.key)}
                       />
                     )}
                   </React.Fragment>
@@ -574,7 +687,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                 items={trailing}
                 sessionId={sessionId}
                 agentId={agentId}
-                appearDelay={(groups.length + (latestGroup ? 1 : 0)) * 30 + idx * 30}
+                isNew={newKeys.has(item.key)}
               />
             ))}
 

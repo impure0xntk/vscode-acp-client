@@ -18,8 +18,10 @@ export interface DisplayItemViewProps {
   items: PipelineItem[];
   sessionId?: string;
   agentId?: string;
-  /** Delay in ms for appear animation. Staggered per position. */
-  appearDelay?: number;
+  /** When true, always show the message header for chat items */
+  forceHeader?: boolean;
+  /** When true, apply appear animation (only for newly added messages) */
+  isNew?: boolean;
 }
 
 // ── Chat item ───────────────────────────────────────────────────────────────
@@ -28,7 +30,8 @@ function RenderChat(
   item: ChatDisplayItem,
   sessionId?: string,
   agentId?: string,
-  appearDelay?: number
+  forceHeader?: boolean,
+  isNew?: boolean
 ) {
   return (
     <Message
@@ -37,7 +40,8 @@ function RenderChat(
       isConsecutive={item.isConsecutive}
       sessionId={sessionId}
       agentId={agentId}
-      appearDelay={appearDelay}
+      forceHeader={forceHeader}
+      isNew={isNew}
     />
   );
 }
@@ -92,11 +96,12 @@ export function DisplayItemView({
   items: _items,
   sessionId,
   agentId,
-  appearDelay = 0,
+  forceHeader = false,
+  isNew = false,
 }: DisplayItemViewProps): React.ReactElement {
   switch (item.type) {
     case "chat":
-      return RenderChat(item, sessionId, agentId, appearDelay);
+      return RenderChat(item, sessionId, agentId, forceHeader, isNew);
     case "compression":
       return RenderCompression(item);
     case "mode_change":

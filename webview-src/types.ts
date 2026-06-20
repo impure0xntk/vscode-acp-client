@@ -138,6 +138,8 @@ export interface ChatMessage {
   attachmentsJson?: string;
   /** Context compression info — present when role="system" and compression was detected */
   compressionInfo?: SessionCompressionInfo;
+  /** ACP stopReason from session/prompt response — signals end of turn */
+  stopReason?: string;
 }
 
 export interface TokenUsage {
@@ -212,6 +214,14 @@ export interface SuggestionItem {
     | "cancelled";
   /** Session color from the agent (via ConnectedAgentInfo.color) */
   sessionColor?: string;
+  /** Token usage for context chip display in picker */
+  tokenUsage?: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+  };
+  /** Context window max tokens — when set, chip shows percentage */
+  contextWindowMax?: number;
 }
 
 /** Selected team info — stored in meshStore when user picks a team via @team: picker */
@@ -249,6 +259,7 @@ export interface QueuedPrompt {
   text: string;
   enqueuedAt: string;
   status: QueuedPromptStatus;
+  attachments?: ContextAttachment[];
 }
 
 export interface ToolCallInfo {
@@ -317,6 +328,14 @@ export interface SendTarget {
     | "completed"
     | "error"
     | "cancelled";
+  /** Token usage for context chip display */
+  tokenUsage?: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+  };
+  /** Context window max tokens — when set, chip shows percentage */
+  contextWindowMax?: number;
 }
 
 export interface MeshAgentStatus {

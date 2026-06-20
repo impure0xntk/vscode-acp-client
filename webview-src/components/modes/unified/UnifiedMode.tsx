@@ -19,6 +19,7 @@ import { getVsCodeApi } from "../../../lib/vscodeApi";
 import { useLogger } from "../../../hooks/useLogger";
 import type {
   ContextAttachment,
+  QueuedPrompt,
   SendTarget,
   FileCandidate,
   SuggestionItem,
@@ -53,6 +54,8 @@ export interface UnifiedModeProps {
   fetchSymbols: (query: string) => Promise<SuggestionItem[]>;
   resolveSymbol: (name: string) => Promise<ContextAttachment>;
   availableCommands?: SlashCommand[];
+  onCancelQueuedPrompt?: (agentId: string, sessionId: string, promptId: string) => void;
+  onClearQueue?: (agentId: string, sessionId: string) => void;
 }
 
 export const UnifiedMode = React.memo(function UnifiedMode({
@@ -70,6 +73,8 @@ export const UnifiedMode = React.memo(function UnifiedMode({
   fetchSymbols,
   resolveSymbol,
   availableCommands = [],
+  onCancelQueuedPrompt,
+  onClearQueue,
 }: UnifiedModeProps): React.ReactElement {
   const log = useLogger("UnifiedMode");
   const {
@@ -295,6 +300,12 @@ export const UnifiedMode = React.memo(function UnifiedMode({
   const forceScrollToBottomRef = useRef<(() => void) | undefined>(undefined);
   const scrollToUnreadRef = useRef<(() => void) | undefined>(undefined);
 
+  // Queue for the active session
+  const promptQueue = useSessionStore((s) => s.promptQueue);
+  const sessionQueue: QueuedPrompt[] = activeSessionKey
+    ? promptQueue[activeSessionKey] ?? []
+    : [];
+
   return (
     <div className={`unified-mode unified-mode--${layoutMode}`}>
       <SessionTabBar
@@ -348,6 +359,35 @@ export const UnifiedMode = React.memo(function UnifiedMode({
         fetchSymbols={fetchSymbols}
         resolveSymbol={resolveSymbol}
         availableCommands={availableCommands}
+        queue={sessionQueue}
+        onSendNow={(promptId) => {
+          const entry = sessionQueue.find((e) => e.id === promptId);
+          if (!entry) return;
+          // Cancel on extension side so the queued entry is dequeued
+          if (onCancelQueuedPrompt) {
+            onCancelQueuedPrompt(entry.agentId, entry.sessionId, promptId);
+          }
+          // Send the message as a new prompt
+          onSendMessage(entry.text, entry.attachments ?? []);
+          // Remove from local store
+          if (activeSessionKey) {
+            useSessionStore.getState().removeQueuedPrompt(activeSessionKey, promptId);
+          }
+        }}
+        onRemoveQueueItem={(promptId) => {
+          if (activeSessionKey) {
+            const [agentId, sessionId] = activeSessionKey.split(":");
+            onCancelQueuedPrompt?.(agentId, sessionId, promptId);
+            useSessionStore.getState().removeQueuedPrompt(activeSessionKey, promptId);
+          }
+        }}
+        onClearQueue={() => {
+          if (activeSessionKey) {
+            const [agentId, sessionId] = activeSessionKey.split(":");
+            onClearQueue?.(agentId, sessionId);
+            useSessionStore.getState().clearQueue(activeSessionKey);
+          }
+        }}
       />
     </div>
   );

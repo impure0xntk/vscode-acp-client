@@ -23,6 +23,12 @@ export interface MessageState {
     sessionId: string,
     chunk: string
   ) => void;
+  /**
+   * Update the last agent/tool message with turn-end metadata.
+   * Used by session/turnEnded to stamp stopReason onto the final response
+   * so the pipeline can use it as the authoritative boundary signal.
+   */
+  updateLastAgentMessage: (key: string, update: Partial<ChatMessage>) => void;
   clearSession: (key: string) => void;
   /** Add a queued prompt entry */
   addQueuedPrompt: (key: string, entry: QueuedPrompt) => void;
@@ -105,6 +111,25 @@ export const useMessageStore = create<MessageState>((set) => ({
         perSession: { ...state.perSession, [key]: newMessages },
         streaming: newStreaming,
       };
+    }),
+
+  updateLastAgentMessage: (key, update) =>
+    set((state) => {
+      const existing = state.perSession[key];
+      if (!existing || existing.length === 0) return state;
+      // Find the last agent or tool message
+      for (let i = existing.length - 1; i >= 0; i--) {
+        if (existing[i].role === "agent" || existing[i].role === "tool") {
+          const updated = { ...existing[i], ...update };
+          const next = [...existing];
+          next[i] = updated;
+          return {
+            ...state,
+            perSession: { ...state.perSession, [key]: next },
+          };
+        }
+      }
+      return state;
     }),
 
   clearSession: (key) =>

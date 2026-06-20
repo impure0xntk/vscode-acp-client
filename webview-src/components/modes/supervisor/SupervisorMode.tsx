@@ -15,6 +15,7 @@ import { useMeshStore } from "../../../store/meshStore";
 import { getVsCodeApi } from "../../../lib/vscodeApi";
 import type {
   ContextAttachment,
+  QueuedPrompt,
   SendTarget,
   FileCandidate,
   SuggestionItem,
@@ -47,6 +48,8 @@ export interface SupervisorModeProps {
   fetchSymbols: (query: string) => Promise<SuggestionItem[]>;
   resolveSymbol: (name: string) => Promise<ContextAttachment>;
   availableCommands?: SlashCommand[];
+  onCancelQueuedPrompt?: (agentId: string, sessionId: string, promptId: string) => void;
+  onClearQueue?: (agentId: string, sessionId: string) => void;
 }
 
 export const SupervisorMode = React.memo(function SupervisorMode({
@@ -64,6 +67,8 @@ export const SupervisorMode = React.memo(function SupervisorMode({
   fetchSymbols,
   resolveSymbol,
   availableCommands = [],
+  onCancelQueuedPrompt,
+  onClearQueue,
 }: SupervisorModeProps): React.ReactElement {
   const {
     activeSessionKey,
@@ -169,6 +174,12 @@ export const SupervisorMode = React.memo(function SupervisorMode({
   );
   const scrollToUnreadRef = React.useRef<(() => void) | undefined>(undefined);
 
+  // Queue for the active session
+  const promptQueue = useSessionStore((s) => s.promptQueue);
+  const sessionQueue: QueuedPrompt[] = activeSessionKey
+    ? promptQueue[activeSessionKey] ?? []
+    : [];
+
   return (
     <div className="supervisor-mode">
       {/* Left: Chat area (session tabs + messages + composer) */}
@@ -217,6 +228,32 @@ export const SupervisorMode = React.memo(function SupervisorMode({
           fetchSymbols={fetchSymbols}
           resolveSymbol={resolveSymbol}
           availableCommands={availableCommands}
+          queue={sessionQueue}
+          onSendNow={(promptId) => {
+            const entry = sessionQueue.find((e) => e.id === promptId);
+            if (!entry) return;
+            if (onCancelQueuedPrompt) {
+              onCancelQueuedPrompt(entry.agentId, entry.sessionId, promptId);
+            }
+            onSendMessage(entry.text, entry.attachments ?? []);
+            if (activeSessionKey) {
+              useSessionStore.getState().removeQueuedPrompt(activeSessionKey, promptId);
+            }
+          }}
+          onRemoveQueueItem={(promptId) => {
+            if (activeSessionKey) {
+              const [agentId, sessionId] = activeSessionKey.split(":");
+              onCancelQueuedPrompt?.(agentId, sessionId, promptId);
+              useSessionStore.getState().removeQueuedPrompt(activeSessionKey, promptId);
+            }
+          }}
+          onClearQueue={() => {
+            if (activeSessionKey) {
+              const [agentId, sessionId] = activeSessionKey.split(":");
+              onClearQueue?.(agentId, sessionId);
+              useSessionStore.getState().clearQueue(activeSessionKey);
+            }
+          }}
         />
       </div>
 

@@ -1,6 +1,8 @@
 import React from "react";
 import type { ContextAttachment, SelectedTeam, SendTarget } from "../../types";
+import type { ContextColor } from "../../types";
 import { ContextChip } from "./ContextChip";
+import { SendTargetChip } from "../primitives/SendTargetChip";
 import { Icon } from "../../lib/icons";
 
 export interface ContextBarProps {
@@ -11,6 +13,7 @@ export interface ContextBarProps {
   connectedAgents?: { agentId: string; color?: string }[];
   selectedTeam?: SelectedTeam | null;
   onRemoveSelectedTeam?: () => void;
+  contextColor?: ContextColor;
 }
 
 // Re-export for convenience
@@ -24,6 +27,7 @@ export function ContextBar({
   connectedAgents = [],
   selectedTeam = null,
   onRemoveSelectedTeam,
+  contextColor = "normal",
 }: ContextBarProps): React.ReactElement | null {
   const hasAttachments = attachments.length > 0;
   const hasTargets = sendTargets.length > 0;
@@ -50,26 +54,16 @@ export function ContextBar({
           </span>
         )}
         {sendTargets.map((target) => (
-          <span
+          <SendTargetChip
             key={`target:${target.agentId}:${target.sessionId}`}
-            className="context-chip context-chip--target"
-            title={`${target.agentId}:${target.sessionId}`}
-          >
-            <Icon name="chat" className="context-chip-icon" size="sm" />
-            <span className="context-chip-label">{target.label}</span>
-            <button
-              className="context-chip-remove"
-              onClick={() =>
-                onRemoveSendTarget?.(target.agentId, target.sessionId)
-              }
-              title="Remove"
-            >
-              <Icon name="close" size="sm" />
-            </button>
-          </span>
+            target={target}
+            onRemove={() =>
+              onRemoveSendTarget?.(target.agentId, target.sessionId)
+            }
+          />
         ))}
         {attachments.map((a) => (
-          <ContextChip key={a.id} attachment={a} onRemove={onRemove} />
+          <ContextChip key={a.id} attachment={a} onRemove={onRemove} contextColor={contextColor} />
         ))}
       </div>
     </div>

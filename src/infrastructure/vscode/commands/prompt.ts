@@ -707,6 +707,29 @@ export function wireChatPanelEvents(
         orchestrator.cancelQueuedPrompt(agentId, sessionId, promptId);
         break;
       }
+      case "queue:clear": {
+        const { agentId, sessionId } = data as {
+          agentId: string;
+          sessionId: string;
+        };
+        // Cancel all pending entries in the orchestrator queue
+        const queued = orchestrator.getQueuedPrompts(agentId, sessionId);
+        for (const entry of queued) {
+          if (entry.status === "pending") {
+            orchestrator.cancelQueuedPrompt(agentId, sessionId, entry.id);
+          }
+        }
+        break;
+      }
+      case "queue:reorder": {
+        const { agentId, sessionId, orderedIds } = data as {
+          agentId: string;
+          sessionId: string;
+          orderedIds: string[];
+        };
+        orchestrator.reorderQueuedPrompts(agentId, sessionId, orderedIds);
+        break;
+      }
 
       // ==================================================================
       // Supervisor / Plan messages

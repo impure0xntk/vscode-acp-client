@@ -270,6 +270,13 @@ export interface SessionStoreState {
   commandCenterExpanded: boolean;
   /** Command Center selected session key (agentId:sessionId) */
   commandCenterSelectedKey: string | null;
+  /** Completion notification for background session turns */
+  completionNotification: {
+    agentId: string;
+    sessionId: string;
+    title: string;
+    outcome: TurnOutcome;
+  } | null;
 
   // ── Actions ───────────────────────────────────────────────────────────
   setSessionInfoMap: (map: Record<string, SessionInfoDTO>) => void;
@@ -301,6 +308,12 @@ export interface SessionStoreState {
   addQueuedPrompt: (sessionKey: string, entry: QueuedPrompt) => void;
   removeQueuedPrompt: (sessionKey: string, promptId: string) => void;
   reorderQueuedPrompts: (sessionKey: string, orderedIds: string[]) => void;
+  clearQueue: (sessionKey: string) => void;
+  updateQueuedPromptStatus: (
+    sessionKey: string,
+    promptId: string,
+    status: QueuedPrompt["status"]
+  ) => void;
 
   bulkSetTabs: (params: {
     tabs: SessionTabState[];
@@ -337,6 +350,13 @@ export interface SessionStoreState {
   toggleCommandCenter: () => void;
   setCommandCenterExpanded: (expanded: boolean) => void;
   setCommandCenterSelectedKey: (key: string | null) => void;
+  setCompletionNotification: (notification: {
+    agentId: string;
+    sessionId: string;
+    title: string;
+    outcome: TurnOutcome;
+  }) => void;
+  clearCompletionNotification: () => void;
 }
 
 export const useSessionStore = create<SessionStoreState>((set, get) => ({
@@ -362,6 +382,7 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
   planHistory: [],
   commandCenterExpanded: false,
   commandCenterSelectedKey: null,
+  completionNotification: null,
 
   // ── Session info ─────────────────────────────────────────────────────────
 
@@ -565,6 +586,27 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
           ...state.promptQueue,
           [sessionKey]: [...reordered, ...sending],
         },
+      };
+    }),
+
+  clearQueue: (sessionKey) =>
+    set((state) => {
+      if (!state.promptQueue[sessionKey]) return state;
+      const next = { ...state.promptQueue };
+      delete next[sessionKey];
+      return { ...state, promptQueue: next };
+    }),
+
+  updateQueuedPromptStatus: (sessionKey, promptId, status) =>
+    set((state) => {
+      const q = state.promptQueue[sessionKey];
+      if (!q) return state;
+      const updated = q.map((e) =>
+        e.id === promptId ? { ...e, status } : e
+      );
+      return {
+        ...state,
+        promptQueue: { ...state.promptQueue, [sessionKey]: updated },
       };
     }),
 
@@ -840,4 +882,10 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
     set((s) =>
       s.commandCenterSelectedKey === key ? s : { commandCenterSelectedKey: key }
     ),
+
+  setCompletionNotification: (notification) =>
+    set(() => ({ completionNotification: notification })),
+
+  clearCompletionNotification: () =>
+    set(() => ({ completionNotification: null })),
 }));

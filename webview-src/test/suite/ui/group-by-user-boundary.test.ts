@@ -3,7 +3,8 @@ import { describe, it } from "mocha";
 import type { PipelineItem, ChatDisplayItem } from "../../../pipeline/types";
 
 // ── Re-implementation of groupByUserBoundary for unit testing ───────────────
-// (mirrors the pure function from SessionChatContainer.tsx)
+// (mirrors the pure function from SessionChatContainer.tsx, including
+//  selectFinalResponse with stopReason-first strategy)
 
 interface FinalResponse {
   item: PipelineItem;
@@ -22,6 +23,49 @@ interface GroupedItems {
   trailing: PipelineItem[];
 }
 
+/**
+ * Selects the final response from a group of agent/tool items.
+ * Priority: stopReason > first non-consecutive > last non-promoted fallback.
+ */
+function selectFinalResponse(
+  agentChats: PipelineItem[]
+): { item: PipelineItem; index: number } | null {
+  if (agentChats.length === 0) return null;
+
+  // 1. stopReason-based: the message carrying stopReason is the definitive final response
+  const stopReasonIdx = agentChats.findIndex(
+    (item) => item.type === "chat" && item.stopReason != null
+  );
+  if (stopReasonIdx !== -1) {
+    return { item: agentChats[stopReasonIdx], index: stopReasonIdx };
+  }
+
+  // 2. First non-consecutive agent chat (not a promoted tool)
+  const isNonConsecutiveAgent = (item: PipelineItem) =>
+    item.type === "chat" &&
+    item.role === "agent" &&
+    (item as ChatDisplayItem).originalRole !== "tool" &&
+    !item.isConsecutive;
+  const ncIdx = agentChats.findIndex(isNonConsecutiveAgent);
+  if (ncIdx !== -1) {
+    return { item: agentChats[ncIdx], index: ncIdx };
+  }
+
+  // 3. Fallback: last non-promoted agent chat
+  for (let i = agentChats.length - 1; i >= 0; i--) {
+    const item = agentChats[i];
+    if (
+      item.type === "chat" &&
+      item.role === "agent" &&
+      (item as ChatDisplayItem).originalRole !== "tool"
+    ) {
+      return { item, index: i };
+    }
+  }
+
+  return null;
+}
+
 function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
   const userIndices: number[] = [];
   for (let i = 0; i < items.length; i++) {
@@ -38,29 +82,21 @@ function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
   const lastUserIdx = userIndices[userIndices.length - 1];
   const afterLastUser = items.slice(lastUserIdx + 1);
 
-  const latestAgentChats = afterLastUser.filter(
-    (item) => item.type === "chat" && item.role === "agent"
-  );
+  const isAgentOrTool = (item: PipelineItem) =>
+    item.type === "chat" && (item.role === "agent" || item.role === "tool");
 
-  const trailing = afterLastUser.filter(
-    (item) => !(item.type === "chat" && item.role === "agent")
-  );
+  const latestAgentChats = afterLastUser.filter(isAgentOrTool);
+  const trailing = afterLastUser.filter((item) => !isAgentOrTool(item));
 
-  const latestFinalIdx = latestAgentChats.findIndex(
-    (item) => item.type === "chat" && !item.isConsecutive
-  );
-  const latestFinal =
-    latestFinalIdx === -1 ? null : latestAgentChats[latestFinalIdx];
+  const latestFinal = selectFinalResponse(latestAgentChats);
   const latestIntermediate = latestFinal
-    ? latestAgentChats.filter((item) => item !== latestFinal)
+    ? latestAgentChats.filter((item) => item.key !== latestFinal.item.key)
     : latestAgentChats;
 
   const latestGroup: AgentResponseGroup = {
     userItem: items[lastUserIdx],
     items: latestIntermediate,
-    finalResponse: latestFinal
-      ? { item: latestFinal, index: latestFinalIdx }
-      : null,
+    finalResponse: latestFinal,
   };
 
   const groups: AgentResponseGroup[] = [];
@@ -69,22 +105,17 @@ function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
     const endIdx = userIndices[g + 1];
     const groupItems = items.slice(startIdx + 1, endIdx);
 
-    const finalIdxInGroup = groupItems.findIndex(
-      (item) =>
-        item.type === "chat" && item.role === "agent" && !item.isConsecutive
-    );
-    const finalItem =
-      finalIdxInGroup === -1 ? null : groupItems[finalIdxInGroup];
-    const intermediateItems = finalItem
-      ? groupItems.filter((item) => item !== finalItem)
+    const turnAgentChats = groupItems.filter(isAgentOrTool);
+    const final = selectFinalResponse(turnAgentChats);
+
+    const intermediateItems = final
+      ? groupItems.filter((item) => item.key !== final.item.key)
       : groupItems;
 
     groups.push({
       userItem: items[startIdx],
       items: intermediateItems,
-      finalResponse: finalItem
-        ? { item: finalItem, index: finalIdxInGroup }
-        : null,
+      finalResponse: final,
     });
   }
 
@@ -433,6 +464,214 @@ describe("groupByUserBoundary", () => {
     assert.ok(result.latestGroup);
     assert.strictEqual(result.latestGroup.finalResponse, null);
     assert.strictEqual(result.latestGroup.items.length, 2);
+  });
+
+  // ── stopReason-based final response selection ────────────────────────
+
+  describe("stopReason-based final response selection", () => {
+    it("stopReason marks the final response even when isConsecutive is true", () => {
+      // This is the key scenario: all agent messages are consecutive (streaming),
+      // but the last one has stopReason set — it should be the final response.
+      const items: PipelineItem[] = [
+        userMsg("hello"),
+        thinkingItem("thinking..."),
+        agentMsg("chunk1", { isConsecutive: true }),
+        agentMsg("chunk2", { isConsecutive: true, stopReason: "end_turn" }),
+      ];
+      const result = groupByUserBoundary(items);
+      assert.ok(result.latestGroup);
+      assert.ok(result.latestGroup.finalResponse);
+      // The message with stopReason is the final response
+      assert.strictEqual(
+        (result.latestGroup.finalResponse.item as ChatDisplayItem).content,
+        "chunk2"
+      );
+      assert.strictEqual(
+        (result.latestGroup.finalResponse.item as ChatDisplayItem).stopReason,
+        "end_turn"
+      );
+      // Intermediate: thinking + chunk1 (chunk2 is the final response)
+      assert.strictEqual(result.latestGroup.items.length, 2);
+    });
+
+    it("stopReason on middle message selects it as final, rest are intermediate", () => {
+      const items: PipelineItem[] = [
+        userMsg("q"),
+        agentMsg("first", { isConsecutive: false }),
+        agentMsg("second", { isConsecutive: true, stopReason: "max_tokens" }),
+        agentMsg("third", { isConsecutive: true }),
+      ];
+      const result = groupByUserBoundary(items);
+      assert.ok(result.latestGroup);
+      assert.ok(result.latestGroup.finalResponse);
+      // "second" has stopReason → it's the final response
+      assert.strictEqual(
+        (result.latestGroup.finalResponse.item as ChatDisplayItem).content,
+        "second"
+      );
+      // first and third are intermediate
+      assert.strictEqual(result.latestGroup.items.length, 2);
+    });
+
+    it("stopReason takes priority over isConsecutive detection", () => {
+      // Both stopReason and isConsecutive=false exist — stopReason wins
+      const items: PipelineItem[] = [
+        userMsg("q"),
+        agentMsg("a", { isConsecutive: false }),
+        agentMsg("b", { isConsecutive: false, stopReason: "end_turn" }),
+      ];
+      const result = groupByUserBoundary(items);
+      assert.ok(result.latestGroup);
+      assert.ok(result.latestGroup.finalResponse);
+      // "b" has stopReason → final response (not "a" which is first non-consecutive)
+      assert.strictEqual(
+        (result.latestGroup.finalResponse.item as ChatDisplayItem).content,
+        "b"
+      );
+    });
+
+    it("stopReason on past turn final response", () => {
+      const items: PipelineItem[] = [
+        // Turn 1 (past)
+        userMsg("q1"),
+        agentMsg("thinking...", { isConsecutive: true }),
+        agentMsg("answer", { isConsecutive: true, stopReason: "end_turn" }),
+        // Turn 2 (latest)
+        userMsg("q2"),
+        agentMsg("reply", { isConsecutive: false }),
+      ];
+      const result = groupByUserBoundary(items);
+      assert.strictEqual(result.groups.length, 1);
+      const past = result.groups[0];
+      // Past turn: "answer" has stopReason → final response
+      assert.ok(past.finalResponse);
+      assert.strictEqual(
+        (past.finalResponse.item as ChatDisplayItem).content,
+        "answer"
+      );
+      assert.strictEqual(
+        (past.finalResponse.item as ChatDisplayItem).stopReason,
+        "end_turn"
+      );
+      // "thinking..." is intermediate
+      assert.strictEqual(past.items.length, 1);
+    });
+
+    it("cancelled stopReason still marks final response", () => {
+      const items: PipelineItem[] = [
+        userMsg("do stuff"),
+        thinkingItem("thinking..."),
+        agentMsg("partial work", { isConsecutive: true, stopReason: "cancelled" }),
+      ];
+      const result = groupByUserBoundary(items);
+      assert.ok(result.latestGroup);
+      assert.ok(result.latestGroup.finalResponse);
+      assert.strictEqual(
+        (result.latestGroup.finalResponse.item as ChatDisplayItem).content,
+        "partial work"
+      );
+      assert.strictEqual(
+        (result.latestGroup.finalResponse.item as ChatDisplayItem).stopReason,
+        "cancelled"
+      );
+    });
+
+    it("no stopReason falls back to isConsecutive detection", () => {
+      // Without stopReason, the original isConsecutive logic applies
+      const items: PipelineItem[] = [
+        userMsg("q"),
+        agentMsg("a", { isConsecutive: true }),
+        agentMsg("b", { isConsecutive: false }),
+      ];
+      const result = groupByUserBoundary(items);
+      assert.ok(result.latestGroup);
+      assert.ok(result.latestGroup.finalResponse);
+      // "b" is first non-consecutive → final response
+      assert.strictEqual(
+        (result.latestGroup.finalResponse.item as ChatDisplayItem).content,
+        "b"
+      );
+    });
+
+    it("all consecutive with no stopReason → no finalResponse", () => {
+      const items: PipelineItem[] = [
+        userMsg("q"),
+        agentMsg("a", { isConsecutive: true }),
+        agentMsg("b", { isConsecutive: true }),
+      ];
+      const result = groupByUserBoundary(items);
+      assert.ok(result.latestGroup);
+      assert.strictEqual(result.latestGroup.finalResponse, null);
+      assert.strictEqual(result.latestGroup.items.length, 2);
+    });
+  });
+
+  // ── Latest group: peel-last-intermediate logic ───────────────────────
+
+  describe("latest group: peel-last-intermediate for banner", () => {
+    // Simulates the render-time split in SessionChatContainer:
+    // allIntermediate = latestGroup.items (already excludes finalResponse)
+    // olderIntermediate = allIntermediate.length > 2 ? slice(0, -1) : allIntermediate
+    // lastIntermediate  = allIntermediate.length > 2 ? last item : null
+
+    function splitForBanner(intermediate: PipelineItem[]): {
+      older: PipelineItem[];
+      last: PipelineItem | null;
+    } {
+      const older =
+        intermediate.length > 2 ? intermediate.slice(0, -1) : intermediate;
+      const last =
+        intermediate.length > 2
+          ? intermediate[intermediate.length - 1]
+          : null;
+      return { older, last };
+    }
+
+    it("0 intermediate → older=[], last=null", () => {
+      const { older, last } = splitForBanner([]);
+      assert.strictEqual(older.length, 0);
+      assert.strictEqual(last, null);
+    });
+
+    it("1 intermediate → older=[A], last=null (all in banner)", () => {
+      const A = thinkingItem("t");
+      const { older, last } = splitForBanner([A]);
+      assert.strictEqual(older.length, 1);
+      assert.deepStrictEqual(older, [A]);
+      assert.strictEqual(last, null);
+    });
+
+    it("2 intermediates → older=[A,B], last=null (all in banner)", () => {
+      const A = thinkingItem("t1");
+      const B = agentMsg("step", { isConsecutive: true });
+      const { older, last } = splitForBanner([A, B]);
+      assert.strictEqual(older.length, 2);
+      assert.deepStrictEqual(older, [A, B]);
+      assert.strictEqual(last, null);
+    });
+
+    it("3 intermediates → older=[A,B], last=C (last peeled out)", () => {
+      const A = thinkingItem("t1");
+      const B = agentMsg("step1", { isConsecutive: true });
+      const C = agentMsg("step2", { isConsecutive: true });
+      const { older, last } = splitForBanner([A, B, C]);
+      assert.strictEqual(older.length, 2);
+      assert.deepStrictEqual(older, [A, B]);
+      assert.strictEqual(last, C);
+    });
+
+    it("4 intermediates → older=[A,B,C], last=D", () => {
+      const items = [
+        thinkingItem("t"),
+        agentMsg("s1", { isConsecutive: true }),
+        agentMsg("s2", { isConsecutive: true }),
+        agentMsg("s3", { isConsecutive: true }),
+      ];
+      const { older, last } = splitForBanner(items);
+      assert.strictEqual(older.length, 3);
+      assert.deepStrictEqual(older, items.slice(0, 3));
+      assert.strictEqual(last, items[3]);
+    });
   });
 
   // ── New user message causes previous latest to become past group ──────

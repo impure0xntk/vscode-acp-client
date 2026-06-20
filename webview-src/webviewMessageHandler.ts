@@ -113,11 +113,19 @@ interface SessionCompression {
   usedBefore?: number;
 }
 
+interface SessionTurnEnded {
+  type: "session/turnEnded";
+  agentId: string;
+  sessionId: string;
+  stopReason: string;
+}
+
 interface SessionCompleted {
   type: "session/completed";
   agentId: string;
   sessionId: string;
   title: string;
+  stopReason?: string;
 }
 
 interface SessionSnapshot {
@@ -206,6 +214,13 @@ interface QueueUpdatedMessage {
   agentId: string;
   sessionId: string;
   queue: QueuedPrompt[];
+}
+
+interface QueueDequeuedMessage {
+  type: "queue:dequeued";
+  agentId: string;
+  sessionId: string;
+  entry: QueuedPrompt;
 }
 
 interface SessionOverviewToggleMessage {
@@ -379,6 +394,7 @@ type WebviewMessage =
   | SessionTurnActive
   | SessionUsage
   | SessionCompression
+  | SessionTurnEnded
   | SessionCompleted
   | SessionSnapshot
   | SessionInfo
@@ -390,6 +406,7 @@ type WebviewMessage =
   | SessionCommandsMessage
   | QueueAddedMessage
   | QueueUpdatedMessage
+  | QueueDequeuedMessage
   | SessionOverviewToggleMessage
   | SessionOverviewPositionMessage
   | SessionOverviewStateMessage
@@ -623,6 +640,50 @@ function handleSessionCompression(data: SessionCompression): void {
   useMessageStore.getState().appendMessage(msgKey, compressionMsg);
 }
 
+function handleSessionTurnEnded(data: SessionTurnEnded): void {
+  const key = sessionKeyOf(data.agentId, data.sessionId);
+  const existing = useSessionStore.getState().sessionInfoMap[key];
+  log.info("handleSessionTurnEnded", {
+    agentId: data.agentId,
+    sessionId: data.sessionId,
+    stopReason: data.stopReason,
+  });
+
+  // Stamp stopReason onto the last agent message in the message store so
+  // the pipeline's groupByUserBoundary can use it as the authoritative
+  // signal for the final response boundary.
+  useMessageStore.getState().updateLastAgentMessage(key, {
+    stopReason: data.stopReason,
+  });
+
+  // Map ACP stopReason to TurnOutcome for the UI
+  const outcome: import("./types").TurnOutcome =
+    data.stopReason === "end_turn" || data.stopReason === "max_turn_requests"
+      ? "completed"
+      : data.stopReason === "cancelled"
+        ? "cancelled"
+        : "error";
+  if (existing) {
+    useSessionStore.getState().setSessionInfo(data.agentId, data.sessionId, {
+      ...existing,
+      status: outcome === "completed" ? "idle" : existing.status,
+      isStreaming: false,
+      lastTurnOutcome: outcome,
+      lastResponseAt: new Date().toISOString(),
+    });
+  }
+  // If stopReason indicates refusal or max_tokens, the turn ended abnormally —
+  // emit a completion notification so the user sees the reason.
+  if (data.stopReason === "refusal" || data.stopReason === "max_tokens") {
+    useSessionStore.getState().setCompletionNotification({
+      agentId: data.agentId,
+      sessionId: data.sessionId,
+      title: existing?.title ?? data.sessionId.slice(0, 8),
+      outcome,
+    });
+  }
+}
+
 function handleSessionCompleted(data: SessionCompleted): void {
   const key = sessionKeyOf(data.agentId, data.sessionId);
   const existing = useSessionStore.getState().sessionInfoMap[key];
@@ -630,6 +691,7 @@ function handleSessionCompleted(data: SessionCompleted): void {
     agentId: data.agentId,
     sessionId: data.sessionId,
     title: data.title,
+    stopReason: data.stopReason,
   });
   if (existing) {
     useSessionStore.getState().setSessionInfo(data.agentId, data.sessionId, {
@@ -639,6 +701,20 @@ function handleSessionCompleted(data: SessionCompleted): void {
       lastResponseAt: new Date().toISOString(),
     });
   }
+  // Show completion notification with outcome derived from stopReason
+  const outcome: import("./types").TurnOutcome = data.stopReason
+    ? data.stopReason === "end_turn" || data.stopReason === "max_turn_requests"
+      ? "completed"
+      : data.stopReason === "cancelled"
+        ? "cancelled"
+        : "error"
+    : "completed";
+  useSessionStore.getState().setCompletionNotification({
+    agentId: data.agentId,
+    sessionId: data.sessionId,
+    title: data.title,
+    outcome,
+  });
 }
 
 function handleSessionSnapshot(data: SessionSnapshot): void {
@@ -752,12 +828,17 @@ function handleSessionCommands(data: SessionCommandsMessage): void {
 
 function handleQueueAdded(data: QueueAddedMessage): void {
   const key = sessionKeyOf(data.agentId, data.sessionId);
-  useMessageStore.getState().addQueuedPrompt(key, data.entry);
+  useSessionStore.getState().addQueuedPrompt(key, data.entry);
 }
 
 function handleQueueUpdated(data: QueueUpdatedMessage): void {
   const key = sessionKeyOf(data.agentId, data.sessionId);
   useSessionStore.getState().setPromptQueue(key, data.queue);
+}
+
+function handleQueueDequeued(data: QueueDequeuedMessage): void {
+  const key = sessionKeyOf(data.agentId, data.sessionId);
+  useSessionStore.getState().updateQueuedPromptStatus(key, data.entry.id, "sending");
 }
 
 function handleSessionOverviewState(data: SessionOverviewStateMessage): void {
@@ -962,6 +1043,9 @@ export function setupMessageHandlers(): void {
       case "session/compression":
         handleSessionCompression(data);
         break;
+      case "session/turnEnded":
+        handleSessionTurnEnded(data);
+        break;
       case "session/completed":
         handleSessionCompleted(data);
         break;
@@ -994,6 +1078,9 @@ export function setupMessageHandlers(): void {
         break;
       case "queue:updated":
         handleQueueUpdated(data);
+        break;
+      case "queue:dequeued":
+        handleQueueDequeued(data);
         break;
       case "sessionOverview:state":
         handleSessionOverviewState(data);

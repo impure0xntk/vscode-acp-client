@@ -414,6 +414,61 @@ describe("sessionStore", () => {
       // q3 should be last (sending, kept at end)
       assert.strictEqual(queue[2].id, "q3");
     });
+
+    it("updateQueuedPromptStatus changes status of a specific entry", () => {
+      const { addQueuedPrompt, updateQueuedPromptStatus } =
+        useSessionStore.getState();
+      addQueuedPrompt("agent1:session1", makeQueuedPrompt("q1", "pending"));
+      addQueuedPrompt("agent1:session1", makeQueuedPrompt("q2", "pending"));
+      updateQueuedPromptStatus("agent1:session1", "q1", "sending");
+      const state = useSessionStore.getState();
+      const queue = state.promptQueue["agent1:session1"];
+      assert.strictEqual(queue[0].status, "sending");
+      assert.strictEqual(queue[1].status, "pending");
+    });
+
+    it("updateQueuedPromptStatus does nothing if promptId not found", () => {
+      const { addQueuedPrompt, updateQueuedPromptStatus } =
+        useSessionStore.getState();
+      addQueuedPrompt("agent1:session1", makeQueuedPrompt("q1", "pending"));
+      const ref = useSessionStore.getState();
+      updateQueuedPromptStatus("agent1:session1", "nonexistent", "sending");
+      assert.strictEqual(useSessionStore.getState(), ref);
+    });
+
+    it("updateQueuedPromptStatus does nothing if session key has no queue", () => {
+      const { updateQueuedPromptStatus } = useSessionStore.getState();
+      const ref = useSessionStore.getState();
+      updateQueuedPromptStatus("agent1:session1", "q1", "sending");
+      assert.strictEqual(useSessionStore.getState(), ref);
+    });
+
+    it("clearQueue removes the entire queue for a session key", () => {
+      const { addQueuedPrompt, clearQueue } = useSessionStore.getState();
+      addQueuedPrompt("agent1:session1", makeQueuedPrompt("q1"));
+      addQueuedPrompt("agent1:session1", makeQueuedPrompt("q2"));
+      clearQueue("agent1:session1");
+      const state = useSessionStore.getState();
+      assert.strictEqual(state.promptQueue["agent1:session1"], undefined);
+    });
+
+    it("clearQueue does nothing if session key has no queue", () => {
+      const { clearQueue } = useSessionStore.getState();
+      const ref = useSessionStore.getState();
+      clearQueue("agent1:session1");
+      assert.strictEqual(useSessionStore.getState(), ref);
+    });
+
+    it("setPromptQueue replaces the entire queue for a session key", () => {
+      const { setPromptQueue, addQueuedPrompt } = useSessionStore.getState();
+      addQueuedPrompt("agent1:session1", makeQueuedPrompt("q1"));
+      const newQueue = [makeQueuedPrompt("q2"), makeQueuedPrompt("q3")];
+      setPromptQueue("agent1:session1", newQueue);
+      const state = useSessionStore.getState();
+      assert.strictEqual(state.promptQueue["agent1:session1"].length, 2);
+      assert.strictEqual(state.promptQueue["agent1:session1"][0].id, "q2");
+      assert.strictEqual(state.promptQueue["agent1:session1"][1].id, "q3");
+    });
   });
 
   // ── 5. Bulk operations ────────────────────────────────────────────────

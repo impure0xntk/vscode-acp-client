@@ -74,11 +74,11 @@ export function Chip({
         <span className="toolbar-chip-icon">{meta.icon}</span>
       )}
       {meta.barPct !== undefined ? (
-        <span className="toolbar-chip-bar-wrap">
-          <span className="toolbar-chip-bar-track">
+        <span className="toolbar-chip-ctx-wrap">
+          <span className="toolbar-chip-ctx-bar">
             <span
-              className="toolbar-chip-bar-fill"
-              style={{ width: `${meta.barPct}%` }}
+              className="toolbar-chip-ctx-fill"
+              style={{ height: `${meta.barPct}%` }}
             />
           </span>
           <span className="toolbar-chip-value">{meta.value}</span>

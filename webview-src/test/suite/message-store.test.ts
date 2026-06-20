@@ -279,6 +279,87 @@ describe("messageStore", () => {
     });
   });
 
+  // ── updateLastAgentMessage ────────────────────────────────────────
+
+  describe("updateLastAgentMessage", () => {
+    it("stops stopReason onto the last agent message", () => {
+      const msgs = [
+        makeMessage({ role: "user", content: "q" }),
+        makeMessage({ role: "agent", content: "thinking..." }),
+        makeMessage({ role: "agent", content: "final answer" }),
+      ];
+      useMessageStore.getState().setMessages("session-1", msgs);
+      useMessageStore.getState().updateLastAgentMessage("session-1", {
+        stopReason: "end_turn",
+      });
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.perSession["session-1"].length, 3);
+      // Last agent message now has stopReason
+      assert.strictEqual(
+        state.perSession["session-1"][2].stopReason,
+        "end_turn"
+      );
+      // Other messages unchanged
+      assert.strictEqual(
+        state.perSession["session-1"][1].stopReason,
+        undefined
+      );
+    });
+
+    it("updates the last tool message when no agent message exists", () => {
+      const msgs = [
+        makeMessage({ role: "user", content: "q" }),
+        makeMessage({ role: "tool", content: "tool result" }),
+      ];
+      useMessageStore.getState().setMessages("session-1", msgs);
+      useMessageStore.getState().updateLastAgentMessage("session-1", {
+        stopReason: "cancelled",
+      });
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.perSession["session-1"].length, 2);
+      assert.strictEqual(
+        state.perSession["session-1"][1].stopReason,
+        "cancelled"
+      );
+    });
+
+    it("is a no-op when no messages exist", () => {
+      useMessageStore.getState().updateLastAgentMessage("empty-key", {
+        stopReason: "end_turn",
+      });
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.perSession["empty-key"], undefined);
+    });
+
+    it("is a no-op when messages exist but none are agent/tool", () => {
+      const msgs = [makeMessage({ role: "user", content: "q" })];
+      useMessageStore.getState().setMessages("session-1", msgs);
+      useMessageStore.getState().updateLastAgentMessage("session-1", {
+        stopReason: "end_turn",
+      });
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.perSession["session-1"][0].stopReason, undefined);
+    });
+
+    it("preserves existing message properties when updating", () => {
+      const msg = makeMessage({
+        role: "agent",
+        content: "hello",
+        agentId: "claude",
+      });
+      useMessageStore.getState().setMessages("session-1", [msg]);
+      useMessageStore.getState().updateLastAgentMessage("session-1", {
+        stopReason: "max_tokens",
+      });
+      const state = useMessageStore.getState();
+      const updated = state.perSession["session-1"][0];
+      assert.strictEqual(updated.content, "hello");
+      assert.strictEqual(updated.agentId, "claude");
+      assert.strictEqual(updated.role, "agent");
+      assert.strictEqual(updated.stopReason, "max_tokens");
+    });
+  });
+
   // ── Cross-session isolation ───────────────────────────────────────
 
   describe("cross-session isolation", () => {

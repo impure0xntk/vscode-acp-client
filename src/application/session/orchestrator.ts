@@ -49,6 +49,7 @@ import type {
   ContentBlock,
   ToolCallContent,
   AvailableCommand,
+  StopReason,
 } from "@agentclientprotocol/sdk";
 import type { PersistentHistoryStore } from "./persistentHistory";
 import type { SessionHistoryStore, HistoryEntry } from "./historyStore";
@@ -61,6 +62,8 @@ export interface SessionCompletedEvent {
   agentId: string;
   sessionId: string;
   title: string;
+  /** ACP stopReason from session/prompt response — indicates why the turn ended */
+  stopReason: StopReason;
 }
 import { PlatformAcpClient } from "../../adapter/acp/client";
 import type { UIAPI } from "../../platform/ui";
@@ -1034,6 +1037,7 @@ export class SessionOrchestrator extends EventEmitter {
       { type: "text", text: finalText },
     ];
 
+    let stopReason: StopReason | undefined;
     try {
       const response = await connection.prompt({
         sessionId,
@@ -1054,6 +1058,7 @@ export class SessionOrchestrator extends EventEmitter {
         tokens: sessionInfo.tokenUsage,
       });
 
+      stopReason = response.stopReason;
       sessionInfo.lastTurnOutcome = "completed";
       sessionInfo.isStreaming = false;
       sessionInfo.lastResponseAt = new Date().toISOString();
@@ -1062,11 +1067,13 @@ export class SessionOrchestrator extends EventEmitter {
         agentId,
         sessionId,
         tokens: sessionInfo.tokenUsage,
+        stopReason,
       });
       this.emit("sessionCompleted", {
         agentId,
         sessionId,
         title: sessionInfo.title,
+        stopReason,
       });
     } catch (e) {
       sessionInfo.lastTurnOutcome = "error";
@@ -1085,6 +1092,7 @@ export class SessionOrchestrator extends EventEmitter {
         agentId,
         sessionId,
         active: false,
+        stopReason,
       });
 
       // Process next queued prompt for this session, if any.
@@ -1215,6 +1223,7 @@ export class SessionOrchestrator extends EventEmitter {
         agentId,
         sessionId,
         active: false,
+        stopReason: "cancelled" as const,
       });
 
       log.info("turn cancelling", { agentId, sessionId });
@@ -1743,6 +1752,7 @@ export class SessionOrchestrator extends EventEmitter {
         agentId,
         sessionId,
         active: false,
+        stopReason: "cancelled" as const,
       });
       return;
     }

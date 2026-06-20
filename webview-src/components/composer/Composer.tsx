@@ -7,6 +7,7 @@ import React, {
 import type {
   CommunicationMode,
   ContextAttachment,
+  QueuedPrompt,
   SelectedTeam,
   SuggestionItem,
   TriggerType,
@@ -94,6 +95,14 @@ export interface ComposerProps {
   fetchSymbols: (query: string) => Promise<SuggestionItem[]>;
   resolveSymbol: (name: string) => Promise<ContextAttachment>;
   availableCommands?: SlashCommand[];
+  /** Queued prompts for the active session */
+  queue?: QueuedPrompt[];
+  /** Send a queued prompt immediately (bypassing queue) */
+  onSendNow?: (promptId: string) => void;
+  /** Remove a single queued prompt */
+  onRemoveQueueItem?: (promptId: string) => void;
+  /** Clear all queued prompts */
+  onClearQueue?: () => void;
 }
 
 // ── Relative time helper ───────────────────────────────────────────
@@ -121,7 +130,6 @@ function buildSessionSuggestions(
   const sessionStore = useSessionStore.getState();
   const sessionInfoMap = sessionStore.sessionInfoMap;
   const connectedAgents = sessionStore.connectedAgents;
-  const perSession = useMessageStore.getState().perSession;
 
   const items: SuggestionItem[] = tabs.map((tab) => {
     const key = `${tab.agentId}:${tab.sessionId}`;
@@ -130,19 +138,9 @@ function buildSessionSuggestions(
       (a) => a.agentId === tab.agentId
     )?.color;
 
-    // Find the last agent message content for preview
-    const messages = perSession[key] ?? [];
-    const lastAgentMsg = [...messages]
-      .reverse()
-      .find((m) => m.role === "agent");
-    const preview = lastAgentMsg
-      ? lastAgentMsg.content.replace(/\s+/g, " ").trim().slice(0, 60)
-      : null;
     const timeStr = relativeTime(info?.lastResponseAt ?? null);
-
-    const detail = preview
-      ? `${tab.agentId} · ${timeStr} · ${preview}`
-      : `${tab.agentId} · ${timeStr}`;
+    // Start without preview — will be enriched asynchronously
+    const detail = `${tab.agentId} · ${timeStr}`;
 
     return {
       id: `session:${tab.agentId}:${tab.sessionId}`,
@@ -155,6 +153,8 @@ function buildSessionSuggestions(
       sessionId: tab.sessionId,
       status: info?.status ?? "idle",
       sessionColor,
+      tokenUsage: info?.tokenUsage,
+      contextWindowMax: info?.contextWindowMax,
     };
   });
 
@@ -167,6 +167,50 @@ function buildSessionSuggestions(
       s.detail?.toLowerCase().includes(q) ||
       s.value.toLowerCase().includes(q)
   );
+}
+
+/**
+ * Asynchronously enrich session suggestions with last agent message preview.
+ * Applies in-place (mutates `detail` on each item) so React re-renders via updateSuggestions.
+ */
+export type SuggestionUpdater = (items: SuggestionItem[]) => void;
+
+export function enrichSessionSuggestionsAsync(
+  items: SuggestionItem[],
+  updateSuggestions: SuggestionUpdater
+): void {
+  // Defer to next microtask so picker renders immediately
+  queueMicrotask(() => {
+    const perSession = useMessageStore.getState().perSession;
+    let changed = false;
+
+    for (const item of items) {
+      if (item.kind !== "session" || !item.agentId || !item.sessionId) continue;
+      const key = `${item.agentId}:${item.sessionId}`;
+      const messages = perSession[key] ?? [];
+      const lastAgentMsg = [...messages]
+        .reverse()
+        .find((m) => m.role === "agent");
+      const preview = lastAgentMsg
+        ? lastAgentMsg.content.replace(/\s+/g, " ").trim().slice(0, 60)
+        : null;
+
+      if (preview) {
+        const sessionStore = useSessionStore.getState();
+        const info = sessionStore.sessionInfoMap[key];
+        const timeStr = relativeTime(info?.lastResponseAt ?? null);
+        const newDetail = `${item.agentId} · ${timeStr} · ${preview}`;
+        if (item.detail !== newDetail) {
+          item.detail = newDetail;
+          changed = true;
+        }
+      }
+    }
+
+    if (changed) {
+      updateSuggestions([...items]);
+    }
+  });
 }
 
 // ── Component ───────────────────────────────────────────────────────
@@ -186,6 +230,10 @@ export function Composer({
   fetchSymbols,
   resolveSymbol,
   availableCommands = [],
+  queue = [],
+  onSendNow,
+  onRemoveQueueItem,
+  onClearQueue,
 }: ComposerProps): React.ReactElement {
   // Read tabs imperatively — getTabs() returns a new array each call,
   // which would cause an infinite loop via useSyncExternalStore.
@@ -254,6 +302,8 @@ export function Composer({
             | "completed"
             | "error"
             | "cancelled",
+          tokenUsage: info?.tokenUsage,
+          contextWindowMax: info?.contextWindowMax,
         };
       });
 
@@ -716,11 +766,15 @@ export function Composer({
           setText(newText);
         } else {
           // Multi-@: add to send targets instead of replacing
+          const sessionInfoMap = useSessionStore.getState().sessionInfoMap;
+          const info = sessionInfoMap[`${item.agentId}:${item.sessionId}`];
           const target: SendTarget = {
             agentId: item.agentId!,
             sessionId: item.sessionId!,
             label: item.label,
-            status: "idle",
+            status: (info?.status as SendTarget["status"]) ?? "idle",
+            tokenUsage: info?.tokenUsage,
+            contextWindowMax: info?.contextWindowMax,
           };
           addSendTarget(target);
 
@@ -817,6 +871,38 @@ export function Composer({
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   }, []);
 
+  // ── Queue helpers ────────────────────────────────────────────────
+
+  /** Send immediately (bypass queue) — used by "send now" button on queued items */
+  const handleSendNow = useCallback(
+    (sendText: string, sendAttachments: ContextAttachment[]) => {
+      const trimmed = sendText.trim();
+      if ((!trimmed && sendAttachments.length === 0) || disabled) return;
+
+      const targets = sendTargets.length > 0 ? sendTargets : undefined;
+      log.info("sendNow", {
+        textLen: trimmed.length,
+        attachments: sendAttachments.length,
+        targets: targets?.length ?? 0,
+      });
+      onSend(trimmed, sendAttachments, targets, communicationMode, selectedTeam?.id);
+
+      clearSendTargets();
+      setSelectedTeam(null);
+      setCommunicationMode(null);
+    },
+    [
+      disabled,
+      onSend,
+      sendTargets,
+      clearSendTargets,
+      selectedTeam,
+      setSelectedTeam,
+      communicationMode,
+      setCommunicationMode,
+    ]
+  );
+
   // ── Send ─────────────────────────────────────────────────────────
 
   const handleSend = useCallback(() => {
@@ -832,7 +918,6 @@ export function Composer({
       historyIdxRef.current = -1;
       inputBeforeNavRef.current = "";
 
-      // Pass targets if multi-@ mode, otherwise undefined (defaults to active session)
       const targets = sendTargets.length > 0 ? sendTargets : undefined;
       log.info("send", {
         textLen: trimmed.length,
@@ -992,6 +1077,65 @@ export function Composer({
         </div>
       )}
 
+      {/* Queue panel — shown when there are queued messages */}
+      {queue.length > 0 && (
+        <div className="composer-queue">
+          <div className="composer-queue-header">
+            <span className="composer-queue-title">
+              {queue.length} queued message{queue.length !== 1 ? "s" : ""}
+            </span>
+            {onClearQueue && (
+              <button
+                className="composer-queue-clear-all"
+                onClick={onClearQueue}
+                title="Clear all queued messages"
+                aria-label="Clear all queued messages"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+          <ul className="composer-queue-list">
+            {queue.map((entry) => (
+              <li key={entry.id} className="composer-queue-item">
+                <div className="composer-queue-item-content">
+                  <span
+                    className="composer-queue-item-text"
+                    title={entry.text}
+                  >
+                    {entry.text.length > 80
+                      ? entry.text.slice(0, 80) + "\u2026"
+                      : entry.text}
+                  </span>
+                </div>
+                <div className="composer-queue-item-actions">
+                  {onSendNow && entry.status === "pending" && (
+                    <button
+                      className="composer-queue-item-send-now"
+                      onClick={() => onSendNow(entry.id)}
+                      title="Send now (bypass queue)"
+                      aria-label="Send now"
+                    >
+                      ↑
+                    </button>
+                  )}
+                  {onRemoveQueueItem && entry.status === "pending" && (
+                    <button
+                      className="composer-queue-item-remove"
+                      onClick={() => onRemoveQueueItem(entry.id)}
+                      title="Remove from queue"
+                      aria-label="Remove from queue"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {triggerState.active && (
         <ContextPicker
           trigger={triggerState.trigger}
@@ -1003,6 +1147,16 @@ export function Composer({
           selectedIndex={pickerIndex}
           onSelectedIndexChange={setPickerIndex}
           registerKeyHandler={registerKeyHandler}
+          onItemsFetched={(items, setItems) => {
+            const isSessionTrigger =
+              (triggerState.trigger === "@" &&
+                triggerState.subTrigger !== "team") ||
+              (triggerState.trigger === "#" &&
+                triggerState.subTrigger === "switch");
+            if (isSessionTrigger) {
+              enrichSessionSuggestionsAsync(items, setItems);
+            }
+          }}
         />
       )}
       <div className="composer-inner">
