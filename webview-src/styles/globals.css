@@ -134,7 +134,6 @@
    ============================================================================ */
 
 @keyframes dot-blink {
-
   0%,
   80%,
   100% {
@@ -147,7 +146,6 @@
 }
 
 @keyframes dot-pulse {
-
   0%,
   100% {
     transform: scale(0.8);
@@ -161,7 +159,6 @@
 }
 
 @keyframes dot-flash {
-
   0%,
   100% {
     opacity: 0.3;
@@ -177,7 +174,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: currentColor;
+  background: currentcolor;
   animation: dot-blink 1.4s infinite both;
 }
 
@@ -194,7 +191,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: currentColor;
+  background: currentcolor;
   animation: dot-pulse 1.5s ease-in-out infinite;
 }
 
@@ -211,7 +208,7 @@
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: currentColor;
+  background: currentcolor;
   animation: dot-flash 1s ease-in-out infinite;
 }
 
@@ -251,9 +248,11 @@
   transition: background 0.15s;
   flex-shrink: 0;
 }
+
 .file-chip:hover {
   background: var(--accent-hover);
 }
+
 .file-chip:focus-visible {
   outline: 1px solid var(--accent);
   outline-offset: 1px;
@@ -274,9 +273,11 @@
   background: color-mix(in srgb, var(--accent) 20%, transparent);
   color: var(--fg-secondary);
 }
+
 .file-chip-label {
   line-height: 1;
 }
+
 /* Inline file chips inside the tool-call header row */
 .file-chip-inline {
   margin-left: 2px;
@@ -287,14 +288,17 @@
 .tool-call-completed .file-chip-inline {
   color: var(--fg-muted);
 }
+
 .tool-call-completed .file-chip-inline:hover {
   color: var(--fg-secondary);
   background: var(--accent-hover);
 }
+
 .tool-call-completed .file-chip-inline .file-chip-ext {
   color: var(--fg-muted);
   background: color-mix(in srgb, var(--fg-muted) 12%, transparent);
 }
+
 .tool-call-completed .file-chip-inline:hover .file-chip-ext {
   color: var(--fg-secondary);
   background: color-mix(in srgb, var(--accent) 20%, transparent);
@@ -319,10 +323,7 @@
     border-color 0.15s ease;
 }
 
-/* ── Status accent colours on left border ── */
-.session-overview-card[data-status="completed"] {
-  border-left-color: var(--success);
-}/* ── Color-group driven pulse (matches spinner colors) ── */
+/* ── Color-group driven pulse (matches spinner colors) ── */
 
 /* Base: pulse with color-group color */
 .session-overview-card[data-color-group="active"] {
@@ -335,21 +336,25 @@
   100% {
     border-left-color: #4fc3f7;
   }
+
   50% {
     border-left-color: color-mix(in srgb, #4fc3f7 30%, transparent);
   }
 }
+
 @keyframes soc-waiting-pulse {
   0%,
   100% {
     border-left-color: #ffd54f;
   }
+
   50% {
     border-left-color: color-mix(in srgb, #ffd54f 30%, transparent);
   }
 }
 
 /* Elapsed-time tier: override color-group (exact match with spinner) */
+
 /* ≥10s: yellow warning — active */
 .session-overview-card[data-elapsed-tier="warning"][data-color-group="active"] {
   border-left-color: #ffd54f;
@@ -367,6 +372,7 @@
   100% {
     border-left-color: #ffd54f;
   }
+
   50% {
     border-left-color: color-mix(in srgb, #ffd54f 30%, transparent);
   }
@@ -389,6 +395,7 @@
   100% {
     border-left-color: #ef5350;
   }
+
   50% {
     border-left-color: color-mix(in srgb, #ef5350 30%, transparent);
   }
@@ -397,29 +404,36 @@
 /* Completed / error: flash border then fade out (CSS-only, 2.5s) */
 .session-overview-card[data-flashing="completed"] {
   --soc-flash-color: var(--success);
+
   animation: soc-flash-border 2.5s ease-out forwards;
 }
+
 @keyframes soc-flash-border {
   0% {
     outline: 2px solid var(--soc-flash-color);
     outline-offset: 0;
   }
+
   15% {
     outline: 2px solid transparent;
     outline-offset: 0;
   }
+
   30% {
     outline: 2px solid var(--soc-flash-color);
     outline-offset: 0;
   }
+
   45% {
     outline: 2px solid transparent;
     outline-offset: 0;
   }
+
   60% {
     outline: 2px solid var(--soc-flash-color);
     outline-offset: 0;
   }
+
   100% {
     outline: 2px solid transparent;
     outline-offset: 0;
@@ -430,7 +444,9 @@
 .session-overview-card[data-status="completed"] {
   border-left-color: transparent;
 }/* Active: subtle background tint — like an active tab in the tab bar */
+
 /* Chevron rotation for collapsed state */
+
 /* ── Card footer (timestamp + actions) ── */
 
 .session-overview-card-footer {
@@ -441,6 +457,7 @@
   padding-top: 4px;
   border-top: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
 }
+
 /* ── Chips inside card (reuse toolbar-chip styles) ── */
 
 .session-overview-chips {
@@ -449,6 +466,7 @@
   gap: 2px;
   margin-top: 4px;
 }
+
 /* ── Session overview card badge (unread count) ── */
 
 
@@ -467,6 +485,7 @@
   flex-shrink: 0;
   text-align: right;
 }
+
 /* ============================================================================
    Session Overview Popup — hover tooltip on tab bar
    ============================================================================ */
@@ -476,7 +495,7 @@
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: 6px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.35);
   padding: 8px 10px;
   display: flex;
   flex-direction: column;
@@ -490,6 +509,7 @@
     opacity: 0;
     transform: scale(0.96) translateY(-2px);
   }
+
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -497,6 +517,7 @@
 }
 
 /* Popup uses soc-* header inside so-popup-header wrapper */
+
 /* ── Session card checkbox ── */
 
 .session-overview-card-checkbox {
@@ -540,6 +561,7 @@
     transform 0.15s ease-out;
   overflow: hidden;
 }
+
 /* ============================================================================
    Context Compression Notice — inline notification in chat
    ============================================================================ */
@@ -558,7 +580,7 @@
   background: color-mix(in srgb, var(--bg-secondary) 6%, transparent);
 }/* ── Expanded body ── */
 .tool-batch-body {
-  padding: 1px 12px 2px 12px;
+  padding: 1px 12px 2px;
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -571,6 +593,7 @@
     opacity: 0;
     max-height: 0;
   }
+
   to {
     opacity: 1;
     max-height: 2000px;
@@ -593,6 +616,7 @@
 .tool-batch-item > .tool-call {
   margin-top: 1px;
 }
+
 /* Nested tool-batch (OK sub-group inside mixed-status batch):
    offset the parent .tool-batch-body padding so OK items align with error items */
 .tool-batch-item > .tool-batch {
@@ -601,13 +625,8 @@
 }
 
 /* Nested OK sub-group: no extra item wrapper — flush with error items */
-/* ============================================================================
-   Context Compression Notice
-   ============================================================================ */
 
-.message-compression {
-  margin: 2px 0;
-}/* System message variant: override italic from .message-system .message-body */
+/* System message variant: override italic from .message-system .message-body */
 .message-system .message-body:has(.context-compression-notice) {
   font-style: normal;
 }
@@ -617,6 +636,7 @@
    ============================================================================ */
 
 /* ── Panel mode toggle ── */
+
 /* ── Multi-session view container ── */
 .multi-session-view {
   flex: 1;
@@ -686,6 +706,7 @@
   flex-shrink: 0;
   overflow: hidden;
 }
+
 /* ── Token usage bar (in section header) ── */
 .section-header-token-bar {
   height: 3px;
@@ -694,11 +715,14 @@
   background: color-mix(in srgb, var(--fg-muted) 15%, transparent);
   border-radius: 1.5px;
   overflow: hidden;
-}@keyframes token-pulse {
+}
+
+@keyframes token-pulse {
   0%,
   100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.5;
   }
@@ -729,6 +753,7 @@
   cursor: row-resize;
   transition: background 0.15s ease;
 }
+
 /* ── Session chips bar (legacy, kept for reference) ── */
 .session-chips-bar {
   display: flex;
@@ -761,35 +786,43 @@
     background 0.15s ease,
     opacity 0.15s ease;
 }/* ── Streaming section highlight ── */
+
 /* ── Turn completion flash (mirrors SessionOverviewCard soc-flash-border) ──
    Uses outline (not box-shadow: inset) so the flash is visible on all edges
    even when sections are adjacent in horizontal / split layouts.
    outline is drawn outside the border box and is never clipped by siblings. */
 .unified-session-section[data-flashing="completed"] {
   --usec-flash-color: var(--success);
+
   animation: usec-flash-border 2.5s ease-out forwards;
 }
+
 @keyframes usec-flash-border {
   0% {
     outline: 2px solid var(--usec-flash-color);
     outline-offset: -2px;
   }
+
   15% {
     outline: 2px solid transparent;
     outline-offset: -2px;
   }
+
   30% {
     outline: 2px solid var(--usec-flash-color);
     outline-offset: -2px;
   }
+
   45% {
     outline: 2px solid transparent;
     outline-offset: -2px;
   }
+
   60% {
     outline: 2px solid var(--usec-flash-color);
     outline-offset: -2px;
   }
+
   100% {
     outline: 2px solid transparent;
     outline-offset: -2px;
@@ -800,6 +833,7 @@
 .unified-session-section--disconnected {
   opacity: 0.6;
 }
+
 /* ── Agent chip in message header ── */
 .message-agent-chip {
   display: inline-flex;
@@ -833,6 +867,7 @@
     background 0.15s ease,
     color 0.15s ease;
 }
+
 /* ── Section header: active state — background tint only.
    Border colors are now handled via inline style from SectionHeader.tsx
    (agent color is always shown on the accent edge, not just when active). ── */
@@ -859,6 +894,7 @@
 }
 
 /* ── Unified session bar ── */
+
 /* ═══════════════════════════════════════════════════════════════════
    Session Bar — tabs + cards
    8px grid: padding 8px, gap 4px/8px, radius 4px
@@ -901,6 +937,7 @@
     background 0.15s ease,
     color 0.15s ease;
 }
+
 /* ── Layout toggle buttons (in session bar) ─────────────────────── */
 .unified-session-bar-layout {
   display: inline-flex;
@@ -978,6 +1015,7 @@
   justify-content: space-between;
   gap: 4px;
 }
+
 /* Card responses */
 .unified-session-overview-card-responses {
   margin-top: 2px;
@@ -1004,7 +1042,7 @@
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.15);
   margin-top: 4px;
 }/* ── Multi-session-view wrapper (for direction toggle + view) ── */
 .multi-session-view-wrapper {
