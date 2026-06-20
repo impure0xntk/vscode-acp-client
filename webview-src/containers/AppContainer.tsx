@@ -469,7 +469,7 @@ export function AppContainer(): React.ReactElement {
 
   return (
     <div
-      className={`flex flex-col h-screen overflow-hidden relative${overviewVisible ? " with-overview" : ""}${overviewOnLeft ? " overview-left" : ""}`}
+      className={`prose prose-sm dark:prose-invert flex flex-col h-screen overflow-hidden relative${overviewVisible ? " with-overview" : ""}${overviewOnLeft ? " overview-left" : ""}`}
     >
       {overviewOnLeft && overviewVisible && (
         <ResizableSessionOverviewPanel
