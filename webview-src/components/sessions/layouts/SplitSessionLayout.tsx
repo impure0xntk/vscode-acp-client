@@ -205,8 +205,8 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
   };
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-      <div className={`flex flex-col flex-1 min-h-0 overflow-hidden${splitDirection === "horizontal" ? " flex-row items-stretch" : ""}`} ref={containerRef}>
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden h-full">
+      <div className={`flex flex-col flex-1 min-h-0 overflow-hidden h-full${splitDirection === "horizontal" ? " flex-row items-stretch" : ""}`} ref={containerRef}>
         {visibleKeys.map((key, i) => {
           const isFocus = key === focusKey;
           const section = renderSection(key, isFocus);

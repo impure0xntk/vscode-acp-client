@@ -105,7 +105,7 @@ export function DiffView({
 
   return (
     <div className="mb-2">
-      <pre className="mt-1 p-2 bg-[color-mix(in_srgb,var(--bg-primary)_50%,transparent)] rounded font-mono text-[11px] leading-[1.5] overflow-x-auto max-h-[300px] overflow-y-auto">
+      <pre className="mt-1 p-1.5 bg-[color-mix(in_srgb,var(--bg-primary)_50%,transparent)] rounded font-mono text-[11px] leading-[1.5] overflow-x-auto max-h-[300px] overflow-y-auto">
         {lines.map((l, i) => (
           <div
             key={i}
@@ -177,11 +177,11 @@ export function ToolCallCard({
 
   return (
     <div
-      className={`mt-0 max-w-full ml-3 mr-3 rounded overflow-hidden text-[10px] bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]${status === "completed" ? " opacity-[0.7] data-[completed=true]" : ""}`}
+      className={`mt-0 max-w-full ml-2 mr-2 rounded overflow-hidden text-[10px] bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]${status === "completed" ? " opacity-[0.7] data-[completed=true]" : ""}`}
       data-completed={status === "completed" ? "true" : undefined}
     >
       <button
-        className={`flex items-center gap-[3px] px-[6px] font-mono text-[10px] text-fg-muted w-fit max-w-full border-none bg-transparent text-left transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]${hasBody ? " cursor-pointer" : ""}`}
+        className={`flex items-center gap-[3px] px-[5px] font-mono text-[10px] text-fg-muted w-fit max-w-full border-none bg-transparent text-left transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]${hasBody ? " cursor-pointer" : ""}`}
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
       >
@@ -237,7 +237,7 @@ export function ToolCallCard({
 
       <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
         <div className="overflow-hidden">
-          <div className="px-[6px] pb-[2px] pt-[1px] bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)]">
+          <div className="px-[5px] pb-[2px] pt-[1px] bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)]">
             {hasDiff && (
               <div className="mt-[1px] first:mt-0">
                 <button
@@ -277,7 +277,7 @@ export function ToolCallCard({
                   className={`grid transition-[grid-template-rows] duration-200 ease-out ${inputOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
                 >
                   <div className="overflow-hidden">
-                    <pre className="font-mono text-[10px] whitespace-pre-wrap text-fg-secondary mt-[1px] mb-0 p-[3px_6px] bg-[color-mix(in_srgb,var(--bg-primary)_50%,transparent)] rounded">
+                    <pre className="font-mono text-[10px] whitespace-pre-wrap text-fg-secondary mt-[1px] mb-0 p-[3px_5px] bg-[color-mix(in_srgb,var(--bg-primary)_50%,transparent)] rounded">
                       <code>
                         {typeof input === "string"
                           ? tryFormatJson(input)
@@ -305,7 +305,7 @@ export function ToolCallCard({
                   className={`grid transition-[grid-template-rows] duration-200 ease-out ${outputOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
                 >
                   <div className="overflow-hidden">
-                    <pre className="font-mono text-[10px] whitespace-pre-wrap text-fg-secondary mt-[1px] mb-0 p-[3px_6px] bg-[color-mix(in_srgb,var(--bg-primary)_50%,transparent)] rounded">
+                    <pre className="font-mono text-[10px] whitespace-pre-wrap text-fg-secondary mt-[1px] mb-0 p-[3px_5px] bg-[color-mix(in_srgb,var(--bg-primary)_50%,transparent)] rounded">
                       <code>
                         {typeof output === "string"
                           ? tryFormatJson(output)

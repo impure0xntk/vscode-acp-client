@@ -546,7 +546,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
       {/* Sticky user message bar */}
       {showStickyBar && stickyUserMessage && (
         <div
-          className="sticky top-0 z-10 flex-shrink-0 bg-bg-secondary border-b border-border px-[14px] py-1.5 cursor-pointer transition-colors duration-150 animate-sticky-user-bar-in"
+          className="sticky top-0 z-10 flex-shrink-0 bg-bg-secondary border-b border-border px-3 py-[6px] cursor-pointer transition-colors duration-150 animate-sticky-user-bar-in"
           onClick={handleStickyClick}
           role="button"
           tabIndex={0}
@@ -558,7 +558,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
             }
           }}
         >
-          <div className="flex items-center gap-1 mb-0.5">
+          <div className="flex items-center gap-2 mb-[2px]">
             <span className="text-[11px] font-medium text-fg-secondary">You</span>
             <span className="text-[10px] text-fg-muted opacity-50">{stickyTime}</span>
           </div>
@@ -568,7 +568,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
           {stickyUserMessage.attachments.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
               {stickyUserMessage.attachments.map((a) => (
-                <span key={a.id} className="inline-flex items-center gap-0.5 px-1 py-px rounded-[3px] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-fg-secondary text-[9px] font-mono">
+                <span key={a.id} className="inline-flex items-center gap-[2px] px-1.5 py-[2px] rounded bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-fg-secondary text-[9px] font-mono">
                   {a.label}
                 </span>
               ))}
@@ -578,15 +578,15 @@ export const SessionChatContainer = memo(function SessionChatContainer({
       )}
 
       <div
-        className={`flex flex-1 min-h-0 overflow-y-auto px-[14px] py-4 flex-col relative${showStickyBar ? " pt-0" : ""}`}
+        className={`flex flex-1 min-h-0 overflow-y-auto px-3 py-2 flex-col relative${showStickyBar ? " pt-0" : ""}`}
         ref={containerRef}
         onScroll={handleScrollWithSticky}
         data-messages-scroll-container="true"
       >
         {isEmpty ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-2 text-fg-muted">
-            <p className="text-base font-medium text-fg-secondary">ACP Chat</p>
-            <p className="text-xs">
+          <div className="min-h-full flex flex-col items-center justify-center text-fg-muted">
+            <p className="text-sm font-medium text-fg-secondary">ACP Chat</p>
+            <p className="text-xs text-fg-muted max-w-[260px] text-center leading-relaxed mt-1">
               {sessionId
                 ? "Send a message to start the conversation."
                 : "Connect to an agent and create a session to start."}
@@ -594,7 +594,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
           </div>
         ) : (
           <div
-            className={`flex flex-col gap-1.5${isStreaming ? " [&>*:last-child]:animate-blink" : ""}`}
+              className={`flex flex-col gap-[2px]${isStreaming ? " [&>*:last-child]:animate-blink" : ""}`}
             data-new-count={newCount > 0 ? newCount : undefined}
           >
             {/* Past groups */}
@@ -719,7 +719,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
       </div>
       {showScrollButton && (
         <button
-          className="absolute bottom-4 right-4 z-10 pointer-events-auto flex items-center justify-center w-8 h-8 p-0 border border-border rounded-full bg-bg-secondary text-fg-primary shadow-[0_2px_8px_rgba(0,0,0,0.3)] cursor-pointer transition-all duration-150 hover:bg-accent-hover hover:border-accent hover:scale-105 active:scale-95"
+          className="absolute bottom-3 right-3 z-10 pointer-events-auto flex items-center justify-center w-7 h-7 p-0 border border-border rounded-full bg-bg-secondary text-fg-primary shadow-[0_2px_8px_rgba(0,0,0,0.3)] cursor-pointer transition-all duration-150 hover:bg-accent-hover hover:border-accent hover:scale-105 active:scale-95"
           onClick={handleScrollToBottom}
           type="button"
           title="Scroll to bottom"

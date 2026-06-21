@@ -233,7 +233,7 @@ export function SessionOverviewCard({
       />
 
       {/* Footer: timestamp + unread badge (bottom-right) */}
-      <div className="flex flex-col gap-0.5 mt-1">
+      <div className="flex flex-col gap-[2px] mt-1">
         <div className="flex items-center justify-between pt-1 border-t border-[color-mix(in_srgb,var(--border)_30%,transparent)]">
           <span className="text-[9px] text-fg-muted font-[var(--font-mono)]">
             {new Date(
@@ -241,7 +241,7 @@ export function SessionOverviewCard({
             ).toLocaleTimeString()}
           </span>
 
-          <div className="flex items-center gap-0.5 shrink-0">
+          <div className="flex items-center gap-[2px] shrink-0">
             <UnreadBadge
               count={unreadCount}
               hidden={isActive}

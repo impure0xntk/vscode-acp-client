@@ -63,7 +63,7 @@ function highlightMatch(text: string, query: string): React.ReactNode {
   const parts = text.split(re);
   return parts.map((part, i) =>
     re.test(part) ? (
-      <mark key={i} className="bg-[color-mix(in_srgb,var(--accent)_30%,transparent)] text-fg-primary rounded-[2px] px-0.5">
+      <mark key={i} className="bg-[color-mix(in_srgb,var(--accent)_30%,transparent)] text-fg-primary rounded-[2px] px-[2px]">
         {part}
       </mark>
     ) : (
@@ -143,7 +143,7 @@ function SessionRow({
 }): React.ReactElement {
   return (
     <div
-      className={`group flex items-start gap-2 px-2.5 py-1.5 cursor-pointer transition-colors duration-100 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px] ${
+      className={`group flex items-start gap-2 px-[10px] py-[6px] cursor-pointer transition-colors duration-100 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px] ${
         entry.isArchived ? "opacity-50" : ""
       }`}
       onClick={onClick}
@@ -189,7 +189,7 @@ function SessionRow({
           {formatTokens(entry.tokenUsage.output)}
         </span>
       </div>
-      <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+      <div className="flex items-center gap-[2px] opacity-0 transition-opacity duration-150 group-hover:opacity-100">
         <button
           className="flex items-center justify-center w-5 h-5 p-0 border-none rounded bg-transparent text-fg-muted cursor-pointer transition-colors duration-150 hover:bg-accent-hover hover:text-fg-primary"
           onClick={(e) => {
@@ -236,7 +236,7 @@ export function SessionList({
   return (
     <div className="flex-1 overflow-y-auto min-h-0">
       {Array.from(grouped.entries()).map(([groupLabel, groupEntries]) => (
-        <div key={groupLabel} className="py-0.5">
+        <div key={groupLabel} className="py-[2px]">
           <div className="flex items-center justify-between px-3 py-1 text-[10px] text-fg-muted">
             {groupLabel}
             <span className="text-fg-muted opacity-60 font-normal">

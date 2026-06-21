@@ -141,7 +141,7 @@ export const SessionSection = React.memo(function SessionSection({
 
   return (
     <div
-      className={`${sectionClassName} ${flashAnimClass}`}
+      className={`${sectionClassName} ${flashAnimClass} flex flex-col min-h-0 h-full`}
       onAnimationEnd={handleAnimationEnd}
       style={sectionStyle}
     >
@@ -181,7 +181,7 @@ export const SessionSection = React.memo(function SessionSection({
         />
       )}
       <div
-        className="flex-1 min-h-0 min-w-0 overflow-hidden flex flex-col"
+        className="flex-1 min-h-0 min-w-0 overflow-hidden flex flex-col min-h-0"
         onClick={() => onFocusChange(sessionKey)}
       >
         <SessionChatContainer
@@ -196,14 +196,16 @@ export const SessionSection = React.memo(function SessionSection({
           scrollToUnreadRef={scrollToUnreadRef}
         />
       </div>
-      <SessionStatusBar
-        sessionKey={sessionKey}
-        active={info.status === "running"}
-        turnStartedAt={turnStartedAtMap?.[sessionKey]}
-        pending={pendingMap?.[sessionKey] ?? false}
-        queue={[]}
-        onCancelQueue={() => {}}
-      />
+      <div className="shrink-0">
+        <SessionStatusBar
+          sessionKey={sessionKey}
+          active={info.status === "running"}
+          turnStartedAt={turnStartedAtMap?.[sessionKey]}
+          pending={pendingMap?.[sessionKey] ?? false}
+          queue={[]}
+          onCancelQueue={() => {}}
+        />
+      </div>
     </div>
   );
 });

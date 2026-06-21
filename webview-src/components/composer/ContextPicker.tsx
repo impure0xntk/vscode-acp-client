@@ -186,7 +186,7 @@ export function ContextPicker({
               <div className="h-px mx-2 my-1 bg-border" />
             )}
             <div
-              className={`flex items-center gap-1.5 px-2.5 py-[5px] cursor-pointer text-xs transition-colors duration-100 min-w-0 ${
+              className={`flex items-center gap-1.5 px-[10px] py-[5px] cursor-pointer text-xs transition-colors duration-100 min-w-0 ${
                 i === selectedIndex
                   ? "bg-accent-hover"
                   : "hover:bg-accent-hover"

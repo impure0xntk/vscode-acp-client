@@ -54,7 +54,7 @@ export function SendTargetChip({
 
   return (
     <span
-      className={`inline-flex items-center gap-0.75 px-1.5 py-0.5 rounded bg-bg-secondary border border-border border-l-2 ${statusBorderMap[status] ?? "border-l-transparent"} text-[11px] whitespace-nowrap shrink-0${onClick ? " cursor-pointer" : ""}`.trim()}
+      className={`inline-flex items-center gap-[3px] px-1.5 py-[2px] rounded bg-bg-secondary border border-border border-l-2 ${statusBorderMap[status] ?? "border-l-transparent"} text-[11px] whitespace-nowrap shrink-0${onClick ? " cursor-pointer" : ""}`.trim()}
       onClick={onClick}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}

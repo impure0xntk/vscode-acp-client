@@ -276,31 +276,29 @@ export const SingleSessionLayout = React.memo(function SingleSessionLayout({
   }, [activeKey]);
 
   return (
-    <>
-      <div className="flex flex-1 flex-col relative min-h-0 h-full">
-        <SessionChatContainer
-          key={activeKey ?? "none"}
-          sessionKey={activeKey}
-          sessionId={activeKey?.split(":")[1]}
-          agentId={activeKey?.split(":")[0]}
-          status={status}
-          isActive={true}
-          scrollToMessageRef={externalScrollToMessageRef}
-          onScroll={handleScroll}
-          forceScrollToBottomRef={forceScrollToBottomRef}
-          scrollToUnreadRef={scrollToUnreadRef}
-        />
-        {unreadCount > 0 && (
-          <button
-            className="flex items-center justify-center p-[0] w-[32px] h-[32px] absolute right-[16px] bottom-[16px] z-[10] text-fg-primary bg-bg-secondary border border-border rounded-full cursor-pointer hover:border-accent"
-            onClick={handleScrollToBottomClick}
-            aria-label="Scroll to unread"
-          >
-            <span className="text-sm leading-none">↧</span>
-            <span className="flex items-center justify-center p-[0 3px] h-[16px] min-w-[16px] absolute top-[-6px] right-[-6px] text-3xs font-semibold text-user-fg bg-accent rounded-lg leading-none">{unreadCount}</span>
-          </button>
-        )}
-      </div>
+    <div className="flex flex-col relative h-full overflow-hidden">
+      <SessionChatContainer
+        key={activeKey ?? "none"}
+        sessionKey={activeKey}
+        sessionId={activeKey?.split(":")[1]}
+        agentId={activeKey?.split(":")[0]}
+        status={status}
+        isActive={true}
+        scrollToMessageRef={externalScrollToMessageRef}
+        onScroll={handleScroll}
+        forceScrollToBottomRef={forceScrollToBottomRef}
+        scrollToUnreadRef={scrollToUnreadRef}
+      />
+      {unreadCount > 0 && (
+        <button
+          className="flex items-center justify-center p-[0] w-[32px] h-[32px] absolute right-[16px] bottom-[16px] z-[10] text-fg-primary bg-bg-secondary border border-border rounded-full cursor-pointer hover:border-accent"
+          onClick={handleScrollToBottomClick}
+          aria-label="Scroll to unread"
+        >
+          <span className="text-sm leading-none">↧</span>
+          <span className="flex items-center justify-center p-[0 3px] h-[16px] min-w-[16px] absolute top-[-6px] right-[-6px] text-3xs font-semibold text-user-fg bg-accent rounded-lg leading-none">{unreadCount}</span>
+        </button>
+      )}
       <SessionStatusBar
         sessionKey={activeKey}
         active={isTurnActive}
@@ -324,6 +322,6 @@ export const SingleSessionLayout = React.memo(function SingleSessionLayout({
           });
         }}
       />
-    </>
+    </div>
   );
 });

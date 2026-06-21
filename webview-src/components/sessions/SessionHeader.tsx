@@ -306,7 +306,7 @@ export const SessionHeader = React.memo(function SessionHeader({
       : undefined;
 
     return (
-      <div className="flex items-center justify-between px-[14px] py-0.5 min-h-[26px] bg-bg-secondary border-b border-border shrink-0">
+      <div className="flex items-center justify-between px-[14px] py-[2px] min-h-[26px] bg-bg-secondary border-b border-border shrink-0">
         <div className="flex items-center gap-1.5 shrink-0">
           {overviewOnLeft && overviewButton}
           <UserJumpNav

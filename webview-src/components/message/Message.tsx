@@ -192,21 +192,21 @@ export const Message = React.memo(function Message({
 
   return (
     <div
-      className={`flex flex-col gap-[2px] pt-[4px] pb-[2px] relative overflow-visible ${isSystem ? "opacity-70" : ""} ${animationClass}`}
+      className={`flex flex-col gap-[2px] py-1 relative overflow-visible ${isSystem ? "opacity-70" : ""} ${animationClass}`}
       data-role={role}
       data-message-id={item.key}
     >
       {(!isConsecutive || forceHeader) && (
-        <div className={`flex items-center gap-[6px] text-[11px] text-fg-muted mb-[2px] ${isUser ? "justify-end" : ""}`}>
+        <div className={`flex items-center gap-2 text-[11px] text-fg-muted mb-[2px] px-[2px] ${isUser ? "justify-end" : ""}`}>
           <span className="font-medium text-fg-secondary">
             {isSystem ? "System" : isUser ? "You" : "Agent"}
           </span>
           <span className="text-[10px] opacity-50">{time}</span>
         </div>
       )}
-      <div className={`flex items-center gap-[6px] ${isUser ? "justify-end" : ""}`}>
+      <div className={`flex items-start gap-1.5 ${isUser ? "justify-end" : ""}`}>
         {isUser && (
-          <div className="inline-flex items-center gap-[2px] opacity-0 invisible transition-opacity transition-visibility pointer-events-none shrink-0 self-center order-first group-hover:opacity-100 group-hover:visible group-hover:pointer-events-auto">
+          <div className="inline-flex items-center gap-1 opacity-0 invisible transition-opacity transition-visibility pointer-events-none shrink-0 self-center order-first group-hover:opacity-100 group-hover:visible group-hover:pointer-events-auto">
             <MessageActions
               messageId={item.key}
               content={content}
@@ -216,13 +216,13 @@ export const Message = React.memo(function Message({
           </div>
         )}
         {!isToolOnlyAgent && (
-          <div className={`max-w-full ${isUser ? "bg-[color-mix(in_srgb,var(--user-bubble)_12%,transparent)] text-fg-primary px-[10px] py-[6px] rounded-[6px] border border-[color-mix(in_srgb,var(--user-bubble)_20%,transparent)] self-end max-w-[80%]" : "text-fg-primary"}`}>
+          <div className={`max-w-full ${isUser ? "bg-[color-mix(in_srgb,var(--user-bubble)_10%,transparent)] text-fg-primary px-[10px] py-1 rounded-lg border border-[color-mix(in_srgb,var(--user-bubble)_15%,transparent)] self-end max-w-[70%]" : "text-fg-primary"}`}>
             {isUser ? (
-              <div className="whitespace-pre-wrap break-words">{content}</div>
+              <div className="whitespace-pre-wrap break-words text-[13px] leading-[1.5]">{content}</div>
             ) : (
-              <div className="flex items-center gap-[4px]">
+              <div className="flex items-start gap-1">
                 <div
-                  className={`leading-[1.6] min-w-0 flex-1${isSystem ? " text-fg-secondary italic" : ""}`}
+                  className={`leading-[1.6] min-w-0 flex-1 text-[13px]${isSystem ? " text-fg-secondary italic" : ""}`}
                   dangerouslySetInnerHTML={{
                     __html: renderMarkdown(content, mergedContext),
                   }}
@@ -242,14 +242,14 @@ export const Message = React.memo(function Message({
         )}
       </div>
       {hasAttachments && (
-        <div className="flex flex-wrap gap-[4px] justify-end pt-[4px]">
+        <div className="flex flex-wrap gap-1 justify-end pt-0.5">
           {attachments.map((a) => (
             <AttachmentChip key={a.id} attachment={a} />
           ))}
         </div>
       )}
       {hasToolCalls && resolvedToolCalls && (
-        <div className="mx-[12px] mb-0">
+        <div className="ml-4 mr-1 mb-[2px]">
           <ToolBatchSummary
             calls={resolvedToolCalls}
             isNew={isNew}

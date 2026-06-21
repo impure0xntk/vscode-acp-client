@@ -42,7 +42,7 @@ export function ContextChip({
 
   return (
     <span
-      className={`inline-flex items-center gap-0.75 px-1.5 py-0.5 rounded border text-[11px] whitespace-nowrap shrink-0 ${c.bg} ${c.border}${contextColor === "critical" ? " animate-context-pulse" : ""}`}
+      className={`inline-flex items-center gap-[3px] px-1.5 py-[2px] rounded border text-[11px] whitespace-nowrap shrink-0 ${c.bg} ${c.border}${contextColor === "critical" ? " animate-context-pulse" : ""}`}
       title={`${attachment.path}\n${attachment.tokenCount} tokens`}
     >
       <span

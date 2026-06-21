@@ -52,11 +52,11 @@ export function CompareBar({
   );
 
   return (
-    <div className="border-b border-border px-2.5 py-2 bg-bg-secondary shrink-0">
+    <div className="border-b border-border px-[10px] py-2 bg-bg-secondary shrink-0">
       <div className="flex items-center justify-between mb-1.5 text-[11px] text-fg-secondary">
         <span>Comparing {sessions.length} sessions</span>
         <button
-          className="px-1.5 py-0.5 text-[10px] border border-border rounded bg-bg-input text-fg-primary cursor-pointer whitespace-nowrap hover:bg-accent-hover"
+          className="px-1.5 py-[2px] text-[10px] border border-border rounded bg-bg-input text-fg-primary cursor-pointer whitespace-nowrap hover:bg-accent-hover"
           onClick={onClear}
         >
           Clear

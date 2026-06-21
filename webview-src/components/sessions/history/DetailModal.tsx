@@ -105,17 +105,17 @@ export function DetailModal({
           </button>
         </div>
         <div className="flex flex-wrap gap-2 px-4 py-2 border-b border-border text-[11px] text-fg-muted shrink-0">
-          <span className="bg-bg-input px-1.5 py-0.5 rounded">{session.agentId}</span>
-          <span className="bg-bg-input px-1.5 py-0.5 rounded">{session.cwd}</span>
-          <span className="bg-bg-input px-1.5 py-0.5 rounded">{formatDate(session.createdAt)}</span>
-          <span className="bg-bg-input px-1.5 py-0.5 rounded">{session.messageCount} messages</span>
-          <span className="bg-bg-input px-1.5 py-0.5 rounded">
+          <span className="bg-bg-input px-1.5 py-[2px] rounded">{session.agentId}</span>
+          <span className="bg-bg-input px-1.5 py-[2px] rounded">{session.cwd}</span>
+          <span className="bg-bg-input px-1.5 py-[2px] rounded">{formatDate(session.createdAt)}</span>
+          <span className="bg-bg-input px-1.5 py-[2px] rounded">{session.messageCount} messages</span>
+          <span className="bg-bg-input px-1.5 py-[2px] rounded">
             ↑{formatTokens(session.tokenUsage.input)} ↓
             {formatTokens(session.tokenUsage.output)}
           </span>
         </div>
         {session.contextWindowMax != null && (
-          <div className="px-4 py-1.5 border-b border-border shrink-0">
+          <div className="px-4 py-[6px] border-b border-border shrink-0">
             <div className="relative h-1.5 rounded-[2px] bg-[color-mix(in_srgb,var(--fg-muted)_15%,transparent)] my-1 overflow-hidden">
               <div
                 className="h-full rounded-[2px] transition-[width] duration-300"
@@ -156,7 +156,7 @@ export function DetailModal({
                   className={`p-1.5 rounded mb-1 cursor-pointer transition-colors hover:bg-accent-hover ${roleBg}`}
                   onClick={() => toggleMsg(msg.id)}
                 >
-                  <div className="flex items-center gap-1.5 mb-0.5">
+                  <div className="flex items-center gap-1.5 mb-[2px]">
                     <span className="text-[10px] font-semibold text-fg-secondary uppercase tracking-wider">{msg.role}</span>
                     <span className="text-[9px] text-fg-muted font-[var(--font-mono)]">
                       {new Date(msg.timestamp).toLocaleString()}
@@ -179,7 +179,7 @@ export function DetailModal({
                     isExpanded && (
                       <div className="flex flex-wrap gap-1 mt-1">
                         {msg.inlineFilePaths.map((fp) => (
-                          <span key={fp} className="text-[10px] text-accent bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-1 py-0.5 rounded font-[var(--font-mono)]">
+                          <span key={fp} className="text-[10px] text-accent bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-1 py-[2px] rounded font-[var(--font-mono)]">
                             <Icon name="paperclip" size="sm" /> {fp}
                           </span>
                         ))}
@@ -192,13 +192,13 @@ export function DetailModal({
         </div>
         <div className="flex justify-end gap-1.5 px-4 py-2 border-t border-border shrink-0">
           <button
-            className="px-2 py-0.5 border border-accent rounded bg-accent text-user-fg text-[11px] cursor-pointer whitespace-nowrap hover:bg-[color-mix(in_srgb,var(--accent)_80%,white)]"
+            className="px-2 py-[2px] border border-accent rounded bg-accent text-user-fg text-[11px] cursor-pointer whitespace-nowrap hover:bg-[color-mix(in_srgb,var(--accent)_80%,white)]"
             onClick={onRestore}
           >
             Restore Session
           </button>
           <button
-            className="px-2 py-0.5 border border-border rounded bg-bg-input text-fg-primary text-[11px] cursor-pointer whitespace-nowrap hover:bg-accent-hover"
+            className="px-2 py-[2px] border border-border rounded bg-bg-input text-fg-primary text-[11px] cursor-pointer whitespace-nowrap hover:bg-accent-hover"
             onClick={onClose}
           >
             Close

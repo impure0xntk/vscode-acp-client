@@ -77,7 +77,7 @@ export function PlanStepView({
         {editing ? (
           <div className="flex items-center gap-1 flex-1">
             <input
-              className="flex-1 px-1.5 py-0.5 border border-accent rounded-[3px] bg-bg-input text-fg-primary text-[11px] outline-none"
+              className="flex-1 px-1.5 py-[2px] border border-accent rounded-[3px] bg-bg-input text-fg-primary text-[11px] outline-none"
               value={editText}
               onChange={(e) => setEditText(e.target.value)}
               autoFocus

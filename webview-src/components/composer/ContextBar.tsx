@@ -38,7 +38,7 @@ export function ContextBar({
       <div className="flex flex-nowrap gap-1 flex-shrink-0 min-w-0">
         {selectedTeam && (
           <span
-            className="inline-flex items-center gap-0.75 px-1.5 py-0.5 rounded bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] text-[11px] whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-[3px] px-1.5 py-[2px] rounded bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] text-[11px] whitespace-nowrap shrink-0"
             title={`Team: ${selectedTeam.name} (${selectedTeam.id})`}
           >
             <Icon name="users" className="text-[11px] shrink-0" size="sm" />

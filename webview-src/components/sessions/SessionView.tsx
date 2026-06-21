@@ -176,29 +176,82 @@ export const SessionView = React.memo(function SessionView({
   renderHeader,
   renderFooter,
 }: SessionViewProps): React.ReactElement | null {
-  // Single mode → delegate to SingleSessionLayout
+  // Delegate to the appropriate layout component.
+  // Each layout is responsible for its own internal structure;
+  // this wrapper only ensures it fills the available space.
+  const layoutProps = {
+    sessionKey,
+    layoutMode,
+    splitDirection,
+    splitRatios,
+    disabled,
+    pinnedKeys,
+    onSend,
+    onCancel,
+    onFocusChange,
+    onPin,
+    onUnpin,
+    onClose,
+    onSplitRatiosChange,
+    scrollToMessageRef,
+    forceScrollToBottomRef,
+    scrollToUnreadRef,
+    turnStartedAtMap,
+    pendingMap,
+    renderHeader,
+    renderFooter,
+  };
+
   if (layoutMode === "single") {
     return (
-      <SingleSessionLayout
-        activeKey={sessionKey}
-        disabled={disabled}
-        onSend={onSend}
-        onCancel={onCancel}
-        scrollToMessageRef={scrollToMessageRef}
-        forceScrollToBottomRef={forceScrollToBottomRef}
-        scrollToUnreadRef={scrollToUnreadRef}
-        turnStartedAtMap={turnStartedAtMap}
-        pendingMap={pendingMap}
-        useActiveScrollState={useActiveScrollState}
-        deriveUnread={deriveUnread}
-      />
+      <div className="flex-1 min-h-0" data-layout="single">
+        <SingleSessionLayout
+          activeKey={sessionKey}
+          disabled={disabled}
+          onSend={onSend}
+          onCancel={onCancel}
+          scrollToMessageRef={scrollToMessageRef}
+          forceScrollToBottomRef={forceScrollToBottomRef}
+          scrollToUnreadRef={scrollToUnreadRef}
+          turnStartedAtMap={turnStartedAtMap}
+          pendingMap={pendingMap}
+          useActiveScrollState={useActiveScrollState}
+          deriveUnread={deriveUnread}
+        />
+      </div>
     );
   }
 
-  // Split mode → delegate to SplitSessionLayout
   if (layoutMode === "split") {
     return (
-      <SplitSessionLayout
+      <div className="flex-1 min-h-0" data-layout="split">
+        <SplitSessionLayout
+          focusKey={sessionKey}
+          pinnedKeys={pinnedKeys}
+          layoutMode={layoutMode}
+          splitDirection={splitDirection}
+          splitRatios={splitRatios}
+          onFocusChange={onFocusChange ?? (() => {})}
+          onPin={onPin ?? (() => {})}
+          onUnpin={onUnpin ?? (() => {})}
+          onClose={onClose ?? (() => {})}
+          onSplitRatiosChange={onSplitRatiosChange ?? (() => {})}
+          scrollToMessageRef={scrollToMessageRef}
+          forceScrollToBottomRef={forceScrollToBottomRef}
+          scrollToUnreadRef={scrollToUnreadRef}
+          turnStartedAtMap={turnStartedAtMap}
+          pendingMap={pendingMap}
+          renderHeader={renderHeader}
+          getSessionColor={getSessionColor}
+        />
+      </div>
+    );
+  }
+
+  // Grid mode
+  return (
+    <div className="flex-1 min-h-0" data-layout="grid">
+      <GridSessionLayout
         focusKey={sessionKey}
         pinnedKeys={pinnedKeys}
         layoutMode={layoutMode}
@@ -217,29 +270,6 @@ export const SessionView = React.memo(function SessionView({
         renderHeader={renderHeader}
         getSessionColor={getSessionColor}
       />
-    );
-  }
-
-  // Grid mode → delegate to GridSessionLayout
-  return (
-    <GridSessionLayout
-      focusKey={sessionKey}
-      pinnedKeys={pinnedKeys}
-      layoutMode={layoutMode}
-      splitDirection={splitDirection}
-      splitRatios={splitRatios}
-      onFocusChange={onFocusChange ?? (() => {})}
-      onPin={onPin ?? (() => {})}
-      onUnpin={onUnpin ?? (() => {})}
-      onClose={onClose ?? (() => {})}
-      onSplitRatiosChange={onSplitRatiosChange ?? (() => {})}
-      scrollToMessageRef={scrollToMessageRef}
-      forceScrollToBottomRef={forceScrollToBottomRef}
-      scrollToUnreadRef={scrollToUnreadRef}
-      turnStartedAtMap={turnStartedAtMap}
-      pendingMap={pendingMap}
-      renderHeader={renderHeader}
-      getSessionColor={getSessionColor}
-    />
+    </div>
   );
 });

@@ -14,9 +14,9 @@ export function ThinkingBlock({
   const toggle = () => setIsOpen((v) => !v);
 
   return (
-    <div className="my-1 rounded overflow-hidden bg-bg-secondary text-sm">
+    <div className="my-[2px] rounded overflow-hidden bg-bg-secondary text-sm">
       <div
-        className="flex items-center gap-1.5 px-2.5 py-1 cursor-pointer select-none text-fg-secondary text-[11px] hover:bg-accent-hover"
+        className="flex items-center gap-1.5 px-2 py-[2px] cursor-pointer select-none text-fg-secondary text-[11px] hover:bg-accent-hover"
         onClick={toggle}
       >
         <IconBrain size={14} className="flex-shrink-0 text-xs" />
@@ -31,7 +31,7 @@ export function ThinkingBlock({
       </div>
       <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
         <div className="overflow-hidden">
-          <div className="px-3 py-2 font-mono text-[11px] leading-[1.5] text-fg-secondary whitespace-pre-wrap break-words">
+          <div className="px-[10px] py-[6px] font-mono text-[11px] leading-[1.5] text-fg-secondary whitespace-pre-wrap break-words">
             {content}
             {isStreaming && (
               <span className="inline-block animate-blink text-accent font-bold">

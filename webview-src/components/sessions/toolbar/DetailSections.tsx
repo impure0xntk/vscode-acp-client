@@ -46,7 +46,7 @@ export function AgentSection({
   return (
     <section className="mb-3">
       <h3 className="text-[10px] font-semibold text-fg-muted mb-1">Agent</h3>
-      <div className="flex flex-col gap-0.5">
+      <div className="flex flex-col gap-[2px]">
         <Row label="Name" value={info.title ?? info.name} />
         {info.version && <Row label="Version" value={info.version} />}
         <Row label="Protocol" value={`v${info.protocolVersion}`} />
@@ -178,7 +178,7 @@ export function SectionDetailsPanel({
     : undefined;
 
   return (
-    <div className="px-2.5 py-2 bg-bg-primary flex flex-col gap-2 animate-toolbar-details-in">
+    <div className="px-[10px] py-2 bg-bg-primary flex flex-col gap-2 animate-toolbar-details-in">
       <section className="mb-0">
         <h3 className="text-[10px] font-semibold text-fg-muted uppercase tracking-[0.4px] mb-1">Metrics</h3>
         <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-x-3.5 gap-y-1">

@@ -114,7 +114,7 @@ export const GridSessionLayout = React.memo(function GridSessionLayout({
   };
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 overflow-hidden flex-row overflow-y-auto">
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden h-full flex-row overflow-y-auto">
       {visibleKeys.map((key) => renderSection(key, key === focusKey))}
     </div>
   );

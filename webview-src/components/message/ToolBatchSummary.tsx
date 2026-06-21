@@ -68,7 +68,7 @@ function ErrorsGroup({
       {errors.map((call) => (
         <div
           key={call.id}
-          className="flex items-center gap-1 px-[3px] py-[1px] text-[9px] font-mono text-fg-secondary rounded-[2px] hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]"
+          className="flex items-center gap-1 pl-3 px-[3px] py-[1px] text-[9px] font-mono text-fg-secondary rounded-[2px] hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]"
         >
           <ToolCallCard {...call} />
         </div>
@@ -95,7 +95,7 @@ export function ToolBatchSummary({
   if (calls.length === 1) {
     return (
       <div
-        className={`flex items-center gap-1 px-[3px] py-[1px] text-[9px] font-mono text-fg-secondary rounded-[2px] hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)] ${appearClass}`}
+        className={`flex items-center gap-1 pl-3 px-[3px] py-[1px] text-[9px] font-mono text-fg-secondary rounded-[2px] hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)] ${appearClass}`}
       >
         <ToolCallCard {...calls[0]} />
       </div>
@@ -122,7 +122,7 @@ export function ToolBatchSummary({
         className={`${expanded ? "overflow-visible" : ""} ${statusClass} ${appearClass} mt-[2px] rounded overflow-hidden text-[10px] bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]`}
       >
         <button
-          className="flex items-center gap-[3px] px-[6px] w-fit max-w-full border-none bg-transparent text-fg-primary font-[var(--font-ui)] text-[10px] cursor-pointer text-left transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]"
+          className="flex items-center gap-[3px] px-[5px] w-fit max-w-full border-none bg-transparent text-fg-primary font-[var(--font-ui)] text-[10px] cursor-pointer text-left transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]"
           onClick={() => setExpanded(!expanded)}
           aria-expanded={expanded}
         >
@@ -165,11 +165,11 @@ export function ToolBatchSummary({
 
         <div className={`grid transition-[grid-template-rows] duration-200 ease-out${expanded ? " grid-rows-[1fr]" : " grid-rows-[0fr]"}`}>
           <div className="overflow-hidden">
-            <div className="px-[12px] pb-[2px] pt-[1px] flex flex-col gap-[1px] bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)] animate-tool-batch-expand">
+            <div className="px-[8px] pb-[2px] pt-[1px] flex flex-col gap-[1px] bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)] animate-tool-batch-expand">
               {calls.map((call) => (
                 <div
                   key={call.id}
-                  className="flex items-center gap-1 px-[3px] py-[1px] text-[9px] font-mono text-fg-secondary rounded-[2px] hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]"
+                  className="flex items-center gap-1 pl-3 px-[3px] py-[1px] text-[9px] font-mono text-fg-secondary rounded-[2px] hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]"
                 >
                   <ToolCallCard {...call} />
                 </div>
@@ -200,11 +200,11 @@ export function ToolBatchSummary({
 
   return (
     <div
-      className={`${allExpanded ? "overflow-visible" : ""} ${statusClass} ${appearClass} mt-[2px] rounded overflow-hidden text-[10px] bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]`}
+      className={`${allExpanded ? " overflow-visible" : ""} ${statusClass} ${appearClass} mt-[2px] rounded overflow-hidden text-[10px] bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]`}
     >
       {/* Top-level chevron toggles entire batch */}
       <button
-        className="flex items-center gap-[3px] px-[6px] w-fit max-w-full border-none bg-transparent text-fg-primary font-[var(--font-ui)] text-[10px] cursor-pointer text-left transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]"
+        className="flex items-center gap-[3px] px-[5px] w-fit max-w-full border-none bg-transparent text-fg-primary font-[var(--font-ui)] text-[10px] cursor-pointer text-left transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]"
         onClick={() => setAllExpanded(!allExpanded)}
         aria-expanded={allExpanded}
       >
@@ -247,13 +247,13 @@ export function ToolBatchSummary({
 
       <div className={`grid transition-[grid-template-rows] duration-200 ease-out${allExpanded ? " grid-rows-[1fr]" : " grid-rows-[0fr]"}`}>
         <div className="overflow-hidden">
-          <div className="px-[12px] pb-[2px] pt-[1px] flex flex-col gap-[1px] bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)] animate-tool-batch-expand">
+          <div className="px-[8px] pb-[2px] pt-[1px] flex flex-col gap-[1px] bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)] animate-tool-batch-expand">
             {/* Errors — always expanded, no nested chevron */}
             <ErrorsGroup errors={errors} />
 
             {/* Ok sub-group — recursive ToolBatchSummary for uniform rendering */}
             {ok.length > 0 && (
-              <div className="my-0 p-0">
+              <div className="my-0 p-0 pl-[8px]">
                 <ToolBatchSummary calls={ok} />
               </div>
             )}

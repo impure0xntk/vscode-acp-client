@@ -102,7 +102,7 @@ export function SessionOverviewToolbar({
               aria-label="Session status filter"
             >
               <button
-                className={`flex items-center gap-[5px] w-full px-2.5 py-1 border-none bg-transparent text-fg-primary text-xs cursor-pointer hover:bg-accent-hover ${
+                className={`flex items-center gap-[5px] w-full px-[10px] py-1 border-none bg-transparent text-fg-primary text-xs cursor-pointer hover:bg-accent-hover ${
                   filter === "all" ? "bg-accent-hover" : ""
                 }`}
                 role="option"
@@ -114,11 +114,11 @@ export function SessionOverviewToolbar({
                 </span>
                 {FILTER_LABELS.all}
               </button>
-              <div className="h-px mx-1.5 my-0.5 bg-border" />
+              <div className="h-px mx-1.5 my-[2px] bg-border" />
               {FILTERABLE_STATUSES.map((s) => (
                 <button
                   key={s}
-                  className={`flex items-center gap-[5px] w-full px-2.5 py-1 border-none bg-transparent text-fg-primary text-xs cursor-pointer hover:bg-accent-hover ${
+                  className={`flex items-center gap-[5px] w-full px-[10px] py-1 border-none bg-transparent text-fg-primary text-xs cursor-pointer hover:bg-accent-hover ${
                     filter === s ? "bg-accent-hover" : ""
                   }`}
                   role="option"

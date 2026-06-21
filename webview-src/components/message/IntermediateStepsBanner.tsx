@@ -95,12 +95,12 @@ export function IntermediateStepsBanner({
 
   return (
     <div
-      className="my-1 rounded overflow-hidden bg-[color-mix(in_srgb,var(--bg-secondary)_30%,transparent)]"
+      className="my-[2px] rounded overflow-hidden bg-[color-mix(in_srgb,var(--bg-secondary)_30%,transparent)]"
       role="region"
       aria-label="Intermediate steps"
     >
       <button
-        className="flex items-center gap-1.5 w-full px-0.5 py-1 border-none bg-transparent text-fg-muted text-[11px] font-[var(--font-ui)] cursor-pointer text-left transition-colors duration-150 hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)] hover:text-fg-secondary focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]"
+        className="flex items-center gap-1.5 w-full px-[2px] py-[2px] border-none bg-transparent text-fg-muted text-[11px] font-[var(--font-ui)] cursor-pointer text-left transition-colors duration-150 hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)] hover:text-fg-secondary focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]"
         onClick={toggle}
         aria-expanded={!isCollapsed}
         type="button"
@@ -127,7 +127,7 @@ export function IntermediateStepsBanner({
         )}
       </button>
       {!isCollapsed && (
-        <div className="px-0 pb-1.5 pt-0.5 flex flex-col gap-[2px] animate-intermediate-steps-expand">
+        <div className="px-0 pb-1 pt-0.5 flex flex-col gap-[1px] animate-intermediate-steps-expand">
           {items.map((item, idx) => (
             <DisplayItemView
               key={item.key}

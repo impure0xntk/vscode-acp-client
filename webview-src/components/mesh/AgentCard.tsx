@@ -92,7 +92,7 @@ export function AgentCard({
 
   return (
     <button
-      className={`agent-card flex flex-col gap-0.5 p-2 border border-transparent rounded-[4px] bg-bg-primary cursor-pointer text-left hover:bg-accent-hover focus-visible:outline focus-visible:outline-accent focus-visible:outline-offset-1 min-w-[140px] max-w-[200px] flex-shrink-0 ${isSelected ? "border-[color-mix(in_srgb,var(--accent)_20%,transparent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]" : ""}${status === "completed" ? " border-l-success" : status === "error" ? " border-l-error" : status === "cancelled" ? " border-l-fg-muted" : status === "waiting" || status === "waiting_for_input" ? " border-l-[#ffd54f]" : ""}`}
+      className={`agent-card flex flex-col gap-[2px] p-2 border border-transparent rounded-[4px] bg-bg-primary cursor-pointer text-left hover:bg-accent-hover focus-visible:outline focus-visible:outline-accent focus-visible:outline-offset-1 min-w-[140px] max-w-[200px] flex-shrink-0 ${isSelected ? "border-[color-mix(in_srgb,var(--accent)_20%,transparent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]" : ""}${status === "completed" ? " border-l-success" : status === "error" ? " border-l-error" : status === "cancelled" ? " border-l-fg-muted" : status === "waiting" || status === "waiting_for_input" ? " border-l-[#ffd54f]" : ""}`}
       data-status={status}
       data-color-group={colorGroup}
       onClick={onSelect}
@@ -139,7 +139,7 @@ export function AgentCard({
       </div>
 
       {/* Quick actions */}
-      <div className="flex items-center gap-0.5 mt-px">
+      <div className="flex items-center gap-[2px] mt-px">
         {isCancelable && (
           <span
             className="inline-flex items-center justify-center w-[18px] h-[18px] p-0 border-none rounded-[3px] bg-transparent text-fg-muted cursor-pointer hover:bg-accent-hover hover:text-fg-primary"

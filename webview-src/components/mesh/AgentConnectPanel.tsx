@@ -215,7 +215,7 @@ export default function AgentConnectPanel({ onClose }: AgentConnectPanelProps) {
 
                   {canConnect(agent.state) && (
                     <button
-                      className="px-2 py-0.5 border border-accent rounded bg-accent text-user-fg text-[11px] cursor-pointer whitespace-nowrap hover:bg-[color-mix(in_srgb,var(--accent)_80%,white)]"
+                      className="px-2 py-[2px] border border-accent rounded bg-accent text-user-fg text-[11px] cursor-pointer whitespace-nowrap hover:bg-[color-mix(in_srgb,var(--accent)_80%,white)]"
                       onClick={() => handleConnect(agent.agentId)}
                       title="Connect"
                     >
@@ -225,7 +225,7 @@ export default function AgentConnectPanel({ onClose }: AgentConnectPanelProps) {
 
                   {canDisconnect(agent.state) && (
                     <button
-                      className="px-2 py-0.5 border border-border rounded bg-bg-input text-fg-primary text-[11px] cursor-pointer whitespace-nowrap hover:bg-accent-hover"
+                      className="px-2 py-[2px] border border-border rounded bg-bg-input text-fg-primary text-[11px] cursor-pointer whitespace-nowrap hover:bg-accent-hover"
                       onClick={() => handleDisconnect(agent.agentId)}
                       title="Disconnect"
                     >
