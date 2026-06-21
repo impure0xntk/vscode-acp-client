@@ -108,6 +108,7 @@ export interface SessionStatusInfo {
   cwd?: string;
   model?: string;
   mode?: string;
+  pinned: boolean;
 }
 
 // ============================================================================

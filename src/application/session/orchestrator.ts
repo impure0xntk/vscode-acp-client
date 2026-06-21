@@ -141,6 +141,7 @@ export interface SessionStatusInfo {
   cwd?: string;
   model?: string;
   mode?: string;
+  pinned: boolean;
 }
 
 export interface AgentStatus {
@@ -1690,6 +1691,7 @@ export class SessionOrchestrator extends EventEmitter {
           cwd: info.cwd,
           model: info.model,
           mode: info.mode,
+          pinned: this.isSessionPinned(agentId, sessionId),
         });
         totalTokenUsage.input += info.tokenUsage.input;
         totalTokenUsage.output += info.tokenUsage.output;
@@ -2104,6 +2106,7 @@ export class SessionOrchestrator extends EventEmitter {
       lastTurnOutcome: TurnOutcome | null;
       model?: string;
       mode?: string;
+      pinned: boolean;
       progress: {
         elapsedMs: number;
         tokenUsage: { input: number; output: number; total: number };
@@ -2134,6 +2137,7 @@ export class SessionOrchestrator extends EventEmitter {
       lastTurnOutcome: TurnOutcome | null;
       model?: string;
       mode?: string;
+      pinned: boolean;
       progress: {
         elapsedMs: number;
         tokenUsage: { input: number; output: number; total: number };
@@ -2177,6 +2181,7 @@ export class SessionOrchestrator extends EventEmitter {
           lastTurnOutcome: info.lastTurnOutcome,
           model: info.model,
           mode: info.mode,
+          pinned: this.isSessionPinned(agentId, sessionId),
           progress: {
             elapsedMs:
               info.status === "running" && info.lastResponseAt

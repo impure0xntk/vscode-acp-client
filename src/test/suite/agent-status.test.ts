@@ -22,6 +22,7 @@ function makeSessionStatus(
     isActive: false,
     messageCount: 0,
     tokenUsage: { input: 0, output: 0, total: 0 },
+    pinned: false,
     ...overrides,
   };
 }

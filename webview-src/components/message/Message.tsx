@@ -192,7 +192,7 @@ export const Message = React.memo(function Message({
 
   return (
     <div
-      className={`group flex flex-col gap-[2px] py-1 relative overflow-visible ${isSystem ? "opacity-70" : ""} ${animationClass}`}
+      className={`group flex flex-col gap-[2px] py-1 relative overflow-visible ${isSystem ? "opacity-70" : ""} ${animationClass} ${isUser ? "message-user" : ""}`}
       data-role={role}
       data-message-id={item.key}
     >
@@ -201,7 +201,7 @@ export const Message = React.memo(function Message({
           <span className="font-medium text-fg-secondary">
             {isSystem ? "System" : isUser ? "You" : "Agent"}
           </span>
-          <span className="text-[10px] opacity-50">{time}</span>
+          <span className="text-[10px] opacity-50 message-time">{time}</span>
         </div>
       )}
       <div className={`flex items-start gap-1.5 ${isUser ? "justify-end" : ""}`}>
@@ -218,7 +218,7 @@ export const Message = React.memo(function Message({
         {!isToolOnlyAgent && (
           <div className={`max-w-full ${isUser ? "bg-[color-mix(in_srgb,var(--user-bubble)_10%,transparent)] text-fg-primary px-[10px] py-1 rounded-lg border border-[color-mix(in_srgb,var(--user-bubble)_15%,transparent)] self-end max-w-[70%]" : "text-fg-primary"}`}>
             {isUser ? (
-              <div className="whitespace-pre-wrap break-words text-[13px] leading-[1.5]">{content}</div>
+              <div className="message-text whitespace-pre-wrap break-words text-[13px] leading-[1.5]">{content}</div>
             ) : (
               <div className="flex items-start gap-1">
                 <div

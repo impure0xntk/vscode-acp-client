@@ -1,7 +1,7 @@
 import * as assert from "assert";
 import { describe, it, beforeEach } from "mocha";
 import { ChatPresenter } from "../../infrastructure/vscode/vscode-ui/presenter";
-import type { SessionStatusInfo } from "../../domain/models/agent";
+import type { SessionStatusInfo } from "../../application/session/orchestrator";
 
 // ============================================================================
 // ChatPresenter Tests
@@ -18,6 +18,7 @@ function makeSessionInfo(
     isActive: false,
     messageCount: 0,
     tokenUsage: { input: 0, output: 0, total: 0 },
+    pinned: false,
     ...overrides,
   };
 }

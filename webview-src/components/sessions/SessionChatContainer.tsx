@@ -352,13 +352,9 @@ export const SessionChatContainer = memo(function SessionChatContainer({
     const group = latestGroupRef.current;
     const hasFinal = group?.finalResponse != null;
 
-    if (prev && !isStreaming && group && sessionKey) {
-      const gid = group.userItem.key;
-      if (!collapsedMapRef.current[gid]) {
-        toggleRef.current(sessionKey, gid);
-      }
-    }
-
+    // When a new final response appears (turn completes), set autoCollapse
+    // so that newly-completed intermediate steps start collapsed.
+    // The user can still manually expand/collapse via the banner toggle.
     if (hasFinal && !prevHasFinalRef.current && !isStreaming) {
       setLatestAutoCollapse(true);
     }
@@ -425,7 +421,14 @@ export const SessionChatContainer = memo(function SessionChatContainer({
   const onScrollRef = useRef(onScroll);
   onScrollRef.current = onScroll;
 
-  const handleScroll = useCallback(() => {
+  /**
+   * Recompute isAtBottom / readUpTo from current DOM state.
+   * Called by the scroll handler, the MutationObserver, and the
+   * IntermediateStepsBanner onExpandSettled callback so that layout
+   * changes caused by intermediate-step toggles are handled identically
+   * to user-initiated scrolling.
+   */
+  const recomputeScrollState = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
     const { scrollTop, scrollHeight, clientHeight } = el;
@@ -456,6 +459,33 @@ export const SessionChatContainer = memo(function SessionChatContainer({
       isAtBottom: atBottom,
     });
   }, []);
+
+  const handleScroll = useCallback(() => {
+    recomputeScrollState();
+  }, [recomputeScrollState]);
+
+  // ── MutationObserver: recompute when intermediate steps toggle ────
+  // Expanding / collapsing an IntermediateStepsBanner changes the
+  // container's scrollHeight without firing a scroll event.  Without
+  // this observer the stored isAtBottom / readUpTo become stale,
+  // causing the scroll-to-bottom button and unread badge to misbehave.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const observer = new MutationObserver(() => {
+      requestAnimationFrame(() => recomputeScrollState());
+    });
+
+    observer.observe(el, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["class", "style"],
+    });
+
+    return () => observer.disconnect();
+  }, [recomputeScrollState]);
 
   // ── Auto-advance readUpTo when at bottom ──────────────────────────
   const msgCountRef = useRef(0);
@@ -542,47 +572,49 @@ export const SessionChatContainer = memo(function SessionChatContainer({
     : "";
 
   return (
-    <div className="flex-1 min-h-0 overflow-hidden flex flex-col relative" ref={wrapperRef}>
-      {/* Sticky user message bar */}
-      {showStickyBar && stickyUserMessage && (
-        <div
-          className="sticky top-0 z-10 flex-shrink-0 bg-bg-secondary border-b border-border px-3 py-[6px] cursor-pointer transition-colors duration-150 animate-sticky-user-bar-in"
-          onClick={handleStickyClick}
-          role="button"
-          tabIndex={0}
-          title="Click to scroll to this message"
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              handleStickyClick();
-            }
-          }}
-        >
-          <div className="flex items-center gap-2 mb-[2px]">
-            <span className="text-[11px] font-medium text-fg-secondary">You</span>
-            <span className="text-[10px] text-fg-muted opacity-50">{stickyTime}</span>
-          </div>
-          <div className="text-xs text-fg-primary whitespace-nowrap overflow-hidden text-ellipsis leading-[1.4]">
-            {stickyUserMessage.content}
-          </div>
-          {stickyUserMessage.attachments.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-1">
-              {stickyUserMessage.attachments.map((a) => (
-                <span key={a.id} className="inline-flex items-center gap-[2px] px-1.5 py-[2px] rounded bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-fg-secondary text-[9px] font-mono">
-                  {a.label}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
+    <div className="flex-1 min-h-0 flex flex-col" ref={wrapperRef}>
       <div
-        className={`flex-1 min-h-0 overflow-y-auto px-3 py-2 flex flex-col relative${showStickyBar ? " pt-0" : ""}`}
+        className="flex-1 min-h-0 overflow-y-auto flex flex-col relative"
         ref={containerRef}
         onScroll={handleScrollWithSticky}
         data-messages-scroll-container="true"
       >
+        {/* Sticky user message bar — inside the scroll container so
+            `position: sticky; top: 0` pins to the scroll area's top. */}
+        {showStickyBar && stickyUserMessage && (
+          <div
+            className="sticky top-0 z-20 flex-shrink-0 bg-bg-secondary border-b border-border px-3 py-[6px] cursor-pointer transition-colors duration-150 animate-sticky-user-bar-in"
+            onClick={handleStickyClick}
+            role="button"
+            tabIndex={0}
+            title="Click to scroll to this message"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                handleStickyClick();
+              }
+            }}
+          >
+            <div className="flex items-center gap-2 mb-[2px]">
+              <span className="text-[11px] font-medium text-fg-secondary">You</span>
+              <span className="text-[10px] text-fg-muted opacity-50">{stickyTime}</span>
+            </div>
+            <div className="text-xs text-fg-primary whitespace-nowrap overflow-hidden text-ellipsis leading-[1.4]">
+              {stickyUserMessage.content}
+            </div>
+            {stickyUserMessage.attachments.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {stickyUserMessage.attachments.map((a) => (
+                  <span key={a.id} className="inline-flex items-center gap-[2px] px-1.5 py-[2px] rounded bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-fg-secondary text-[9px] font-mono">
+                    {a.label}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="px-3 py-2 flex flex-col flex-1 min-h-0">
         {isEmpty ? (
           <div className="min-h-full flex flex-col items-center justify-center text-fg-muted">
             <p className="text-sm font-medium text-fg-secondary">ACP Chat</p>
@@ -619,6 +651,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                     onToggle={() =>
                       toggleIntermediateSteps(sessionKey!, group.userItem.key)
                     }
+                    onExpandSettled={recomputeScrollState}
                   />
                   {group.finalResponse && (
                     <DisplayItemView
@@ -668,6 +701,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                             latestGroup.userItem.key
                           )
                         }
+                        onExpandSettled={recomputeScrollState}
                       />
                     )}
                     {lastIntermediate && (
@@ -715,22 +749,27 @@ export const SessionChatContainer = memo(function SessionChatContainer({
             )}
           </div>
         )}
+        {/* Inside the scroll container so the button stays anchored to the
+            message area's bottom regardless of Composer height changes. */}
+        {showScrollButton && (
+          <div className="sticky bottom-0 z-10 pointer-events-none flex justify-end px-3 pb-2">
+            <button
+              className="pointer-events-auto flex items-center justify-center w-7 h-7 p-0 border border-border rounded-full bg-bg-secondary text-fg-primary shadow-[0_2px_8px_rgba(0,0,0,0.3)] cursor-pointer transition-all duration-150 hover:bg-accent-hover hover:border-accent hover:scale-105 active:scale-95"
+              onClick={handleScrollToBottom}
+              type="button"
+              title="Scroll to bottom"
+              aria-label="Scroll to bottom"
+            >
+              <span className="text-sm leading-none">↓</span>
+              {unreadCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-4 h-4 px-[3px] rounded-lg bg-accent text-user-fg text-[9px] font-semibold leading-none">{unreadCount}</span>
+              )}
+            </button>
+          </div>
+        )}
         <div ref={bottomRef} data-bottom-anchor="true" />
+        </div>
       </div>
-      {showScrollButton && (
-        <button
-          className="absolute bottom-3 right-3 z-10 pointer-events-auto flex items-center justify-center w-7 h-7 p-0 border border-border rounded-full bg-bg-secondary text-fg-primary shadow-[0_2px_8px_rgba(0,0,0,0.3)] cursor-pointer transition-all duration-150 hover:bg-accent-hover hover:border-accent hover:scale-105 active:scale-95"
-          onClick={handleScrollToBottom}
-          type="button"
-          title="Scroll to bottom"
-          aria-label="Scroll to bottom"
-        >
-          <span className="text-sm leading-none">↓</span>
-          {unreadCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-4 h-4 px-[3px] rounded-lg bg-accent text-user-fg text-[9px] font-semibold leading-none">{unreadCount}</span>
-          )}
-        </button>
-      )}
     </div>
   );
 });

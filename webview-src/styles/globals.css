@@ -46,6 +46,8 @@
   /* ── Border radius ── */
   --radius-1: 1px;
   --radius-1\.5: 6px;
+  --radius-2xl: 1rem;
+  --radius-br-md: 0.375rem;
 
   /* ── Shadows ── */
   --shadow-popup: 0 4px 16px rgba(0, 0, 0, 0.35);

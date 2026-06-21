@@ -368,14 +368,6 @@ interface AgentStatusMessage {
   progress?: number;
 }
 
-// ── UnifiedChat layout message ──────────────────────────────────────────────
-
-interface UnifiedChatSetLayoutMessage {
-  type: "unifiedChat:setLayout";
-  layout: "single" | "split" | "grid";
-  splitRatio?: number;
-}
-
 interface ComposerFocusMessage {
   type: "composer:focus";
 }
@@ -426,7 +418,6 @@ type WebviewMessage =
   | SessionPinnedNotification
   | SessionUnpinnedNotification
   | PathsResolvedMessage
-  | UnifiedChatSetLayoutMessage
   | ComposerFocusMessage;
 
 // ── Handler functions ───────────────────────────────────────────────────────
@@ -979,32 +970,6 @@ function handleAgentStatus(data: AgentStatusMessage): void {
   });
 }
 
-// ── UnifiedChat layout handler ──────────────────────────────────────────────
-
-function handleUnifiedChatSetLayout(data: UnifiedChatSetLayoutMessage): void {
-  log.info("handleUnifiedChatSetLayout", {
-    layout: data.layout,
-    splitRatio: data.splitRatio,
-  });
-  const store = useSessionStore.getState();
-  store.setLayoutMode(data.layout);
-  if (data.splitRatio !== undefined) {
-    // When split ratio is provided, update the first split ratio
-    const ratios = [...store.splitRatios];
-    if (ratios.length > 0) {
-      ratios[0] = data.splitRatio;
-      // Normalize: ensure sum = 1
-      const sum = ratios.reduce((a, b) => a + b, 0);
-      if (sum > 0) {
-        for (let i = 0; i < ratios.length; i++) {
-          ratios[i] = ratios[i] / sum;
-        }
-      }
-      store.setSplitRatios(ratios);
-    }
-  }
-}
-
 // ── Setup function ──────────────────────────────────────────────────────────
 
 /**
@@ -1142,9 +1107,6 @@ export function setupMessageHandlers(): void {
         break;
       case "session.unpinned":
         handleSessionUnpinned(data);
-        break;
-      case "unifiedChat:setLayout":
-        handleUnifiedChatSetLayout(data);
         break;
       case "plan.update":
         handlePlanUpdate(data);

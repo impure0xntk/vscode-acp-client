@@ -25,7 +25,7 @@ import type {
   SuggestionItem,
 } from "../../../types";
 
-export type LayoutMode = "single" | "split" | "grid";
+export type LayoutMode = "split";
 
 export interface UnifiedModeProps {
   onSendMessage: (
@@ -80,34 +80,22 @@ export const UnifiedMode = React.memo(function UnifiedMode({
   const {
     activeSessionKey,
     pinnedSessionKeys,
-    layoutMode,
-    splitDirection,
-    splitRatios,
     connectedAgents,
     tabOrder,
     tabTitles,
     tabIcons,
     togglePin,
-    setLayoutMode,
-    setSplitDirection,
-    setSplitRatios,
     setFocusSession,
     removeTab,
   } = useSessionStore(
     useShallow((s: SessionStoreState) => ({
       activeSessionKey: s.activeSessionKey,
       pinnedSessionKeys: s.pinnedSessionKeys,
-      layoutMode: s.layoutMode,
-      splitDirection: s.splitDirection,
-      splitRatios: s.splitRatios,
       connectedAgents: s.connectedAgents,
       tabOrder: s.tabOrder,
       tabTitles: s.tabTitles,
       tabIcons: s.tabIcons,
       togglePin: s.togglePin,
-      setLayoutMode: s.setLayoutMode,
-      setSplitDirection: s.setSplitDirection,
-      setSplitRatios: s.setSplitRatios,
       setFocusSession: s.setFocusSession,
       removeTab: s.removeTab,
     }))
@@ -184,21 +172,6 @@ export const UnifiedMode = React.memo(function UnifiedMode({
       getVsCodeApi().postMessage({ type: "closeSession", sessionId, agentId });
     },
     [togglePin, removeTab]
-  );
-
-  const handleLayoutChange = useCallback(
-    (mode: LayoutMode) => {
-      log.info("layout mode change", { mode });
-      setLayoutMode(mode);
-    },
-    [setLayoutMode]
-  );
-
-  const handleSplitDirectionChange = useCallback(
-    (dir: "vertical" | "horizontal") => {
-      setSplitDirection(dir);
-    },
-    [setSplitDirection]
   );
 
   const handleTabClick = useCallback(
@@ -307,9 +280,7 @@ export const UnifiedMode = React.memo(function UnifiedMode({
     : [];
 
   return (
-    <div
-      className={`flex flex-col flex-1 min-h-0 overflow-hidden h-full${layoutMode === "split" ? " unified-mode--split" : layoutMode === "grid" ? " unified-mode--grid" : ""}`}
-    >
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden h-full unified-mode--split">
       <SessionTabBar
         tabs={tabs}
         activeSessionKey={activeSessionKey}
@@ -322,16 +293,9 @@ export const UnifiedMode = React.memo(function UnifiedMode({
         onRenameSession={onRenameSession}
         pinnedSessionKeys={pinnedSessionKeys}
         onTogglePin={handleTogglePin}
-        layoutMode={layoutMode}
-        splitDirection={splitDirection}
-        onLayoutChange={handleLayoutChange}
-        onSplitDirectionChange={handleSplitDirectionChange}
       />
       <SessionView
         sessionKey={activeSessionKey}
-        layoutMode={layoutMode}
-        splitDirection={splitDirection}
-        splitRatios={splitRatios}
         disabled={disabled}
         pinnedKeys={pinnedSessionKeys}
         onSend={handleSendWithTurnTracking}
@@ -340,7 +304,6 @@ export const UnifiedMode = React.memo(function UnifiedMode({
         onPin={handleTogglePin}
         onUnpin={handleTogglePin}
         onClose={handleClose}
-        onSplitRatiosChange={setSplitRatios}
         scrollToMessageRef={scrollToMessageRef}
         forceScrollToBottomRef={forceScrollToBottomRef}
         scrollToUnreadRef={scrollToUnreadRef}

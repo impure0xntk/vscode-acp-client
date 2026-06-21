@@ -96,6 +96,14 @@
         "title": "ACP: Clear Session History"
       },
       {
+        "command": "acp.pinSession",
+        "title": "ACP: Pin Session"
+      },
+      {
+        "command": "acp.unpinSession",
+        "title": "ACP: Unpin Session"
+      },
+      {
         "command": "acp.closeSession",
         "title": "ACP: Close Session"
       },
@@ -171,14 +179,24 @@
           "group": "acp.session@1"
         },
         {
-          "command": "acp.closeSession",
+          "command": "acp.pinSession",
           "when": "view == acp.agentTree && viewItem == acp.session",
           "group": "acp.session@2"
         },
         {
+          "command": "acp.unpinSession",
+          "when": "view == acp.agentTree && viewItem == acp.session.pinned",
+          "group": "acp.session@3"
+        },
+        {
+          "command": "acp.closeSession",
+          "when": "view == acp.agentTree && viewItem == acp.session",
+          "group": "acp.session@4"
+        },
+        {
           "command": "acp.forkSession",
           "when": "view == acp.agentTree && viewItem == acp.session",
-          "group": "acp.session@3"
+          "group": "acp.session@5"
         }
       ]
     },

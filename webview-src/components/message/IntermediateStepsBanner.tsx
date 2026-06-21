@@ -1,4 +1,9 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, {
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+} from "react";
 import { Icon } from "../../lib/icons";
 import { DisplayItemView } from "./DisplayItemView";
 import type { PipelineItem } from "../../pipeline";
@@ -23,6 +28,13 @@ export interface IntermediateStepsBannerProps {
   forceExpanded?: boolean;
   /** Called when the user toggles the banner. */
   onToggle?: () => void;
+  /**
+   * Called after the expand/collapse animation / DOM mutation settles and
+   * the final layout is stable.  The parent uses this to recompute scroll
+   * state (isAtBottom / readUpTo) so the scroll-to-bottom button and
+   * unread badge stay correct.
+   */
+  onExpandSettled?: () => void;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -60,30 +72,30 @@ export function IntermediateStepsBanner({
   autoCollapse = false,
   forceExpanded = false,
   onToggle,
+  onExpandSettled,
 }: IntermediateStepsBannerProps): React.ReactElement | null {
-  // autoCollapse: start expanded (to render content), then collapse on next frame
+  // autoCollapse: start collapsed immediately — no flash of expanded content
   const [isCollapsed, setIsCollapsed] = useState(
-    autoCollapse ? false : forceExpanded ? false : defaultCollapsed
+    autoCollapse ? true : forceExpanded ? false : defaultCollapsed
   );
-  const autoCollapseDoneRef = useRef(false);
 
   // Sync with forceExpanded from the store — overrides local state when
   // the parent decides the group should be expanded/collapsed.
+  // Always respect forceExpanded regardless of autoCollapse, so that
+  // user-initiated toggle (via store) works even after turn completion.
+  const prevForceExpanded = useRef(forceExpanded);
   useEffect(() => {
-    if (!autoCollapse) {
-      setIsCollapsed(!forceExpanded);
-    }
-  }, [forceExpanded, autoCollapse]);
-
-  useEffect(() => {
-    if (autoCollapse && !autoCollapseDoneRef.current) {
-      autoCollapseDoneRef.current = true;
-      // Use rAF to ensure the expanded content is painted before collapsing
+    setIsCollapsed(!forceExpanded);
+    // When the group transitions from collapsed→expanded, notify parent
+    // after the DOM has settled so it can recompute scroll state.
+    if (forceExpanded && !prevForceExpanded.current) {
+      // Double rAF: let the browser paint the expanded content first
       requestAnimationFrame(() => {
-        setIsCollapsed(true);
+        requestAnimationFrame(() => onExpandSettled?.());
       });
     }
-  }, [autoCollapse]);
+    prevForceExpanded.current = forceExpanded;
+  }, [forceExpanded, onExpandSettled]);
 
   const toggle = useCallback(() => {
     onToggle?.();
@@ -139,6 +151,19 @@ export function IntermediateStepsBanner({
               isNew={true}
             />
           ))}
+          <button
+            className="flex items-center gap-1.5 w-full px-[2px] py-[2px] border-none bg-transparent text-fg-muted text-[11px] font-[var(--font-ui)] cursor-pointer text-left transition-colors duration-150 hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)] hover:text-fg-secondary focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]"
+            onClick={toggle}
+            aria-expanded={false}
+            type="button"
+          >
+            <span className="inline-block text-[9px] flex-shrink-0 opacity-60 -rotate-90">
+              ▼
+            </span>
+            <span className="font-medium whitespace-nowrap">
+              Hide intermediate steps
+            </span>
+          </button>
         </div>
       )}
     </div>

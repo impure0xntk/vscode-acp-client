@@ -1,17 +1,10 @@
 import React, { useCallback, useState, useRef, useEffect } from "react";
 import { useLogger } from "../../hooks/useLogger";
-import type { ChatMessage } from "../../types";
-import type {
-  ConnectedAgentInfo,
-  SessionInfoDTO,
-  SessionState,
-} from "../../store/sessionStore";
-import { Chip } from "../primitives/Chip";
-import type { ToolbarMeta } from "../../types";
-
+import type { SessionInfoDTO } from "../../store/sessionStore";
+import { ContextBar } from "../primitives/SendTargetChip";
+import { StatusIcon } from "../primitives/StatusIcon";
+import type { TurnOutcome } from "../primitives/StatusIcon";
 import { SectionDetailsPanel } from "./toolbar";
-import { UserJumpNav } from "../message/UserJumpNav";
-import { AgentBadge } from "../primitives/AgentBadge";
 import { Icon, IconPin, IconPinFilled } from "../../lib/icons";
 
 // ── props ─────────────────────────────────────────────────────────────────
@@ -19,26 +12,10 @@ import { Icon, IconPin, IconPinFilled } from "../../lib/icons";
 export interface SessionHeaderProps {
   sessionKey: string | null;
   agentId?: string;
-  agentName?: string;
-  title?: string;
-  connectedAgents?: ConnectedAgentInfo[];
-  model?: string;
-  mode?: string;
-  cwd?: string;
-  workspaceRoot?: string;
-  status?: SessionState;
-  onJumpToMessage?: (id: string) => void;
-  sessionOverviewVisible?: boolean;
-  onToggleSessionOverview?: () => void;
-  sessionOverviewPosition?: "right" | "left";
-  messages?: ChatMessage[];
-  // Unified mode extensions:
   isPinned?: boolean;
   onTogglePin?: () => void;
   onClose?: () => void;
-  onClick?: () => void;
   onRename?: (agentId: string, sessionId: string, title: string) => void;
-  splitDirection?: "vertical" | "horizontal";
   messageCount?: number;
   info?: SessionInfoDTO;
   isActive?: boolean;
@@ -51,23 +28,10 @@ export interface SessionHeaderProps {
 export const SessionHeader = React.memo(function SessionHeader({
   sessionKey,
   agentId,
-  agentName,
-  connectedAgents = [],
-  model,
-  mode,
-  cwd,
-  workspaceRoot,
-  status,
-  onJumpToMessage,
-  sessionOverviewVisible,
-  onToggleSessionOverview,
-  sessionOverviewPosition = "right",
-  messages = [],
   isPinned,
   onTogglePin,
   onClose,
   onRename,
-  splitDirection = "horizontal",
   messageCount = 0,
   info,
   isActive,
@@ -82,15 +46,15 @@ export const SessionHeader = React.memo(function SessionHeader({
   const [renameValue, setRenameValue] = useState("");
   const renameInputRef = useRef<HTMLInputElement>(null);
 
-  // Sync rename value from info.sessionId when not renaming
+  // Sync rename value from info.title or info.sessionId when not renaming
   useEffect(() => {
-    if (!isRenaming && info?.sessionId) {
-      const currentTitle = info.sessionId ?? agentId ?? "";
+    if (!isRenaming && info) {
+      const currentTitle = info.title ?? info.sessionId ?? agentId ?? "";
       if (renameValue !== currentTitle) {
-        setRenameValue(currentTitle.slice(0, 8));
+        setRenameValue(currentTitle);
       }
     }
-  }, [isRenaming, info?.sessionId, agentId, renameValue]);
+  }, [isRenaming, info, info?.title, info?.sessionId, agentId, renameValue]);
 
   useEffect(() => {
     if (isRenaming && renameInputRef.current) {
@@ -101,12 +65,12 @@ export const SessionHeader = React.memo(function SessionHeader({
 
   const handleRenameSubmit = useCallback(() => {
     const trimmed = renameValue.trim();
-    const currentSessionId = info?.sessionId ?? "";
-    if (trimmed && trimmed !== currentSessionId.slice(0, 8) && onRename && agentId) {
-      onRename(agentId, currentSessionId, trimmed);
+    const currentTitle = info?.title ?? info?.sessionId ?? "";
+    if (trimmed && trimmed !== currentTitle && onRename && agentId) {
+      onRename(agentId, info?.sessionId ?? "", trimmed);
     }
     setIsRenaming(false);
-  }, [renameValue, info?.sessionId, onRename, agentId]);
+  }, [renameValue, info?.title, info?.sessionId, onRename, agentId]);
 
   const handleRenameKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -114,20 +78,14 @@ export const SessionHeader = React.memo(function SessionHeader({
         e.preventDefault();
         handleRenameSubmit();
       } else if (e.key === "Escape") {
-        setRenameValue(info?.sessionId?.slice(0, 8) ?? "");
+        setRenameValue(info?.title ?? info?.sessionId ?? "");
         setIsRenaming(false);
       }
     },
-    [handleRenameSubmit, info?.sessionId]
+    [handleRenameSubmit, info?.title, info?.sessionId]
   );
 
-  // Unified mode: compact header with accent bar
-  if (color) {
-    return renderUnifiedHeader();
-  }
-
-  // Classic mode: full toolbar
-  return renderClassicToolbar();
+  return renderUnifiedHeader();
 
   // ── Unified mode render ───────────────────────────────────────────────
 
@@ -154,73 +112,22 @@ export const SessionHeader = React.memo(function SessionHeader({
       [onClose, log, sessionKey]
     );
 
-    const isHorizontal = splitDirection === "horizontal";
-
-    // Turn outcome chip only (no message/token count in header)
-    const turnChip: ToolbarMeta | null = (() => {
-      if (info?.status === "running") {
-        return {
-          key: "turn",
-          label: "Turn",
-          value: "Active",
-          category: "session" as const,
-          turnStatus: "running" as const,
-        };
-      }
-      if (info?.lastTurnOutcome === "completed") {
-        return {
-          key: "turn",
-          label: "Turn",
-          value: "Done",
-          category: "session" as const,
-          turnStatus: "completed" as const,
-        };
-      }
-      if (info?.lastTurnOutcome === "error") {
-        return {
-          key: "turn",
-          label: "Turn",
-          value: "Error",
-          category: "session" as const,
-          turnStatus: "error" as const,
-        };
-      }
-      if (info?.lastTurnOutcome === "cancelled") {
-        return {
-          key: "turn",
-          label: "Turn",
-          value: "Cancelled",
-          category: "session" as const,
-          turnStatus: "cancelled" as const,
-        };
-      }
+    // Turn outcome — icon only, no label
+    const turnStatus: TurnOutcome | "running" | null = (() => {
+      if (info?.status === "running") return "running";
+      if (info?.lastTurnOutcome === "completed") return "completed";
+      if (info?.lastTurnOutcome === "error") return "error";
+      if (info?.lastTurnOutcome === "cancelled") return "cancelled";
       return null;
     })();
 
-    // Context usage chip — between turn chip and expand button
-    const contextChip: ToolbarMeta | null = (() => {
-      if (!info?.contextWindowMax || info.contextWindowMax <= 0) return null;
-      const used = info.tokenUsage?.totalTokens ?? 0;
-      const pct = Math.min(100, Math.round((used / info.contextWindowMax) * 100));
-      const ctxColor: "normal" | "warning" | "critical" =
-        pct >= 90 ? "critical" : pct >= 70 ? "warning" : "normal";
-      return {
-        key: "context",
-        label: "Context",
-        value: `${pct}%`,
-        category: "metrics" as const,
-        barPct: pct,
-        contextColor: ctxColor,
-      };
-    })();
-
-    const title = info?.sessionId?.slice(0, 8) ?? agentId ?? "";
+    const displayTitle = info?.title ?? info?.sessionId?.slice(0, 8) ?? agentId ?? "";
+    const displayCwd = info?.cwd;
 
     return (
       <div
         className={`flex items-center gap-1 shrink-0 bg-bg-secondary border-b border-border min-h-[32px] relative${isActive ? "" : ""}`}
         data-color={color}
-        data-is-horizontal={isHorizontal ? "true" : undefined}
         style={{
           "--section-accent-color": color,
           ...(isActive ? { backgroundColor: `${color}18` } : {}),
@@ -251,25 +158,33 @@ export const SessionHeader = React.memo(function SessionHeader({
           ) : (
             <span
               className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-mono text-fg-primary"
-              title={`${title} (double-click to rename)`}
+              title={`${displayTitle} (double-click to rename)`}
               onDoubleClick={(e) => {
                 if (onRename && !isRenaming) {
                   e.stopPropagation();
                   setIsRenaming(true);
-                  setRenameValue(title);
+                  setRenameValue(displayTitle);
                 }
               }}
             >
-              {title}
+              {displayTitle}
+            </span>
+          )}
+          {displayCwd && (
+            <span
+              className="shrink-0 font-mono text-[10px] text-fg-muted max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap"
+              title={displayCwd}
+            >
+              {displayCwd}
             </span>
           )}
           <span className="inline-flex items-center gap-[3px] ml-auto shrink-0 overflow-hidden">
-            {turnChip && <Chip meta={turnChip} />}
+            {turnStatus && <StatusIcon status={turnStatus} size="sm" />}
           </span>
         </button>
 
         <div className="flex items-center gap-1 shrink-0">
-          {contextChip && <Chip meta={contextChip} />}
+          <ContextBar tokenUsage={info?.tokenUsage} contextWindowMax={info?.contextWindowMax} />
           <ExpandButton
             info={info}
             messageCount={messageCount}
@@ -357,68 +272,4 @@ export const SessionHeader = React.memo(function SessionHeader({
     );
   }
 
-  // ── Classic mode render ───────────────────────────────────────────────
-
-  function renderClassicToolbar(): React.ReactElement {
-    const displayCwd = cwd ?? workspaceRoot;
-    const cwdLabel = displayCwd
-      ? (displayCwd.split("/").pop() ?? displayCwd)
-      : null;
-
-    const overviewOnLeft = sessionOverviewPosition === "left";
-
-    const overviewButton = onToggleSessionOverview ? (
-      <button
-        className={`inline-flex items-center justify-center w-6 h-6 p-0 border-none rounded-[3px] bg-transparent text-fg-muted text-sm cursor-pointer transition-colors duration-150 hover:bg-accent-hover hover:text-fg-primary${sessionOverviewVisible ? " text-accent bg-[color-mix(in_srgb,var(--accent)_12%,transparent)]" : ""}`}
-        onClick={onToggleSessionOverview}
-        title="Toggle session overview"
-      >
-        <Icon name="list-tree" size="sm" />
-      </button>
-    ) : null;
-
-    const agentColor = agentId
-      ? connectedAgents.find((a) => a.agentId === agentId)?.color
-      : undefined;
-
-    return (
-      <div className="flex items-center justify-between px-[14px] py-[2px] min-h-[26px] bg-bg-secondary border-b border-border shrink-0">
-        <div className="flex items-center gap-1.5 shrink-0">
-          {overviewOnLeft && overviewButton}
-          <UserJumpNav
-            messages={messages}
-            onJumpTo={onJumpToMessage ?? (() => {})}
-          />
-        </div>
-        <div className="flex items-center gap-2 flex-[0_1_auto] justify-center min-w-0 overflow-hidden">
-          {agentId && agentName && (
-            <AgentBadge
-              agentId={agentId}
-              agentName={agentName}
-              agentColor={agentColor}
-              className="text-[11px] font-medium font-mono max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap text-fg-muted"
-            />
-          )}
-          {cwdLabel && (
-            <span className="inline-flex items-center gap-1 font-mono text-[11px] text-fg-muted max-w-[160px] overflow-hidden text-ellipsis whitespace-nowrap" title={displayCwd ?? ""}>
-              <Icon name="folder-opened" size="sm" /> {cwdLabel}
-            </span>
-          )}
-          {model && status === "running" && (
-            <span className="font-mono text-[11px] text-fg-muted max-w-[100px] overflow-hidden text-ellipsis whitespace-nowrap" title={model}>
-              {model}
-            </span>
-          )}
-          {mode && status === "running" && (
-            <span className="font-mono text-[11px] text-fg-muted max-w-[60px] overflow-hidden text-ellipsis whitespace-nowrap" title={mode}>
-              {mode}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {!overviewOnLeft && overviewButton}
-        </div>
-      </div>
-    );
-  }
 });

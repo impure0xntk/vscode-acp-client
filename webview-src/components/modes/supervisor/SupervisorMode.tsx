@@ -199,9 +199,6 @@ export const SupervisorMode = React.memo(function SupervisorMode({
         />
         <SessionView
           sessionKey={activeSessionKey}
-          layoutMode="single"
-          splitDirection="horizontal"
-          splitRatios={[0.5]}
           disabled={disabled}
           pinnedKeys={pinnedSessionKeys}
           onSend={onSendMessage}

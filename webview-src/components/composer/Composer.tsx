@@ -19,6 +19,7 @@ import { useMessageStore } from "../../store/messageStore";
 import { useMeshStore } from "../../store/meshStore";
 import { getVsCodeApi } from "../../lib/vscodeApi";
 import { getLogger } from "../../lib/logger";
+import { sessionColorForKey } from "../../shared/sessionColor";
 
 const log = getLogger("webview.Composer");
 import { ContextBar } from "./ContextBar";
@@ -134,9 +135,8 @@ function buildSessionSuggestions(
   const items: SuggestionItem[] = tabs.map((tab) => {
     const key = `${tab.agentId}:${tab.sessionId}`;
     const info = sessionInfoMap[key];
-    const sessionColor = connectedAgents.find(
-      (a) => a.agentId === tab.agentId
-    )?.color;
+    const sessionColor =
+      info?.sessionColor ?? sessionColorForKey(key);
 
     const timeStr = relativeTime(info?.lastResponseAt ?? null);
     // Start without preview — will be enriched asynchronously

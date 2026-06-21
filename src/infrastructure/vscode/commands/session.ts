@@ -748,6 +748,8 @@ export function registerSessionCommands(
     attachDiffCmd,
     forkSessionCmd,
     restoreSessionCmd,
+    pinSessionCmd,
+    unpinSessionCmd,
     renameSessionCmd,
     clearHistoryCmd,
     closeAllCmd,

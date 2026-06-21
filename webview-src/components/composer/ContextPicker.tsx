@@ -9,44 +9,19 @@ import type { SuggestionItem, TriggerType, FileCandidate } from "../../types";
 import { Icon } from "../../lib/icons";
 import { StatusIcon } from "../primitives/StatusIcon";
 
-function formatTokens(n: number): string {
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
-  return String(n);
-}
-
 function PickerContextBar({ item }: { item: SuggestionItem }): React.ReactElement | null {
-  const { tokenUsage, contextWindowMax, sessionColor } = item;
+  const { sessionColor } = item;
 
-  // Show bar if we have token usage OR a session color (for identification)
-  if (!tokenUsage && !sessionColor) return null;
-
-  const pct =
-    tokenUsage && contextWindowMax && contextWindowMax > 0
-      ? Math.round((tokenUsage.totalTokens / contextWindowMax) * 100)
-      : null;
-
-  const fillColor = pct !== null
-    ? pct >= 90
-      ? "var(--error)"
-      : pct >= 70
-        ? "var(--warning)"
-        : "var(--success)"
-    : (sessionColor ?? "var(--success)");
-
-  const fillHeight = pct !== null ? Math.max(10, Math.min(100, pct)) : 100;
-  const title = pct !== null && tokenUsage
-    ? `${pct}% (${formatTokens(tokenUsage.totalTokens)} / ${formatTokens(contextWindowMax ?? 0)})`
-    : (tokenUsage ? `${formatTokens(tokenUsage.totalTokens)} tokens used` : "Session");
+  if (!sessionColor) return null;
 
   return (
     <span
       className="inline-flex flex-col-reverse w-0.75 h-3.5 rounded-[1.5px] overflow-hidden shrink-0 ml-1"
-      style={{ background: "color-mix(in srgb, var(--fg-muted) 15%, transparent)" }}
-      title={title}
+      title="Session"
     >
       <span
-        className="w-full rounded-[1.5px] transition-[height] duration-300"
-        style={{ height: `${fillHeight}%`, backgroundColor: fillColor }}
+        className="w-full rounded-[1.5px]"
+        style={{ height: "100%", backgroundColor: sessionColor }}
       />
     </span>
   );

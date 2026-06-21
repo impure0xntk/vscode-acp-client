@@ -1,19 +1,209 @@
-import React, { useCallback, useRef, useEffect } from "react";
+import React, { useCallback, useRef, useEffect, useState } from "react";
 import { useShallow } from "zustand/shallow";
 import { useSessionStore } from "../../../store/sessionStore";
 import type { SessionStoreState } from "../../../store/sessionStore";
 import { useMessageStore } from "../../../store/messageStore";
 import { getLogger } from "../../../lib/logger";
-import { SessionSection } from "./SessionSection";
+import { SessionChatContainer } from "../SessionChatContainer";
+import { SessionHeader } from "../SessionHeader";
+import { SessionStatusBar } from "../SessionStatusBar";
+import { useSessionInfo } from "../../../hooks/useSessionInfo";
+import type { ChatMessage } from "../../../types";
+import type { TurnOutcome } from "../../primitives/StatusIcon";
 import type { SessionHeaderProps } from "../SessionView";
+
+// ── SessionSectionInner ────────────────────────────────────────────────────
+
+interface SessionSectionInnerProps {
+  sessionKey: string;
+  isFocus: boolean;
+  isPinned: boolean;
+  splitIndex: number;
+  splitTotal: number;
+  splitRatios: number[];
+  messages: ChatMessage[];
+  tabTitles: Record<string, string>;
+  onFocusChange: (key: string) => void;
+  onPin: (key: string) => void;
+  onUnpin: (key: string) => void;
+  onClose: (key: string) => void;
+  onRename?: (agentId: string, sessionId: string, title: string) => void;
+  scrollToMessageRef?: React.MutableRefObject<
+    ((id: string) => void) | undefined
+  >;
+  forceScrollToBottomRef?: React.MutableRefObject<(() => void) | undefined>;
+  scrollToUnreadRef?: React.MutableRefObject<(() => void) | undefined>;
+  turnStartedAtMap?: Record<string, string>;
+  pendingMap?: Record<string, boolean>;
+  renderHeader?: (props: SessionHeaderProps) => React.ReactNode;
+  getSessionColor: (key: string) => string;
+}
+
+const SessionSectionInner = React.memo(function SessionSectionInner({
+  sessionKey,
+  isFocus,
+  isPinned,
+  splitIndex,
+  splitTotal,
+  splitRatios,
+  messages,
+  tabTitles,
+  onFocusChange,
+  onPin,
+  onUnpin,
+  onClose,
+  onRename,
+  scrollToMessageRef,
+  forceScrollToBottomRef,
+  scrollToUnreadRef,
+  turnStartedAtMap,
+  pendingMap,
+  renderHeader,
+  getSessionColor,
+}: SessionSectionInnerProps): React.ReactElement | null {
+  const info = useSessionInfo(sessionKey);
+  const color = getSessionColor(sessionKey);
+
+  const prevOutcomeRef = useRef<TurnOutcome | null | undefined>(undefined);
+  const [isFlashing, setIsFlashing] = useState(false);
+
+  useEffect(() => {
+    const prev = prevOutcomeRef.current;
+    const current = info?.lastTurnOutcome ?? null;
+    if (prev === undefined) {
+      prevOutcomeRef.current = current;
+      return;
+    }
+    const isTerminal =
+      current === "completed" || current === "error" || current === "cancelled";
+    const isNew = current !== prev;
+    if (isTerminal && isNew) {
+      setIsFlashing(true);
+    }
+    prevOutcomeRef.current = current;
+  }, [info?.lastTurnOutcome]);
+
+  const handleAnimationEnd = useCallback(() => {
+    setIsFlashing(false);
+  }, []);
+
+  const flashAnimClass =
+    isFlashing &&
+    (info?.lastTurnOutcome === "completed" ||
+      info?.lastTurnOutcome === "error")
+      ? "animate-usec-flash-border"
+      : "";
+
+  const flashColor =
+    info?.lastTurnOutcome === "error"
+      ? "var(--error)"
+      : info?.lastTurnOutcome === "cancelled"
+        ? "var(--warning)"
+        : "var(--success)";
+
+  useEffect(() => {
+    if (!info) {
+      onClose(sessionKey);
+    }
+  }, [info, onClose, sessionKey]);
+
+  if (!info) return null;
+
+  const sectionClassName = [
+    "unified-session-section",
+    isFocus ? "flex-1" : "flex-none",
+    info.isStreaming
+      ? "[box-shadow:inset_0_0_0_1px_color-mix(in_srgb,#4fc3f7_30%,transparent)]"
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const ratio = splitRatios[splitIndex] ?? 1 / splitTotal;
+  const pct = ratio * 100;
+  const sectionStyle: React.CSSProperties = {
+    flex: `0 0 ${pct}%`,
+    width: `${pct}%`,
+    maxWidth: `${pct}%`,
+    minWidth: "10%",
+  };
+
+  const title = tabTitles[sessionKey] ?? info.sessionId.slice(0, 8);
+
+  return (
+    <div
+      className={`${sectionClassName} ${flashAnimClass} flex flex-col min-h-0 h-full`}
+      onAnimationEnd={handleAnimationEnd}
+      style={{
+        ...sectionStyle,
+        ...(isFlashing ? { "--usec-flash-color": flashColor } : {}),
+      }}
+    >
+      {renderHeader ? (
+        renderHeader({
+          sessionKey,
+          agentId: info.agentId,
+          color,
+          messageCount: messages.length,
+          isActive: isFocus,
+          isPinned,
+          info,
+          onTogglePin: () =>
+            isPinned ? onUnpin(sessionKey) : onPin(sessionKey),
+          onClose: () => onClose(sessionKey),
+          onRename,
+        })
+      ) : (
+        <SessionHeader
+          sessionKey={sessionKey}
+          agentId={info.agentId}
+          color={color}
+          messageCount={messages.length}
+          isActive={isFocus}
+          isPinned={isPinned}
+          onTogglePin={() =>
+            isPinned ? onUnpin(sessionKey) : onPin(sessionKey)
+          }
+          onClose={() => onClose(sessionKey)}
+          onRename={onRename}
+          info={info}
+        />
+      )}
+      <div
+        className="flex-1 min-h-0 min-w-0 flex flex-col min-h-0"
+        onClick={() => onFocusChange(sessionKey)}
+      >
+        <SessionChatContainer
+          sessionKey={sessionKey}
+          agentId={info.agentId}
+          sessionId={info.sessionId}
+          status={info.status}
+          isActive={isFocus}
+          color={color}
+          scrollToMessageRef={scrollToMessageRef}
+          forceScrollToBottomRef={forceScrollToBottomRef}
+          scrollToUnreadRef={scrollToUnreadRef}
+        />
+      </div>
+      <div className="shrink-0">
+        <SessionStatusBar
+          sessionKey={sessionKey}
+          active={info.status === "running"}
+          turnStartedAt={turnStartedAtMap?.[sessionKey]}
+          pending={pendingMap?.[sessionKey] ?? false}
+          queue={[]}
+          onCancelQueue={() => {}}
+        />
+      </div>
+    </div>
+  );
+});
 
 const log = getLogger("SplitSessionLayout");
 
 export interface SplitSessionLayoutProps {
   focusKey: string | null;
   pinnedKeys: string[];
-  layoutMode: "split";
-  splitDirection: "vertical" | "horizontal";
   splitRatios: number[];
   onFocusChange: (key: string) => void;
   onPin: (key: string) => void;
@@ -35,7 +225,6 @@ export interface SplitSessionLayoutProps {
 export const SplitSessionLayout = React.memo(function SplitSessionLayout({
   focusKey,
   pinnedKeys,
-  splitDirection,
   splitRatios,
   onFocusChange,
   onPin,
@@ -83,15 +272,14 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
           : Array(visibleKeys.length).fill(1 / visibleKeys.length);
       dragStateRef.current = {
         dividerIndex,
-        startPos: splitDirection === "horizontal" ? e.clientX : e.clientY,
+        startPos: e.clientX,
         startRatios: currentRatios,
       };
-      document.body.style.cursor =
-        splitDirection === "horizontal" ? "col-resize" : "row-resize";
+      document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
       log.debug("divider drag start", { dividerIndex });
     },
-    [splitDirection, splitRatios, visibleKeys.length]
+    [splitRatios, visibleKeys.length]
   );
 
   useEffect(() => {
@@ -101,11 +289,7 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
       const container = containerRef.current;
       if (!container) return;
       const rect = container.getBoundingClientRect();
-      const pos = splitDirection === "horizontal" ? e.clientX : e.clientY;
-      const startPos = drag.startPos;
-      const totalSize =
-        splitDirection === "horizontal" ? rect.width : rect.height;
-      const delta = (pos - startPos) / totalSize;
+      const delta = (e.clientX - drag.startPos) / rect.width;
 
       const newRatios = [...drag.startRatios];
       const i = drag.dividerIndex;
@@ -138,7 +322,7 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [splitDirection, onSplitRatiosChange]);
+  }, [onSplitRatiosChange]);
 
   if (visibleKeys.length === 0) {
     log.debug("no visible sessions — rendering empty state");
@@ -151,74 +335,56 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
 
   const allMessages = useMessageStore.getState().perSession;
 
-  const effectiveRatios = computeEffectiveRatios(
-    splitRatios,
-    visibleKeys.length
-  );
+  const effectiveRatios = computeEffectiveRatios(splitRatios, visibleKeys.length);
 
-  /**
-   * Compute effective split ratios for the current visible sections.
-   *
-   * The store's splitRatios may be stale after a session is closed
-   * (length mismatch). When the count doesn't match, we coalesce to
-   * equal distribution so remaining sections always fill 100 % of the
-   * container.
-   */
   function computeEffectiveRatios(ratios: number[], count: number): number[] {
     if (count <= 0) return [];
     if (ratios.length === count) {
       const sum = ratios.reduce((a, b) => a + b, 0);
       if (sum > 0) return ratios.map((r) => r / sum);
     }
-    // Ratios length doesn't match visible sections — reset to equal split.
-    // This happens immediately after closing a session.
     return Array(count).fill(1 / count);
   }
 
-  const renderSection = (key: string, isFocus: boolean) => {
-    const isPinned = pinnedKeys.includes(key);
-    const idx = visibleKeys.indexOf(key);
-    return (
-      <SessionSection
-        key={key}
-        sessionKey={key}
-        isFocus={isFocus}
-        isPinned={isPinned}
-        layoutMode="split"
-        splitDirection={splitDirection}
-        splitIndex={idx}
-        splitTotal={visibleKeys.length}
-        splitRatios={effectiveRatios}
-        messages={allMessages[key] ?? []}
-        tabTitles={tabTitles}
-        turnStartedAtMap={turnStartedAtMap}
-        pendingMap={pendingMap}
-        onFocusChange={onFocusChange}
-        onPin={onPin}
-        onUnpin={onUnpin}
-        onClose={onClose}
-        onRename={onRename}
-        scrollToMessageRef={scrollToMessageRef}
-        forceScrollToBottomRef={forceScrollToBottomRef}
-        scrollToUnreadRef={scrollToUnreadRef}
-        renderHeader={renderHeader}
-        getSessionColor={getSessionColor}
-      />
-    );
-  };
-
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden h-full">
-      <div className={`flex flex-col flex-1 min-h-0 overflow-hidden h-full${splitDirection === "horizontal" ? " flex-row items-stretch" : ""}`} ref={containerRef}>
+      <div
+        className="flex flex-col flex-1 min-h-0 overflow-hidden h-full flex-row items-stretch"
+        ref={containerRef}
+      >
         {visibleKeys.map((key, i) => {
           const isFocus = key === focusKey;
-          const section = renderSection(key, isFocus);
+          const section = (
+            <SessionSectionInner
+              key={key}
+              sessionKey={key}
+              isFocus={isFocus}
+              isPinned={pinnedKeys.includes(key)}
+              splitIndex={visibleKeys.indexOf(key)}
+              splitTotal={visibleKeys.length}
+              splitRatios={effectiveRatios}
+              messages={allMessages[key] ?? []}
+              tabTitles={tabTitles}
+              turnStartedAtMap={turnStartedAtMap}
+              pendingMap={pendingMap}
+              onFocusChange={onFocusChange}
+              onPin={onPin}
+              onUnpin={onUnpin}
+              onClose={onClose}
+              onRename={onRename}
+              scrollToMessageRef={scrollToMessageRef}
+              forceScrollToBottomRef={forceScrollToBottomRef}
+              scrollToUnreadRef={scrollToUnreadRef}
+              renderHeader={renderHeader}
+              getSessionColor={getSessionColor}
+            />
+          );
           if (i === visibleKeys.length - 1) return section;
           return (
             <React.Fragment key={key}>
               {section}
               <div
-                className={`shrink-0 h-[4px] transition-colors duration-150 hover:bg-accent${splitDirection === "horizontal" ? " w-[4px] h-auto cursor-col-resize self-stretch" : " cursor-row-resize"}`}
+                className="shrink-0 w-[4px] h-auto cursor-col-resize self-stretch transition-colors duration-150 hover:bg-accent"
                 onMouseDown={handleDividerMouseDown(i)}
               />
             </React.Fragment>

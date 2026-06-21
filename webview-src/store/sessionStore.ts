@@ -39,6 +39,7 @@ export type TurnOutcome = "completed" | "error" | "cancelled";
 export interface SessionInfoDTO {
   sessionId: string;
   agentId: string;
+  title?: string;
   status: SessionState;
   lastTurnOutcome: TurnOutcome | null;
   isStreaming: boolean;
@@ -53,6 +54,7 @@ export interface SessionInfoDTO {
   cwd?: string;
   createdAt: string;
   lastResponseAt: string | null;
+  sessionColor?: string;
 }
 
 export interface AgentInfo {
@@ -166,7 +168,7 @@ function sessionInfoEquals(a: SessionInfoDTO, b: SessionInfoDTO): boolean {
     a.tokenUsage === b.tokenUsage &&
     a.contextWindowMax === b.contextWindowMax &&
     a.model === b.model &&
-    a.mode === b.mode &&
+    a.title === b.title &&
     a.cwd === b.cwd &&
     a.createdAt === b.createdAt &&
     a.lastResponseAt === b.lastResponseAt
@@ -217,7 +219,7 @@ export function snapshotToOverviewItem(
   return {
     sessionId: info.sessionId,
     agentId: info.agentId,
-    title: titleHint ?? info.sessionId,
+    title: titleHint ?? info.title ?? info.sessionId,
     status,
     lastTurnOutcome: info.lastTurnOutcome,
     model: info.model,
@@ -254,12 +256,6 @@ export interface SessionStoreState {
   // ── UnifiedChatPanel ──────────────────────────────────────────────────
   /** Pinned session keys (agentId:sessionId) */
   pinnedSessionKeys: string[];
-  /** Layout mode for the unified chat panel */
-  layoutMode: "single" | "split" | "grid";
-  /** Split direction: vertical = stacked, horizontal = side-by-side */
-  splitDirection: "vertical" | "horizontal";
-  /** Split mode divider ratios — one per section, normalized to sum to 1 */
-  splitRatios: number[];
   // ── Plan Viewer ────────────────────────────────────────────────────
   /** Current plan for the active session (null if no plan) */
   currentPlan: Plan | null;
@@ -330,11 +326,6 @@ export interface SessionStoreState {
   pinSession: (sessionKey: string) => void;
   unpinSession: (sessionKey: string) => void;
   togglePin: (sessionKey: string) => void;
-  setLayoutMode: (mode: "single" | "split" | "grid") => void;
-  setSplitDirection: (dir: "vertical" | "horizontal") => void;
-  setSplitRatios: (ratios: number[]) => void;
-  /** Ensure splitRatios matches the current number of visible sections */
-  ensureSplitRatios: (count: number) => void;
   setFocusSession: (sessionKey: string | null) => void;
   setCurrentPlan: (plan: Plan | null) => void;
   updatePlanStep: (
@@ -375,9 +366,6 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
 
   // ── UnifiedChatPanel ─────────────────────────────────────────────────
   pinnedSessionKeys: [],
-  layoutMode: "single",
-  splitDirection: "horizontal",
-  splitRatios: [],
   currentPlan: null,
   planHistory: [],
   commandCenterExpanded: false,
@@ -473,13 +461,10 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
       // Clean up the pipeline cache for the removed session
       removePipelineCache(targetKey);
 
-      // Recompute pinned keys and split ratios if the removed session was pinned
+      // Recompute pinned keys if the removed session was pinned
       let nextPinned = state.pinnedSessionKeys;
-      let nextRatios = state.splitRatios;
       if (state.pinnedSessionKeys.includes(targetKey)) {
         nextPinned = state.pinnedSessionKeys.filter((k) => k !== targetKey);
-        const count = nextPinned.length;
-        nextRatios = count > 0 ? Array(count).fill(1 / count) : [];
       }
 
       return {
@@ -489,7 +474,6 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
         promptQueue: nextQueue,
         activeSessionKey: nextActive,
         pinnedSessionKeys: nextPinned,
-        splitRatios: nextRatios,
       };
     }),
 
@@ -601,6 +585,8 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
     set((state) => {
       const q = state.promptQueue[sessionKey];
       if (!q) return state;
+      const idx = q.findIndex((e) => e.id === promptId);
+      if (idx < 0) return state;
       const updated = q.map((e) =>
         e.id === promptId ? { ...e, status } : e
       );
@@ -698,18 +684,14 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
     set((state) => {
       if (state.pinnedSessionKeys.includes(sessionKey)) return state;
       const next = [...state.pinnedSessionKeys, sessionKey];
-      const ratios =
-        next.length > 0 ? Array(next.length).fill(1 / next.length) : [];
-      return { ...state, pinnedSessionKeys: next, splitRatios: ratios };
+      return { ...state, pinnedSessionKeys: next };
     }),
 
   unpinSession: (sessionKey) =>
     set((state) => {
       if (!state.pinnedSessionKeys.includes(sessionKey)) return state;
       const next = state.pinnedSessionKeys.filter((k) => k !== sessionKey);
-      const ratios =
-        next.length > 0 ? Array(next.length).fill(1 / next.length) : [];
-      return { ...state, pinnedSessionKeys: next, splitRatios: ratios };
+      return { ...state, pinnedSessionKeys: next };
     }),
 
   togglePin: (sessionKey) =>
@@ -718,48 +700,7 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
       const next = isPinned
         ? state.pinnedSessionKeys.filter((k) => k !== sessionKey)
         : [...state.pinnedSessionKeys, sessionKey];
-      const ratios =
-        next.length > 0 ? Array(next.length).fill(1 / next.length) : [];
-      return { ...state, pinnedSessionKeys: next, splitRatios: ratios };
-    }),
-
-  setLayoutMode: (mode) =>
-    set((s) => {
-      if (s.layoutMode === mode) return s;
-      // When entering split/grid mode, generate equal ratios for all pinned sessions
-      if (mode === "split" || mode === "grid") {
-        const count = s.pinnedSessionKeys.length;
-        const ratios = count > 0 ? Array(count).fill(1 / count) : [];
-        return { layoutMode: mode, splitRatios: ratios };
-      }
-      return { layoutMode: mode };
-    }),
-
-  setSplitDirection: (dir) =>
-    set((s) => (s.splitDirection === dir ? s : { splitDirection: dir })),
-
-  setSplitRatios: (ratios) =>
-    set((s) => {
-      if (
-        s.splitRatios.length === ratios.length &&
-        s.splitRatios.every((v, i) => v === ratios[i])
-      ) {
-        return s;
-      }
-      return { splitRatios: [...ratios] };
-    }),
-
-  ensureSplitRatios: (count) =>
-    set((s) => {
-      if (count <= 0) return { splitRatios: [] };
-      const equal = Array(count).fill(1 / count);
-      if (
-        s.splitRatios.length === count &&
-        s.splitRatios.every((v, i) => v === equal[i])
-      ) {
-        return s;
-      }
-      return { splitRatios: equal };
+      return { ...state, pinnedSessionKeys: next };
     }),
 
   setFocusSession: (sessionKey) =>

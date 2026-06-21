@@ -4,7 +4,7 @@
 // is derived from SessionInfo on the extension side.
 // ============================================================================
 
-import type { SessionStatusInfo } from "../../../domain/models/agent";
+import type { SessionStatusInfo } from "../../../application/session/orchestrator";
 import type { AgentInfo } from "../../../application/session/orchestrator";
 
 // ============================================================================
@@ -46,6 +46,7 @@ export interface SessionInfoDTO {
   cwd?: string;
   model?: string;
   mode?: string;
+  pinned: boolean;
   /** ISO date string */
   createdAt: string;
   /** ISO date string — last time agent produced output. Null if never. */
@@ -154,6 +155,7 @@ export class ChatPresenter {
       cwd: session.cwd,
       model: session.model,
       mode: session.mode,
+      pinned: session.pinned,
       createdAt: createdAt.toISOString(),
       lastResponseAt: null,
     };

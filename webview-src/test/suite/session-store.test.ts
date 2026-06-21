@@ -72,9 +72,7 @@ beforeEach(() => {
     tabTitles: {},
     tabIcons: {},
     pinnedSessionKeys: [],
-    layoutMode: "single",
-    splitDirection: "horizontal",
-    splitRatios: [],
+
     promptQueue: {},
     connectedAgents: [],
     agentInfoMap: {},
@@ -247,32 +245,29 @@ describe("sessionStore", () => {
   // ── 3. Unified mode state ─────────────────────────────────────────────
 
   describe("unified mode state", () => {
-    it("pinSession adds to pinnedSessionKeys and generates equal splitRatios", () => {
+    it("pinSession adds to pinnedSessionKeys", () => {
       const { pinSession } = useSessionStore.getState();
       pinSession("agent1:session1");
       const state = useSessionStore.getState();
       assert.deepStrictEqual(state.pinnedSessionKeys, ["agent1:session1"]);
-      assert.deepStrictEqual(state.splitRatios, [1]);
     });
 
-    it("pinSession with multiple keys generates equal ratios", () => {
+    it("pinSession with multiple keys", () => {
       const { pinSession } = useSessionStore.getState();
       pinSession("agent1:session1");
       pinSession("agent1:session2");
       pinSession("agent1:session3");
       const state = useSessionStore.getState();
-      assert.strictEqual(state.splitRatios.length, 3);
-      assert.ok(state.splitRatios.every((r) => Math.abs(r - 1 / 3) < 0.001));
+      assert.strictEqual(state.pinnedSessionKeys.length, 3);
     });
 
-    it("unpinSession removes from pinnedSessionKeys and regenerates ratios", () => {
+    it("unpinSession removes from pinnedSessionKeys", () => {
       const { pinSession, unpinSession } = useSessionStore.getState();
       pinSession("agent1:session1");
       pinSession("agent1:session2");
       unpinSession("agent1:session1");
       const state = useSessionStore.getState();
       assert.deepStrictEqual(state.pinnedSessionKeys, ["agent1:session2"]);
-      assert.deepStrictEqual(state.splitRatios, [1]);
     });
 
     it("togglePin adds pin when not pinned", () => {
@@ -288,75 +283,6 @@ describe("sessionStore", () => {
       togglePin("agent1:session1");
       const state = useSessionStore.getState();
       assert.ok(!state.pinnedSessionKeys.includes("agent1:session1"));
-    });
-
-    it("setLayoutMode('split') with pinned sessions auto-generates equal ratios", () => {
-      const { pinSession, setLayoutMode } = useSessionStore.getState();
-      pinSession("agent1:session1");
-      pinSession("agent1:session2");
-      setLayoutMode("split");
-      const state = useSessionStore.getState();
-      assert.strictEqual(state.layoutMode, "split");
-      assert.strictEqual(state.splitRatios.length, 2);
-      assert.ok(state.splitRatios.every((r) => Math.abs(r - 0.5) < 0.001));
-    });
-
-    it("setLayoutMode('grid') with pinned sessions auto-generates equal ratios", () => {
-      const { pinSession, setLayoutMode } = useSessionStore.getState();
-      pinSession("agent1:session1");
-      pinSession("agent1:session2");
-      pinSession("agent1:session3");
-      setLayoutMode("grid");
-      const state = useSessionStore.getState();
-      assert.strictEqual(state.layoutMode, "grid");
-      assert.strictEqual(state.splitRatios.length, 3);
-    });
-
-    it("setLayoutMode('single') does not modify ratios", () => {
-      const { pinSession, setLayoutMode } = useSessionStore.getState();
-      pinSession("agent1:session1");
-      pinSession("agent1:session2");
-      setLayoutMode("single");
-      const state = useSessionStore.getState();
-      // Ratios should be empty for single mode
-      assert.strictEqual(state.layoutMode, "single");
-    });
-
-    it("setSplitDirection updates direction", () => {
-      const { setSplitDirection } = useSessionStore.getState();
-      setSplitDirection("horizontal");
-      const state = useSessionStore.getState();
-      assert.strictEqual(state.splitDirection, "horizontal");
-    });
-
-    it("setSplitRatios stores normalized ratios", () => {
-      const { setSplitRatios } = useSessionStore.getState();
-      setSplitRatios([0.3, 0.7]);
-      const state = useSessionStore.getState();
-      assert.deepStrictEqual(state.splitRatios, [0.3, 0.7]);
-    });
-
-    it("ensureSplitRatios(count) generates equal ratios", () => {
-      const { ensureSplitRatios } = useSessionStore.getState();
-      ensureSplitRatios(4);
-      const state = useSessionStore.getState();
-      assert.strictEqual(state.splitRatios.length, 4);
-      assert.ok(state.splitRatios.every((r) => Math.abs(r - 0.25) < 0.001));
-    });
-
-    it("ensureSplitRatios(0) returns empty ratios", () => {
-      const { ensureSplitRatios } = useSessionStore.getState();
-      ensureSplitRatios(0);
-      const state = useSessionStore.getState();
-      assert.deepStrictEqual(state.splitRatios, []);
-    });
-
-    it("ensureSplitRatios with same ratios is a no-op", () => {
-      const { ensureSplitRatios } = useSessionStore.getState();
-      ensureSplitRatios(3);
-      const ref = useSessionStore.getState();
-      ensureSplitRatios(3);
-      assert.strictEqual(useSessionStore.getState(), ref);
     });
   });
 

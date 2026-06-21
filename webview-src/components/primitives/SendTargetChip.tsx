@@ -8,8 +8,16 @@ export interface SendTargetChipProps {
   onClick?: () => void;
 }
 
-function ContextBar({ target }: { target: SendTarget }): React.ReactElement | null {
-  const { tokenUsage, contextWindowMax } = target;
+export interface ContextBarProps {
+  tokenUsage?: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+  };
+  contextWindowMax?: number;
+}
+
+export function ContextBar({ tokenUsage, contextWindowMax }: ContextBarProps): React.ReactElement | null {
   if (!tokenUsage) return null;
 
   const pct =
@@ -64,7 +72,7 @@ export function SendTargetChip({
     >
       <StatusIcon status={status} size="sm" />
       <span className="text-fg-primary max-w-[120px] truncate">{target.label}</span>
-      <ContextBar target={target} />
+      <ContextBar tokenUsage={target.tokenUsage} contextWindowMax={target.contextWindowMax} />
       <button
         className="inline-flex items-center justify-center w-3.5 h-3.5 p-0 rounded-[2px] bg-transparent text-fg-muted text-[12px] leading-none shrink-0 ml-0.5 hover:bg-error hover:text-user-fg"
         onClick={(e) => { e.stopPropagation(); onRemove(); }}

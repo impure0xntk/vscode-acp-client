@@ -9,9 +9,7 @@ import {
 } from "../../store/scrollStateStore";
 import type { ContextAttachment, SendTarget, ChatMessage } from "../../types";
 import type { TurnOutcome } from "../primitives/StatusIcon";
-import { SingleSessionLayout } from "./layouts/SingleSessionLayout";
 import { SplitSessionLayout } from "./layouts/SplitSessionLayout";
-import { GridSessionLayout } from "./layouts/GridSessionLayout";
 
 // ── Color palette (WCAG AA compliant on dark bg #1e1e1e) ──────────────────
 
@@ -78,11 +76,10 @@ export interface SessionFooterProps {
 
 export interface SessionViewProps {
   sessionKey: string | null;
-  layoutMode: "single" | "split" | "grid";
-  splitDirection?: "vertical" | "horizontal";
-  splitRatios?: number[];
   disabled: boolean;
   pinnedKeys?: string[];
+  splitRatios?: number[];
+  onSplitRatiosChange?: (ratios: number[]) => void;
   onSend: (
     text: string,
     attachments: ContextAttachment[],
@@ -94,7 +91,6 @@ export interface SessionViewProps {
   onUnpin?: (key: string) => void;
   onClose?: (key: string) => void;
   onRename?: (agentId: string, sessionId: string, title: string) => void;
-  onSplitRatiosChange?: (ratios: number[]) => void;
   scrollToMessageRef?: React.MutableRefObject<
     ((id: string) => void) | undefined
   >;
@@ -158,11 +154,10 @@ function deriveUnread(
 
 export const SessionView = React.memo(function SessionView({
   sessionKey,
-  layoutMode,
-  splitDirection = "horizontal",
-  splitRatios = [],
   disabled,
   pinnedKeys = [],
+  splitRatios = [],
+  onSplitRatiosChange,
   onSend,
   onCancel,
   onFocusChange,
@@ -170,7 +165,6 @@ export const SessionView = React.memo(function SessionView({
   onUnpin,
   onClose,
   onRename,
-  onSplitRatiosChange,
   scrollToMessageRef,
   forceScrollToBottomRef,
   scrollToUnreadRef,
@@ -179,87 +173,11 @@ export const SessionView = React.memo(function SessionView({
   renderHeader,
   renderFooter,
 }: SessionViewProps): React.ReactElement | null {
-  // Delegate to the appropriate layout component.
-  // Each layout is responsible for its own internal structure;
-  // this wrapper only ensures it fills the available space.
-  const layoutProps = {
-    sessionKey,
-    layoutMode,
-    splitDirection,
-    splitRatios,
-    disabled,
-    pinnedKeys,
-    onSend,
-    onCancel,
-    onFocusChange,
-    onPin,
-    onUnpin,
-    onClose,
-    onSplitRatiosChange,
-    scrollToMessageRef,
-    forceScrollToBottomRef,
-    scrollToUnreadRef,
-    turnStartedAtMap,
-    pendingMap,
-    renderHeader,
-    renderFooter,
-  };
-
-  if (layoutMode === "single") {
-    return (
-      <div className="flex-1 min-h-0" data-layout="single">
-        <SingleSessionLayout
-          activeKey={sessionKey}
-          disabled={disabled}
-          onSend={onSend}
-          onCancel={onCancel}
-          scrollToMessageRef={scrollToMessageRef}
-          forceScrollToBottomRef={forceScrollToBottomRef}
-          scrollToUnreadRef={scrollToUnreadRef}
-          turnStartedAtMap={turnStartedAtMap}
-          pendingMap={pendingMap}
-          useActiveScrollState={useActiveScrollState}
-          deriveUnread={deriveUnread}
-        />
-      </div>
-    );
-  }
-
-  if (layoutMode === "split") {
-    return (
-      <div className="flex-1 min-h-0" data-layout="split">
-        <SplitSessionLayout
-          focusKey={sessionKey}
-          pinnedKeys={pinnedKeys}
-          layoutMode={layoutMode}
-          splitDirection={splitDirection}
-          splitRatios={splitRatios}
-          onFocusChange={onFocusChange ?? (() => {})}
-          onPin={onPin ?? (() => {})}
-          onUnpin={onUnpin ?? (() => {})}
-          onClose={onClose ?? (() => {})}
-          onRename={onRename}
-          onSplitRatiosChange={onSplitRatiosChange ?? (() => {})}
-          scrollToMessageRef={scrollToMessageRef}
-          forceScrollToBottomRef={forceScrollToBottomRef}
-          scrollToUnreadRef={scrollToUnreadRef}
-          turnStartedAtMap={turnStartedAtMap}
-          pendingMap={pendingMap}
-          renderHeader={renderHeader}
-          getSessionColor={getSessionColor}
-        />
-      </div>
-    );
-  }
-
-  // Grid mode
   return (
-    <div className="flex-1 min-h-0" data-layout="grid">
-      <GridSessionLayout
+    <div className="flex-1 min-h-0">
+      <SplitSessionLayout
         focusKey={sessionKey}
         pinnedKeys={pinnedKeys}
-        layoutMode={layoutMode}
-        splitDirection={splitDirection}
         splitRatios={splitRatios}
         onFocusChange={onFocusChange ?? (() => {})}
         onPin={onPin ?? (() => {})}

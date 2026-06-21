@@ -79,6 +79,10 @@ export function createAgentTreeProvider(
         return sessions.map((s): AgentTreeItem => {
           const isActive =
             orchestrator.getActiveSessionId(element.agentId) === s.sessionId;
+          const isPinned = orchestrator.isSessionPinned(
+            element.agentId,
+            s.sessionId
+          );
           return {
             kind: "item",
             itemKind: "session",
@@ -92,8 +96,8 @@ export function createAgentTreeProvider(
                 : isActive
                   ? "circle-filled"
                   : "circle-outline",
-            contextValue: "acp.session",
-            description: s.status,
+            contextValue: isPinned ? "acp.session.pinned" : "acp.session",
+            description: isPinned ? "📌" : s.status,
           };
         });
       }
