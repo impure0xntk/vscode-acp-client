@@ -178,7 +178,7 @@ export function SessionOverviewCard({
 
   return (
     <div
-      className={`p-[6px 8px] m-[2px 4px] bg-bg-primary border border-[transparent] border-l border-[transparent] rounded-md cursor-pointer hover:border-accent focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1 ${borderLeftClass}${isExpanded ? " bg-bg-secondary" : ""}${isActive ? " bg-[color-mix(in_srgb,var(--accent)_12%,transparent)]" : ""}${isSelected ? " border-accent bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]" : ""}`}
+      className={`session-overview-card p-[6px 8px] m-[2px 4px] bg-bg-primary border border-[transparent] border-l border-[transparent] rounded-md cursor-pointer hover:border-accent focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1 ${borderLeftClass}${isExpanded ? " bg-bg-secondary" : ""}${isActive ? " bg-[color-mix(in_srgb,var(--accent)_12%,transparent)]" : ""}${isSelected ? " border-accent bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]" : ""}`}
       data-status={statusValue}
       data-color-group={colorGroup}
       data-elapsed-tier={tier}

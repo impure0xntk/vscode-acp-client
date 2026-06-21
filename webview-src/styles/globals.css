@@ -196,15 +196,6 @@
 }
 
 /* ============================================================================
-   SVG + inline icon helpers — minimal, used inline in ToolCallCard / markdown
-   ============================================================================ */
-
-.file-chip svg {
-  flex-shrink: 0;
-}
-
-
-/* ============================================================================
    Reset & Base
    ============================================================================ */
 
@@ -222,69 +213,14 @@
    ============================================================================ */
 
 /* ============================================================================
-                                 Spinner — rotate the SVG arc
-   ============================================================================ */
-
-.status-icon-spinner {
-  animation: spin 1s linear infinite;
-}
-
-/* ============================================================================
    Tool Call Cards
    ============================================================================ */
 
-/* ── File chips (in messages and tool calls) ── */
-.file-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 1px 3px;
-  border-radius: 3px;
-  background: var(--bg-secondary);
-  color: var(--fg-primary);
-  font-size: 9px;
-  cursor: pointer;
-  user-select: none;
-  transition: background 0.15s;
-  flex-shrink: 0;
-}
-
-.file-chip:hover {
-  background: var(--accent-hover);
-}
-
-.file-chip:focus-visible {
-  outline: 1px solid var(--accent);
-  outline-offset: 1px;
-}/* Extension badge — mono font, fixed width, coloured per type */
-.file-chip-ext {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 11px;
-  border-radius: 2px;
-  font-family: var(--font-mono);
-  font-size: 7px;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.3px;
-  flex-shrink: 0;
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
-  color: var(--fg-secondary);
-}
-
-.file-chip-label {
-  line-height: 1;
-}
-
-/* Inline file chips inside the tool-call header row */
-.file-chip-inline {
-  margin-left: 2px;
-}
-
 /* Completed tool calls: mute file-chip label colour so it does not demand attention.
-   Failed / in_progress / cancelled keep the default --fg-primary file-chip colour. */
+   Failed / in_progress / cancelled keep the default --fg-primary file-chip colour.
+   Note: These child-selector rules cannot be expressed as Tailwind utilities,
+   so they remain in CSS. The base .file-chip / .file-chip-ext / .file-chip-label /
+   .file-chip-inline classes have been inlined as Tailwind in ToolCallCard.tsx. */
 .tool-call-completed .file-chip-inline {
   color: var(--fg-muted);
 }
@@ -426,6 +362,7 @@
   border-left-color: transparent;
 }
 
+
 /* ============================================================================
    Session Overview Popup — hover tooltip on tab bar
    ============================================================================ */
@@ -441,19 +378,6 @@
     transform: scale(1) translateY(0);
   }
 }
-
-/* ============================================================================
-   Collapsible — smooth expand/collapse animation
-   Uses grid-template-rows: 0fr → 1fr for height transition without
-   measuring JS. Works on any block with .collapsible-body wrapper.
-   ============================================================================ */
-
-.collapsible {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 0.2s ease-out;
-}/* ── Fade-in for instant-content panels (no height anim) ── */
-
 
 /* ── Token usage bar (in section header) ── */
 

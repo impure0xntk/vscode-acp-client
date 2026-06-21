@@ -100,7 +100,7 @@ export function StatusIcon({
     `status-icon status-icon-${mapped} status-icon-${size}${variantSuffix}${colorSuffix} ${className}`.trim();
   const iconCls =
     mapped === "running" || mapped === "waiting"
-      ? "status-icon-svg status-icon-spinner"
+      ? "status-icon-svg animate-spin"
       : "status-icon-svg";
   return (
     <span className={cls}>
