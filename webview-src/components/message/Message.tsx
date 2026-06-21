@@ -19,6 +19,8 @@ export interface MessageProps {
   forceHeader?: boolean;
   /** When true, apply appear animation (only for newly added messages) */
   isNew?: boolean;
+  /** When true, render at reduced opacity to visually distinguish from final response */
+  dimmed?: boolean;
 }
 
 function openFileFromLink(e: React.MouseEvent<HTMLElement>): void {
@@ -139,6 +141,7 @@ export const Message = React.memo(function Message({
   agentId,
   forceHeader = false,
   isNew = false,
+  dimmed = false,
 }: MessageProps): React.ReactElement {
   const {
     role,
@@ -192,7 +195,7 @@ export const Message = React.memo(function Message({
 
   return (
     <div
-      className={`group flex flex-col gap-0.5 py-1 relative overflow-visible ${isSystem ? "opacity-70" : ""} ${animationClass} ${isUser ? "message-user" : ""}`}
+      className={`group flex flex-col gap-0.5 py-1 relative overflow-visible ${isSystem ? "opacity-70" : ""} ${dimmed ? "opacity-70" : ""} ${animationClass} ${isUser ? "message-user" : ""}`}
       data-role={role}
       data-message-id={item.key}
     >

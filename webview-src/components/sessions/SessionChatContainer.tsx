@@ -712,6 +712,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                         sessionId={sessionId}
                         agentId={agentId}
                         isNew={newKeys.has(lastIntermediate.key)}
+                        dimmed={true}
                       />
                     )}
                     {latestGroup.finalResponse && (

@@ -22,6 +22,8 @@ export interface DisplayItemViewProps {
   forceHeader?: boolean;
   /** When true, apply appear animation (only for newly added messages) */
   isNew?: boolean;
+  /** When true, render at reduced opacity to distinguish from final response */
+  dimmed?: boolean;
 }
 
 // ── Chat item ───────────────────────────────────────────────────────────────
@@ -31,7 +33,8 @@ function RenderChat(
   sessionId?: string,
   agentId?: string,
   forceHeader?: boolean,
-  isNew?: boolean
+  isNew?: boolean,
+  dimmed?: boolean
 ) {
   return (
     <Message
@@ -42,6 +45,7 @@ function RenderChat(
       agentId={agentId}
       forceHeader={forceHeader}
       isNew={isNew}
+      dimmed={dimmed}
     />
   );
 }
@@ -107,10 +111,11 @@ export function DisplayItemView({
   agentId,
   forceHeader = false,
   isNew = false,
+  dimmed = false,
 }: DisplayItemViewProps): React.ReactElement {
   switch (item.type) {
     case "chat":
-      return RenderChat(item, sessionId, agentId, forceHeader, isNew);
+      return RenderChat(item, sessionId, agentId, forceHeader, isNew, dimmed);
     case "compression":
       return RenderCompression(item);
     case "mode_change":

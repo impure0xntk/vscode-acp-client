@@ -133,13 +133,13 @@ export function IntermediateStepsBanner({
             : "Hide intermediate steps"}
         </span>
         {isCollapsed && (
-          <span className="flex-shrink-0 text-[10px] font-mono text-fg-muted opacity-70 ml-auto">
+          <span className="flex-shrink-0 text-[10px] font-mono text-fg-muted opacity-70 ml-1">
             {duration}
           </span>
         )}
       </button>
       {!isCollapsed && (
-        <div className="px-0 pb-1 pt-0.5 flex flex-col gap-[1px] animate-intermediate-steps-expand">
+        <div className="px-1 pb-1 pt-0.5 flex flex-col gap-[1px] animate-intermediate-steps-expand opacity-70">
           {items.map((item, idx) => (
             <DisplayItemView
               key={item.key}
@@ -158,7 +158,7 @@ export function IntermediateStepsBanner({
             type="button"
           >
             <span className="inline-block text-[9px] flex-shrink-0 opacity-60 -rotate-90">
-              ▼
+              ▶
             </span>
             <span className="font-medium whitespace-nowrap">
               Hide intermediate steps

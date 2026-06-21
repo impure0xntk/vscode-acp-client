@@ -1,6 +1,7 @@
 import React, { useCallback, useState, useRef, useEffect } from "react";
 import { useLogger } from "../../hooks/useLogger";
-import type { SessionInfoDTO } from "../../store/sessionStore";
+import type { AgentInfo, SessionInfoDTO } from "../../store/sessionStore";
+import { useSessionStore } from "../../store/sessionStore";
 import { ContextBar } from "../primitives/SendTargetChip";
 import { StatusIcon } from "../primitives/StatusIcon";
 import type { TurnOutcome } from "../primitives/StatusIcon";
@@ -40,6 +41,9 @@ export const SessionHeader = React.memo(function SessionHeader({
   onForkSession,
 }: SessionHeaderProps): React.ReactElement {
   const log = useLogger("SessionHeader");
+  const agentInfo = useSessionStore((s) =>
+    agentId ? s.agentInfoMap[agentId] : undefined
+  );
 
   // ── Inline rename state for header title ─────────────────────────────
 
@@ -123,7 +127,7 @@ export const SessionHeader = React.memo(function SessionHeader({
     })();
 
     const displayTitle = info?.title ?? info?.sessionId?.slice(0, 8) ?? agentId ?? "";
-    const displayCwd = info?.cwd ? abbreviatePath(info.cwd, 42) : undefined;
+    const displayCwd = info?.cwd ? abbreviatePath(info.cwd, 24) : undefined;
 
     return (
       <div
@@ -173,8 +177,8 @@ export const SessionHeader = React.memo(function SessionHeader({
           )}
           {displayCwd && (
             <span
-              className="shrink-0 font-mono text-[10px] text-fg-muted max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap"
-              title={displayCwd}
+              className="shrink-0 font-mono text-[10px] text-fg-muted max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap"
+              title={info?.cwd}
             >
               {displayCwd}
             </span>
@@ -225,7 +229,7 @@ export const SessionHeader = React.memo(function SessionHeader({
     messageCount,
     onForkSession,
   }: {
-    info: SessionInfoDTO | undefined;
+      info: SessionInfoDTO;
     messageCount: number;
     onForkSession?: () => void;
   }): React.ReactElement {
@@ -261,13 +265,14 @@ export const SessionHeader = React.memo(function SessionHeader({
           </svg>
         </button>
         <div
-          className={`absolute top-full right-0 z-50 mt-1 bg-bg-secondary border border-border rounded shadow-[0_4px_16px_rgba(0,0,0,0.3)] min-w-[260px] transition-all duration-150${open ? " opacity-100 visible translate-y-0" : " opacity-0 invisible -translate-y-1"}`}
+          className={`absolute top-full right-0 z-50 mt-1 bg-bg-secondary border border-border rounded shadow-[0_4px_16px_rgba(0,0,0,0.3)] min-w-[320px] transition-all duration-150${open ? " opacity-100 visible translate-y-0" : " opacity-0 invisible -translate-y-1"}`}
         >
           <div className="px-2.5 py-2 max-h-[300px] overflow-y-auto">
             <SectionDetailsPanel
               info={info}
               messageCount={messageCount}
               onForkSession={onForkSession}
+              agentInfo={agentInfo}
             />
           </div>
         </div>

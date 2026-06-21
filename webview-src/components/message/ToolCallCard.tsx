@@ -177,7 +177,7 @@ export function ToolCallCard({
 
   return (
     <div
-      className={`mt-0 max-w-full ml-2 mr-2 rounded overflow-hidden text-[10px] bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]${status === "completed" ? " opacity-[0.7] data-[completed=true]" : ""}`}
+      className={`mt-0 max-w-full rounded overflow-hidden text-[10px] bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]${status === "completed" ? " opacity-[0.7] data-[completed=true]" : ""}`}
       data-completed={status === "completed" ? "true" : undefined}
     >
       <button

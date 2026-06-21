@@ -55,20 +55,28 @@ export interface ToolBatchSummaryProps {
   calls: ToolCallCardProps[];
   /** When true, apply appear animation */
   isNew?: boolean;
+  /** Indent level for recursive nesting */
+  depth?: number;
 }
+
+const INDENT_PX = 12;
 
 /** Errors group — always expanded, no collapsible chrome */
 function ErrorsGroup({
   errors,
+  depth,
 }: {
   errors: ToolCallCardProps[];
+  depth: number;
 }): React.ReactElement {
+  const paddingLeft = depth > 0 ? `${INDENT_PX}px` : "6px";
   return (
     <>
       {errors.map((call) => (
         <div
           key={call.id}
-          className="flex items-center gap-1 pl-3 px-0.75 py-px text-[9px] font-mono text-fg-secondary rounded-[2px] hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]"
+          className="flex items-center gap-1 px-0.75 py-px text-[9px] font-mono text-fg-secondary rounded-[2px] hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]"
+          style={{ paddingLeft }}
         >
           <ToolCallCard {...call} />
         </div>
@@ -80,6 +88,7 @@ function ErrorsGroup({
 export function ToolBatchSummary({
   calls,
   isNew = false,
+  depth = 0,
 }: ToolBatchSummaryProps): React.ReactElement {
   const hasErrors = calls.some((c) => c.status === "failed");
   const hasOnlyErrors = hasErrors && calls.every((c) => c.status === "failed");
@@ -95,7 +104,7 @@ export function ToolBatchSummary({
   if (calls.length === 1) {
     return (
       <div
-        className={`flex items-center gap-1 pl-3 px-0.75 py-px text-[9px] font-mono text-fg-secondary rounded-[2px] hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)] ${appearClass}`}
+        className={`flex items-center gap-1 pl-1.5 px-0.75 py-px text-[9px] font-mono text-fg-secondary rounded-[2px] hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)] ${appearClass}`}
       >
         <ToolCallCard {...calls[0]} />
       </div>
@@ -169,7 +178,8 @@ export function ToolBatchSummary({
               {calls.map((call) => (
                 <div
                   key={call.id}
-                  className="flex items-center gap-1 pl-3 px-0.75 py-px text-[9px] font-mono text-fg-secondary rounded-[2px] hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]"
+                  className="flex items-center gap-1 px-0.75 py-px text-[9px] font-mono text-fg-secondary rounded-[2px] hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]"
+                  style={{ paddingLeft: `${6 + (depth > 0 ? INDENT_PX : 0)}px` }}
                 >
                   <ToolCallCard {...call} />
                 </div>
@@ -249,13 +259,11 @@ export function ToolBatchSummary({
         <div className="overflow-hidden">
           <div className="px-2 pb-0.5 pt-px flex flex-col gap-[1px] bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)] animate-tool-batch-expand">
             {/* Errors — always expanded, no nested chevron */}
-            <ErrorsGroup errors={errors} />
+            <ErrorsGroup errors={errors} depth={depth + 1} />
 
             {/* Ok sub-group — recursive ToolBatchSummary for uniform rendering */}
             {ok.length > 0 && (
-              <div className="my-0 p-0 pl-[8px]">
-                <ToolBatchSummary calls={ok} />
-              </div>
+              <ToolBatchSummary calls={ok} depth={depth + 1} />
             )}
           </div>
         </div>
