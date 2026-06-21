@@ -42,7 +42,7 @@ export function SessionOverviewPopup({
 
   return (
     <div
-      className="so-popup"
+      className="z-[1000] bg-bg-secondary border border-border rounded-md shadow-[0_4px_16px_rgb(0_0_0_/_0.35)] px-2.5 py-2 flex flex-col gap-1.5 pointer-events-auto animate-[so-popup-in_0.12s_ease-out]"
       style={{
         position: "fixed",
         left: `${left}px`,

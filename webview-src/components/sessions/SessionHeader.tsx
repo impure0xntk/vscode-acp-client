@@ -172,7 +172,7 @@ export const SessionHeader = React.memo(function SessionHeader({
 
     return (
       <div
-        className={`flex items-center gap-1 shrink-0 bg-bg-secondary border-b border-border min-h-[32px] relative${isActive ? " unified-section-header--active" : ""}`}
+        className={`flex items-center gap-1 shrink-0 bg-bg-secondary border-b border-border min-h-[32px] relative${isActive ? " bg-[color-mix(in_srgb,var(--accent)_12%,var(--bg-secondary))]" : ""}`}
         data-color={color}
         data-is-horizontal={isHorizontal ? "true" : undefined}
         style={{ "--section-accent-color": color } as React.CSSProperties}
@@ -293,7 +293,7 @@ export const SessionHeader = React.memo(function SessionHeader({
 
     const overviewButton = onToggleSessionOverview ? (
       <button
-        className={`top-toolbar-overview-btn${sessionOverviewVisible ? " active" : ""}`}
+        className={`inline-flex items-center justify-center w-6 h-6 p-0 border-none rounded-[3px] bg-transparent text-fg-muted text-sm cursor-pointer transition-colors duration-150 hover:bg-accent-hover hover:text-fg-primary${sessionOverviewVisible ? " text-accent bg-[color-mix(in_srgb,var(--accent)_12%,transparent)]" : ""}`}
         onClick={onToggleSessionOverview}
         title="Toggle session overview"
       >

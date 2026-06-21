@@ -89,7 +89,7 @@ export function ToolBatchSummary({
   const totalOps = calls.length;
   const totalMs = useMemo(() => totalDuration(calls), [calls]);
 
-  const appearClass = isNew ? "tool-batch--appear" : "";
+  const appearClass = isNew ? "animate-[tool-batch-appear_0.25s_ease-out]" : "";
 
   // ── Single call: render directly, no wrapper ──
   if (calls.length === 1) {
@@ -108,15 +108,15 @@ export function ToolBatchSummary({
 
     return (
       <div
-        className={`tool-batch${expanded ? " tool-batch-expanded" : ""} tool-call-${status} ${appearClass} mt-[2px] rounded overflow-hidden text-[10px] bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]`}
+        className={`tool-batch${expanded ? " overflow-visible" : ""} tool-call-${status} ${appearClass} mt-[2px] rounded overflow-hidden text-[10px] bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]`}
       >
         <button
-          className="tool-batch-header flex items-center gap-[3px] px-[6px] w-fit max-w-full border-none bg-transparent text-fg-primary font-[var(--font-ui)] text-[10px] cursor-pointer text-left transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]"
+          className="flex items-center gap-[3px] px-[6px] w-fit max-w-full border-none bg-transparent text-fg-primary font-[var(--font-ui)] text-[10px] cursor-pointer text-left transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]"
           onClick={() => setExpanded(!expanded)}
           aria-expanded={expanded}
         >
           <span
-            className={`tool-chevron${expanded ? " open" : ""} flex-shrink-0 text-[9px] opacity-60 transition-transform duration-150`}
+            className={`flex-shrink-0 text-[9px] opacity-60 transition-transform duration-150${expanded ? " rotate-90" : ""}`}
             aria-hidden="true"
           >
             ▶
@@ -152,8 +152,8 @@ export function ToolBatchSummary({
           </span>
         </button>
 
-        <div className={`collapsible ${expanded ? "collapsible--open" : ""}`}>
-          <div className="collapsible-body">
+        <div className={`grid transition-[grid-template-rows] duration-200 ease-out${expanded ? " grid-rows-[1fr]" : " grid-rows-[0fr]"}`}>
+          <div className="overflow-hidden">
             <div className="tool-batch-body px-[12px] pb-[2px] pt-[1px] flex flex-col gap-[1px] bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)] animate-[tool-batch-expand_0.15s_ease-out]">
               {calls.map((call) => (
                 <div
@@ -178,16 +178,16 @@ export function ToolBatchSummary({
 
   return (
     <div
-      className={`tool-batch${allExpanded ? " tool-batch-expanded" : ""} tool-call-${status} ${appearClass} mt-[2px] rounded overflow-hidden text-[10px] bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]`}
+      className={`tool-batch${allExpanded ? " overflow-visible" : ""} tool-call-${status} ${appearClass} mt-[2px] rounded overflow-hidden text-[10px] bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]`}
     >
       {/* Top-level chevron toggles entire batch */}
       <button
-        className="tool-batch-header flex items-center gap-[3px] px-[6px] w-fit max-w-full border-none bg-transparent text-fg-primary font-[var(--font-ui)] text-[10px] cursor-pointer text-left transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]"
+        className="flex items-center gap-[3px] px-[6px] w-fit max-w-full border-none bg-transparent text-fg-primary font-[var(--font-ui)] text-[10px] cursor-pointer text-left transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]"
         onClick={() => setAllExpanded(!allExpanded)}
         aria-expanded={allExpanded}
       >
         <span
-          className={`tool-chevron${allExpanded ? " open" : ""} flex-shrink-0 text-[9px] opacity-60 transition-transform duration-150`}
+          className={`flex-shrink-0 text-[9px] opacity-60 transition-transform duration-150${allExpanded ? " rotate-90" : ""}`}
           aria-hidden="true"
         >
           ▶
@@ -223,8 +223,8 @@ export function ToolBatchSummary({
         </span>
       </button>
 
-      <div className={`collapsible ${allExpanded ? "collapsible--open" : ""}`}>
-        <div className="collapsible-body">
+      <div className={`grid transition-[grid-template-rows] duration-200 ease-out${allExpanded ? " grid-rows-[1fr]" : " grid-rows-[0fr]"}`}>
+        <div className="overflow-hidden">
           <div className="tool-batch-body px-[12px] pb-[2px] pt-[1px] flex flex-col gap-[1px] bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)] animate-[tool-batch-expand_0.15s_ease-out]">
             {/* Errors — always expanded, no nested chevron */}
             <ErrorsGroup errors={errors} />

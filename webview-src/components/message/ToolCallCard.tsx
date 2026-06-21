@@ -69,7 +69,7 @@ function tryFormatJson(raw: string): string {
 function Chevron({ open }: { open: boolean }): React.ReactElement {
   return (
     <span
-      className={`tool-chevron${open ? " open" : ""} flex-shrink-0 text-[9px] opacity-60 transition-transform duration-150`}
+      className={`flex-shrink-0 text-[9px] opacity-60 transition-transform duration-150${open ? " rotate-90" : ""}`}
       aria-hidden="true"
     >
       ▶

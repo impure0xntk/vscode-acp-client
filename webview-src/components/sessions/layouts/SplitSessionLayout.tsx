@@ -208,14 +208,14 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
     "multi-session-view",
     `multi-session-view--split`,
     splitDirection === "horizontal"
-      ? "multi-session-view--split-horizontal"
-      : "multi-session-view--split-vertical",
+      ? "flex-row items-stretch"
+      : "",
   ]
     .filter(Boolean)
     .join(" ");
 
   return (
-    <div className="multi-session-view-wrapper">
+    <div className="multi-session-view-wrapper flex flex-col flex-1 min-h-0 overflow-hidden">
       <div className={containerClassName} ref={containerRef}>
         {visibleKeys.map((key, i) => {
           const isFocus = key === focusKey;
@@ -225,7 +225,7 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
             <React.Fragment key={key}>
               {section}
               <div
-                className={`unified-split-divider unified-split-divider--${splitDirection}`}
+                className={`h-1 shrink-0 bg-border transition-colors duration-150${splitDirection === "horizontal" ? " cursor-col-resize self-stretch" : " cursor-row-resize"}`}
                 onMouseDown={handleDividerMouseDown(i)}
               />
             </React.Fragment>

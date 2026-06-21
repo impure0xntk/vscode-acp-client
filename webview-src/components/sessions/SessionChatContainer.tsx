@@ -594,7 +594,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
           </div>
         ) : (
           <div
-            className={`flex flex-col gap-1.5${isStreaming ? " message-list--streaming" : ""}`}
+            className={`flex flex-col gap-1.5${isStreaming ? " [&>*:last-child]:animate-[blink_1s_step-end_infinite]" : ""}`}
             data-new-count={newCount > 0 ? newCount : undefined}
           >
             {/* Past groups */}

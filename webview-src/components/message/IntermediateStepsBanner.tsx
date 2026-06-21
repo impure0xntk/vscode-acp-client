@@ -106,7 +106,7 @@ export function IntermediateStepsBanner({
         type="button"
       >
         <span
-          className={`intermediate-steps-chevron${isCollapsed ? "" : " open"} inline-block text-[9px] transition-transform duration-150 flex-shrink-0 opacity-60`}
+          className={`inline-block text-[9px] transition-transform duration-150 flex-shrink-0 opacity-60${isCollapsed ? "" : " rotate-90"}`}
         >
           ▶
         </span>

@@ -113,7 +113,10 @@ export const GridSessionLayout = React.memo(function GridSessionLayout({
     );
   };
 
-  const containerClassName = ["multi-session-view", `multi-session-view--grid`]
+  const containerClassName = [
+    "multi-session-view",
+    "multi-session-view--grid",
+  ]
     .filter(Boolean)
     .join(" ");
 

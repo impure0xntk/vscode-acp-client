@@ -165,7 +165,7 @@ export function SessionOverviewCard({
 
   return (
     <div
-      className={`session-overview-card${isExpanded ? " session-overview-card-expanded" : ""}${isActive ? " bg-[color-mix(in_srgb,var(--accent)_12%,transparent)]" : ""}${isSelected ? " border-accent bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]" : ""}`}
+      className={`session-overview-card mx-1 px-2 py-1.5 rounded bg-bg-primary border border-transparent border-l-2 border-l-transparent cursor-pointer transition-[background,border-color] duration-150 ease-[ease]${isExpanded ? " bg-bg-secondary" : ""}${isActive ? " bg-[color-mix(in_srgb,var(--accent)_12%,transparent)]" : ""}${isSelected ? " border-accent bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]" : ""}`}
       data-status={
         liveItem.status === "idle" && effectiveOutcome
           ? effectiveOutcome
@@ -197,7 +197,7 @@ export function SessionOverviewCard({
           <SessionOverviewHeader session={liveItem} agentColor={agentColor} />
         </div>
         <button
-          className="session-tab-close"
+          className="flex-shrink-0 inline-flex items-center justify-center w-[18px] h-[18px] p-0 border-none rounded-[3px] bg-bg-secondary text-fg-secondary text-xs leading-none cursor-pointer transition-colors duration-150 hover:bg-error hover:text-user-fg"
           type="button"
           aria-label="Close session"
           onClick={(e) => {

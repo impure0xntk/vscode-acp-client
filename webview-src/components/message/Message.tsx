@@ -188,7 +188,7 @@ export const Message = React.memo(function Message({
     []
   );
 
-  const animationClass = isNew ? "message--appear" : "";
+  const animationClass = isNew ? "animate-[message-appear_0.2s_ease-out]" : "";
 
   return (
     <div

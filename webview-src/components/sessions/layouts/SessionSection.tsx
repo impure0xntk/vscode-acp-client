@@ -97,8 +97,8 @@ export const SessionSection = React.memo(function SessionSection({
   const sectionClassName = [
     "unified-session-section",
     isFocus
-      ? "unified-session-section--focus"
-      : "unified-session-section--pinned",
+      ? "flex-1"
+      : "flex-none",
     info.isStreaming ? "[box-shadow:inset_0_0_0_1px_color-mix(in_srgb,#4fc3f7_30%,transparent)]" : "",
   ]
     .filter(Boolean)

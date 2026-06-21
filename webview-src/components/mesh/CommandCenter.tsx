@@ -86,9 +86,9 @@ export const CommandCenter = React.memo(function CommandCenter({
 
       {/* Card strip — horizontal scroll */}
       <div
-        className={`collapsible ${commandCenterExpanded ? "collapsible--open" : ""}`}
+        className={`grid transition-[grid-template-rows] duration-200 ease-out${commandCenterExpanded ? " grid-rows-[1fr]" : " grid-rows-[0fr]"}`}
       >
-        <div className="collapsible-body">
+        <div className="overflow-hidden">
           <div className="px-2 pb-1">
             <div className="flex gap-1.5 overflow-x-auto py-1 scrollbar-thin">
               {entries.map(([key, info]) => {
