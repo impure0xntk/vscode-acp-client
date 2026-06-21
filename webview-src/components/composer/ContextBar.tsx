@@ -35,7 +35,7 @@ export function ContextBar({
 
   return (
     <div className="flex flex-col justify-end gap-1 py-1 overflow-x-auto flex-shrink-0">
-      <div className="flex flex-wrap gap-1 flex-shrink-0 min-w-0 self-end">
+      <div className="flex flex-wrap gap-1 flex-shrink-0 min-w-0">
         {selectedTeam && (
           <span
             className="inline-flex items-center gap-[3px] px-1.5 py-0.5 rounded bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] text-[11px] whitespace-nowrap shrink-0"

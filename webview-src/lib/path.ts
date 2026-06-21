@@ -30,8 +30,10 @@ export function abbreviatePath(
 
   if (segments.length >= 3) {
     const tail = segments.slice(-2);
-    return `/${ELLIPSIS}/${tail.join("/")}`;
+    const fallback = `/${ELLIPSIS}/${tail.join("/")}`;
+    if (fallback.length <= maxLength) return fallback;
   }
 
-  return inputPath;
+  // Step 3: last resort — truncate the full path to maxLength
+  return inputPath.length <= maxLength ? inputPath : inputPath.slice(-maxLength);
 }

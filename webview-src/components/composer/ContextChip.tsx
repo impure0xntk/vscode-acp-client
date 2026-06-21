@@ -43,7 +43,7 @@ export function ContextChip({
     vscode.postMessage({
       type: "openFile",
       path: attachment.path,
-      lineRange: attachment.lineRange,
+      line: attachment.lineRange?.[0],
     });
   };
 
