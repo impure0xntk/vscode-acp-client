@@ -77,9 +77,9 @@ function AgentStatusRow({
       </div>
 
       {isExpanded && (
-        <div className="py-[2px] px-2 pb-1 flex flex-col gap-[2px]">
+        <div className="py-0.5 px-2 pb-1 flex flex-col gap-0.5">
           {agent.sessions.map((s) => (
-            <div key={s.sessionId} className="flex items-center gap-1 py-[2px] px-1 text-[10px] text-fg-secondary">
+            <div key={s.sessionId} className="flex items-center gap-1 py-0.5 px-1 text-[10px] text-fg-secondary">
               <StatusIcon
                 status={
                   s.status as
@@ -96,7 +96,7 @@ function AgentStatusRow({
             </div>
           ))}
           {agent.currentTask && (
-            <div className="flex items-center gap-1 py-[2px] px-1 text-[10px] text-fg-secondary">
+            <div className="flex items-center gap-1 py-0.5 px-1 text-[10px] text-fg-secondary">
               <Icon name="tools" size="sm" />
               <span>{agent.currentTask}</span>
             </div>
@@ -156,7 +156,7 @@ function AddMemberDialog({
         aria-modal="true"
         aria-label="Add Member"
       >
-        <div className="flex items-center gap-2 px-[14px] py-2.5 border-b border-border flex-shrink-0 text-[13px] font-semibold text-fg-primary">
+        <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-border flex-shrink-0 text-[13px] font-semibold text-fg-primary">
           <Icon name="plus" size="sm" />
           <span>Add Member to {team.name}</span>
           <button
@@ -168,7 +168,7 @@ function AddMemberDialog({
             <Icon name="close" size="sm" />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-[14px] py-3">
+        <div className="flex-1 overflow-y-auto px-3.5 py-3">
           {candidates.length === 0 ? (
             <div className="flex items-center gap-1.5 p-3 text-fg-muted text-[12px] italic">
               <Icon name="info" size="sm" />
@@ -183,7 +183,7 @@ function AddMemberDialog({
                 return (
                   <button
                     key={`${s.agentId}:${s.sessionId}`}
-                    className={`flex items-center gap-2 py-[6px] px-[10px] border rounded-[4px] bg-transparent text-fg-primary text-[12px] cursor-pointer text-left hover:bg-accent-hover ${isSelected ? "bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] border-[color-mix(in_srgb,var(--accent)_30%,transparent)]" : "border-transparent"}`}
+                    className={`flex items-center gap-2 py-[6px] px-2.5 border rounded-[4px] bg-transparent text-fg-primary text-[12px] cursor-pointer text-left hover:bg-accent-hover ${isSelected ? "bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] border-[color-mix(in_srgb,var(--accent)_30%,transparent)]" : "border-transparent"}`}
                     onClick={() =>
                       setSelected({
                         agentId: s.agentId,
@@ -206,7 +206,7 @@ function AddMemberDialog({
             </div>
           )}
         </div>
-        <div className="flex items-center justify-end gap-2 px-[14px] py-2.5 border-t border-border flex-shrink-0">
+        <div className="flex items-center justify-end gap-2 px-3.5 py-2.5 border-t border-border flex-shrink-0">
           <button
             className="py-[6px] px-3 border border-border rounded-[4px] bg-transparent text-fg-secondary text-[12px] cursor-pointer hover:bg-accent-hover hover:text-fg-primary"
             onClick={onClose}
@@ -215,7 +215,7 @@ function AddMemberDialog({
             Cancel
           </button>
           <button
-            className="inline-flex items-center gap-1.5 py-[6px] px-[14px] border-none rounded-[4px] bg-accent text-user-fg text-[12px] font-medium cursor-pointer hover:bg-[color-mix(in_srgb,var(--accent)_80%,white)] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1.5 py-[6px] px-3.5 border-none rounded-[4px] bg-accent text-user-fg text-[12px] font-medium cursor-pointer hover:bg-[color-mix(in_srgb,var(--accent)_80%,white)] disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={handleAdd}
             disabled={!selected}
             type="button"
@@ -274,7 +274,7 @@ function TeamSessionCard({
           {sessionId.slice(0, 8)}
         </span>
         {isLead && (
-          <span className="inline-flex items-center gap-[2px] text-[8px] px-1 rounded-[2px] bg-[color-mix(in_srgb,var(--warning)_20%,transparent)] text-warning font-semibold uppercase flex-shrink-0">
+          <span className="inline-flex items-center gap-0.5 text-[8px] px-1 rounded-[2px] bg-[color-mix(in_srgb,var(--warning)_20%,transparent)] text-warning font-semibold uppercase flex-shrink-0">
             <Icon name="crown" size="xs" />
             Lead
           </span>
@@ -294,13 +294,13 @@ function TeamSessionCard({
         )}
       </div>
       <div className="flex items-center gap-1">
-        <span className="inline-flex items-center gap-[2px] text-[9px] font-mono text-fg-muted px-1 rounded-[2px] bg-[color-mix(in_srgb,var(--bg-secondary)_50%,transparent)]">
+        <span className="inline-flex items-center gap-0.5 text-[9px] font-mono text-fg-muted px-1 rounded-[2px] bg-[color-mix(in_srgb,var(--bg-secondary)_50%,transparent)]">
           <Icon name="arrow-up" size="xs" />
           {inputTokens >= 1000
             ? `${(inputTokens / 1000).toFixed(1)}k`
             : inputTokens}
         </span>
-        <span className="inline-flex items-center gap-[2px] text-[9px] font-mono text-fg-muted px-1 rounded-[2px] bg-[color-mix(in_srgb,var(--bg-secondary)_50%,transparent)]">
+        <span className="inline-flex items-center gap-0.5 text-[9px] font-mono text-fg-muted px-1 rounded-[2px] bg-[color-mix(in_srgb,var(--bg-secondary)_50%,transparent)]">
           <Icon name="arrow-down" size="xs" />
           {outputTokens >= 1000
             ? `${(outputTokens / 1000).toFixed(1)}k`
@@ -308,7 +308,7 @@ function TeamSessionCard({
         </span>
         {contextPct !== undefined && (
           <span
-            className={`inline-flex items-center gap-[2px] text-[9px] font-mono px-1 rounded-[2px] bg-[color-mix(in_srgb,var(--bg-secondary)_50%,transparent)] ${contextPct >= 85 ? "text-[#ef5350]" : contextPct >= 70 ? "text-[#ffd54f]" : "text-[#4fc3f7]"}`}
+            className={`inline-flex items-center gap-0.5 text-[9px] font-mono px-1 rounded-[2px] bg-[color-mix(in_srgb,var(--bg-secondary)_50%,transparent)] ${contextPct >= 85 ? "text-[#ef5350]" : contextPct >= 70 ? "text-[#ffd54f]" : "text-[#4fc3f7]"}`}
           >
             <Icon name="symbol-key" size="xs" />
             {contextPct}%
@@ -520,7 +520,7 @@ function TaskBoard({ tasks }: { tasks: MeshTaskEntry[] }): React.ReactElement {
   }
 
   return (
-    <div className="flex flex-col gap-[2px] px-1">
+    <div className="flex flex-col gap-0.5 px-1">
       {tasks.map((task) => (
         <div key={task.id} className="flex items-center gap-1.5 py-1 px-2 rounded-[3px] bg-bg-primary">
           <Icon
@@ -564,7 +564,7 @@ function RecentMessages({
   return (
     <div className="flex flex-col gap-px px-1">
       {messages.slice(-20).map((msg) => (
-        <div key={msg.messageId} className="flex items-center gap-1 py-[2px] px-2 text-[10px] text-fg-secondary rounded-[2px] hover:bg-accent-hover">
+        <div key={msg.messageId} className="flex items-center gap-1 py-0.5 px-2 text-[10px] text-fg-secondary rounded-[2px] hover:bg-accent-hover">
           <span className="font-mono text-[9px] text-fg-muted flex-shrink-0">
             {new Date(msg.timestamp).toLocaleTimeString([], {
               hour: "2-digit",
@@ -652,7 +652,7 @@ export function MeshPanel({
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex items-center justify-between px-[10px] py-[6px] border-b border-border flex-shrink-0">
+      <div className="flex items-center justify-between px-2.5 py-[6px] border-b border-border flex-shrink-0">
         <div className="flex items-center gap-1.5 text-[11px] font-semibold text-fg-secondary">
           <Icon name="list-tree" size="sm" />
           <span>Mesh</span>
@@ -670,7 +670,7 @@ export function MeshPanel({
 
       {/* Team create button — prominent CTA */}
       <button
-        className="flex items-center gap-1.5 w-full px-[10px] py-[6px] border-none border-b border-border bg-transparent text-fg-secondary text-[11px] font-medium cursor-pointer hover:bg-accent-hover hover:text-fg-primary flex-shrink-0"
+        className="flex items-center gap-1.5 w-full px-2.5 py-[6px] border-none border-b border-border bg-transparent text-fg-secondary text-[11px] font-medium cursor-pointer hover:bg-accent-hover hover:text-fg-primary flex-shrink-0"
         onClick={() => onOpenTeamCreate?.()}
         title="Create a new team"
         type="button"
@@ -723,7 +723,7 @@ export function MeshPanel({
 
       <div className="flex-1 overflow-y-auto py-1">
         {activeTab === "teams" && (
-          <div className="flex flex-col gap-[2px] px-1">
+          <div className="flex flex-col gap-0.5 px-1">
             {teams.length === 0 ? (
               <div className="flex items-center justify-center p-4 text-fg-muted text-[11px]">
                 <Icon name="users" size="md" />
@@ -746,7 +746,7 @@ export function MeshPanel({
         )}
 
         {activeTab === "agents" && (
-          <div className="flex flex-col gap-[2px] px-1">
+          <div className="flex flex-col gap-0.5 px-1">
             {agentStatuses.length === 0 ? (
               <div className="flex items-center justify-center p-4 text-fg-muted text-[11px]">
                 <span>No agents connected</span>

@@ -83,7 +83,7 @@ function AttachmentChip({
 
   return (
     <span
-      className="inline-flex items-center gap-[2px] px-[3px] py-[1px] rounded-[3px] bg-bg-secondary text-[9px] cursor-pointer select-none shrink-0 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1"
+      className="inline-flex items-center gap-0.5 px-0.75 py-px rounded-[3px] bg-bg-secondary text-[9px] cursor-pointer select-none shrink-0 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1"
       onClick={isNavigable ? handleClick : undefined}
       title={
         attachment.type === "diff"
@@ -192,12 +192,12 @@ export const Message = React.memo(function Message({
 
   return (
     <div
-      className={`group flex flex-col gap-[2px] py-1 relative overflow-visible ${isSystem ? "opacity-70" : ""} ${animationClass} ${isUser ? "message-user" : ""}`}
+      className={`group flex flex-col gap-0.5 py-1 relative overflow-visible ${isSystem ? "opacity-70" : ""} ${animationClass} ${isUser ? "message-user" : ""}`}
       data-role={role}
       data-message-id={item.key}
     >
       {(!isConsecutive || forceHeader) && (
-        <div className={`flex items-center gap-2 text-[11px] text-fg-muted mb-[2px] px-[2px] ${isUser ? "justify-end" : ""}`}>
+        <div className={`flex items-center gap-2 text-[11px] text-fg-muted mb-1 px-0.5 ${isUser ? "justify-end" : ""}`}>
           <span className="font-medium text-fg-secondary">
             {isSystem ? "System" : isUser ? "You" : "Agent"}
           </span>
@@ -216,7 +216,7 @@ export const Message = React.memo(function Message({
           </div>
         )}
         {!isToolOnlyAgent && (
-          <div className={`max-w-full ${isUser ? "bg-[color-mix(in_srgb,var(--user-bubble)_10%,transparent)] text-fg-primary px-[10px] py-1 rounded-lg border border-[color-mix(in_srgb,var(--user-bubble)_15%,transparent)] self-end max-w-[70%]" : "text-fg-primary"}`}>
+          <div className={`max-w-full ${isUser ? "bg-[color-mix(in_srgb,var(--user-bubble)_10%,transparent)] text-fg-primary px-3 py-2 rounded-lg border border-[color-mix(in_srgb,var(--user-bubble)_15%,transparent)] self-end max-w-[70%]" : "text-fg-primary"}`}>
             {isUser ? (
               <div className="message-text whitespace-pre-wrap break-words text-[13px] leading-[1.5]">{content}</div>
             ) : (

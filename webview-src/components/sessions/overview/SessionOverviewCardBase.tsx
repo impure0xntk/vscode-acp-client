@@ -224,9 +224,9 @@ export function SessionOverviewChips({
 }): React.ReactElement {
   const chips = sessionToChips(session);
   return (
-    <div className="flex flex-wrap gap-[2px] mt-1">
+    <div className="flex flex-wrap gap-0.5 mt-1">
       {chips.map((c) => (
-        <Chip key={c.key} meta={c} className="text-[10px] px-1 py-[2px]" />
+        <Chip key={c.key} meta={c} className="text-[10px] px-1 py-0.5" />
       ))}
     </div>
   );

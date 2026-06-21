@@ -21,7 +21,7 @@ export function SearchBar({
   onSortChange: (field: SortField, dir: SortDir) => void;
 }): React.ReactElement {
   return (
-    <div className="flex items-center gap-1.5 px-[10px] py-[6px] border-b border-border shrink-0">
+    <div className="flex items-center gap-1.5 px-2.5 py-[6px] border-b border-border shrink-0">
       <input
         className="flex-1 min-w-0 px-2 py-[3px] border border-border rounded bg-bg-input text-fg-primary text-xs outline-none focus:border-accent"
         type="text"
@@ -40,7 +40,7 @@ export function SearchBar({
           </option>
         ))}
       </select>
-      <div className="flex items-center gap-[2px] shrink-0">
+      <div className="flex items-center gap-0.5 shrink-0">
         <select
           className="px-1.5 py-[3px] border border-border rounded bg-bg-input text-fg-primary text-xs outline-none"
           value={sortField}

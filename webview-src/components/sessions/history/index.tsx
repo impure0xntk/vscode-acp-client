@@ -333,7 +333,7 @@ export function SessionHistoryPanel({
       />
 
       {/* Stats + Archive toggle */}
-      <div className="flex items-center gap-[10px] px-[10px] py-1 border-b border-border text-[10px] text-fg-muted shrink-0">
+      <div className="flex items-center gap-[10px] px-2.5 py-1 border-b border-border text-[10px] text-fg-muted shrink-0">
         <span>{stats?.totalSessions ?? 0} sessions</span>
         <span>{stats?.totalMessages ?? 0} messages</span>
         {stats?.oldestSession && (
@@ -380,7 +380,7 @@ export function SessionHistoryPanel({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 px-[10px] py-[6px] border-t border-border shrink-0">
+        <div className="flex items-center justify-center gap-2 px-2.5 py-[6px] border-t border-border shrink-0">
           <button
             className="flex items-center justify-center w-7 h-6 p-0 border border-border rounded bg-bg-input text-fg-primary cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-accent-hover"
             disabled={page <= 1}
@@ -405,7 +405,7 @@ export function SessionHistoryPanel({
       )}
 
       {/* Footer */}
-      <div className="flex items-center justify-between px-[10px] py-1 border-t border-border shrink-0">
+      <div className="flex items-center justify-between px-2.5 py-1 border-t border-border shrink-0">
         <div className="flex gap-1">
           <button className="px-2 py-[3px] border border-border rounded bg-bg-input text-fg-primary text-[11px] cursor-pointer transition-colors duration-150 whitespace-nowrap" onClick={handleCleanup}>
             Cleanup old

@@ -76,7 +76,7 @@ export function SessionSwitcher({
   return (
     <div className="relative shrink-0" ref={ref}>
       <button
-        className="flex items-center gap-[6px] px-[10px] py-1 border border-border rounded bg-bg-input text-fg-primary cursor-pointer text-xs whitespace-nowrap max-w-[220px] hover:border-accent"
+        className="flex items-center gap-[6px] px-2.5 py-1 border border-border rounded bg-bg-input text-fg-primary cursor-pointer text-xs whitespace-nowrap max-w-[220px] hover:border-accent"
         onClick={toggle}
         aria-haspopup="listbox"
         aria-expanded={isOpen}

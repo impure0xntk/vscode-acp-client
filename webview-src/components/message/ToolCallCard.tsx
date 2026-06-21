@@ -181,7 +181,7 @@ export function ToolCallCard({
       data-completed={status === "completed" ? "true" : undefined}
     >
       <button
-        className={`flex items-center gap-[3px] px-[5px] font-mono text-[10px] text-fg-muted w-fit max-w-full border-none bg-transparent text-left transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]${hasBody ? " cursor-pointer" : ""}`}
+        className={`flex items-center gap-[3px] px-1.25 font-mono text-[10px] text-fg-muted w-fit max-w-full border-none bg-transparent text-left transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]${hasBody ? " cursor-pointer" : ""}`}
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
       >
@@ -207,7 +207,7 @@ export function ToolCallCard({
             return (
               <span
                 key={`${loc.path}:${loc.line ?? 0}-${idx}`}
-                className={`inline-flex items-center gap-[2px] px-[3px] py-[1px] rounded-[3px] bg-bg-secondary ${status === "completed" ? "text-fg-muted hover:text-fg-secondary" : "text-fg-primary"} text-[9px] cursor-pointer select-none transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1 flex-shrink-0 ml-[2px]`}
+                className={`inline-flex items-center gap-0.5 px-0.75 py-px rounded-[3px] bg-bg-secondary ${status === "completed" ? "text-fg-muted hover:text-fg-secondary" : "text-fg-primary"} text-[9px] cursor-pointer select-none transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1 flex-shrink-0 ml-[2px]`}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleFileClick(loc.path, loc.line);
@@ -237,11 +237,11 @@ export function ToolCallCard({
 
       <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
         <div className="overflow-hidden">
-          <div className="px-[5px] pb-[2px] pt-[1px] bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)]">
+          <div className="px-1.25 pb-0.5 pt-px bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)]">
             {hasDiff && (
               <div className="mt-[1px] first:mt-0">
                 <button
-                  className="inline-flex items-center gap-[3px] px-[3px] py-[1px] rounded border-none bg-transparent text-fg-muted text-[10px] font-[var(--font-ui)] cursor-pointer leading-[1.3] transition-colors duration-150 hover:text-fg-secondary hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1"
+                  className="inline-flex items-center gap-[3px] px-0.75 py-px rounded border-none bg-transparent text-fg-muted text-[10px] font-[var(--font-ui)] cursor-pointer leading-[1.3] transition-colors duration-150 hover:text-fg-secondary hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1"
                   onClick={(e) => {
                     e.stopPropagation();
                     setDiffOpen(!diffOpen);
@@ -263,7 +263,7 @@ export function ToolCallCard({
             {hasInput && (
               <div className="mt-[1px] first:mt-0">
                 <button
-                  className="inline-flex items-center gap-[3px] px-[3px] py-[1px] rounded border-none bg-transparent text-fg-muted text-[10px] font-[var(--font-ui)] cursor-pointer leading-[1.3] transition-colors duration-150 hover:text-fg-secondary hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1"
+                  className="inline-flex items-center gap-[3px] px-0.75 py-px rounded border-none bg-transparent text-fg-muted text-[10px] font-[var(--font-ui)] cursor-pointer leading-[1.3] transition-colors duration-150 hover:text-fg-secondary hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1"
                   onClick={(e) => {
                     e.stopPropagation();
                     setInputOpen(!inputOpen);
@@ -291,7 +291,7 @@ export function ToolCallCard({
             {hasOutput && (
               <div className="mt-[1px] first:mt-0">
                 <button
-                  className="inline-flex items-center gap-[3px] px-[3px] py-[1px] rounded border-none bg-transparent text-fg-muted text-[10px] font-[var(--font-ui)] cursor-pointer leading-[1.3] transition-colors duration-150 hover:text-fg-secondary hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1"
+                  className="inline-flex items-center gap-[3px] px-0.75 py-px rounded border-none bg-transparent text-fg-muted text-[10px] font-[var(--font-ui)] cursor-pointer leading-[1.3] transition-colors duration-150 hover:text-fg-secondary hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1"
                   onClick={(e) => {
                     e.stopPropagation();
                     setOutputOpen(!outputOpen);

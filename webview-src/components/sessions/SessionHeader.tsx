@@ -6,6 +6,7 @@ import { StatusIcon } from "../primitives/StatusIcon";
 import type { TurnOutcome } from "../primitives/StatusIcon";
 import { SectionDetailsPanel } from "./toolbar";
 import { Icon, IconPin, IconPinFilled } from "../../lib/icons";
+import { abbreviatePath } from "../../lib/path";
 
 // ── props ─────────────────────────────────────────────────────────────────
 
@@ -122,7 +123,7 @@ export const SessionHeader = React.memo(function SessionHeader({
     })();
 
     const displayTitle = info?.title ?? info?.sessionId?.slice(0, 8) ?? agentId ?? "";
-    const displayCwd = info?.cwd;
+    const displayCwd = info?.cwd ? abbreviatePath(info.cwd, 42) : undefined;
 
     return (
       <div
@@ -185,11 +186,13 @@ export const SessionHeader = React.memo(function SessionHeader({
 
         <div className="flex items-center gap-1 shrink-0">
           <ContextBar tokenUsage={info?.tokenUsage} contextWindowMax={info?.contextWindowMax} />
-          <ExpandButton
-            info={info}
-            messageCount={messageCount}
-            onForkSession={onForkSession}
-          />
+          {info && (
+            <ExpandButton
+              info={info}
+              messageCount={messageCount}
+              onForkSession={onForkSession}
+            />
+          )}
           {onTogglePin && (
             <button
               className={`inline-flex items-center justify-center w-6 h-6 p-0 border-none rounded bg-transparent text-fg-muted cursor-pointer hover:bg-accent-hover hover:text-fg-primary${isPinned ? " text-accent" : ""}`}
@@ -222,7 +225,7 @@ export const SessionHeader = React.memo(function SessionHeader({
     messageCount,
     onForkSession,
   }: {
-    info: SessionInfoDTO;
+    info: SessionInfoDTO | undefined;
     messageCount: number;
     onForkSession?: () => void;
   }): React.ReactElement {
@@ -260,7 +263,7 @@ export const SessionHeader = React.memo(function SessionHeader({
         <div
           className={`absolute top-full right-0 z-50 mt-1 bg-bg-secondary border border-border rounded shadow-[0_4px_16px_rgba(0,0,0,0.3)] min-w-[260px] transition-all duration-150${open ? " opacity-100 visible translate-y-0" : " opacity-0 invisible -translate-y-1"}`}
         >
-          <div className="px-[10px] py-2 max-h-[300px] overflow-y-auto">
+          <div className="px-2.5 py-2 max-h-[300px] overflow-y-auto">
             <SectionDetailsPanel
               info={info}
               messageCount={messageCount}

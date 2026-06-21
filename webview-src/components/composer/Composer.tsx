@@ -524,7 +524,7 @@ export function Composer({
             id: `file:${f.relativePath}`,
             kind: "file" as const,
             label: f.name,
-            value: f.absolutePath,
+            value: f.absolutePath ?? f.relativePath,
             detail,
             icon: "file",
           };
@@ -1109,7 +1109,7 @@ export function Composer({
                       : entry.text}
                   </span>
                 </div>
-                <div className="flex items-center gap-[2px] flex-shrink-0">
+                <div className="flex items-center gap-0.5 flex-shrink-0">
                   {onSendNow && entry.status === "pending" && (
                     <button
                       className="inline-flex items-center justify-center w-[18px] h-[18px] p-0 rounded-[3px] bg-transparent text-fg-muted text-[10px] cursor-pointer border-none hover:bg-accent hover:text-user-fg transition-all flex-shrink-0"
@@ -1160,7 +1160,7 @@ export function Composer({
           }}
         />
       )}
-      <div className="flex items-end gap-2 bg-bg-input border border-transparent rounded-lg px-[10px] py-1 focus-within:border-accent">
+      <div className="flex items-end gap-2 bg-bg-input border border-transparent rounded-lg px-2.5 py-1 focus-within:border-accent">
         <textarea
           ref={textareaRef}
           value={text}

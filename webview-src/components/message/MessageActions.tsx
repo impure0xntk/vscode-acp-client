@@ -29,7 +29,7 @@ export function MessageActions({
 
   return (
     <span
-      className="inline-flex items-center gap-[2px] opacity-0 invisible transition-opacity transition-visibility shrink-0 leading-none self-center group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible"
+      className="inline-flex items-center gap-0.5 opacity-0 invisible transition-opacity transition-visibility shrink-0 leading-none self-center group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible"
       role="toolbar"
       aria-label="Message actions"
     >

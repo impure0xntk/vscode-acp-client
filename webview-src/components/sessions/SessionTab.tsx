@@ -123,7 +123,7 @@ export function SessionTab({
 
   return (
     <div
-      className={`group flex flex-col justify-center px-[10px] py-1 min-w-[120px] max-w-[280px] min-h-[48px] cursor-pointer select-none bg-transparent transition-colors duration-150 relative overflow-hidden border-r border-border focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent${isActive ? " bg-bg-primary" : ""}${isHovered ? " bg-bg-secondary" : ""}`}
+      className={`group flex flex-col justify-center px-2.5 py-1 min-w-[120px] max-w-[280px] min-h-[48px] cursor-pointer select-none bg-transparent transition-colors duration-150 relative overflow-hidden border-r border-border focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent${isActive ? " bg-bg-primary" : ""}${isHovered ? " bg-bg-secondary" : ""}`}
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
@@ -177,7 +177,7 @@ export function SessionTab({
 
       {/* Close button — visible on hover or active (not always, unlike card) */}
       <div
-        className={`absolute top-1 right-1 flex items-center gap-[2px] z-10 transition-opacity duration-150 ${showCloseButton ? "opacity-100" : "opacity-0"}`}
+        className={`absolute top-1 right-1 flex items-center gap-0.5 z-10 transition-opacity duration-150 ${showCloseButton ? "opacity-100" : "opacity-0"}`}
       >
         <button
           className="shrink-0 flex items-center justify-center w-[18px] h-[18px] p-0 border-none rounded-[3px] bg-bg-secondary text-fg-secondary text-xs leading-none cursor-pointer transition-colors duration-150 hover:bg-error hover:text-user-fg"

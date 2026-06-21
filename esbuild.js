@@ -26,6 +26,29 @@ async function processCss(inputFile, outputFile) {
   console.log(`CSS build complete: ${outputFile}`);
 }
 
+/**
+ * esbuild plugin: alias webview-src/lib/path → src/shared/util/path
+ * so the webview bundle uses the canonical implementation (DRY).
+ */
+function aliasPathPlugin() {
+  const webviewSrcDir = path.join(__dirname, "webview-src");
+  const canonicalPath = path.join(__dirname, "src", "shared", "util", "path.ts");
+
+  return {
+    name: "alias-path",
+    setup(build) {
+      // Match imports ending with "lib/path" (e.g. "./lib/path", "../../lib/path")
+      // but only when the importer is inside webview-src/.
+      const filter = /lib[\\/]path$/;
+
+      build.onResolve({ filter }, (args) => {
+        if (!args.resolveDir.startsWith(webviewSrcDir)) return;
+        return { path: canonicalPath };
+      });
+    },
+  };
+}
+
 const common = {
   bundle: true,
   sourcemap: true,
@@ -46,6 +69,7 @@ const webviewBuild = {
   outfile: path.join(__dirname, "dist", "webview.js"),
   format: "iife",
   globalName: "acpWebview",
+  plugins: [aliasPathPlugin()],
   // CSS is handled separately by postcss+tailwindcss above
   loader: {
     ...common.loader,

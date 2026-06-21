@@ -34,11 +34,11 @@ export function ContextBar({
   if (!hasAttachments && !hasTargets && !hasTeam) return null;
 
   return (
-    <div className="flex items-center gap-1 py-1 overflow-x-auto flex-shrink-0">
-      <div className="flex flex-nowrap gap-1 flex-shrink-0 min-w-0">
+    <div className="flex flex-col justify-end gap-1 py-1 overflow-x-auto flex-shrink-0">
+      <div className="flex flex-wrap gap-1 flex-shrink-0 min-w-0 self-end">
         {selectedTeam && (
           <span
-            className="inline-flex items-center gap-[3px] px-1.5 py-[2px] rounded bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] text-[11px] whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-[3px] px-1.5 py-0.5 rounded bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] text-[11px] whitespace-nowrap shrink-0"
             title={`Team: ${selectedTeam.name} (${selectedTeam.id})`}
           >
             <Icon name="users" className="text-[11px] shrink-0" size="sm" />

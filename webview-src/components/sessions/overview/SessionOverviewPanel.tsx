@@ -248,7 +248,7 @@ export function SessionOverviewPanel({
           </span>
           <div className="flex gap-[3px]">
             <button
-              className="text-[10px] px-1.5 py-[1px] border border-border rounded-sm bg-bg-input text-fg-secondary cursor-pointer transition-all duration-150"
+              className="text-[10px] px-1.5 py-px border border-border rounded-sm bg-bg-input text-fg-secondary cursor-pointer transition-all duration-150"
               onClick={handleCloseSelected}
               disabled={selectedCount === 0}
               title={`Close ${selectedCount} selected session(s)`}
@@ -256,7 +256,7 @@ export function SessionOverviewPanel({
               Close {selectedCount > 0 ? selectedCount : ""}
             </button>
             <button
-              className="text-[10px] px-1.5 py-[1px] border border-border rounded-sm bg-bg-input text-fg-secondary cursor-pointer transition-all duration-150"
+              className="text-[10px] px-1.5 py-px border border-border rounded-sm bg-bg-input text-fg-secondary cursor-pointer transition-all duration-150"
               onClick={handleExitSelectionMode}
               title="Exit selection mode"
             >

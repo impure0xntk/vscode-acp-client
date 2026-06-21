@@ -68,14 +68,14 @@ export function SessionOverviewToolbar({
       <span className="flex-1 truncate text-[11px] font-semibold text-fg-secondary whitespace-nowrap overflow-hidden text-ellipsis">
         Sessions
       </span>
-      <span className="text-[10px] text-fg-muted bg-bg-input px-[5px] py-[1px] rounded-[8px] shrink-0 font-[var(--font-mono)]">
+      <span className="text-[10px] text-fg-muted bg-bg-input px-1.25 py-px rounded-[8px] shrink-0 font-[var(--font-mono)]">
         {sessionCount}
       </span>
 
       <div className="flex items-center gap-1 ml-auto">
         <div className="relative" ref={ref}>
           <button
-            className={`inline-flex items-center gap-[3px] text-[10px] px-[5px] py-px border rounded-[3px] bg-transparent cursor-pointer transition-colors duration-150 ${
+            className={`inline-flex items-center gap-[3px] text-[10px] px-1.25 py-px border rounded-[3px] bg-transparent cursor-pointer transition-colors duration-150 ${
               isActive
                 ? "border-accent text-accent bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]"
                 : "border-transparent text-fg-muted hover:bg-accent-hover hover:text-fg-secondary"
@@ -102,7 +102,7 @@ export function SessionOverviewToolbar({
               aria-label="Session status filter"
             >
               <button
-                className={`flex items-center gap-[5px] w-full px-[10px] py-1 border-none bg-transparent text-fg-primary text-xs cursor-pointer hover:bg-accent-hover ${
+                className={`flex items-center gap-[5px] w-full px-2.5 py-1 border-none bg-transparent text-fg-primary text-xs cursor-pointer hover:bg-accent-hover ${
                   filter === "all" ? "bg-accent-hover" : ""
                 }`}
                 role="option"
@@ -118,7 +118,7 @@ export function SessionOverviewToolbar({
               {FILTERABLE_STATUSES.map((s) => (
                 <button
                   key={s}
-                  className={`flex items-center gap-[5px] w-full px-[10px] py-1 border-none bg-transparent text-fg-primary text-xs cursor-pointer hover:bg-accent-hover ${
+                  className={`flex items-center gap-[5px] w-full px-2.5 py-1 border-none bg-transparent text-fg-primary text-xs cursor-pointer hover:bg-accent-hover ${
                     filter === s ? "bg-accent-hover" : ""
                   }`}
                   role="option"

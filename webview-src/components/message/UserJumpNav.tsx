@@ -47,9 +47,9 @@ export function UserJumpNav({
   const displayIdx = currentIdx + 1;
 
   return (
-    <div className="flex items-center gap-[2px]">
+    <div className="flex items-center gap-0.5">
       <button
-        className="bg-transparent border-none text-fg-muted cursor-pointer px-1 py-[2px] text-[11px] leading-none rounded flex items-center justify-center hover:text-fg-primary hover:bg-bg-hover disabled:opacity-30 disabled:cursor-default"
+        className="bg-transparent border-none text-fg-muted cursor-pointer px-1 py-0.5 text-[11px] leading-none rounded flex items-center justify-center hover:text-fg-primary hover:bg-bg-hover disabled:opacity-30 disabled:cursor-default"
         onClick={goPrev}
         disabled={!hasPrev}
         title="Previous user message"
@@ -64,7 +64,7 @@ export function UserJumpNav({
         {displayIdx}/{total}
       </span>
       <button
-        className="bg-transparent border-none text-fg-muted cursor-pointer px-1 py-[2px] text-[11px] leading-none rounded flex items-center justify-center hover:text-fg-primary hover:bg-bg-hover disabled:opacity-30 disabled:cursor-default"
+        className="bg-transparent border-none text-fg-muted cursor-pointer px-1 py-0.5 text-[11px] leading-none rounded flex items-center justify-center hover:text-fg-primary hover:bg-bg-hover disabled:opacity-30 disabled:cursor-default"
         onClick={goNext}
         disabled={!hasNext}
         title="Next user message"

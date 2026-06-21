@@ -76,7 +76,7 @@ export function Chip({
 
   return (
     <span
-      className={`inline-flex items-center gap-[3px] px-1.5 py-[2px] rounded-[3px] bg-accent-hover text-[10.5px] leading-[1.4] whitespace-nowrap shrink-0 border-l-2 ${borderCls} ${turnBorderCls} ${ctxBorderCls} ${criticalAnim}${onClick ? " cursor-pointer hover:bg-bg-input focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1" : ""} ${className}`.trim()}
+      className={`inline-flex items-center gap-[3px] px-1.5 py-0.5 rounded-[3px] bg-accent-hover text-[10.5px] leading-[1.4] whitespace-nowrap shrink-0 border-l-2 ${borderCls} ${turnBorderCls} ${ctxBorderCls} ${criticalAnim}${onClick ? " cursor-pointer hover:bg-bg-input focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1" : ""} ${className}`.trim()}
       title={`${meta.label}: ${meta.value}`}
       aria-label={`${meta.label}: ${meta.value}`}
       onClick={onClick}

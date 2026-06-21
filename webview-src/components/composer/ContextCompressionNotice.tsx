@@ -29,7 +29,7 @@ export function ContextCompressionNotice({
 
   return (
     <div
-      className="flex items-center gap-1.5 px-[10px] py-1 rounded bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] border border-[color-mix(in_srgb,var(--accent)_20%,transparent)] text-[11px] leading-[1.4]"
+      className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] border border-[color-mix(in_srgb,var(--accent)_20%,transparent)] text-[11px] leading-[1.4]"
       role="status"
       aria-live="polite"
     >
@@ -38,7 +38,7 @@ export function ContextCompressionNotice({
       </div>
       <div className="flex items-baseline gap-1.5 flex-wrap min-w-0">
         <span className="font-medium text-fg-secondary whitespace-nowrap">Context compressed</span>
-        <span className="inline-flex items-baseline gap-[2px] font-mono text-[10px] text-fg-muted tabular-nums">
+        <span className="inline-flex items-baseline gap-0.5 font-mono text-[10px] text-fg-muted tabular-nums">
           {beforePercentage !== null && (
             <span className="text-warning line-through opacity-70">
               {beforePercentage}%

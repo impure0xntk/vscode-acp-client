@@ -605,7 +605,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
             {stickyUserMessage.attachments.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-1">
                 {stickyUserMessage.attachments.map((a) => (
-                  <span key={a.id} className="inline-flex items-center gap-[2px] px-1.5 py-[2px] rounded bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-fg-secondary text-[9px] font-mono">
+                  <span key={a.id} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-fg-secondary text-[9px] font-mono">
                     {a.label}
                   </span>
                 ))}
@@ -614,7 +614,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
           </div>
         )}
 
-        <div className="px-3 py-2 flex flex-col flex-1 min-h-0">
+        <div className="px-4 py-3 flex flex-col flex-1 min-h-0">
         {isEmpty ? (
           <div className="min-h-full flex flex-col items-center justify-center text-fg-muted">
             <p className="text-sm font-medium text-fg-secondary">ACP Chat</p>
@@ -626,7 +626,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
           </div>
         ) : (
           <div
-              className={`flex flex-col gap-[2px]${isStreaming ? " [&>*:last-child]:animate-blink" : ""}`}
+              className={`flex flex-col gap-0.5${isStreaming ? " [&>*:last-child]:animate-blink" : ""}`}
             data-new-count={newCount > 0 ? newCount : undefined}
           >
             {/* Past groups */}
@@ -762,7 +762,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
             >
               <span className="text-sm leading-none">↓</span>
               {unreadCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-4 h-4 px-[3px] rounded-lg bg-accent text-user-fg text-[9px] font-semibold leading-none">{unreadCount}</span>
+                <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-4 h-4 px-0.75 rounded-lg bg-accent text-user-fg text-[9px] font-semibold leading-none">{unreadCount}</span>
               )}
             </button>
           </div>

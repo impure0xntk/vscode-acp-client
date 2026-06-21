@@ -124,7 +124,7 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
       {/* Streaming status section */}
       {showSending ? (
         <div
-          className="flex items-center gap-[6px] px-3 py-[2px] text-[11px] font-mono bg-bg-secondary border-b border-border shrink-0 text-fg-muted"
+          className="flex items-center gap-[6px] px-3 py-0.5 text-[11px] font-mono bg-bg-secondary border-b border-border shrink-0 text-fg-muted"
           role="status"
           aria-live="polite"
         >
@@ -137,7 +137,7 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
         </div>
       ) : isCancelling ? (
         <div
-          className="flex items-center gap-[6px] px-3 py-[2px] text-[11px] font-mono bg-bg-secondary border-b border-border shrink-0 text-error"
+          className="flex items-center gap-[6px] px-3 py-0.5 text-[11px] font-mono bg-bg-secondary border-b border-border shrink-0 text-error"
           role="status"
           aria-live="polite"
         >
@@ -149,7 +149,7 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
           const color = elapsedColorValue(elapsedSec * 1000);
           return (
             <div
-              className="flex items-center gap-[6px] px-3 py-[2px] text-[11px] font-mono bg-bg-secondary border-b border-border shrink-0"
+              className="flex items-center gap-[6px] px-3 py-0.5 text-[11px] font-mono bg-bg-secondary border-b border-border shrink-0"
               style={{ color }}
               role="status"
               aria-live="polite"
@@ -170,7 +170,7 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
       {/* Queued prompt list section */}
       {queue.length > 0 && (
         <div className="bg-bg-secondary border-b border-border">
-          <div className="flex items-center justify-between px-3 py-[2px] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]">
+          <div className="flex items-center justify-between px-3 py-0.5 bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]">
             <span className="text-[10px] font-semibold text-fg-secondary font-mono uppercase tracking-wider">
               {queue.length} queued message{queue.length !== 1 ? "s" : ""}
             </span>

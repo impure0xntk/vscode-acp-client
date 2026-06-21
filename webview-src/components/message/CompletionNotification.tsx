@@ -63,7 +63,7 @@ export function CompletionNotification({
 
   return (
     <div
-      className={`flex items-center gap-2 p-[8px 12px] max-w-[280px] relative top-[auto] right-[auto] z-[auto] bg-bg-secondary border ${borderCls} rounded-lg cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.3)] pointer-events-auto transition-transform duration-300 hover:border-accent focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1${isVisible ? " translate-x-0" : " translate-x-[120%]"}${isLeaving ? " translate-x-[120%]" : ""}`}
+      className={`flex items-center gap-2 p-[8px 12px] max-w-[280px] relative top-auto right-[auto] z-[auto] bg-bg-secondary border ${borderCls} rounded-lg cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.3)] pointer-events-auto transition-transform duration-300 hover:border-accent focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1${isVisible ? " translate-x-0" : " translate-x-[120%]"}${isLeaving ? " translate-x-[120%]" : ""}`}
       onClick={handleClick}
       role="button"
       tabIndex={0}

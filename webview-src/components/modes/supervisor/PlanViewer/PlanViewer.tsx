@@ -62,7 +62,7 @@ export function PlanViewer({
   const failedSteps = plan.steps.filter((s) => s.status === "failed");
 
   return (
-    <div className="flex flex-col px-[14px] py-2 gap-1.5">
+    <div className="flex flex-col px-3.5 py-2 gap-1.5">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 text-xs font-semibold text-fg-primary">
           <Icon name="list-tree" size="sm" />
@@ -113,7 +113,7 @@ export function PlanViewer({
         </div>
       )}
 
-      <div className="flex flex-col gap-[2px]">
+      <div className="flex flex-col gap-0.5">
         {plan.steps.map((step) => (
           <React.Fragment key={step.id}>
             <PlanStepView
@@ -136,7 +136,7 @@ export function PlanViewer({
             {addingAfter === step.id && (
               <div className="flex items-center gap-1 p-1 ml-6">
                 <input
-                  className="flex-1 px-1.5 py-[2px] border border-border rounded-[3px] bg-bg-input text-fg-primary text-[11px] outline-none focus:border-accent"
+                  className="flex-1 px-1.5 py-0.5 border border-border rounded-[3px] bg-bg-input text-fg-primary text-[11px] outline-none focus:border-accent"
                   value={newStepText}
                   onChange={(e) => setNewStepText(e.target.value)}
                   placeholder="Step description..."
@@ -170,7 +170,7 @@ export function PlanViewer({
             {addingAfter === "" ? (
               <div className="flex items-center gap-1 p-1 ml-6">
                 <input
-                  className="flex-1 px-1.5 py-[2px] border border-border rounded-[3px] bg-bg-input text-fg-primary text-[11px] outline-none focus:border-accent"
+                  className="flex-1 px-1.5 py-0.5 border border-border rounded-[3px] bg-bg-input text-fg-primary text-[11px] outline-none focus:border-accent"
                   value={newStepText}
                   onChange={(e) => setNewStepText(e.target.value)}
                   placeholder="Step description..."
@@ -197,7 +197,7 @@ export function PlanViewer({
               </div>
             ) : (
               <button
-                className="inline-flex items-center gap-1 px-2 py-[2px] border border-dashed border-border rounded-[3px] bg-transparent text-fg-muted text-[10px] cursor-pointer ml-6 transition-colors duration-150 hover:bg-accent-hover hover:text-fg-primary hover:border-accent"
+                className="inline-flex items-center gap-1 px-2 py-0.5 border border-dashed border-border rounded-[3px] bg-transparent text-fg-muted text-[10px] cursor-pointer ml-6 transition-colors duration-150 hover:bg-accent-hover hover:text-fg-primary hover:border-accent"
                 onClick={() => handleStartAdd()}
                 type="button"
               >

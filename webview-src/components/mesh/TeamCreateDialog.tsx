@@ -190,7 +190,7 @@ export function TeamCreateDialog({
                 return (
                   <button
                     key={`lead-sess-${session.id}`}
-                    className={`flex items-center gap-2 py-[6px] px-[10px] border rounded-[4px] bg-transparent text-fg-primary text-[12px] cursor-pointer text-left hover:bg-accent-hover focus-visible:outline focus-visible:outline-accent focus-visible:outline-offset-[-1px] ${isLead ? "bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] border-[color-mix(in_srgb,var(--accent)_30%,transparent)]" : "border-transparent"}`}
+                    className={`flex items-center gap-2 py-[6px] px-2.5 border rounded-[4px] bg-transparent text-fg-primary text-[12px] cursor-pointer text-left hover:bg-accent-hover focus-visible:outline focus-visible:outline-accent focus-visible:outline-offset-[-1px] ${isLead ? "bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] border-[color-mix(in_srgb,var(--accent)_30%,transparent)]" : "border-transparent"}`}
                     onClick={() =>
                       handleSetLead(session.agentId, session.sessionId)
                     }
@@ -263,7 +263,7 @@ export function TeamCreateDialog({
                 return (
                   <button
                     key={`member-sess-${session.id}`}
-                    className={`flex items-center gap-2 py-[6px] px-[10px] border rounded-[4px] bg-transparent text-fg-primary text-[12px] cursor-pointer text-left hover:bg-accent-hover focus-visible:outline focus-visible:outline-accent focus-visible:outline-offset-[-1px] disabled:opacity-60 disabled:cursor-default ${isMember ? "bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] border-[color-mix(in_srgb,var(--accent)_30%,transparent)]" : "border-transparent"}`}
+                    className={`flex items-center gap-2 py-[6px] px-2.5 border rounded-[4px] bg-transparent text-fg-primary text-[12px] cursor-pointer text-left hover:bg-accent-hover focus-visible:outline focus-visible:outline-accent focus-visible:outline-offset-[-1px] disabled:opacity-60 disabled:cursor-default ${isMember ? "bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] border-[color-mix(in_srgb,var(--accent)_30%,transparent)]" : "border-transparent"}`}
                     onClick={() =>
                       handleToggleMember(session.agentId, session.sessionId)
                     }
@@ -346,7 +346,7 @@ export function TeamCreateDialog({
             </label>
             <input
               id="team-name"
-              className="py-[6px] px-[10px] border border-border rounded-[4px] bg-bg-input text-fg-primary text-[13px] outline-none focus:border-accent placeholder:text-fg-muted"
+              className="py-[6px] px-2.5 border border-border rounded-[4px] bg-bg-input text-fg-primary text-[13px] outline-none focus:border-accent placeholder:text-fg-muted"
               value={teamName}
               onChange={(e) => {
                 setTeamName(e.target.value);
@@ -363,7 +363,7 @@ export function TeamCreateDialog({
             </label>
             <input
               id="team-desc"
-              className="py-[6px] px-[10px] border border-border rounded-[4px] bg-bg-input text-fg-primary text-[13px] outline-none focus:border-accent placeholder:text-fg-muted"
+              className="py-[6px] px-2.5 border border-border rounded-[4px] bg-bg-input text-fg-primary text-[13px] outline-none focus:border-accent placeholder:text-fg-muted"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional — what is this team working on?"
@@ -383,7 +383,7 @@ export function TeamCreateDialog({
 
         <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border flex-shrink-0">
           <button
-            className="py-[6px] px-[14px] border border-border rounded-[4px] bg-transparent text-fg-secondary text-[12px] cursor-pointer hover:bg-accent-hover hover:text-fg-primary"
+            className="py-[6px] px-3.5 border border-border rounded-[4px] bg-transparent text-fg-secondary text-[12px] cursor-pointer hover:bg-accent-hover hover:text-fg-primary"
             onClick={onClose}
             type="button"
           >

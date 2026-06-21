@@ -69,7 +69,7 @@ export const CommandCenter = React.memo(function CommandCenter({
     >
       {/* Toggle bar */}
       <button
-        className="flex items-center gap-1.5 w-full py-[6px] px-[14px] border-none bg-transparent text-fg-muted text-[11px] cursor-pointer text-left hover:bg-accent-hover hover:text-fg-primary focus-visible:outline focus-visible:outline-accent focus-visible:outline-offset-[-1px]"
+        className="flex items-center gap-1.5 w-full py-[6px] px-3.5 border-none bg-transparent text-fg-muted text-[11px] cursor-pointer text-left hover:bg-accent-hover hover:text-fg-primary focus-visible:outline focus-visible:outline-accent focus-visible:outline-offset-[-1px]"
         onClick={toggleCommandCenter}
         type="button"
         aria-expanded={commandCenterExpanded}
@@ -108,7 +108,7 @@ export const CommandCenter = React.memo(function CommandCenter({
             </div>
 
             {/* Summary row */}
-            <div className="flex items-center justify-end py-[2px] px-1 border-t border-[color-mix(in_srgb,var(--border)_40%,transparent)]">
+            <div className="flex items-center justify-end py-0.5 px-1 border-t border-[color-mix(in_srgb,var(--border)_40%,transparent)]">
               <span className="inline-flex items-center gap-1 text-[10px] text-fg-muted font-mono">
                 <Icon name="brain" size="sm" />
                 Total: {fmt(totalTokens)}

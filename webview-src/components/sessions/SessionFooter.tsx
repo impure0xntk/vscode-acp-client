@@ -122,7 +122,7 @@ export function DetailsPanel(p: DetailsPanelProps): React.ReactElement {
   }
 
   return (
-    <div className="px-[10px] py-2 bg-bg-primary flex flex-col gap-[10px]">
+    <div className="px-2.5 py-2 bg-bg-primary flex flex-col gap-[10px]">
       {p.agentInfo && <AgentSection info={p.agentInfo} />}
 
       <section className="mb-0">
@@ -365,7 +365,7 @@ export const SessionFooter = React.memo(function SessionFooter(
 
   return (
     <header className="flex flex-col bg-bg-secondary shrink-0 border-t border-border">
-      <div className="flex items-center justify-between px-[14px] py-1 gap-[10px] min-h-[28px]">
+      <div className="flex items-center justify-between px-3.5 py-1 gap-[10px] min-h-[28px]">
         <div className="flex items-center gap-2 flex-1 justify-start min-w-0 overflow-hidden">
           {prefix && (
             <span className="text-[11px] font-mono text-fg-muted whitespace-nowrap overflow-hidden text-ellipsis shrink-1 min-w-0 pr-[6px]">{prefix}</span>
