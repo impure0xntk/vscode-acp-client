@@ -55,6 +55,7 @@
   --animate-dot-pulse: dot-pulse 1.5s ease-in-out infinite;
   --animate-dot-flash: dot-flash 1s ease-in-out infinite;
   --animate-spin: spin 1s linear infinite;
+  --animate-blink: blink 1s step-end infinite;
   --animate-soc-running-pulse: soc-running-pulse 2s ease-in-out infinite;
   --animate-soc-waiting-pulse: soc-waiting-pulse 2s ease-in-out infinite;
   --animate-soc-flash-border: soc-flash-border 2.5s ease-out forwards;
@@ -69,6 +70,120 @@
   --animate-modal-fade-in: modal-fade-in 0.15s ease-out;
   --animate-modal-slide-in: modal-slide-in 0.15s ease-out;
   --animate-tool-batch-appear: tool-batch-appear 0.25s ease-out;
+  --animate-soc-elapsed-warning-pulse: soc-elapsed-warning-pulse 2s ease-in-out infinite;
+  --animate-soc-elapsed-critical-pulse: soc-elapsed-critical-pulse 1.2s ease-in-out infinite;
+  --animate-streaming-spin: streaming-spin 0.8s linear infinite;
+  --animate-streaming-critical-pulse: streaming-critical-pulse 1.2s ease-in-out infinite;
+  --animate-streaming-dot-bounce: streaming-dot-bounce 1.4s ease-in-out infinite both;
+
+  /* ── Keyframes ── */
+  @keyframes context-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  @keyframes dot-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+  @keyframes dot-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  @keyframes dot-flash {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+  @keyframes soc-running-pulse {
+    0%, 100% { border-left-color: #4fc3f7; }
+    50% { border-left-color: color-mix(in srgb, #4fc3f7 30%, transparent); }
+  }
+  @keyframes soc-waiting-pulse {
+    0%, 100% { border-left-color: #ffd54f; }
+    50% { border-left-color: color-mix(in srgb, #ffd54f 30%, transparent); }
+  }
+  @keyframes soc-flash-border {
+    0% { outline: 2px solid var(--soc-flash-color); outline-offset: 0; }
+    15% { outline: 2px solid transparent; outline-offset: 0; }
+    30% { outline: 2px solid var(--soc-flash-color); outline-offset: 0; }
+    45% { outline: 2px solid transparent; outline-offset: 0; }
+    60% { outline: 2px solid var(--soc-flash-color); outline-offset: 0; }
+    100% { outline: 2px solid transparent; outline-offset: 0; }
+  }
+  @keyframes usec-flash-border {
+    0% { outline: 2px solid var(--usec-flash-color); outline-offset: -2px; }
+    15% { outline: 2px solid transparent; outline-offset: -2px; }
+    30% { outline: 2px solid var(--usec-flash-color); outline-offset: -2px; }
+    45% { outline: 2px solid transparent; outline-offset: -2px; }
+    60% { outline: 2px solid var(--usec-flash-color); outline-offset: -2px; }
+    100% { outline: 2px solid transparent; outline-offset: -2px; }
+  }
+  @keyframes tool-batch-expand {
+    from { opacity: 0; max-height: 0; }
+    to { opacity: 1; max-height: 2000px; }
+  }
+  @keyframes so-popup-in {
+    from { opacity: 0; transform: scale(0.96) translateY(-2px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  @keyframes token-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  @keyframes message-appear {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes sticky-user-bar-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes toolbar-details-in {
+    from { opacity: 0; max-height: 0; }
+    to { opacity: 1; max-height: 400px; }
+  }
+  @keyframes intermediate-steps-expand {
+    from { opacity: 0; max-height: 0; }
+    to { opacity: 1; max-height: 600px; }
+  }
+  @keyframes modal-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes modal-slide-in {
+    from { transform: translateY(8px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  @keyframes tool-batch-appear {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes soc-elapsed-warning-pulse {
+    0%, 100% { border-left-color: #ffd54f; }
+    50% { border-left-color: color-mix(in srgb, #ffd54f 30%, transparent); }
+  }
+  @keyframes soc-elapsed-critical-pulse {
+    0%, 100% { border-left-color: #ef5350; }
+    50% { border-left-color: color-mix(in srgb, #ef5350 30%, transparent); }
+  }
+  @keyframes streaming-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  @keyframes streaming-critical-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  @keyframes streaming-dot-bounce {
+    0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+    40% { transform: scale(1); opacity: 1; }
+  }
 }
 
 /* ============================================================================
@@ -109,91 +224,6 @@
   );
 }
 
-/* ============================================================================
-   Keyframe definitions for Tailwind v4 custom animations
-   ============================================================================ */
-
-@keyframes message-appear {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes sticky-user-bar-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes toolbar-details-in {
-  from {
-    opacity: 0;
-    transform: translateY(-2px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes intermediate-steps-expand {
-  from {
-    opacity: 0;
-    transform: translateY(-2px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes modal-fade-in {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes modal-slide-in {
-  from {
-    opacity: 0;
-    transform: scale(0.96) translateY(4px);
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-@keyframes tool-batch-appear {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 
 /* ============================================================================
    Reset & Base
@@ -207,230 +237,3 @@
   padding: 0;
 }
 
-
-/* ============================================================================
-   App Layout
-   ============================================================================ */
-
-/* ============================================================================
-   Tool Call Cards
-   ============================================================================ */
-
-/* Completed tool calls: mute file-chip label colour so it does not demand attention.
-   Failed / in_progress / cancelled keep the default --fg-primary file-chip colour.
-   Note: These child-selector rules cannot be expressed as Tailwind utilities,
-   so they remain in CSS. The base .file-chip / .file-chip-ext / .file-chip-label /
-   .file-chip-inline classes have been inlined as Tailwind in ToolCallCard.tsx. */
-.tool-call-completed .file-chip-inline {
-  color: var(--fg-muted);
-}
-
-.tool-call-completed .file-chip-inline:hover {
-  color: var(--fg-secondary);
-  background: var(--accent-hover);
-}
-
-.tool-call-completed .file-chip-inline .file-chip-ext {
-  color: var(--fg-muted);
-  background: color-mix(in srgb, var(--fg-muted) 12%, transparent);
-}
-
-.tool-call-completed .file-chip-inline:hover .file-chip-ext {
-  color: var(--fg-secondary);
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
-}
-
-/* ============================================================================
-   Session Overview Card Base — shared between card and popup
-   ============================================================================ */
-
-/* Base: pulse with color-group color */
-.session-overview-card[data-color-group="active"] {
-  border-left-color: #4fc3f7;
-  animation: soc-running-pulse 2s ease-in-out infinite;
-}
-
-@keyframes soc-running-pulse {
-  0%,
-  100% {
-    border-left-color: #4fc3f7;
-  }
-
-  50% {
-    border-left-color: color-mix(in srgb, #4fc3f7 30%, transparent);
-  }
-}
-
-@keyframes soc-waiting-pulse {
-  0%,
-  100% {
-    border-left-color: #ffd54f;
-  }
-
-  50% {
-    border-left-color: color-mix(in srgb, #ffd54f 30%, transparent);
-  }
-}
-
-/* ≥10s: yellow warning — active */
-.session-overview-card[data-elapsed-tier="warning"][data-color-group="active"] {
-  border-left-color: #ffd54f;
-  animation: soc-elapsed-warning-pulse 2s ease-in-out infinite;
-}
-
-/* ≥10s: yellow warning — waiting (already yellow, brighten) */
-.session-overview-card[data-elapsed-tier="warning"][data-color-group="waiting"] {
-  border-left-color: #ffd54f;
-  animation: soc-elapsed-warning-pulse 2s ease-in-out infinite;
-}
-
-@keyframes soc-elapsed-warning-pulse {
-  0%,
-  100% {
-    border-left-color: #ffd54f;
-  }
-
-  50% {
-    border-left-color: color-mix(in srgb, #ffd54f 30%, transparent);
-  }
-}
-
-/* ≥30s: red critical — active */
-.session-overview-card[data-elapsed-tier="critical"][data-color-group="active"] {
-  border-left-color: #ef5350;
-  animation: soc-elapsed-critical-pulse 1.2s ease-in-out infinite;
-}
-
-/* ≥30s: red critical — waiting */
-.session-overview-card[data-elapsed-tier="critical"][data-color-group="waiting"] {
-  border-left-color: #ef5350;
-  animation: soc-elapsed-critical-pulse 1.2s ease-in-out infinite;
-}
-
-@keyframes soc-elapsed-critical-pulse {
-  0%,
-  100% {
-    border-left-color: #ef5350;
-  }
-
-  50% {
-    border-left-color: color-mix(in srgb, #ef5350 30%, transparent);
-  }
-}
-
-/* Completed / error: flash border then fade out (CSS-only, 2.5s) */
-.session-overview-card[data-flashing="completed"] {
-  --soc-flash-color: var(--success);
-
-  animation: soc-flash-border 2.5s ease-out forwards;
-}
-
-@keyframes soc-flash-border {
-  0% {
-    outline: 2px solid var(--soc-flash-color);
-    outline-offset: 0;
-  }
-
-  15% {
-    outline: 2px solid transparent;
-    outline-offset: 0;
-  }
-
-  30% {
-    outline: 2px solid var(--soc-flash-color);
-    outline-offset: 0;
-  }
-
-  45% {
-    outline: 2px solid transparent;
-    outline-offset: 0;
-  }
-
-  60% {
-    outline: 2px solid var(--soc-flash-color);
-    outline-offset: 0;
-  }
-
-  100% {
-    outline: 2px solid transparent;
-    outline-offset: 0;
-  }
-}
-
-/* Completed: no border-left accent (same as idle) */
-.session-overview-card[data-status="completed"] {
-  border-left-color: transparent;
-}
-
-
-/* ============================================================================
-   Session Overview Popup — hover tooltip on tab bar
-   ============================================================================ */
-
-@keyframes so-popup-in {
-  from {
-    opacity: 0;
-    transform: scale(0.96) translateY(-2px);
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-/* ── Token usage bar (in section header) ── */
-
-
-@keyframes token-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.5;
-  }
-}
-
-/* ── Turn completion flash (mirrors SessionOverviewCard soc-flash-border) ──
-   Uses outline (not box-shadow: inset) so the flash is visible on all edges
-   even when sections are adjacent in horizontal / split layouts.
-   outline is drawn outside the border box and is never clipped by siblings. */
-.unified-session-section[data-flashing="completed"] {
-  --usec-flash-color: var(--success);
-
-  animation: usec-flash-border 2.5s ease-out forwards;
-}
-
-@keyframes usec-flash-border {
-  0% {
-    outline: 2px solid var(--usec-flash-color);
-    outline-offset: -2px;
-  }
-
-  15% {
-    outline: 2px solid transparent;
-    outline-offset: -2px;
-  }
-
-  30% {
-    outline: 2px solid var(--usec-flash-color);
-    outline-offset: -2px;
-  }
-
-  45% {
-    outline: 2px solid transparent;
-    outline-offset: -2px;
-  }
-
-  60% {
-    outline: 2px solid var(--usec-flash-color);
-    outline-offset: -2px;
-  }
-
-  100% {
-    outline: 2px solid transparent;
-    outline-offset: -2px;
-  }
-}

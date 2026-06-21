@@ -176,13 +176,18 @@ export function SessionOverviewCard({
     error: "border-l-error",
   }[colorGroup] ?? "border-l-transparent";
 
+  // Animation classes driven by session state (replaces CSS selector hooks)
+  const animClass = (() => {
+    if (flashingStatus === "completed") return "animate-soc-flash-border";
+    if (tier === "critical") return "animate-soc-elapsed-critical-pulse";
+    if (tier === "warning") return "animate-soc-elapsed-warning-pulse";
+    if (colorGroup === "active") return "animate-soc-running-pulse";
+    return "";
+  })();
+
   return (
     <div
-      className={`session-overview-card p-[6px 8px] m-[2px 4px] bg-bg-primary border border-[transparent] border-l border-[transparent] rounded-md cursor-pointer hover:border-accent focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1 ${borderLeftClass}${isExpanded ? " bg-bg-secondary" : ""}${isActive ? " bg-[color-mix(in_srgb,var(--accent)_12%,transparent)]" : ""}${isSelected ? " border-accent bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]" : ""}`}
-      data-status={statusValue}
-      data-color-group={colorGroup}
-      data-elapsed-tier={tier}
-      data-flashing={flashingStatus}
+      className={`session-overview-card p-[6px 8px] m-[2px 4px] bg-bg-primary border border-[transparent] border-l border-[transparent] rounded-md cursor-pointer hover:border-accent focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1 ${borderLeftClass}${isExpanded ? " bg-bg-secondary" : ""}${isActive ? " bg-[color-mix(in_srgb,var(--accent)_12%,transparent)]" : ""}${isSelected ? " border-accent bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]" : ""}${animClass}`}
       onAnimationEnd={handleAnimationEnd}
       onClick={handleClick}
       onPointerDown={handlePointerDown}

@@ -25,7 +25,7 @@ export function ResponsePreviewList({
   const items = responses.slice(-maxItems);
 
   return (
-    <div className={`flex flex-col gap-0.5 mt-[4px] ${className}`.trim()}>
+    <div className={`flex flex-col gap-0.5 mt-[4px] pt-1 border-t border-border/40 ${className}`.trim()}>
       {items.map((r) => (
         <div
           key={r.messageId}

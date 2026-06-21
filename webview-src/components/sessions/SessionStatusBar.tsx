@@ -128,10 +128,10 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
           role="status"
           aria-live="polite"
         >
-          <span className="shrink-0" aria-hidden="true">
-            <span className="inline-block w-1 h-1 rounded-full bg-fg-muted" />
-            <span className="inline-block w-1 h-1 rounded-full bg-fg-muted" />
-            <span className="inline-block w-1 h-1 rounded-full bg-fg-muted" />
+          <span className="shrink-0 flex items-center gap-[3px]" aria-hidden="true">
+            <span className="inline-block w-1 h-1 rounded-full bg-fg-muted animate-streaming-dot-bounce" style={{ animationDelay: "0s" }} />
+            <span className="inline-block w-1 h-1 rounded-full bg-fg-muted animate-streaming-dot-bounce" style={{ animationDelay: "0.2s" }} />
+            <span className="inline-block w-1 h-1 rounded-full bg-fg-muted animate-streaming-dot-bounce" style={{ animationDelay: "0.4s" }} />
           </span>
           <span className="whitespace-nowrap overflow-hidden text-ellipsis">Sending…</span>
         </div>
@@ -141,7 +141,7 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
           role="status"
           aria-live="polite"
         >
-          <Icon name="loading" size="sm" className="shrink-0" />
+          <Icon name="loading" size="sm" className="shrink-0 animate-spin" />
           <span className="whitespace-nowrap overflow-hidden text-ellipsis">Cancelling…</span>
         </div>
       ) : effectiveAction ? (
@@ -156,7 +156,7 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
               <Icon
                 name="loading"
                 size="sm"
-                className="shrink-0"
+                className="shrink-0 animate-streaming-spin"
               />
               <span className="whitespace-nowrap overflow-hidden text-ellipsis">
                 {effectiveAction} · {formatElapsed(elapsedSec)}

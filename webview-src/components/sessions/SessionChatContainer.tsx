@@ -546,7 +546,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
       {/* Sticky user message bar */}
       {showStickyBar && stickyUserMessage && (
         <div
-          className="sticky top-0 z-10 flex-shrink-0 bg-bg-secondary border-b border-border px-[14px] py-1.5 cursor-pointer transition-colors duration-150 animate-[sticky-user-bar-in_0.12s_ease-out]"
+          className="sticky top-0 z-10 flex-shrink-0 bg-bg-secondary border-b border-border px-[14px] py-1.5 cursor-pointer transition-colors duration-150 animate-sticky-user-bar-in"
           onClick={handleStickyClick}
           role="button"
           tabIndex={0}
@@ -594,7 +594,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
           </div>
         ) : (
           <div
-            className={`flex flex-col gap-1.5${isStreaming ? " [&>*:last-child]:animate-[blink_1s_step-end_infinite]" : ""}`}
+            className={`flex flex-col gap-1.5${isStreaming ? " [&>*:last-child]:animate-blink" : ""}`}
             data-new-count={newCount > 0 ? newCount : undefined}
           >
             {/* Past groups */}
@@ -710,7 +710,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
 
             {isStreaming && (
               <div className="py-1">
-                <span className="inline-block animate-[blink_1s_step-end_infinite] text-accent font-bold">▋</span>
+                <span className="inline-block animate-blink text-accent font-bold">▋</span>
               </div>
             )}
           </div>

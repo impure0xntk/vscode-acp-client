@@ -90,9 +90,9 @@ export function DetailModal({
   );
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] animate-[modal-fade-in_0.15s_ease-out]" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] animate-modal-fade-in" onClick={onClose}>
       <div
-        className="bg-bg-secondary border border-border rounded-lg w-[90%] max-w-[760px] max-h-[85vh] flex flex-col shadow-[0_8px_32px_rgba(0,0,0,0.4)] animate-[modal-slide-in_0.15s_ease-out]"
+        className="bg-bg-secondary border border-border rounded-lg w-[90%] max-w-[760px] max-h-[85vh] flex flex-col shadow-[0_8px_32px_rgba(0,0,0,0.4)] animate-modal-slide-in"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">

@@ -34,7 +34,7 @@ export function ThinkingBlock({
           <div className="px-3 py-2 font-mono text-[11px] leading-[1.5] text-fg-secondary whitespace-pre-wrap break-words">
             {content}
             {isStreaming && (
-              <span className="inline-block animate-[blink_1s_step-end_infinite] text-accent font-bold">
+              <span className="inline-block animate-blink text-accent font-bold">
                 ▋
               </span>
             )}

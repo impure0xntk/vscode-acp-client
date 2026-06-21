@@ -38,7 +38,7 @@ export function ContextCompressionNotice({
       </div>
       <div className="flex items-baseline gap-1.5 flex-wrap min-w-0">
         <span className="font-medium text-fg-secondary whitespace-nowrap">Context compressed</span>
-        <span className="inline-flex items-baseline gap-0.5 font-mono text-[10px] text-fg-muted">
+        <span className="inline-flex items-baseline gap-0.5 font-mono text-[10px] text-fg-muted tabular-nums">
           {beforePercentage !== null && (
             <span className="text-warning line-through opacity-70">
               {beforePercentage}%

@@ -86,6 +86,11 @@ export const SessionSection = React.memo(function SessionSection({
     ? (info?.lastTurnOutcome ?? info?.status)
     : undefined;
 
+  const flashAnimClass =
+    flashingStatus === "completed" || flashingStatus === "error"
+      ? "animate-usec-flash-border"
+      : "";
+
   useEffect(() => {
     if (!info) {
       onClose(sessionKey);
@@ -136,8 +141,7 @@ export const SessionSection = React.memo(function SessionSection({
 
   return (
     <div
-      className={sectionClassName}
-      data-flashing={flashingStatus}
+      className={`${sectionClassName} ${flashAnimClass}`}
       onAnimationEnd={handleAnimationEnd}
       style={sectionStyle}
     >

@@ -63,7 +63,7 @@ export function SessionOverviewPopup({
       />
 
       {/* Footer: last-response timestamp */}
-      <div className="flex justify-end pt-[4px] mt-[2px]">
+      <div className="flex justify-end border-t border-border/40 pt-[4px] mt-[2px]">
         <span className="text-3xs text-fg-muted font-mono">
           {new Date(
             liveItem.lastResponseAt ?? liveItem.createdAt

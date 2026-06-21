@@ -65,10 +65,10 @@ export function SessionOverviewToolbar({
 
   return (
     <div className="flex items-center gap-1.5 px-2 py-1 border-b border-border shrink-0 min-h-[32px]">
-      <span className="text-[10px] font-semibold text-fg-secondary">
+      <span className="flex-1 truncate text-[11px] font-semibold text-fg-secondary whitespace-nowrap overflow-hidden text-ellipsis">
         Sessions
       </span>
-      <span className="text-[9px] text-fg-muted font-[var(--font-mono)]">
+      <span className="text-[10px] text-fg-muted bg-bg-input px-[5px] py-[1px] rounded-[8px] shrink-0 font-[var(--font-mono)]">
         {sessionCount}
       </span>
 

@@ -89,7 +89,7 @@ export function ToolBatchSummary({
   const totalOps = calls.length;
   const totalMs = useMemo(() => totalDuration(calls), [calls]);
 
-  const appearClass = isNew ? "animate-[tool-batch-appear_0.25s_ease-out]" : "";
+  const appearClass = isNew ? "animate-tool-batch-appear" : "";
 
   // ── Single call: render directly, no wrapper ──
   if (calls.length === 1) {
@@ -165,7 +165,7 @@ export function ToolBatchSummary({
 
         <div className={`grid transition-[grid-template-rows] duration-200 ease-out${expanded ? " grid-rows-[1fr]" : " grid-rows-[0fr]"}`}>
           <div className="overflow-hidden">
-            <div className="px-[12px] pb-[2px] pt-[1px] flex flex-col gap-[1px] bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)] animate-[tool-batch-expand_0.15s_ease-out]">
+            <div className="px-[12px] pb-[2px] pt-[1px] flex flex-col gap-[1px] bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)] animate-tool-batch-expand">
               {calls.map((call) => (
                 <div
                   key={call.id}
@@ -247,7 +247,7 @@ export function ToolBatchSummary({
 
       <div className={`grid transition-[grid-template-rows] duration-200 ease-out${allExpanded ? " grid-rows-[1fr]" : " grid-rows-[0fr]"}`}>
         <div className="overflow-hidden">
-          <div className="px-[12px] pb-[2px] pt-[1px] flex flex-col gap-[1px] bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)] animate-[tool-batch-expand_0.15s_ease-out]">
+          <div className="px-[12px] pb-[2px] pt-[1px] flex flex-col gap-[1px] bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)] animate-tool-batch-expand">
             {/* Errors — always expanded, no nested chevron */}
             <ErrorsGroup errors={errors} />
 

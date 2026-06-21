@@ -177,7 +177,8 @@ export function ToolCallCard({
 
   return (
     <div
-      className={`mt-0 max-w-full ml-3 mr-3 rounded overflow-hidden text-[10px] bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]${status === "completed" ? " opacity-[0.7] tool-call-completed" : ""}`}
+      className={`mt-0 max-w-full ml-3 mr-3 rounded overflow-hidden text-[10px] bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]${status === "completed" ? " opacity-[0.7] data-[completed=true]" : ""}`}
+      data-completed={status === "completed" ? "true" : undefined}
     >
       <button
         className={`flex items-center gap-[3px] px-[6px] font-mono text-[10px] text-fg-muted w-fit max-w-full border-none bg-transparent text-left transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]${hasBody ? " cursor-pointer" : ""}`}
@@ -206,7 +207,7 @@ export function ToolCallCard({
             return (
               <span
                 key={`${loc.path}:${loc.line ?? 0}-${idx}`}
-                className="inline-flex items-center gap-[2px] px-[3px] py-[1px] rounded-[3px] bg-bg-secondary text-fg-primary text-[9px] cursor-pointer select-none transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1 flex-shrink-0 ml-[2px]"
+                className={`inline-flex items-center gap-[2px] px-[3px] py-[1px] rounded-[3px] bg-bg-secondary ${status === "completed" ? "text-fg-muted hover:text-fg-secondary" : "text-fg-primary"} text-[9px] cursor-pointer select-none transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1 flex-shrink-0 ml-[2px]`}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleFileClick(loc.path, loc.line);
@@ -221,7 +222,7 @@ export function ToolCallCard({
                   }
                 }}
               >
-                <span className="inline-flex items-center justify-center w-[14px] h-[11px] rounded-[2px] font-mono text-[7px] font-bold leading-none tracking-[-0.3px] flex-shrink-0 bg-[color-mix(in_srgb,var(--accent)_20%,transparent)] text-fg-secondary">{fileIcon(ext)}</span>
+                <span className={`inline-flex items-center justify-center w-[14px] h-[11px] rounded-[2px] font-mono text-[12px] font-bold leading-none tracking-[-0.3px] flex-shrink-0 ${status === "completed" ? "text-fg-muted bg-[color-mix(in_srgb,var(--fg-muted)_12%,transparent)] hover:text-fg-secondary hover:bg-[color-mix(in_srgb,var(--accent)_20%,transparent)]" : "bg-[color-mix(in_srgb,var(--accent)_20%,transparent)] text-fg-secondary"}`}>{fileIcon(ext)}</span>
                 <span className="leading-none">
                   {basename}
                   {loc.line ? `:${loc.line}` : ""}

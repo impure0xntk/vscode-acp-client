@@ -17,23 +17,17 @@ function ContextBar({ target }: { target: SendTarget }): React.ReactElement | nu
       ? Math.round((tokenUsage.totalTokens / contextWindowMax) * 100)
       : null;
 
-  const color =
-    pct !== null
-      ? pct >= 90
-        ? "ctx-critical"
-        : pct >= 70
-          ? "ctx-warning"
-          : "ctx-normal"
-      : "ctx-normal";
-
+  const isCritical = pct !== null && pct >= 90;
+  const isWarning = pct !== null && pct >= 70;
+  const fillColor = isCritical ? "#ef5350" : isWarning ? "#ffd54f" : "#4fc3f7";
   const fillHeight = pct !== null ? Math.max(10, Math.min(100, pct)) : 0;
   const title = pct !== null
     ? `${pct}% (${formatTokens(tokenUsage.totalTokens)} / ${formatTokens(contextWindowMax ?? 0)})`
     : `${formatTokens(tokenUsage.totalTokens)} tokens used`;
 
   return (
-    <span className={`inline-flex shrink-0 ml-[2px] w-[3px] h-[14px] overflow-hidden rounded-1.5 ${color}`} title={title}>
-      <span className="w-full rounded-1.5" style={{ height: `${fillHeight}%` }} />
+    <span className={`inline-flex shrink-0 ml-[2px] w-[3px] h-[14px] overflow-hidden rounded-1.5${isCritical ? " animate-context-pulse" : ""}`} title={title}>
+      <span className="w-full rounded-1.5" style={{ height: `${fillHeight}%`, backgroundColor: fillColor, transition: "height 0.3s ease, background 0.3s ease" }} />
     </span>
   );
 }

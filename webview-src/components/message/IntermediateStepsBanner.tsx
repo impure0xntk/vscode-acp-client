@@ -127,7 +127,7 @@ export function IntermediateStepsBanner({
         )}
       </button>
       {!isCollapsed && (
-        <div className="px-0 pb-1.5 pt-0.5 flex flex-col gap-[2px] animate-[intermediate-steps-expand_0.15s_ease-out]">
+        <div className="px-0 pb-1.5 pt-0.5 flex flex-col gap-[2px] animate-intermediate-steps-expand">
           {items.map((item, idx) => (
             <DisplayItemView
               key={item.key}

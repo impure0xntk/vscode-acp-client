@@ -178,7 +178,7 @@ export function SectionDetailsPanel({
     : undefined;
 
   return (
-    <div className="px-2.5 py-2 bg-bg-primary flex flex-col gap-2 animate-[toolbar-details-in_0.12s_ease-out]">
+    <div className="px-2.5 py-2 bg-bg-primary flex flex-col gap-2 animate-toolbar-details-in">
       <section className="mb-0">
         <h3 className="text-[10px] font-semibold text-fg-muted uppercase tracking-[0.4px] mb-1">Metrics</h3>
         <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-x-3.5 gap-y-1">

@@ -1168,7 +1168,7 @@ export function Composer({
           placeholder={placeholder}
           disabled={disabled}
           rows={1}
-          className="flex-1 bg-transparent border-none outline-none text-fg-primary text-[13px] leading-[1.5] resize-none max-h-[160px] min-h-[20px] placeholder:text-fg-muted"
+          className="flex-1 bg-transparent border-none outline-none font-ui text-fg-primary text-[13px] leading-[1.5] resize-none max-h-[160px] min-h-[20px] placeholder:text-fg-muted"
         />
         {status === "running" || status === "cancelling" ? (
           <button

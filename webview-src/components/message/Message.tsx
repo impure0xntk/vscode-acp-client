@@ -188,7 +188,7 @@ export const Message = React.memo(function Message({
     []
   );
 
-  const animationClass = isNew ? "animate-[message-appear_0.2s_ease-out]" : "";
+  const animationClass = isNew ? "animate-message-appear" : "";
 
   return (
     <div
@@ -222,7 +222,7 @@ export const Message = React.memo(function Message({
             ) : (
               <div className="flex items-center gap-[4px]">
                 <div
-                  className={`leading-[1.6] min-w-0 flex-1${isSystem ? " text-fg-secondary" : ""}`}
+                  className={`leading-[1.6] min-w-0 flex-1${isSystem ? " text-fg-secondary italic" : ""}`}
                   dangerouslySetInnerHTML={{
                     __html: renderMarkdown(content, mergedContext),
                   }}
