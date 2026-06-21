@@ -37,15 +37,7 @@ export interface OpenDialogOptions {
   filters?: Record<string, string[]>;
 }
 
-/** Status bar item */
-export interface StatusBarItem {
-  text: string;
-  tooltip: string;
-  command?: string;
-  show(): void;
-  hide(): void;
-  dispose(): void;
-}
+
 
 /** Output channel */
 export interface OutputChannel {
@@ -114,12 +106,7 @@ export interface UIAPI {
     options?: OpenDialogOptions
   ): Promise<PlatformUri[] | undefined>;
 
-  // ── Status bar ──
-  createStatusBarItem(options: {
-    alignment: "left" | "right";
-    priority?: number;
-    command?: string;
-  }): StatusBarItem;
+
 
   // ── Output channel ──
   createOutputChannel(name: string): OutputChannel;

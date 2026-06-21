@@ -20,7 +20,6 @@ export type {
   QuickPickButton,
   InputBoxOptions,
   OpenDialogOptions,
-  StatusBarItem,
   OutputChannel,
   TreeItem,
   TreeDataProvider,

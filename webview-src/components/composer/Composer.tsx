@@ -773,6 +773,7 @@ export function Composer({
             sessionId: item.sessionId!,
             label: item.label,
             status: (info?.status as SendTarget["status"]) ?? "idle",
+            sessionColor: item.sessionColor,
             tokenUsage: info?.tokenUsage,
             contextWindowMax: info?.contextWindowMax,
           };
@@ -1049,7 +1050,7 @@ export function Composer({
     : "Message (Enter to send, Shift+Enter for newline, # file / command, @ session)";
 
   return (
-    <div className="flex-shrink-0 px-3 pt-1.5 pb-2">
+    <div className="composer flex-shrink-0 px-3 pt-1.5 pb-2">
       <ContextBar
         attachments={attachments}
         onRemove={handleRemoveAttachment}

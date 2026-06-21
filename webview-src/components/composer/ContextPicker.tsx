@@ -15,27 +15,28 @@ function formatTokens(n: number): string {
 }
 
 function PickerContextBar({ item }: { item: SuggestionItem }): React.ReactElement | null {
-  const { tokenUsage, contextWindowMax } = item;
-  if (!tokenUsage) return null;
+  const { tokenUsage, contextWindowMax, sessionColor } = item;
+
+  // Show bar if we have token usage OR a session color (for identification)
+  if (!tokenUsage && !sessionColor) return null;
 
   const pct =
-    contextWindowMax && contextWindowMax > 0
+    tokenUsage && contextWindowMax && contextWindowMax > 0
       ? Math.round((tokenUsage.totalTokens / contextWindowMax) * 100)
       : null;
 
-  const color =
-    pct !== null
-      ? pct >= 90
-        ? "ctx-critical"
-        : pct >= 70
-          ? "ctx-warning"
-          : "ctx-normal"
-      : "ctx-normal";
+  const fillColor = pct !== null
+    ? pct >= 90
+      ? "var(--error)"
+      : pct >= 70
+        ? "var(--warning)"
+        : "var(--success)"
+    : (sessionColor ?? "var(--success)");
 
-  const fillHeight = pct !== null ? Math.max(10, Math.min(100, pct)) : 0;
-  const title = pct !== null
+  const fillHeight = pct !== null ? Math.max(10, Math.min(100, pct)) : 100;
+  const title = pct !== null && tokenUsage
     ? `${pct}% (${formatTokens(tokenUsage.totalTokens)} / ${formatTokens(contextWindowMax ?? 0)})`
-    : `${formatTokens(tokenUsage.totalTokens)} tokens used`;
+    : (tokenUsage ? `${formatTokens(tokenUsage.totalTokens)} tokens used` : "Session");
 
   return (
     <span
@@ -45,7 +46,7 @@ function PickerContextBar({ item }: { item: SuggestionItem }): React.ReactElemen
     >
       <span
         className="w-full rounded-[1.5px] transition-[height] duration-300"
-        style={{ height: `${fillHeight}%` }}
+        style={{ height: `${fillHeight}%`, backgroundColor: fillColor }}
       />
     </span>
   );
@@ -195,14 +196,14 @@ export function ContextPicker({
               onClick={() => onSelect(item)}
               onMouseEnter={() => onSelectedIndexChange(i)}
             >
+              {item.kind === "session" ? (
+                <PickerContextBar item={item} />
+              ) : null}
               {item.icon && item.kind !== "session" ? (
                 <Icon name={item.icon} className="shrink-0 text-[13px] w-[18px] text-center" size="sm" />
               ) : null}
               {item.kind === "session" && item.status ? (
                 <StatusIcon status={item.status} />
-              ) : null}
-              {item.kind === "session" ? (
-                <PickerContextBar item={item} />
               ) : null}
               <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-fg-primary">
                 {item.label}

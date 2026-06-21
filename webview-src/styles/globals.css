@@ -33,6 +33,16 @@
   --font-size-2xs: 7px;
   --font-size-3xs: 9px;
 
+  /* ── Spacing ── */
+  --spacing-0\.5: 2px;
+  --spacing-1: 4px;
+  --spacing-1\.5: 6px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+
   /* ── Border radius ── */
   --radius-1: 1px;
   --radius-1\.5: 6px;
@@ -228,6 +238,123 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+}
+
+/* ============================================================================
+   Code blocks (highlight.js + custom wrapper)
+   ============================================================================ */
+
+.code-block-wrapper {
+  margin: 8px 0;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--code-bg);
+  overflow: hidden;
+}
+
+.code-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 12px;
+  background: color-mix(in srgb, var(--bg-secondary) 60%, transparent);
+  border-bottom: 1px solid var(--border);
+  min-height: 28px;
+}
+
+.code-block-header--no-label {
+  justify-content: flex-end;
+  min-height: auto;
+  padding: 2px 8px;
+}
+
+.code-block-lang {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--fg-secondary);
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+}
+
+.code-block-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.code-block-copy:hover {
+  color: var(--fg-primary);
+  background: color-mix(in srgb, var(--fg-muted) 15%, transparent);
+}
+
+.code-block-copy .icon-check {
+  display: none;
+}
+
+.code-block-copy[data-copied="true"] .icon-copy {
+  display: none;
+}
+
+.code-block-copy[data-copied="true"] .icon-check {
+  display: block;
+  color: var(--success);
+}
+
+.code-block-copy--only {
+  /* When no label, keep button compact */
+}
+
+.code-block-wrapper pre.hljs {
+  margin: 0;
+  padding: 12px 16px;
+  overflow-x: auto;
+  font-size: 12px;
+  line-height: 1.55;
+  background: transparent;
+}
+
+/* ============================================================================
+   Inline code links (verified file paths)
+   ============================================================================ */
+
+.inline-code-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--accent);
+  text-decoration: none;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  padding: 0 2px;
+  border-radius: 3px;
+  transition: background 0.15s;
+}
+
+.inline-code-link:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.inline-code-link-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--fg-secondary);
+}
+
+.inline-code-link-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
 }
 
 

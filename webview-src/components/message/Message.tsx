@@ -192,7 +192,7 @@ export const Message = React.memo(function Message({
 
   return (
     <div
-      className={`flex flex-col gap-[2px] py-1 relative overflow-visible ${isSystem ? "opacity-70" : ""} ${animationClass}`}
+      className={`group flex flex-col gap-[2px] py-1 relative overflow-visible ${isSystem ? "opacity-70" : ""} ${animationClass}`}
       data-role={role}
       data-message-id={item.key}
     >

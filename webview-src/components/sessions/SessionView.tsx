@@ -61,6 +61,7 @@ export interface SessionHeaderProps {
   info?: SessionInfoDTO;
   onTogglePin?: () => void;
   onClose?: () => void;
+  onRename?: (agentId: string, sessionId: string, title: string) => void;
 }
 
 export interface SessionFooterProps {
@@ -92,6 +93,7 @@ export interface SessionViewProps {
   onPin?: (key: string) => void;
   onUnpin?: (key: string) => void;
   onClose?: (key: string) => void;
+  onRename?: (agentId: string, sessionId: string, title: string) => void;
   onSplitRatiosChange?: (ratios: number[]) => void;
   scrollToMessageRef?: React.MutableRefObject<
     ((id: string) => void) | undefined
@@ -167,6 +169,7 @@ export const SessionView = React.memo(function SessionView({
   onPin,
   onUnpin,
   onClose,
+  onRename,
   onSplitRatiosChange,
   scrollToMessageRef,
   forceScrollToBottomRef,
@@ -235,6 +238,7 @@ export const SessionView = React.memo(function SessionView({
           onPin={onPin ?? (() => {})}
           onUnpin={onUnpin ?? (() => {})}
           onClose={onClose ?? (() => {})}
+          onRename={onRename}
           onSplitRatiosChange={onSplitRatiosChange ?? (() => {})}
           scrollToMessageRef={scrollToMessageRef}
           forceScrollToBottomRef={forceScrollToBottomRef}
@@ -261,6 +265,7 @@ export const SessionView = React.memo(function SessionView({
         onPin={onPin ?? (() => {})}
         onUnpin={onUnpin ?? (() => {})}
         onClose={onClose ?? (() => {})}
+        onRename={onRename}
         onSplitRatiosChange={onSplitRatiosChange ?? (() => {})}
         scrollToMessageRef={scrollToMessageRef}
         forceScrollToBottomRef={forceScrollToBottomRef}

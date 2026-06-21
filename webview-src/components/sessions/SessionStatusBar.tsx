@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Icon } from "../../lib/icons";
-import { elapsedColor } from "../../shared/elapsedColor";
+import { elapsedColorValue } from "../../shared/elapsedColor";
 import { useSessionInfo } from "../../hooks/useSessionInfo";
 import type { QueuedPrompt } from "../../types";
 
@@ -146,10 +146,11 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
         </div>
       ) : effectiveAction ? (
         (() => {
-          const tierColour = elapsedColor(elapsedSec * 1000);
+          const color = elapsedColorValue(elapsedSec * 1000);
           return (
             <div
-              className={`flex items-center gap-[6px] px-3 py-[2px] text-[11px] font-mono bg-bg-secondary border-b border-border shrink-0 text-[var(--${tierColour})]`}
+              className="flex items-center gap-[6px] px-3 py-[2px] text-[11px] font-mono bg-bg-secondary border-b border-border shrink-0"
+              style={{ color }}
               role="status"
               aria-live="polite"
             >

@@ -179,6 +179,7 @@ const PURIFY_OPTS: PurifyConfig = {
   ADD_TAGS: ["a", "span", "div", "button", "svg", "path"],
   ADD_ATTR: [
     "class",
+    "data-action",
     "data-file-path",
     "title",
     "tabindex",

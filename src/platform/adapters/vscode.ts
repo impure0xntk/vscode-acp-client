@@ -17,7 +17,6 @@ import type {
   QuickPickButton,
   InputBoxOptions,
   OpenDialogOptions,
-  StatusBarItem,
   OutputChannel,
   TreeItem,
   TreeDataProvider,
@@ -201,28 +200,6 @@ export class VscodeUIAPI implements UIAPI {
     const result = await vscode.window.showOpenDialog(options);
     if (!result) return undefined;
     return result.map((uri) => toPlatformUri(uri));
-  }
-
-  createStatusBarItem(options: {
-    alignment: "left" | "right";
-    priority?: number;
-    command?: string;
-  }): StatusBarItem {
-    const alignment =
-      options.alignment === "left"
-        ? vscode.StatusBarAlignment.Left
-        : vscode.StatusBarAlignment.Right;
-    const item = vscode.window.createStatusBarItem(alignment, options.priority);
-    if (options.command) {
-      item.command = options.command;
-    }
-    return {
-      text: "",
-      tooltip: "",
-      show: () => item.show(),
-      hide: () => item.hide(),
-      dispose: () => item.dispose(),
-    };
   }
 
   createOutputChannel(name: string): OutputChannel {

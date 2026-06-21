@@ -10,7 +10,6 @@ import type { ChatMessage } from "../../domain/models/chat";
 import { ChatPanel } from "../../infrastructure/vscode/vscode-ui/chatPanel";
 import { ChatPresenter } from "../../infrastructure/vscode/vscode-ui/presenter";
 import type { AgentStatusTracker } from "../../adapter/agent/status";
-import type { AgentStatusBar } from "../../infrastructure/vscode/vscode-ui/statusbar";
 import type { TreeProvider } from "../../infrastructure/vscode/vscode-ui/tree";
 import type {
   SessionHistoryStore,
@@ -30,7 +29,6 @@ export interface SessionEventDeps {
   getChatPanel: () => ChatPanel | null;
   presenter: ChatPresenter;
   statusTracker: AgentStatusTracker;
-  statusBar: AgentStatusBar;
   treeProvider: TreeProvider;
   historyStore: SessionHistoryUpdate;
   updateContext: () => void;
@@ -50,7 +48,6 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
     orchestrator,
     getChatPanel,
     statusTracker,
-    statusBar,
     treeProvider,
     historyStore,
     updateContext,
@@ -62,7 +59,6 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
   // -----------------------------------------------------------------------
   orchestrator.on("agentConnected", (agentId: string) => {
     statusTracker.updateAgentStatus(agentId, { state: "idle" });
-    statusBar.setConnected(true, agentId);
     updateContext();
     treeProvider.refresh();
     sendTabs();
@@ -185,10 +181,12 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
     ({
       agentId,
       sessionId,
+      active,
       stopReason,
     }: {
       agentId: string;
       sessionId: string;
+      active: boolean;
       stopReason?: string;
     }) => {
       const cp = getChatPanel();

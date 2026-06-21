@@ -16,6 +16,7 @@ export interface GridSessionLayoutProps {
   onPin: (key: string) => void;
   onUnpin: (key: string) => void;
   onClose: (key: string) => void;
+  onRename?: (agentId: string, sessionId: string, title: string) => void;
   onSplitRatiosChange: (ratios: number[]) => void;
   scrollToMessageRef?: React.MutableRefObject<
     ((id: string) => void) | undefined
@@ -37,6 +38,7 @@ export const GridSessionLayout = React.memo(function GridSessionLayout({
   onPin,
   onUnpin,
   onClose,
+  onRename,
   onSplitRatiosChange,
   scrollToMessageRef,
   forceScrollToBottomRef,
@@ -104,6 +106,7 @@ export const GridSessionLayout = React.memo(function GridSessionLayout({
         onPin={onPin}
         onUnpin={onUnpin}
         onClose={onClose}
+        onRename={onRename}
         scrollToMessageRef={scrollToMessageRef}
         forceScrollToBottomRef={forceScrollToBottomRef}
         scrollToUnreadRef={scrollToUnreadRef}

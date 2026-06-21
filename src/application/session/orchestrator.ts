@@ -1032,6 +1032,12 @@ export class SessionOrchestrator extends EventEmitter {
     sessionInfo.isStreaming = true;
     log.debug("turn started", { agentId, sessionId });
 
+    this.emit("sessionTurnActiveChanged", {
+      agentId,
+      sessionId,
+      active: true,
+    });
+
     const promptBlocks: ContentBlock[] = [
       ...(context ?? []),
       { type: "text", text: finalText },

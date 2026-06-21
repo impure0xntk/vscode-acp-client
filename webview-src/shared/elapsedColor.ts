@@ -7,3 +7,13 @@ export function elapsedColor(elapsedMs: number): ElapsedColor {
   if (elapsedMs >= ELAPSED_WARNING_MS) return "warning";
   return "normal";
 }
+
+const colorMap: Record<ElapsedColor, string> = {
+  normal: "var(--fg-primary)",
+  warning: "var(--warning)",
+  critical: "var(--error)",
+};
+
+export function elapsedColorValue(elapsedMs: number): string {
+  return colorMap[elapsedColor(elapsedMs)];
+}

@@ -10,7 +10,7 @@ import type {
   OrchestrationEventType,
 } from "../../domain/models/orchestration";
 import type { TreeProvider } from "../../infrastructure/vscode/vscode-ui/tree";
-import type { AgentStatusBar } from "../../infrastructure/vscode/vscode-ui/statusbar";
+
 
 // ============================================================================
 // Dependencies
@@ -18,7 +18,6 @@ import type { AgentStatusBar } from "../../infrastructure/vscode/vscode-ui/statu
 
 export interface TaskEventDeps {
   treeProvider: TreeProvider;
-  statusBar: AgentStatusBar;
   /** Optional: send task status to webview */
   onTaskUpdate?: (event: OrchestrationEvent) => void;
 }
@@ -38,7 +37,7 @@ export function wireTaskEvents(
   stateManager: StateManagerHandle,
   deps: TaskEventDeps
 ): (() => void)[] {
-  const { treeProvider, statusBar, onTaskUpdate } = deps;
+  const { treeProvider, onTaskUpdate } = deps;
 
   const unsubs: (() => void)[] = [];
 
@@ -62,7 +61,6 @@ export function wireTaskEvents(
   unsubs.push(
     stateManager.subscribe("agent.handoff", (event: OrchestrationEvent) => {
       treeProvider.refresh();
-      statusBar.refresh();
       onTaskUpdate?.(event);
     })
   );

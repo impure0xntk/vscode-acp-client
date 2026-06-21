@@ -578,7 +578,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
       )}
 
       <div
-        className={`flex flex-1 min-h-0 overflow-y-auto px-3 py-2 flex-col relative${showStickyBar ? " pt-0" : ""}`}
+        className={`flex-1 min-h-0 overflow-y-auto px-3 py-2 flex flex-col relative${showStickyBar ? " pt-0" : ""}`}
         ref={containerRef}
         onScroll={handleScrollWithSticky}
         data-messages-scroll-container="true"

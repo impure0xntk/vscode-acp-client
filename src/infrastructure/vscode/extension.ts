@@ -14,7 +14,6 @@ import { AgentRegistry } from "../../adapter/agent/registry";
 import { AgentStatusTracker } from "../../adapter/agent/status";
 import { SessionHistoryStore } from "../../application/session/historyStore";
 import { PersistentHistoryStore } from "../../application/session/persistentHistory";
-import { AgentStatusBar } from "./vscode-ui/statusbar";
 import { ChatPanel } from "./vscode-ui/chatPanel";
 import { ChatPresenter } from "./vscode-ui/presenter";
 import {
@@ -69,7 +68,6 @@ let registry: AgentRegistry;
 let statusTracker: AgentStatusTracker;
 let historyStore: SessionHistoryStore;
 let persistentHistory: PersistentHistoryStore | null = null;
-let statusBar: AgentStatusBar;
 let treeProvider: ReturnType<typeof createAgentTreeProvider>;
 let chatPanel: ChatPanel | null = null;
 let meshOrchestrator: MeshOrchestrator | null = null;
@@ -403,7 +401,6 @@ export async function activate(
   await platform.initialize();
   log.info("ACP Client extension activated");
 
-  statusBar = new AgentStatusBar(platform.ui);
   registry = new AgentRegistry(platform);
   orchestrator = new SessionOrchestrator({ ui: platform.ui, fs: platform.fs });
 
@@ -520,7 +517,6 @@ export function deactivate(): void {
   orchestrator.dispose();
   persistentHistory?.dispose();
   statusTracker.dispose();
-  statusBar.dispose();
   void platform?.dispose();
   log.info("extension deactivated");
 }
@@ -535,7 +531,6 @@ function wireOrchestratorEvents(meshOrch: MeshOrchestrator): void {
     getChatPanel,
     presenter,
     statusTracker,
-    statusBar,
     treeProvider,
     historyStore,
     updateContext,

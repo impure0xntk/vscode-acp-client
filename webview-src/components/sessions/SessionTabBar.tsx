@@ -327,6 +327,7 @@ interface UnifiedTabProps {
   onClick: () => void;
   onClose: () => void;
   onTogglePin: () => void;
+  onRename?: (agentId: string, sessionId: string, title: string) => void;
 }
 
 const UnifiedTab = React.memo(function UnifiedTab({
@@ -338,8 +339,12 @@ const UnifiedTab = React.memo(function UnifiedTab({
   onClick,
   onClose,
   onTogglePin,
+  onRename,
 }: UnifiedTabProps): React.ReactElement {
   const [isHovered, setIsHovered] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(tab.title);
+  const renameInputRef = useRef<HTMLInputElement>(null);
   const sessionKey = sessionKeyOf(tab.agentId, tab.sessionId);
   const info = useSessionInfo(sessionKey);
 
@@ -368,9 +373,45 @@ const UnifiedTab = React.memo(function UnifiedTab({
       ? Date.now() - new Date(info.lastResponseAt).getTime()
       : undefined;
 
+  // Inline rename state
+  useEffect(() => {
+    if (isRenaming && renameInputRef.current) {
+      renameInputRef.current.focus();
+      renameInputRef.current.select();
+    }
+  }, [isRenaming]);
+
+  // Sync rename value when tab.title changes externally
+  useEffect(() => {
+    if (!isRenaming) {
+      setRenameValue(tab.title);
+    }
+  }, [tab.title, isRenaming]);
+
+  const handleRenameSubmit = useCallback(() => {
+    const trimmed = renameValue.trim();
+    if (trimmed && trimmed !== tab.title && onRename) {
+      onRename(tab.agentId, tab.sessionId, trimmed);
+    }
+    setIsRenaming(false);
+  }, [renameValue, tab.title, tab.agentId, tab.sessionId, onRename]);
+
+  const handleRenameKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleRenameSubmit();
+      } else if (e.key === "Escape") {
+        setRenameValue(tab.title);
+        setIsRenaming(false);
+      }
+    },
+    [handleRenameSubmit, tab.title]
+  );
+
   return (
     <div
-      className={`inline-flex items-center gap-1 px-2 py-1 border border-transparent rounded bg-transparent text-fg-secondary text-[11px] whitespace-nowrap cursor-pointer shrink-0 transition-all duration-150${isActive ? " bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] text-fg-primary" : ""}${isHovered ? " bg-accent-hover" : ""}`}
+      className={`inline-flex items-center gap-1 px-2 py-1 border border-transparent rounded bg-transparent text-[11px] whitespace-nowrap cursor-pointer shrink-0 transition-all duration-150${isActive ? " bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] text-fg-primary font-semibold" : " text-fg-secondary"}${isHovered && !isActive ? " bg-accent-hover" : ""}`}
       onClick={onClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -379,7 +420,10 @@ const UnifiedTab = React.memo(function UnifiedTab({
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onClick();
       }}
-      style={{ borderLeft: `3px solid ${agentColor ?? "transparent"}` }}
+      style={{
+        borderLeft: `3px solid ${agentColor ?? "transparent"}`,
+        boxShadow: isActive ? `inset 0 -2px 0 0 ${agentColor ?? "var(--accent)"}` : "none",
+      }}
     >
       <StatusIcon status={status} elapsedMs={elapsedMs} />
       <span
@@ -389,9 +433,31 @@ const UnifiedTab = React.memo(function UnifiedTab({
       >
         {tab.agentId}
       </span>
-      <span className="max-w-[80px] overflow-hidden text-ellipsis whitespace-nowrap shrink min-w-0 text-[11px] text-fg-secondary" title={tab.title}>
-        {tab.title.length > 12 ? `${tab.title.slice(0, 12)}…` : tab.title}
-      </span>
+      {isRenaming ? (
+        <input
+          ref={renameInputRef}
+          className="min-w-[40px] max-w-[100px] text-[11px] bg-transparent border border-accent rounded px-1 py-0 outline-none text-fg-primary"
+          value={renameValue}
+          onChange={(e) => setRenameValue(e.target.value)}
+          onBlur={handleRenameSubmit}
+          onKeyDown={handleRenameKeyDown}
+          onClick={(e) => e.stopPropagation()}
+        />
+      ) : (
+        <span
+          className="max-w-[80px] overflow-hidden text-ellipsis whitespace-nowrap shrink min-w-0 text-[11px] text-fg-secondary"
+          title={`${tab.title} (double-click to rename)`}
+          onDoubleClick={(e) => {
+            if (onRename && !isRenaming) {
+              e.stopPropagation();
+              setIsRenaming(true);
+              setRenameValue(tab.title);
+            }
+          }}
+        >
+          {tab.title.length > 12 ? `${tab.title.slice(0, 12)}…` : tab.title}
+        </span>
+      )}
       {/* Pin button — clickable, toggles pin state */}
       <button
         className="shrink-0 w-[18px] h-[18px] inline-flex items-center justify-center p-0 border-none rounded-[3px] bg-transparent text-fg-muted cursor-pointer transition-all duration-150 opacity-70 hover:bg-accent-hover hover:text-fg-primary"
@@ -438,6 +504,7 @@ interface UnifiedTabBarProps {
   onTabClose: (key: string) => void;
   onTogglePin: (key: string) => void;
   onNewSession: () => void;
+  onRenameSession?: (agentId: string, sessionId: string, title: string) => void;
   layoutMode: LayoutMode;
   splitDirection: "vertical" | "horizontal";
   onLayoutChange: (mode: LayoutMode) => void;
@@ -453,6 +520,7 @@ function UnifiedTabBar({
   onTabClose,
   onTogglePin,
   onNewSession,
+  onRenameSession,
   layoutMode,
   splitDirection,
   onLayoutChange,
@@ -478,6 +546,7 @@ function UnifiedTabBar({
               onClick={() => onTabClick(key)}
               onClose={() => onTabClose(key)}
               onTogglePin={() => onTogglePin(key)}
+              onRename={onRenameSession}
             />
           );
         })}
@@ -585,6 +654,7 @@ export const SessionTabBar = React.memo(function SessionTabBar({
         onTabClose={onTabClose}
         onTogglePin={onTogglePin}
         onNewSession={onNewSession}
+        onRenameSession={onRenameSession}
         layoutMode={layoutMode}
         splitDirection={splitDirection}
         onLayoutChange={onLayoutChange}

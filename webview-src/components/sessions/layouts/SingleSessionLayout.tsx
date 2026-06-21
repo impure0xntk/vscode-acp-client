@@ -14,6 +14,7 @@ import type {
 } from "../../../types";
 import { getVsCodeApi } from "../../../lib/vscodeApi";
 import { getLogger } from "../../../lib/logger";
+import type { TurnOutcome } from "../../primitives/StatusIcon";
 
 const log = getLogger("SingleSessionLayout");
 
@@ -92,6 +93,44 @@ export const SingleSessionLayout = React.memo(function SingleSessionLayout({
   const sessionQueue = activeKey ? (promptQueue[activeKey] ?? []) : [];
   const status = activeSessionInfo?.status ?? "idle";
   const isTurnActive = status === "running";
+
+  // ── Flash border on turn complete ─────────────────────────────────
+  const prevOutcomeRef = useRef<TurnOutcome | null | undefined>(undefined);
+  const [isFlashing, setIsFlashing] = useState(false);
+
+  useEffect(() => {
+    const prev = prevOutcomeRef.current;
+    const current = activeSessionInfo?.lastTurnOutcome ?? null;
+    if (prev === undefined) {
+      prevOutcomeRef.current = current;
+      return;
+    }
+    const isTerminal =
+      current === "completed" || current === "error" || current === "cancelled";
+    const isNew = current !== prev;
+    if (isTerminal && isNew) {
+      setIsFlashing(true);
+    }
+    prevOutcomeRef.current = current;
+  }, [activeSessionInfo?.lastTurnOutcome]);
+
+  const handleAnimationEnd = useCallback(() => {
+    setIsFlashing(false);
+  }, []);
+
+  const flashAnimClass =
+    isFlashing &&
+    (activeSessionInfo?.lastTurnOutcome === "completed" ||
+      activeSessionInfo?.lastTurnOutcome === "error")
+      ? "animate-usec-flash-border"
+      : "";
+
+  const flashColor =
+    activeSessionInfo?.lastTurnOutcome === "error"
+      ? "var(--error)"
+      : activeSessionInfo?.lastTurnOutcome === "cancelled"
+        ? "var(--warning)"
+        : "var(--success)";
 
   const handleScroll = useCallback(
     (metrics: {
@@ -276,7 +315,11 @@ export const SingleSessionLayout = React.memo(function SingleSessionLayout({
   }, [activeKey]);
 
   return (
-    <div className="flex flex-col relative h-full overflow-hidden">
+    <div
+      className={`flex flex-col relative h-full overflow-hidden${isFlashing ? ` ${flashAnimClass}` : ""}`}
+      onAnimationEnd={handleAnimationEnd}
+      style={isFlashing ? { "--usec-flash-color": flashColor } as React.CSSProperties : undefined}
+    >
       <SessionChatContainer
         key={activeKey ?? "none"}
         sessionKey={activeKey}

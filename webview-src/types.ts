@@ -328,6 +328,8 @@ export interface SendTarget {
     | "completed"
     | "error"
     | "cancelled";
+  /** Session color from connected agents list — used for identification bar */
+  sessionColor?: string;
   /** Token usage for context chip display */
   tokenUsage?: {
     inputTokens: number;

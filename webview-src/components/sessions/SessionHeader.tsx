@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useRef, useEffect } from "react";
 import { useLogger } from "../../hooks/useLogger";
 import type { ChatMessage } from "../../types";
 import type {
@@ -37,6 +37,7 @@ export interface SessionHeaderProps {
   onTogglePin?: () => void;
   onClose?: () => void;
   onClick?: () => void;
+  onRename?: (agentId: string, sessionId: string, title: string) => void;
   splitDirection?: "vertical" | "horizontal";
   messageCount?: number;
   info?: SessionInfoDTO;
@@ -65,6 +66,7 @@ export const SessionHeader = React.memo(function SessionHeader({
   isPinned,
   onTogglePin,
   onClose,
+  onRename,
   splitDirection = "horizontal",
   messageCount = 0,
   info,
@@ -73,6 +75,51 @@ export const SessionHeader = React.memo(function SessionHeader({
   onForkSession,
 }: SessionHeaderProps): React.ReactElement {
   const log = useLogger("SessionHeader");
+
+  // ── Inline rename state for header title ─────────────────────────────
+
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+  const renameInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync rename value from info.sessionId when not renaming
+  useEffect(() => {
+    if (!isRenaming && info?.sessionId) {
+      const currentTitle = info.sessionId ?? agentId ?? "";
+      if (renameValue !== currentTitle) {
+        setRenameValue(currentTitle.slice(0, 8));
+      }
+    }
+  }, [isRenaming, info?.sessionId, agentId, renameValue]);
+
+  useEffect(() => {
+    if (isRenaming && renameInputRef.current) {
+      renameInputRef.current.focus();
+      renameInputRef.current.select();
+    }
+  }, [isRenaming]);
+
+  const handleRenameSubmit = useCallback(() => {
+    const trimmed = renameValue.trim();
+    const currentSessionId = info?.sessionId ?? "";
+    if (trimmed && trimmed !== currentSessionId.slice(0, 8) && onRename && agentId) {
+      onRename(agentId, currentSessionId, trimmed);
+    }
+    setIsRenaming(false);
+  }, [renameValue, info?.sessionId, onRename, agentId]);
+
+  const handleRenameKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleRenameSubmit();
+      } else if (e.key === "Escape") {
+        setRenameValue(info?.sessionId?.slice(0, 8) ?? "");
+        setIsRenaming(false);
+      }
+    },
+    [handleRenameSubmit, info?.sessionId]
+  );
 
   // Unified mode: compact header with accent bar
   if (color) {
@@ -108,7 +155,6 @@ export const SessionHeader = React.memo(function SessionHeader({
     );
 
     const isHorizontal = splitDirection === "horizontal";
-    const activeBg = isActive ? `${color}20` : `${color}14`;
 
     // Turn outcome chip only (no message/token count in header)
     const turnChip: ToolbarMeta | null = (() => {
@@ -168,25 +214,55 @@ export const SessionHeader = React.memo(function SessionHeader({
       };
     })();
 
-    const title = info?.sessionId ?? agentId ?? "";
+    const title = info?.sessionId?.slice(0, 8) ?? agentId ?? "";
 
     return (
       <div
-        className={`flex items-center gap-1 shrink-0 bg-bg-secondary border-b border-border min-h-[32px] relative${isActive ? " bg-[color-mix(in_srgb,var(--accent)_12%,var(--bg-secondary))]" : ""}`}
+        className={`flex items-center gap-1 shrink-0 bg-bg-secondary border-b border-border min-h-[32px] relative${isActive ? "" : ""}`}
         data-color={color}
         data-is-horizontal={isHorizontal ? "true" : undefined}
-        style={{ "--section-accent-color": color } as React.CSSProperties}
+        style={{
+          "--section-accent-color": color,
+          ...(isActive ? { backgroundColor: `${color}18` } : {}),
+        } as React.CSSProperties}
       >
         <div className="absolute top-0 bottom-0 left-0 w-[3px] bg-[var(--section-accent-color,var(--accent))] shrink-0 z-10 pointer-events-none" aria-hidden="true" />
         <button
           className="flex-1 flex items-center gap-2 px-2 py-1 border-none bg-transparent text-fg-primary text-[11px] cursor-pointer text-left min-w-0 transition-colors duration-150"
           onClick={handleClick}
           type="button"
-          style={{ backgroundColor: activeBg }}
         >
-          <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-mono text-fg-primary">
-            {agentId}: {title}
+          <span
+            className="font-semibold font-mono text-[11px] shrink-0"
+            style={{ color: color ?? "var(--vscode-descriptionForeground)" }}
+          >
+            {agentId}
           </span>
+          {isRenaming ? (
+            <input
+              ref={renameInputRef}
+              className="flex-1 min-w-[40px] text-[11px] bg-transparent border border-accent rounded px-1 py-0 outline-none text-fg-primary"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onBlur={handleRenameSubmit}
+              onKeyDown={handleRenameKeyDown}
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <span
+              className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-mono text-fg-primary"
+              title={`${title} (double-click to rename)`}
+              onDoubleClick={(e) => {
+                if (onRename && !isRenaming) {
+                  e.stopPropagation();
+                  setIsRenaming(true);
+                  setRenameValue(title);
+                }
+              }}
+            >
+              {title}
+            </span>
+          )}
           <span className="inline-flex items-center gap-[3px] ml-auto shrink-0 overflow-hidden">
             {turnChip && <Chip meta={turnChip} />}
           </span>

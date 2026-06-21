@@ -18,13 +18,6 @@ function makeUI(): UIAPI {
     showQuickPick: async () => undefined,
     showInputBox: async () => undefined,
     showOpenDialog: async () => undefined,
-    createStatusBarItem: () => ({
-      text: "",
-      tooltip: "",
-      show() {},
-      hide() {},
-      dispose() {},
-    }),
     createOutputChannel: () => ({
       appendLine() {},
       show() {},

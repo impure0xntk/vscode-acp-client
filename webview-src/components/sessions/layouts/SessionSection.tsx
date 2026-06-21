@@ -22,6 +22,7 @@ export interface SessionSectionProps {
   onPin: (key: string) => void;
   onUnpin: (key: string) => void;
   onClose: (key: string) => void;
+  onRename?: (agentId: string, sessionId: string, title: string) => void;
   scrollToMessageRef?: React.MutableRefObject<
     ((id: string) => void) | undefined
   >;
@@ -48,6 +49,7 @@ export const SessionSection = React.memo(function SessionSection({
   onPin,
   onUnpin,
   onClose,
+  onRename,
   scrollToMessageRef,
   forceScrollToBottomRef,
   scrollToUnreadRef,
@@ -59,6 +61,7 @@ export const SessionSection = React.memo(function SessionSection({
   const info = useSessionInfo(sessionKey);
   const color = getSessionColor(sessionKey);
 
+  // ── Flash border on turn complete ─────────────────────────────────
   const prevOutcomeRef = useRef<TurnOutcome | null | undefined>(undefined);
   const [isFlashing, setIsFlashing] = useState(false);
 
@@ -82,14 +85,19 @@ export const SessionSection = React.memo(function SessionSection({
     setIsFlashing(false);
   }, []);
 
-  const flashingStatus = isFlashing
-    ? (info?.lastTurnOutcome ?? info?.status)
-    : undefined;
-
   const flashAnimClass =
-    flashingStatus === "completed" || flashingStatus === "error"
+    isFlashing &&
+    (info?.lastTurnOutcome === "completed" ||
+      info?.lastTurnOutcome === "error")
       ? "animate-usec-flash-border"
       : "";
+
+  const flashColor =
+    info?.lastTurnOutcome === "error"
+      ? "var(--error)"
+      : info?.lastTurnOutcome === "cancelled"
+        ? "var(--warning)"
+        : "var(--success)";
 
   useEffect(() => {
     if (!info) {
@@ -143,7 +151,10 @@ export const SessionSection = React.memo(function SessionSection({
     <div
       className={`${sectionClassName} ${flashAnimClass} flex flex-col min-h-0 h-full`}
       onAnimationEnd={handleAnimationEnd}
-      style={sectionStyle}
+      style={{
+        ...sectionStyle,
+        ...(isFlashing ? { "--usec-flash-color": flashColor } : {}),
+      }}
     >
       {renderHeader ? (
         renderHeader({
@@ -160,6 +171,7 @@ export const SessionSection = React.memo(function SessionSection({
           onTogglePin: () =>
             isPinned ? onUnpin(sessionKey) : onPin(sessionKey),
           onClose: () => onClose(sessionKey),
+          onRename,
         })
       ) : (
         <SessionHeader
@@ -177,6 +189,7 @@ export const SessionSection = React.memo(function SessionSection({
             isPinned ? onUnpin(sessionKey) : onPin(sessionKey)
           }
           onClose={() => onClose(sessionKey)}
+          onRename={onRename}
           info={info}
         />
       )}
