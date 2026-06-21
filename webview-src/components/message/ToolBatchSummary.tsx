@@ -113,7 +113,9 @@ export function ToolBatchSummary({
 
   // ── All-same-status: single collapsible via chevron ──
   if (!hasErrors || hasOnlyErrors) {
-    const [expanded, setExpanded] = useState(false);
+    // All-error batches auto-expand so failures are immediately visible,
+    // matching the mixed-errors behaviour.
+    const [expanded, setExpanded] = useState(hasOnlyErrors);
 
     const statusClass =
       status === "in_progress"
