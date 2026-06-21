@@ -141,7 +141,7 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
   if (visibleKeys.length === 0) {
     log.debug("no visible sessions — rendering empty state");
     return (
-      <div className="multi-session-view multi-session-view--empty">
+      <div className="flex flex-col flex-1 min-h-0 overflow-hidden items-center justify-center text-xs text-fg-muted">
         <p>No sessions pinned. Pin a session to see it here.</p>
       </div>
     );
@@ -204,19 +204,9 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
     );
   };
 
-  const containerClassName = [
-    "multi-session-view",
-    `multi-session-view--split`,
-    splitDirection === "horizontal"
-      ? "flex-row items-stretch"
-      : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-
   return (
-    <div className="multi-session-view-wrapper flex flex-col flex-1 min-h-0 overflow-hidden">
-      <div className={containerClassName} ref={containerRef}>
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+      <div className={`flex flex-col flex-1 min-h-0 overflow-hidden${splitDirection === "horizontal" ? " flex-row items-stretch" : ""}`} ref={containerRef}>
         {visibleKeys.map((key, i) => {
           const isFocus = key === focusKey;
           const section = renderSection(key, isFocus);
@@ -225,7 +215,7 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
             <React.Fragment key={key}>
               {section}
               <div
-                className={`h-1 shrink-0 bg-border transition-colors duration-150${splitDirection === "horizontal" ? " cursor-col-resize self-stretch" : " cursor-row-resize"}`}
+                className={`shrink-0 h-[4px] transition-colors duration-150 hover:bg-accent${splitDirection === "horizontal" ? " w-[4px] h-auto cursor-col-resize self-stretch" : " cursor-row-resize"}`}
                 onMouseDown={handleDividerMouseDown(i)}
               />
             </React.Fragment>

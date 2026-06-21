@@ -163,15 +163,24 @@ export function SessionOverviewCard({
     }
   }, [selectionMode, onSelect, session.sessionId, onFocus]);
 
+  const statusValue =
+    liveItem.status === "idle" && effectiveOutcome
+      ? effectiveOutcome
+      : liveItem.status;
+
+  const colorGroup = sessionColorGroup(liveItem.status);
+
+  const borderLeftClass = {
+    active: "border-l-[#4fc3f7]",
+    waiting: "border-l-[#ffd54f]",
+    error: "border-l-error",
+  }[colorGroup] ?? "border-l-transparent";
+
   return (
     <div
-      className={`session-overview-card mx-1 px-2 py-1.5 rounded bg-bg-primary border border-transparent border-l-2 border-l-transparent cursor-pointer transition-[background,border-color] duration-150 ease-[ease]${isExpanded ? " bg-bg-secondary" : ""}${isActive ? " bg-[color-mix(in_srgb,var(--accent)_12%,transparent)]" : ""}${isSelected ? " border-accent bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]" : ""}`}
-      data-status={
-        liveItem.status === "idle" && effectiveOutcome
-          ? effectiveOutcome
-          : liveItem.status
-      }
-      data-color-group={sessionColorGroup(liveItem.status)}
+      className={`p-[6px 8px] m-[2px 4px] bg-bg-primary border border-[transparent] border-l border-[transparent] rounded-md cursor-pointer hover:border-accent focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1 ${borderLeftClass}${isExpanded ? " bg-bg-secondary" : ""}${isActive ? " bg-[color-mix(in_srgb,var(--accent)_12%,transparent)]" : ""}${isSelected ? " border-accent bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]" : ""}`}
+      data-status={statusValue}
+      data-color-group={colorGroup}
       data-elapsed-tier={tier}
       data-flashing={flashingStatus}
       onAnimationEnd={handleAnimationEnd}
@@ -197,7 +206,7 @@ export function SessionOverviewCard({
           <SessionOverviewHeader session={liveItem} agentColor={agentColor} />
         </div>
         <button
-          className="flex-shrink-0 inline-flex items-center justify-center w-[18px] h-[18px] p-0 border-none rounded-[3px] bg-bg-secondary text-fg-secondary text-xs leading-none cursor-pointer transition-colors duration-150 hover:bg-error hover:text-user-fg"
+          className="inline-flex shrink-0 items-center justify-center p-[0] w-[20px] h-[20px] text-xs text-fg-muted bg-transparent border-none rounded-sm cursor-pointer hover:text-user-fg hover:bg-error"
           type="button"
           aria-label="Close session"
           onClick={(e) => {
@@ -219,19 +228,21 @@ export function SessionOverviewCard({
       />
 
       {/* Footer: timestamp + unread badge (bottom-right) */}
-      <div className="flex items-center justify-between mt-1 pt-1 border-t border-[color-mix(in_srgb,var(--border)_30%,transparent)]">
-        <span className="text-[9px] text-fg-muted font-[var(--font-mono)]">
-          {new Date(
-            liveItem.lastResponseAt ?? liveItem.createdAt
-          ).toLocaleTimeString()}
-        </span>
+      <div className="flex flex-col gap-0.5 mt-1">
+        <div className="flex items-center justify-between pt-1 border-t border-[color-mix(in_srgb,var(--border)_30%,transparent)]">
+          <span className="text-[9px] text-fg-muted font-[var(--font-mono)]">
+            {new Date(
+              liveItem.lastResponseAt ?? liveItem.createdAt
+            ).toLocaleTimeString()}
+          </span>
 
-        <div className="flex items-center gap-0.5 shrink-0">
-          <UnreadBadge
-            count={unreadCount}
-            hidden={isActive}
-            className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-[8px] bg-accent text-user-fg text-[9px] font-bold leading-none shadow-[0_1px_3px_rgba(0,0,0,0.35)] pointer-events-none shrink-0 ml-1"
-          />
+          <div className="flex items-center gap-0.5 shrink-0">
+            <UnreadBadge
+              count={unreadCount}
+              hidden={isActive}
+              className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-[8px] bg-accent text-user-fg text-[9px] font-bold leading-none shadow-[0_1px_3px_rgba(0,0,0,0.35)] pointer-events-none shrink-0 ml-1"
+            />
+          </div>
         </div>
       </div>
     </div>

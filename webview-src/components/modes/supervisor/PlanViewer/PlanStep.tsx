@@ -62,7 +62,7 @@ export function PlanStepView({
 
   return (
     <div
-      className={`plan-step flex flex-col gap-1 px-2 py-1 rounded-[3px] bg-bg-primary border-l-2${step.status === "pending" ? " border-l-[var(--fg-muted)]" : step.status === "assigned" ? " border-l-[var(--accent)]" : step.status === "in_progress" ? " border-l-[#4fc3f7]" : step.status === "completed" ? " border-l-[var(--success)]" : step.status === "failed" ? " border-l-[var(--error)]" : step.status === "skipped" ? " border-l-[var(--fg-muted)] opacity-50" : " border-l-transparent"}`}
+      className={`flex flex-col gap-1 px-2 py-1 rounded-[3px] bg-bg-primary border-l-2${step.status === "pending" ? " border-l-[var(--fg-muted)]" : step.status === "assigned" ? " border-l-[var(--accent)]" : step.status === "in_progress" ? " border-l-[#4fc3f7]" : step.status === "completed" ? " border-l-[var(--success)]" : step.status === "failed" ? " border-l-[var(--error)]" : step.status === "skipped" ? " border-l-[var(--fg-muted)] opacity-50" : " border-l-transparent"}`}
     >
       <div className="flex items-center gap-1.5">
         <Icon

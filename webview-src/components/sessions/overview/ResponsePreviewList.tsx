@@ -25,20 +25,20 @@ export function ResponsePreviewList({
   const items = responses.slice(-maxItems);
 
   return (
-    <div className={`mt-1 flex flex-col gap-0.5 ${className}`.trim()}>
+    <div className={`flex flex-col gap-0.5 mt-[4px] ${className}`.trim()}>
       {items.map((r) => (
         <div
           key={r.messageId}
-          className={`flex items-start gap-1 px-1 py-0.5 rounded-sm text-[10px] leading-[1.4] response-preview-item--${r.role}`}
+          className={`flex items-start gap-1 p-[2px 4px] text-2xs rounded-sm leading-[1.4] ${r.role === "agent" ? "text-fg-secondary" : "text-fg-muted"}`}
         >
           {r.status && (
             <Icon
               name={STATUS_ICON[r.status] ?? "loading"}
-              className="shrink-0 text-[9px] w-[10px] text-center mt-px"
+              className="shrink-0 mt-[1px] w-[10px] text-3xs text-center"
               size="sm"
             />
           )}
-          <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap" title={r.preview}>
+          <span className="flex-1 min-w-0 overflow-hidden whitespace-nowrap truncate" title={r.preview}>
             {r.preview}
           </span>
         </div>

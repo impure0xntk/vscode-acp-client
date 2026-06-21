@@ -42,7 +42,7 @@ function openFileFromLink(e: React.MouseEvent<HTMLElement>): void {
 
 function copyCodeBlock(e: React.MouseEvent<HTMLElement>): void {
   const btn = e.currentTarget as HTMLElement;
-  const wrapper = btn.closest(".code-block-wrapper") as HTMLElement | null;
+  const wrapper = btn.closest("[data-code-block-wrapper]") as HTMLElement | null;
   if (!wrapper) return;
   const codeEl = wrapper.querySelector("code");
   if (!codeEl) return;

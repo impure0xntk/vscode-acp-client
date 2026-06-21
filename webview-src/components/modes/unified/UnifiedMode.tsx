@@ -308,7 +308,7 @@ export const UnifiedMode = React.memo(function UnifiedMode({
 
   return (
     <div
-      className={`unified-mode flex flex-col flex-1 min-h-0 overflow-hidden h-full${layoutMode === "split" ? " unified-mode--split" : layoutMode === "grid" ? " unified-mode--grid" : ""}`}
+      className={`flex flex-col flex-1 min-h-0 overflow-hidden h-full${layoutMode === "split" ? " unified-mode--split" : layoutMode === "grid" ? " unified-mode--grid" : ""}`}
     >
       <SessionTabBar
         tabs={tabs}

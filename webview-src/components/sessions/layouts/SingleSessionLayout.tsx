@@ -292,12 +292,12 @@ export const SingleSessionLayout = React.memo(function SingleSessionLayout({
         />
         {unreadCount > 0 && (
           <button
-            className="absolute bottom-4 right-4 z-10 pointer-events-auto flex items-center justify-center w-8 h-8 p-0 border border-border rounded-full bg-bg-secondary text-fg-primary shadow-[0_2px_8px_rgba(0,0,0,0.3)] cursor-pointer transition-[background,border-color,transform,opacity] duration-150 ease-in-out"
+            className="flex items-center justify-center p-[0] w-[32px] h-[32px] absolute right-[16px] bottom-[16px] z-[10] text-fg-primary bg-bg-secondary border border-border rounded-full cursor-pointer hover:border-accent"
             onClick={handleScrollToBottomClick}
             aria-label="Scroll to unread"
           >
-            <span className="scroll-to-bottom-icon">↧</span>
-            <span className="scroll-to-bottom-badge">{unreadCount}</span>
+            <span className="text-sm leading-none">↧</span>
+            <span className="flex items-center justify-center p-[0 3px] h-[16px] min-w-[16px] absolute top-[-6px] right-[-6px] text-3xs font-semibold text-user-fg bg-accent rounded-lg leading-none">{unreadCount}</span>
           </button>
         )}
       </div>

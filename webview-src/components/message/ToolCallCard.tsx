@@ -177,10 +177,10 @@ export function ToolCallCard({
 
   return (
     <div
-      className={`mt-0 max-w-full ml-3 mr-3 rounded overflow-hidden text-[10px] bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]${status === "completed" ? " tool-call-completed" : ""}`}
+      className={`mt-0 max-w-full ml-3 mr-3 rounded overflow-hidden text-[10px] bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]${status === "completed" ? " opacity-[0.7]" : ""}`}
     >
       <button
-        className={`tool-call-header-clickable flex items-center gap-[3px] px-[6px] font-mono text-[10px] text-fg-muted w-fit max-w-full border-none bg-transparent text-left transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]${hasBody ? " cursor-pointer" : ""}`}
+        className={`flex items-center gap-[3px] px-[6px] font-mono text-[10px] text-fg-muted w-fit max-w-full border-none bg-transparent text-left transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]${hasBody ? " cursor-pointer" : ""}`}
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
       >

@@ -116,7 +116,7 @@ function codeBlockTemplate(
       `</button></div>`;
 
   return (
-    `<div class="code-block-wrapper"${labelAttr} data-label="${escapedLabel}">` +
+    `<div class="code-block-wrapper" data-code-block-wrapper${labelAttr} data-label="${escapedLabel}">` +
     headerHtml +
     `<pre class="hljs"><code>${codeHtml}</code></pre>` +
     `</div>`

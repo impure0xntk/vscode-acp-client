@@ -68,7 +68,7 @@ function ErrorsGroup({
       {errors.map((call) => (
         <div
           key={call.id}
-          className="tool-batch-item flex items-center gap-1 px-[3px] py-[1px] text-[9px] font-mono text-fg-secondary rounded-[2px] hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]"
+          className="flex items-center gap-1 px-[3px] py-[1px] text-[9px] font-mono text-fg-secondary rounded-[2px] hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]"
         >
           <ToolCallCard {...call} />
         </div>
@@ -95,7 +95,7 @@ export function ToolBatchSummary({
   if (calls.length === 1) {
     return (
       <div
-        className={`tool-batch-item flex items-center gap-1 px-[3px] py-[1px] text-[9px] font-mono text-fg-secondary rounded-[2px] hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)] ${appearClass}`}
+        className={`flex items-center gap-1 px-[3px] py-[1px] text-[9px] font-mono text-fg-secondary rounded-[2px] hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)] ${appearClass}`}
       >
         <ToolCallCard {...calls[0]} />
       </div>
@@ -106,9 +106,20 @@ export function ToolBatchSummary({
   if (!hasErrors || hasOnlyErrors) {
     const [expanded, setExpanded] = useState(false);
 
+    const statusClass =
+      status === "in_progress"
+        ? "text-[#4fc3f7]"
+        : status === "completed"
+          ? "text-success"
+          : status === "failed"
+            ? "text-error"
+            : status === "cancelled"
+              ? "text-fg-muted"
+              : "";
+
     return (
       <div
-        className={`tool-batch${expanded ? " overflow-visible" : ""} tool-call-${status} ${appearClass} mt-[2px] rounded overflow-hidden text-[10px] bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]`}
+        className={`${expanded ? "overflow-visible" : ""} ${statusClass} ${appearClass} mt-[2px] rounded overflow-hidden text-[10px] bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]`}
       >
         <button
           className="flex items-center gap-[3px] px-[6px] w-fit max-w-full border-none bg-transparent text-fg-primary font-[var(--font-ui)] text-[10px] cursor-pointer text-left transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]"
@@ -154,11 +165,11 @@ export function ToolBatchSummary({
 
         <div className={`grid transition-[grid-template-rows] duration-200 ease-out${expanded ? " grid-rows-[1fr]" : " grid-rows-[0fr]"}`}>
           <div className="overflow-hidden">
-            <div className="tool-batch-body px-[12px] pb-[2px] pt-[1px] flex flex-col gap-[1px] bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)] animate-[tool-batch-expand_0.15s_ease-out]">
+            <div className="px-[12px] pb-[2px] pt-[1px] flex flex-col gap-[1px] bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)] animate-[tool-batch-expand_0.15s_ease-out]">
               {calls.map((call) => (
                 <div
                   key={call.id}
-                  className="tool-batch-item flex items-center gap-1 px-[3px] py-[1px] text-[9px] font-mono text-fg-secondary rounded-[2px] hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]"
+                  className="flex items-center gap-1 px-[3px] py-[1px] text-[9px] font-mono text-fg-secondary rounded-[2px] hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]"
                 >
                   <ToolCallCard {...call} />
                 </div>
@@ -176,9 +187,20 @@ export function ToolBatchSummary({
   // Top-level: auto-expand on render when errors present
   const [allExpanded, setAllExpanded] = useState(true);
 
+  const statusClass =
+    status === "in_progress"
+      ? "text-[#4fc3f7]"
+      : status === "completed"
+        ? "text-success"
+        : status === "failed"
+          ? "text-error"
+          : status === "cancelled"
+            ? "text-fg-muted"
+            : "";
+
   return (
     <div
-      className={`tool-batch${allExpanded ? " overflow-visible" : ""} tool-call-${status} ${appearClass} mt-[2px] rounded overflow-hidden text-[10px] bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]`}
+      className={`${allExpanded ? "overflow-visible" : ""} ${statusClass} ${appearClass} mt-[2px] rounded overflow-hidden text-[10px] bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]`}
     >
       {/* Top-level chevron toggles entire batch */}
       <button
@@ -225,13 +247,13 @@ export function ToolBatchSummary({
 
       <div className={`grid transition-[grid-template-rows] duration-200 ease-out${allExpanded ? " grid-rows-[1fr]" : " grid-rows-[0fr]"}`}>
         <div className="overflow-hidden">
-          <div className="tool-batch-body px-[12px] pb-[2px] pt-[1px] flex flex-col gap-[1px] bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)] animate-[tool-batch-expand_0.15s_ease-out]">
+          <div className="px-[12px] pb-[2px] pt-[1px] flex flex-col gap-[1px] bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)] animate-[tool-batch-expand_0.15s_ease-out]">
             {/* Errors — always expanded, no nested chevron */}
             <ErrorsGroup errors={errors} />
 
             {/* Ok sub-group — recursive ToolBatchSummary for uniform rendering */}
             {ok.length > 0 && (
-              <div className="tool-batch-nested-ok my-0 p-0">
+              <div className="my-0 p-0">
                 <ToolBatchSummary calls={ok} />
               </div>
             )}

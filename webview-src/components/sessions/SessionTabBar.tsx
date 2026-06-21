@@ -284,7 +284,7 @@ function ClassicTabBar({
         })}
       </div>
       <button
-        className="shrink-0 flex items-center justify-center w-7 h-full min-h-[32px] border-none bg-transparent text-fg-secondary text-base cursor-pointer transition-colors duration-150"
+        className="shrink-0 flex items-center justify-center w-7 h-full min-h-[32px] border-none bg-transparent text-fg-secondary text-base cursor-pointer transition-colors duration-150 hover:text-fg-primary"
         onClick={onNewSession}
         title="New session"
       >
@@ -459,8 +459,8 @@ function UnifiedTabBar({
   onSplitDirectionChange,
 }: UnifiedTabBarProps): React.ReactElement {
   return (
-    <div className="unified-session-bar flex items-center gap-1 px-2 py-1 bg-bg-secondary border-b border-border shrink-0 overflow-x-auto scrollbar-thin">
-      <div className="unified-session-bar-scroll flex items-center gap-1 flex-1 min-w-0 overflow-x-auto scrollbar-thin">
+    <div className="flex shrink-0 items-center gap-1 p-[4px 8px] overflow-x-auto bg-bg-secondary border-b border-border">
+      <div className="flex-1 items-stretch overflow-x-auto">
         {tabs.map((tab) => {
           const key = sessionKeyOf(tab.agentId, tab.sessionId);
           const isActive = key === activeSessionKey;
@@ -485,7 +485,7 @@ function UnifiedTabBar({
 
       {/* Layout mode toggle — right edge of session bar */}
       <div
-        className="unified-session-bar-layout inline-flex items-center gap-px shrink-0 ml-1 border-l border-border pl-1"
+        className="inline-flex items-center gap-px shrink-0 ml-1 border-l border-border pl-1"
         role="group"
         aria-label="Layout mode"
       >
@@ -530,7 +530,7 @@ function UnifiedTabBar({
       </div>
 
       {/* Separator between layout toggle and session actions */}
-      <div className="unified-session-bar-sep w-px h-4 shrink-0 bg-border mx-1" aria-hidden="true" />
+      <div className="shrink-0 w-px h-3 bg-border mx-1" aria-hidden="true" />
 
       {/* New session button */}
       <button

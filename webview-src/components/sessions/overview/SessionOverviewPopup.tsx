@@ -42,7 +42,7 @@ export function SessionOverviewPopup({
 
   return (
     <div
-      className="z-[1000] bg-bg-secondary border border-border rounded-md shadow-[0_4px_16px_rgb(0_0_0_/_0.35)] px-2.5 py-2 flex flex-col gap-1.5 pointer-events-auto animate-[so-popup-in_0.12s_ease-out]"
+      className="flex flex-col gap-1.5 p-[8px 10px] z-[1000] bg-bg-secondary border border-border rounded-lg animate-so-popup-in"
       style={{
         position: "fixed",
         left: `${left}px`,
@@ -51,7 +51,7 @@ export function SessionOverviewPopup({
       }}
     >
       {/* Header: spinner + agent + title — shared */}
-      <SessionOverviewHeader session={liveItem} className="so-popup-header" />
+      <SessionOverviewHeader session={liveItem} />
 
       {/* Chips row — shared */}
       <SessionOverviewChips session={liveItem} />
@@ -60,12 +60,11 @@ export function SessionOverviewPopup({
       <ResponsePreviewList
         responses={liveItem.recentResponses}
         maxItems={5}
-        className="flex flex-col gap-1"
       />
 
       {/* Footer: last-response timestamp */}
-      <div className="flex justify-end border-t border-[color-mix(in_srgb,var(--border)_40%,transparent)] pt-1 mt-0.5">
-        <span className="text-[9px] text-fg-muted font-[var(--font-mono)]">
+      <div className="flex justify-end pt-[4px] mt-[2px]">
+        <span className="text-3xs text-fg-muted font-mono">
           {new Date(
             liveItem.lastResponseAt ?? liveItem.createdAt
           ).toLocaleTimeString()}

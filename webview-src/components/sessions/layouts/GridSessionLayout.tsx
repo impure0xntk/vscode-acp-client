@@ -64,7 +64,7 @@ export const GridSessionLayout = React.memo(function GridSessionLayout({
 
   if (visibleKeys.length === 0) {
     return (
-      <div className="multi-session-view multi-session-view--empty">
+      <div className="flex flex-col flex-1 min-h-0 overflow-hidden items-center justify-center text-xs text-fg-muted">
         <p>No sessions pinned. Pin a session to see it here.</p>
       </div>
     );
@@ -113,15 +113,8 @@ export const GridSessionLayout = React.memo(function GridSessionLayout({
     );
   };
 
-  const containerClassName = [
-    "multi-session-view",
-    "multi-session-view--grid",
-  ]
-    .filter(Boolean)
-    .join(" ");
-
   return (
-    <div className={containerClassName}>
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden flex-row overflow-y-auto">
       {visibleKeys.map((key) => renderSection(key, key === focusKey))}
     </div>
   );

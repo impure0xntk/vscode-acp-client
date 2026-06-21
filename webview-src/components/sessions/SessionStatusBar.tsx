@@ -35,8 +35,14 @@ function StatusBadge({ status }: { status: QueuedPrompt["status"] }) {
           ? "Sent"
           : "Cancelled";
 
+  const statusClasses: Record<string, string> = {
+    pending: "text-fg-muted",
+    sending: "text-accent",
+    sent: "text-fg-secondary",
+    cancelled: "text-fg-muted line-through",
+  };
   return (
-    <span className={`queued-prompt-status queued-prompt-status--${status}`}>
+    <span className={`text-[10px] font-medium uppercase tracking-wider ${statusClasses[status] ?? "text-fg-muted"}`}>
       {label}
     </span>
   );

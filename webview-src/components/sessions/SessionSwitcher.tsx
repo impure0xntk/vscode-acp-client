@@ -93,7 +93,7 @@ export function SessionSwitcher({
             <span className="text-fg-muted">No session</span>
           )}
         </span>
-        <span className={`switcher-arrow ${isOpen ? "open" : ""}`}>▾</span>
+        <span className={`shrink-0 text-2xs transition-colors duration-150${isOpen ? " rotate-180" : ""}`}>▾</span>
       </button>
 
       {isOpen && (
@@ -109,15 +109,16 @@ export function SessionSwitcher({
                   return (
                     <div
                       key={`${s.agentId}:${s.sessionId}`}
-                      className={`${isActive ? "bg-bg-input" : ""}`}
+                      className={`flex items-center gap-1.5 px-2 py-[5px] text-xs cursor-pointer hover:bg-accent-hover${isActive ? " text-accent" : ""}`}
                       role="option"
                       aria-selected={isActive}
                       onClick={() => handleSelect(s.sessionId, s.agentId)}
                     >
                       <StatusIcon status={s.status ?? "idle"} />
-                      <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap" title={s.title}>
+                      <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-fg-primary" title={s.title}>
                         {s.title}
                       </span>
+                      <span className="shrink-0 text-3xs text-fg-muted">{s.agentId}</span>
                       {(unreadMap.get(`${s.agentId}:${s.sessionId}`) ?? 0) >
                         0 && (
                         <span className="shrink-0 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-[8px] bg-accent text-user-fg text-[10px] font-semibold leading-none">

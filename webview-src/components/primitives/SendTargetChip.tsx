@@ -32,8 +32,8 @@ function ContextBar({ target }: { target: SendTarget }): React.ReactElement | nu
     : `${formatTokens(tokenUsage.totalTokens)} tokens used`;
 
   return (
-    <span className={`ctx-bar ctx-bar--${color}`} title={title}>
-      <span className="ctx-bar-fill" style={{ height: `${fillHeight}%` }} />
+    <span className={`inline-flex shrink-0 ml-[2px] w-[3px] h-[14px] overflow-hidden rounded-1.5 ${color}`} title={title}>
+      <span className="w-full rounded-1.5" style={{ height: `${fillHeight}%` }} />
     </span>
   );
 }

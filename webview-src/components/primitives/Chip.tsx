@@ -44,10 +44,6 @@ export function Chip({
     : null;
   const turnKey = meta.turnStatus ?? null;
   const turnIconName = turnKey ? (TURN_ICON[turnKey] ?? null) : null;
-  const turnCls = turnKey ? ` toolbar-chip--turn-${turnKey}` : "";
-  const ctxColor = meta.contextColor
-    ? ` toolbar-chip--ctx-${meta.contextColor}`
-    : "";
 
   const catBorderMap: Record<string, string> = {
     session: "border-l-accent",

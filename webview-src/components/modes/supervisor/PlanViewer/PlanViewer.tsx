@@ -134,9 +134,9 @@ export function PlanViewer({
               }
             />
             {addingAfter === step.id && (
-              <div className="plan-step-add-form flex items-center gap-1 p-1 ml-6">
+              <div className="flex items-center gap-1 p-1 ml-6">
                 <input
-                  className="plan-step-add-input flex-1 px-1.5 py-0.5 border border-border rounded-[3px] bg-bg-input text-fg-primary text-[11px] outline-none focus:border-accent"
+                  className="flex-1 px-1.5 py-0.5 border border-border rounded-[3px] bg-bg-input text-fg-primary text-[11px] outline-none focus:border-accent"
                   value={newStepText}
                   onChange={(e) => setNewStepText(e.target.value)}
                   placeholder="Step description..."
@@ -168,9 +168,9 @@ export function PlanViewer({
         {plan.status === "pending" && (
           <>
             {addingAfter === "" ? (
-              <div className="plan-step-add-form flex items-center gap-1 p-1 ml-6">
+              <div className="flex items-center gap-1 p-1 ml-6">
                 <input
-                  className="plan-step-add-input flex-1 px-1.5 py-0.5 border border-border rounded-[3px] bg-bg-input text-fg-primary text-[11px] outline-none focus:border-accent"
+                  className="flex-1 px-1.5 py-0.5 border border-border rounded-[3px] bg-bg-input text-fg-primary text-[11px] outline-none focus:border-accent"
                   value={newStepText}
                   onChange={(e) => setNewStepText(e.target.value)}
                   placeholder="Step description..."
@@ -197,7 +197,7 @@ export function PlanViewer({
               </div>
             ) : (
               <button
-                className="plan-step-add-trigger inline-flex items-center gap-1 px-2 py-0.5 border border-dashed border-border rounded-[3px] bg-transparent text-fg-muted text-[10px] cursor-pointer ml-6 transition-colors duration-150 hover:bg-accent-hover hover:text-fg-primary hover:border-accent"
+                className="inline-flex items-center gap-1 px-2 py-0.5 border border-dashed border-border rounded-[3px] bg-transparent text-fg-muted text-[10px] cursor-pointer ml-6 transition-colors duration-150 hover:bg-accent-hover hover:text-fg-primary hover:border-accent"
                 onClick={() => handleStartAdd()}
                 type="button"
               >

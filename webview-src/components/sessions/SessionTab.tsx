@@ -123,7 +123,7 @@ export function SessionTab({
 
   return (
     <div
-      className={`flex flex-col justify-center px-2.5 py-1 min-w-[120px] max-w-[280px] min-h-[48px] cursor-pointer select-none bg-transparent transition-colors duration-150 relative overflow-hidden border-r border-border${isActive ? " session-tab-active bg-bg-primary" : ""}${isHovered ? " session-tab-hovered bg-bg-secondary" : ""}`}
+      className={`group flex flex-col justify-center px-2.5 py-1 min-w-[120px] max-w-[280px] min-h-[48px] cursor-pointer select-none bg-transparent transition-colors duration-150 relative overflow-hidden border-r border-border focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent${isActive ? " bg-bg-primary" : ""}${isHovered ? " bg-bg-secondary" : ""}`}
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
