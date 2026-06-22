@@ -553,6 +553,72 @@ export function registerSessionCommands(
     }
   );
 
+  // acp.newSessionAndPin — create a new session and pin it in one step
+  const newSessionAndPinCmd = vscode.commands.registerCommand(
+    "acp.newSessionAndPin",
+    async () => {
+      const agentId = await pickConnectedAgent(
+        "Select agent for new session"
+      );
+      if (!agentId) return;
+
+      const wsFolders = vscode.workspace.workspaceFolders ?? [];
+      type CwdItem = {
+        label: string;
+        description?: string;
+        picked?: boolean;
+        cwd: string;
+      };
+      const items: CwdItem[] = wsFolders.map((f, i) => ({
+        label: `$(folder) ${f.name}`,
+        description: f.uri.fsPath,
+        picked: i === 0,
+        cwd: f.uri.fsPath,
+      }));
+      items.push({
+        label: "$(file-directory) Browse…",
+        description: "Choose a directory from the system",
+        cwd: "",
+      });
+      const cwdPick = await vscode.window.showQuickPick(items, {
+        placeHolder: "Select working directory",
+        canPickMany: false,
+      });
+      if (!cwdPick) return;
+      let cwd = cwdPick.cwd;
+      if (!cwd) {
+        const defaultUri =
+          wsFolders.length > 0
+            ? wsFolders[0].uri
+            : vscode.Uri.file(process.cwd());
+        const selected = await vscode.window.showOpenDialog({
+          canSelectFiles: false,
+          canSelectFolders: true,
+          canSelectMany: false,
+          openLabel: "Select working directory",
+          defaultUri,
+        });
+        if (!selected?.length) return;
+        cwd = selected[0].fsPath;
+      }
+      try {
+        const sessionId = await orchestrator.createSession(agentId, cwd);
+        orchestrator.pinSession(agentId, sessionId);
+        orchestrator.setActiveSession(agentId, sessionId);
+        ensureChatPanel();
+        const info = orchestrator.getSessionInfo(agentId, sessionId);
+        if (info) getChatPanel()?.setActiveSession(agentId, sessionId, info);
+        void vscode.window.showInformationMessage(
+          `ACP: New session created and pinned (${sessionId.slice(0, 8)})`
+        );
+      } catch (err) {
+        void vscode.window.showErrorMessage(
+          `ACP: Failed to create session — ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
+    }
+  );
+
   // acp.pinSession
   const pinSessionCmd = vscode.commands.registerCommand(
     "acp.pinSession",
@@ -740,6 +806,7 @@ export function registerSessionCommands(
 
   return [
     newSessionCmd,
+    newSessionAndPinCmd,
     switchSessionCmd,
     gotoSessionCmd,
     cancelTurnCmd,

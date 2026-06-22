@@ -52,6 +52,10 @@
         "title": "ACP: New Session"
       },
       {
+        "command": "acp.newSessionAndPin",
+        "title": "ACP: New Session and Pin"
+      },
+      {
         "command": "acp.switchSession",
         "title": "ACP: Switch Session"
       },

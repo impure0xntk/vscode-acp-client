@@ -117,20 +117,9 @@ export function ToolBatchSummary({
     // matching the mixed-errors behaviour.
     const [expanded, setExpanded] = useState(hasOnlyErrors);
 
-    const statusClass =
-      status === "in_progress"
-        ? "text-[#4fc3f7]"
-        : status === "completed"
-          ? "text-success"
-          : status === "failed"
-            ? "text-error"
-            : status === "cancelled"
-              ? "text-fg-muted"
-              : "";
-
     return (
       <div
-        className={`${expanded ? "overflow-visible" : ""} ${statusClass} ${appearClass} mt-[2px] rounded overflow-hidden text-[10px] bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]`}
+        className={`${expanded ? "overflow-visible" : ""} ${appearClass} mt-[2px] rounded overflow-hidden text-[10px] text-fg-primary bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]`}
       >
         <button
           className="flex items-center gap-[3px] px-1.25 w-fit max-w-full border-none bg-transparent text-fg-primary font-[var(--font-ui)] text-[10px] cursor-pointer text-left transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]"
@@ -146,7 +135,7 @@ export function ToolBatchSummary({
           <span className="text-xs flex-shrink-0">
             <StatusIcon status={status} variant="tool" />
           </span>
-          <span className="font-semibold text-[9px] text-fg-secondary whitespace-nowrap flex-shrink-0 px-0.75 py-px rounded bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]">
+          <span className="font-semibold text-[9px] text-fg-primary whitespace-nowrap flex-shrink-0 px-0.75 py-px rounded bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]">
             {totalOps} ops
           </span>
           <span className="text-fg-secondary font-mono text-[10px] whitespace-nowrap">
@@ -163,13 +152,13 @@ export function ToolBatchSummary({
                 <span className="uppercase font-semibold text-[9px] text-fg-secondary">
                   {item.abbr}
                 </span>
-                <span className="font-semibold text-fg-muted text-[9px]">
+                <span className="font-semibold text-fg-secondary text-[9px]">
                   ×{item.count}
                 </span>
               </span>
             ))}
           </span>
-          <span className="font-mono text-[9px] text-fg-muted whitespace-nowrap flex-shrink-0">
+          <span className="font-mono text-[9px] text-fg-secondary whitespace-nowrap flex-shrink-0">
             {formatDuration(totalMs)}
           </span>
         </button>
@@ -199,20 +188,9 @@ export function ToolBatchSummary({
   // Top-level: auto-expand on render when errors present
   const [allExpanded, setAllExpanded] = useState(true);
 
-  const statusClass =
-    status === "in_progress"
-      ? "text-[#4fc3f7]"
-      : status === "completed"
-        ? "text-success"
-        : status === "failed"
-          ? "text-error"
-          : status === "cancelled"
-            ? "text-fg-muted"
-            : "";
-
   return (
     <div
-      className={`${allExpanded ? " overflow-visible" : ""} ${statusClass} ${appearClass} mt-[2px] rounded overflow-hidden text-[10px] bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]`}
+      className={`${allExpanded ? " overflow-visible" : ""} ${appearClass} mt-[2px] rounded overflow-hidden text-[10px] text-fg-primary bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]`}
     >
       {/* Top-level chevron toggles entire batch */}
       <button
@@ -229,7 +207,7 @@ export function ToolBatchSummary({
         <span className="text-xs flex-shrink-0">
           <StatusIcon status={status} variant="tool" />
         </span>
-        <span className="font-semibold text-[9px] text-fg-secondary whitespace-nowrap flex-shrink-0 px-0.75 py-px rounded bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]">
+        <span className="font-semibold text-[9px] text-fg-primary whitespace-nowrap flex-shrink-0 px-0.75 py-px rounded bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]">
           {totalOps} ops
         </span>
         <span className="text-fg-secondary font-mono text-[10px] whitespace-nowrap">
@@ -246,13 +224,13 @@ export function ToolBatchSummary({
               <span className="uppercase font-semibold text-[9px] text-fg-secondary">
                 {item.abbr}
               </span>
-              <span className="font-semibold text-fg-muted text-[9px]">
+              <span className="font-semibold text-fg-secondary text-[9px]">
                 ×{item.count}
               </span>
             </span>
           ))}
         </span>
-        <span className="font-mono text-[9px] text-fg-muted whitespace-nowrap flex-shrink-0">
+        <span className="font-mono text-[9px] text-fg-secondary whitespace-nowrap flex-shrink-0">
           {formatDuration(totalMs)}
         </span>
       </button>

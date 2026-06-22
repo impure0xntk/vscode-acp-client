@@ -247,7 +247,7 @@ export const SessionHeader = React.memo(function SessionHeader({
     return (
       <div className="relative inline-flex items-center">
         <button
-          className={`inline-flex items-center justify-center w-6 h-6 p-0 border-none rounded bg-transparent text-fg-muted cursor-pointer transition-transform duration-150 hover:bg-accent-hover hover:text-fg-primary${open ? " rotate-180" : ""}`}
+          className="inline-flex items-center justify-center w-6 h-6 p-0 border-none rounded bg-transparent text-fg-muted cursor-pointer hover:bg-accent-hover hover:text-fg-primary"
           onClick={handleToggle}
           type="button"
           title={open ? "Hide details" : "Show details"}

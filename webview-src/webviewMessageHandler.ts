@@ -372,6 +372,38 @@ interface ComposerFocusMessage {
   type: "composer:focus";
 }
 
+/**
+ * Raw SDK session/update notification forwarded from the extension host.
+ * The webview extracts tool_call / tool_call_update events and injects
+ * them into the message store as tool-call chat messages so that the
+ * existing pipeline (merge → annotate → ToolBatchSummary) renders them.
+ */
+interface SessionNotificationMessage {
+  type: "session/notification";
+  agentId: string;
+  sessionId: string;
+  notification: {
+    update: {
+      sessionUpdate:
+        | "agent_message_chunk"
+        | "agent_thought_chunk"
+        | "tool_call"
+        | "tool_call_update"
+        | "plan"
+        | "plan_update"
+        | "plan_removed"
+        | "available_commands_update"
+        | "current_mode_update"
+        | "config_option_update"
+        | "session_info_update"
+        | "usage_update"
+        | "user_message_chunk";
+      [key: string]: unknown;
+    };
+    sessionId: string;
+  };
+}
+
 type WebviewMessage =
   | PlanUpdateMessage
   | PlanStepUpdateMessage
@@ -418,7 +450,8 @@ type WebviewMessage =
   | SessionPinnedNotification
   | SessionUnpinnedNotification
   | PathsResolvedMessage
-  | ComposerFocusMessage;
+  | ComposerFocusMessage
+  | SessionNotificationMessage;
 
 // ── Handler functions ───────────────────────────────────────────────────────
 
@@ -648,7 +681,10 @@ function handleSessionTurnEnded(data: SessionTurnEnded): void {
   });
 
   // Map ACP stopReason to TurnOutcome for the UI
-  const outcome: import("./types").TurnOutcome =
+  const outcome:
+    | "completed"
+    | "error"
+    | "cancelled" =
     data.stopReason === "end_turn" || data.stopReason === "max_turn_requests"
       ? "completed"
       : data.stopReason === "cancelled"
@@ -693,7 +729,10 @@ function handleSessionCompleted(data: SessionCompleted): void {
     });
   }
   // Show completion notification with outcome derived from stopReason
-  const outcome: import("./types").TurnOutcome = data.stopReason
+  const outcome:
+    | "completed"
+    | "error"
+    | "cancelled" = data.stopReason
     ? data.stopReason === "end_turn" || data.stopReason === "max_turn_requests"
       ? "completed"
       : data.stopReason === "cancelled"
@@ -970,6 +1009,169 @@ function handleAgentStatus(data: AgentStatusMessage): void {
   });
 }
 
+// ── Session notification handler ────────────────────────────────────────────
+
+/**
+ * Normalize raw SDK toolCallStatus → webview ToolCall.status
+ */
+export function normalizeToolStatus(
+  raw: string | null | undefined,
+): "in_progress" | "completed" | "failed" | "cancelled" {
+  if (raw === "pending") return "in_progress";
+  if (
+    raw === "in_progress" ||
+    raw === "completed" ||
+    raw === "failed" ||
+    raw === "cancelled"
+  ) {
+    return raw;
+  }
+  return "in_progress";
+}
+
+/**
+ * Extract diff content from a ToolCallContent array (SDK format).
+ */
+export function extractDiffFromContent(
+  content: Array<{ type: string; [key: string]: unknown }> | undefined,
+): import("./types").ToolCallDiffContent | undefined {
+  if (!content) return undefined;
+  for (const c of content) {
+    if (c.type === "diff") {
+      const oldText = (c.oldText as string | undefined) ?? "";
+      const newText = (c.newText as string) ?? "";
+      const filePath = (c.path as string) ?? "";
+      // Build a minimal unified diff
+      const diff = oldText === newText
+        ? newText
+        : `--- ${filePath}\n+++ ${filePath}\n-${oldText}\n+${newText}`;
+      return { type: "diff", diff, oldPath: oldText ? filePath : undefined, newPath: filePath };
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Handle raw SDK session/update notification.
+ * Extracts tool_call / tool_call_update events and injects them into the
+ * message store as tool-call ChatMessage objects so the existing pipeline
+ * (merge → annotate → ToolBatchSummary / ToolCallCard) renders them with
+ * diffContent, locations, etc.
+ */
+export function handleSessionNotification(data: SessionNotificationMessage): void {
+  const { agentId, sessionId, notification } = data;
+  const update = notification.update;
+  const su = update.sessionUpdate;
+
+  if (su !== "tool_call" && su !== "tool_call_update") return;
+
+  const msgKey = sessionKeyOf(agentId, sessionId);
+
+  if (su === "tool_call") {
+    const tcId = update.toolCallId as string;
+    const tcTitle = (update.title as string) ?? "";
+    const tcStatus = normalizeToolStatus(update.status as string | null);
+    const tcKind = (update.kind as string) ?? "";
+    const rawInput = update.rawInput;
+    const rawOutput = update.rawOutput;
+    const tcLocations = (update.locations as Array<{ path: string; line?: number }> | undefined)?.map(
+      (loc) => ({ path: loc.path, line: loc.line ?? undefined }),
+    );
+    const tcDiff = extractDiffFromContent(
+      update.content as Array<{ type: string; [key: string]: unknown }> | undefined,
+    );
+
+    const toolCall = {
+      id: tcId,
+      title: tcTitle,
+      status: tcStatus,
+      kind: tcKind,
+      input: typeof rawInput === "string" ? rawInput : JSON.stringify(rawInput),
+      output: rawOutput !== undefined
+        ? typeof rawOutput === "string" ? rawOutput : JSON.stringify(rawOutput)
+        : undefined,
+      locations: tcLocations,
+      diffContent: tcDiff,
+    };
+
+    // Try to find an existing tool message for this turn and append.
+    // If none exists, create a new tool ChatMessage.
+    const store = useMessageStore.getState();
+    const existingMsgs = store.perSession[msgKey];
+    // Find the last tool message that contains a toolCall with the same kind
+    // (same turn) — we merge into it so batched calls stay grouped.
+    let targetIdx = -1;
+    if (existingMsgs) {
+      for (let i = existingMsgs.length - 1; i >= 0; i--) {
+        const m = existingMsgs[i];
+        if (m.role === "tool" && m.toolCalls?.some((tc) => tc.kind === tcKind)) {
+          targetIdx = i;
+          break;
+        }
+      }
+    }
+
+    if (targetIdx >= 0) {
+      // Append to existing tool message
+      const existing = existingMsgs[targetIdx];
+      const mergedTCs = [...(existing.toolCalls ?? []), toolCall];
+      const updated = { ...existing, toolCalls: mergedTCs };
+      store.updateMessage(msgKey, targetIdx, updated);
+    } else {
+      // Create new tool message
+      const toolMsg = {
+        id: `tc-${tcKind}-${tcId}-${Date.now()}`,
+        role: "tool" as const,
+        content: "",
+        timestamp: Date.now(),
+        agentId,
+        sessionId,
+        toolCalls: [toolCall],
+      };
+      store.appendMessage(msgKey, toolMsg);
+    }
+  } else if (su === "tool_call_update") {
+    // Update an existing tool call in the message store
+    const tcId = update.toolCallId as string;
+    const store = useMessageStore.getState();
+    const existingMsgs = store.perSession[msgKey];
+    if (!existingMsgs) return;
+
+    for (let i = existingMsgs.length - 1; i >= 0; i--) {
+      const m = existingMsgs[i];
+      if (m.toolCalls?.some((tc) => tc.id === tcId)) {
+        const updatedTCs = (m.toolCalls ?? []).map((tc) => {
+          if (tc.id !== tcId) return tc;
+          const rawInput = update.rawInput;
+          const rawOutput = update.rawOutput;
+          return {
+            ...tc,
+            title: (update.title as string) ?? tc.title,
+            status: normalizeToolStatus((update.status as string) ?? tc.status),
+            kind: (update.kind as string) ?? tc.kind,
+            input: rawInput !== undefined
+              ? typeof rawInput === "string" ? rawInput : JSON.stringify(rawInput)
+              : tc.input,
+            output: rawOutput !== undefined
+              ? typeof rawOutput === "string" ? rawOutput : JSON.stringify(rawOutput)
+              : tc.output,
+            locations:
+              (update.locations as Array<{ path: string; line?: number }> | undefined)?.map(
+                (loc) => ({ path: loc.path, line: loc.line ?? undefined }),
+              ) ?? tc.locations,
+            diffContent:
+              extractDiffFromContent(
+                update.content as Array<{ type: string; [key: string]: unknown }> | undefined,
+              ) ?? tc.diffContent,
+          };
+        });
+        store.updateMessage(msgKey, i, { ...m, toolCalls: updatedTCs });
+        break;
+      }
+    }
+  }
+}
+
 // ── Setup function ──────────────────────────────────────────────────────────
 
 /**
@@ -1132,6 +1334,9 @@ export function setupMessageHandlers(): void {
             textarea.selectionEnd = len;
           }
         });
+        break;
+      case "session/notification":
+        handleSessionNotification(data);
         break;
     }
   });

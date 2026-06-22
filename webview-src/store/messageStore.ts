@@ -15,6 +15,8 @@ export interface MessageState {
   promptQueue: Record<string, QueuedPrompt[]>;
   setMessages: (key: string, msgs: ChatMessage[]) => void;
   appendMessage: (key: string, msg: ChatMessage) => void;
+  /** Replace message at index — used by session/notification handler for tool_call updates */
+  updateMessage: (key: string, index: number, msg: ChatMessage) => void;
   setStreaming: (key: string, v: boolean) => void;
   /** Append a streaming chunk to the last agent message, or create one */
   appendStreamChunk: (
@@ -130,6 +132,18 @@ export const useMessageStore = create<MessageState>((set) => ({
         }
       }
       return state;
+    }),
+
+  updateMessage: (key, index, msg) =>
+    set((state) => {
+      const existing = state.perSession[key];
+      if (!existing || index < 0 || index >= existing.length) return state;
+      const next = [...existing];
+      next[index] = msg;
+      return {
+        ...state,
+        perSession: { ...state.perSession, [key]: next },
+      };
     }),
 
   clearSession: (key) =>

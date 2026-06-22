@@ -220,6 +220,7 @@ export class SessionManager extends EventEmitter {
   dispose(): void {
     this.sessions.clear();
     this.activeSessions.clear();
+    this.pinnedSessions.clear();
     this.removeAllListeners();
   }
 }

@@ -575,6 +575,64 @@ export function IconClock({
   );
 }
 
+export function IconPlay({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      className={className}
+    >
+      <path d="M4 2l10 6-10 6V2z" />
+    </svg>
+  );
+}
+
+export function IconStop({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      className={className}
+    >
+      <rect x="3" y="3" width="10" height="10" rx="1" />
+    </svg>
+  );
+}
+
+export function IconArrowUp({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
+  return (
+    <Svg className={className} size={size}>
+      <path d="M8 12V4" />
+      <path d="M4 7l4-4 4 4" />
+    </Svg>
+  );
+}
+
+export function IconArrowDown({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
+  return (
+    <Svg className={className} size={size}>
+      <path d="M8 4v8" />
+      <path d="M4 9l4 4 4-4" />
+    </Svg>
+  );
+}
+
 export function IconChevronDown({
   className,
   size = 16,
@@ -893,6 +951,10 @@ const ICON_COMPONENTS: Record<string, React.FC<IconProps>> = {
   question: IconQuestion,
   output: IconOutput,
   "repo-forked": IconRepoForked,
+  "arrow-up": IconArrowUp,
+  "arrow-down": IconArrowDown,
+  play: IconPlay,
+  stop: IconStop,
   "chevron-down": IconChevronDown,
   "chevron-right": IconChevronRight,
   "list-tree": IconListTree,

@@ -8,6 +8,8 @@ import { Icon } from "../../lib/icons";
 import { DisplayItemView } from "./DisplayItemView";
 import type { PipelineItem } from "../../pipeline";
 
+const COLLAPSE_ANIMATION_DURATION = 150; // ms — must match CSS
+
 // ── Props ──────────────────────────────────────────────────────────────────
 
 export interface IntermediateStepsBannerProps {
@@ -74,10 +76,18 @@ export function IntermediateStepsBanner({
   onToggle,
   onExpandSettled,
 }: IntermediateStepsBannerProps): React.ReactElement | null {
-  // autoCollapse: start collapsed immediately — no flash of expanded content
+  // isCollapsed = committed state (controls what is finally rendered).
+  // During a collapse transition we keep the content visible and animated
+  // (see animatingCollapsed below).
   const [isCollapsed, setIsCollapsed] = useState(
     autoCollapse ? true : forceExpanded ? false : defaultCollapsed
   );
+
+  // While a collapse animation is in flight we still render the content div
+  // with the animation class.  False → animatingCollapsed becomes false only
+  // after the animation ends.
+  const [animatingCollapsed, setAnimatingCollapsed] = useState(false);
+  const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Sync with forceExpanded from the store — overrides local state when
   // the parent decides the group should be expanded/collapsed.
@@ -85,17 +95,39 @@ export function IntermediateStepsBanner({
   // user-initiated toggle (via store) works even after turn completion.
   const prevForceExpanded = useRef(forceExpanded);
   useEffect(() => {
-    setIsCollapsed(!forceExpanded);
-    // When the group transitions from collapsed→expanded, notify parent
-    // after the DOM has settled so it can recompute scroll state.
     if (forceExpanded && !prevForceExpanded.current) {
-      // Double rAF: let the browser paint the expanded content first
+      // Expanding: clear any in-flight collapse timer, show content immediately.
+      if (collapseTimerRef.current) {
+        clearTimeout(collapseTimerRef.current);
+        collapseTimerRef.current = null;
+      }
+      setAnimatingCollapsed(false);
+      setIsCollapsed(false);
+      // Notify parent after the DOM has settled so it can recompute scroll state.
       requestAnimationFrame(() => {
         requestAnimationFrame(() => onExpandSettled?.());
       });
+    } else if (!forceExpanded && prevForceExpanded.current) {
+      // Collapsing: start animation, then commit after it finishes.
+      setAnimatingCollapsed(true);
+      setIsCollapsed(true);
+      if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
+      collapseTimerRef.current = setTimeout(() => {
+        setAnimatingCollapsed(false);
+        collapseTimerRef.current = null;
+      }, COLLAPSE_ANIMATION_DURATION);
+    } else {
+      setIsCollapsed(!forceExpanded);
     }
     prevForceExpanded.current = forceExpanded;
   }, [forceExpanded, onExpandSettled]);
+
+  // Clean up timer on unmount.
+  useEffect(() => {
+    return () => {
+      if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
+    };
+  }, []);
 
   const toggle = useCallback(() => {
     onToggle?.();
@@ -104,6 +136,7 @@ export function IntermediateStepsBanner({
   if (items.length === 0) return null;
 
   const duration = formatDuration(totalDurationMs(items));
+  const showContent = !isCollapsed || animatingCollapsed;
 
   return (
     <div
@@ -138,8 +171,10 @@ export function IntermediateStepsBanner({
           </span>
         )}
       </button>
-      {!isCollapsed && (
-        <div className="px-1 pb-1 pt-0.5 flex flex-col gap-[1px] animate-intermediate-steps-expand opacity-70">
+      {showContent && (
+        <div
+          className={`px-1 pb-1 pt-0.5 flex flex-col gap-[1px] opacity-70${animatingCollapsed ? " animate-intermediate-steps-collapse" : " animate-intermediate-steps-expand"}`}
+        >
           {items.map((item, idx) => (
             <DisplayItemView
               key={item.key}

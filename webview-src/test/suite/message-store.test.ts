@@ -360,6 +360,72 @@ describe("messageStore", () => {
     });
   });
 
+  // ── updateMessage ─────────────────────────────────────────────────
+
+  describe("updateMessage", () => {
+    it("replaces message at the given index", () => {
+      const msgs = [
+        makeMessage({ content: "first" }),
+        makeMessage({ content: "second" }),
+        makeMessage({ content: "third" }),
+      ];
+      useMessageStore.getState().setMessages("session-1", msgs);
+      const replacement = makeMessage({ content: "updated second" });
+      useMessageStore.getState().updateMessage("session-1", 1, replacement);
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.perSession["session-1"].length, 3);
+      assert.strictEqual(state.perSession["session-1"][0].content, "first");
+      assert.strictEqual(state.perSession["session-1"][1].content, "updated second");
+      assert.strictEqual(state.perSession["session-1"][2].content, "third");
+    });
+
+    it("is a no-op when index is out of bounds (negative)", () => {
+      const msgs = [makeMessage({ content: "only" })];
+      useMessageStore.getState().setMessages("session-1", msgs);
+      const stateBefore = useMessageStore.getState();
+      useMessageStore.getState().updateMessage("session-1", -1, makeMessage({ content: "x" }));
+      const stateAfter = useMessageStore.getState();
+      assert.strictEqual(stateAfter, stateBefore);
+    });
+
+    it("is a no-op when index is out of bounds (too large)", () => {
+      const msgs = [makeMessage({ content: "only" })];
+      useMessageStore.getState().setMessages("session-1", msgs);
+      const stateBefore = useMessageStore.getState();
+      useMessageStore.getState().updateMessage("session-1", 5, makeMessage({ content: "x" }));
+      const stateAfter = useMessageStore.getState();
+      assert.strictEqual(stateAfter, stateBefore);
+    });
+
+    it("is a no-op when session key does not exist", () => {
+      const stateBefore = useMessageStore.getState();
+      useMessageStore.getState().updateMessage("nonexistent", 0, makeMessage({ content: "x" }));
+      const stateAfter = useMessageStore.getState();
+      assert.strictEqual(stateAfter, stateBefore);
+    });
+
+    it("preserves immutability — returns new array reference", () => {
+      const msgs = [
+        makeMessage({ content: "a" }),
+        makeMessage({ content: "b" }),
+      ];
+      useMessageStore.getState().setMessages("session-1", msgs);
+      const oldArray = useMessageStore.getState().perSession["session-1"];
+      useMessageStore.getState().updateMessage("session-1", 0, makeMessage({ content: "A" }));
+      const newArray = useMessageStore.getState().perSession["session-1"];
+      assert.notStrictEqual(newArray, oldArray);
+    });
+
+    it("does not affect other sessions", () => {
+      useMessageStore.getState().setMessages("session-1", [makeMessage({ content: "a" })]);
+      useMessageStore.getState().setMessages("session-2", [makeMessage({ content: "b" })]);
+      useMessageStore.getState().updateMessage("session-1", 0, makeMessage({ content: "A" }));
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.perSession["session-1"][0].content, "A");
+      assert.strictEqual(state.perSession["session-2"][0].content, "b");
+    });
+  });
+
   // ── Cross-session isolation ───────────────────────────────────────
 
   describe("cross-session isolation", () => {

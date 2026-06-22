@@ -252,6 +252,118 @@ describe("SessionManager — Events", () => {
   });
 });
 
+describe("SessionManager — Pin / Unpin", () => {
+  let manager: SessionManager;
+
+  beforeEach(() => {
+    const sm = new StateManager();
+    manager = new SessionManager(sm);
+    manager.createSession("claude", "sess-1");
+    manager.createSession("claude", "sess-2");
+    manager.createSession("gpt4", "sess-3");
+  });
+
+  it("pinSession adds session to pinned set", () => {
+    manager.pinSession("claude", "sess-1");
+    const pinned = manager.getPinnedSessions("claude");
+    assert.strictEqual(pinned.length, 1);
+    assert.ok(pinned.includes("sess-1"));
+  });
+
+  it("pinSession is idempotent — pinning twice does not duplicate", () => {
+    manager.pinSession("claude", "sess-1");
+    manager.pinSession("claude", "sess-1");
+    const pinned = manager.getPinnedSessions("claude");
+    assert.strictEqual(pinned.length, 1);
+  });
+
+  it("pinSession works for multiple sessions on same agent", () => {
+    manager.pinSession("claude", "sess-1");
+    manager.pinSession("claude", "sess-2");
+    const pinned = manager.getPinnedSessions("claude");
+    assert.strictEqual(pinned.length, 2);
+    assert.ok(pinned.includes("sess-1"));
+    assert.ok(pinned.includes("sess-2"));
+  });
+
+  it("pinSession is per-agent — does not leak across agents", () => {
+    manager.pinSession("claude", "sess-1");
+    manager.pinSession("gpt4", "sess-3");
+    assert.strictEqual(manager.getPinnedSessions("claude").length, 1);
+    assert.strictEqual(manager.getPinnedSessions("gpt4").length, 1);
+    assert.ok(manager.getPinnedSessions("claude").includes("sess-1"));
+    assert.ok(manager.getPinnedSessions("gpt4").includes("sess-3"));
+  });
+
+  it("unpinSession removes session from pinned set", () => {
+    manager.pinSession("claude", "sess-1");
+    manager.unpinSession("claude", "sess-1");
+    assert.strictEqual(manager.getPinnedSessions("claude").length, 0);
+  });
+
+  it("unpinSession is a no-op for non-pinned session", () => {
+    manager.unpinSession("claude", "sess-1"); // not pinned — should not throw
+    assert.strictEqual(manager.getPinnedSessions("claude").length, 0);
+  });
+
+  it("unpinSession is a no-op for unknown agent", () => {
+    manager.unpinSession("unknown", "sess-1");
+    assert.strictEqual(manager.getPinnedSessions("unknown").length, 0);
+  });
+
+  it("getPinnedSessions returns empty for agent with no pins", () => {
+    assert.strictEqual(manager.getPinnedSessions("claude").length, 0);
+  });
+
+  it("isSessionPinned returns true for pinned session", () => {
+    manager.pinSession("claude", "sess-1");
+    assert.strictEqual(manager.isSessionPinned("claude", "sess-1"), true);
+  });
+
+  it("isSessionPinned returns false for non-pinned session", () => {
+    assert.strictEqual(manager.isSessionPinned("claude", "sess-1"), false);
+  });
+
+  it("isSessionPinned returns false for unknown agent", () => {
+    assert.strictEqual(manager.isSessionPinned("unknown", "sess-1"), false);
+  });
+
+  it("emits sessionPinned on pinSession", () => {
+    let event: any = null;
+    manager.on("sessionPinned", (e) => {
+      event = e;
+    });
+    manager.pinSession("claude", "sess-1");
+    assert.ok(event);
+    assert.strictEqual(event.agentId, "claude");
+    assert.strictEqual(event.sessionId, "sess-1");
+  });
+
+  it("emits sessionUnpinned on unpinSession", () => {
+    manager.pinSession("claude", "sess-1");
+    let event: any = null;
+    manager.on("sessionUnpinned", (e) => {
+      event = e;
+    });
+    manager.unpinSession("claude", "sess-1");
+    assert.ok(event);
+    assert.strictEqual(event.agentId, "claude");
+    assert.strictEqual(event.sessionId, "sess-1");
+  });
+
+  it("pin → create → unpin → pin round-trip", () => {
+    manager.pinSession("claude", "sess-1");
+    assert.strictEqual(manager.isSessionPinned("claude", "sess-1"), true);
+
+    manager.unpinSession("claude", "sess-1");
+    assert.strictEqual(manager.isSessionPinned("claude", "sess-1"), false);
+
+    manager.pinSession("claude", "sess-1");
+    assert.strictEqual(manager.isSessionPinned("claude", "sess-1"), true);
+    assert.strictEqual(manager.getPinnedSessions("claude").length, 1);
+  });
+});
+
 describe("SessionManager — Cleanup", () => {
   it("dispose clears all sessions and listeners", () => {
     const sm = new StateManager();

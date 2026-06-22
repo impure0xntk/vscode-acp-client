@@ -181,7 +181,7 @@ export function ToolCallCard({
       data-completed={status === "completed" ? "true" : undefined}
     >
       <button
-        className={`flex items-center gap-[3px] px-1.25 font-mono text-[10px] text-fg-muted w-fit max-w-full border-none bg-transparent text-left transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]${hasBody ? " cursor-pointer" : ""}`}
+        className={`flex items-center gap-[3px] px-1.25 font-mono text-[10px] text-fg-primary w-fit max-w-full border-none bg-transparent text-left transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]${hasBody ? " cursor-pointer" : ""}`}
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
       >
@@ -194,10 +194,10 @@ export function ToolCallCard({
           size="sm"
           className="inline-flex items-center flex-shrink-0 opacity-80"
         />
-        <span className="text-fg-muted text-[9px] uppercase flex-shrink-0 whitespace-nowrap opacity-70">
+        <span className="text-fg-primary text-[9px] uppercase flex-shrink-0 whitespace-nowrap opacity-70">
           {(kind ?? "TOOL_CALL").toUpperCase()}
         </span>
-        <span className="font-normal text-[10px] text-fg-muted flex-shrink-0 whitespace-nowrap">
+        <span className="font-normal text-[10px] text-fg-primary flex-shrink-0 whitespace-nowrap">
           {title}
         </span>
         {hasLocations &&
@@ -207,7 +207,7 @@ export function ToolCallCard({
             return (
               <span
                 key={`${loc.path}:${loc.line ?? 0}-${idx}`}
-                className={`inline-flex items-center gap-0.5 px-0.75 py-px rounded-[3px] bg-bg-secondary ${status === "completed" ? "text-fg-muted hover:text-fg-secondary" : "text-fg-primary"} text-[9px] cursor-pointer select-none transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1 flex-shrink-0 ml-[2px]`}
+                className={`inline-flex items-center gap-0.5 px-0.75 py-px rounded-[3px] bg-bg-secondary ${status === "completed" ? "text-fg-secondary hover:text-fg-primary" : "text-fg-primary"} text-[9px] cursor-pointer select-none transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1 flex-shrink-0 ml-[2px]`}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleFileClick(loc.path, loc.line);
@@ -230,7 +230,7 @@ export function ToolCallCard({
               </span>
             );
           })}
-        <span className="font-mono text-[9px] text-fg-muted whitespace-nowrap flex-shrink-0">
+        <span className="font-mono text-[9px] text-fg-secondary whitespace-nowrap flex-shrink-0">
           {formatDuration(durationMs ?? 0)}
         </span>
       </button>

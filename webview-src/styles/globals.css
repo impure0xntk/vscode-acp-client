@@ -72,6 +72,7 @@
   --animate-sticky-user-bar-in: sticky-user-bar-in 0.12s ease-out;
   --animate-toolbar-details-in: toolbar-details-in 0.12s ease-out;
   --animate-intermediate-steps-expand: intermediate-steps-expand 0.15s ease-out;
+  --animate-intermediate-steps-collapse: intermediate-steps-collapse 0.15s ease-out forwards;
   --animate-modal-fade-in: modal-fade-in 0.15s ease-out;
   --animate-modal-slide-in: modal-slide-in 0.15s ease-out;
   --animate-tool-batch-appear: tool-batch-appear 0.25s ease-out;
@@ -156,6 +157,10 @@
   @keyframes intermediate-steps-expand {
     from { opacity: 0; max-height: 0; }
     to { opacity: 1; max-height: 600px; }
+  }
+  @keyframes intermediate-steps-collapse {
+    from { opacity: 1; max-height: 600px; }
+    to { opacity: 0; max-height: 0; }
   }
   @keyframes modal-fade-in {
     from { opacity: 0; }
@@ -310,6 +315,22 @@
   font-size: 12px;
   line-height: 1.55;
   background: transparent;
+}
+
+/* Unify code block background: let the wrapper's --code-bg show through.
+   highlight.js themes set .hljs { background: #0d1117 } which subtly
+   differs from --code-bg, causing a visible mismatch between the wrapper
+   background and individual code lines. */
+.code-block-wrapper .hljs {
+  background: transparent !important;
+}
+
+/* Also override the highlight.js `pre code.hljs` rule which sets
+   padding: 1em — our wrapper already controls padding, and the
+   hljs background on <code> inside <pre> creates a second layer. */
+.code-block-wrapper pre code.hljs {
+  padding: 0;
+  background: transparent !important;
 }
 
 /* ============================================================================

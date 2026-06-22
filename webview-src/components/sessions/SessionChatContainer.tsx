@@ -755,7 +755,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
         {showScrollButton && (
           <div className="sticky bottom-0 z-10 pointer-events-none flex justify-end px-3 pb-2">
             <button
-              className="pointer-events-auto flex items-center justify-center w-7 h-7 p-0 border border-border rounded-full bg-bg-secondary text-fg-primary shadow-[0_2px_8px_rgba(0,0,0,0.3)] cursor-pointer transition-all duration-150 hover:bg-accent-hover hover:border-accent hover:scale-105 active:scale-95"
+              className="pointer-events-auto relative flex items-center justify-center w-7 h-7 p-0 border border-border rounded-full bg-bg-secondary text-fg-primary shadow-[0_2px_8px_rgba(0,0,0,0.3)] cursor-pointer transition-all duration-150 hover:bg-accent-hover hover:border-accent hover:scale-105 active:scale-95"
               onClick={handleScrollToBottom}
               type="button"
               title="Scroll to bottom"
@@ -763,7 +763,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
             >
               <span className="text-sm leading-none">↓</span>
               {unreadCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-4 h-4 px-0.75 rounded-lg bg-accent text-user-fg text-[9px] font-semibold leading-none">{unreadCount}</span>
+                <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-[9px] bg-accent text-user-fg text-[10px] font-bold leading-none drop-shadow-[0_1px_3px_rgba(0,0,0,0.45)]">{unreadCount}</span>
               )}
             </button>
           </div>

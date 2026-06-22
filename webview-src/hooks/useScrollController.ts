@@ -92,10 +92,16 @@ export function useScrollController(
 
   // ── Force scroll to bottom (on send) ────────────────────────────────
   const forceScrollToBottom = useCallback(() => {
-    const el = containerRef.current;
-    if (el) {
-      el.scrollTop = el.scrollHeight;
-    }
+    // Double rAF: wait for React to re-render with the new message
+    // before scrolling, otherwise scrollHeight is stale.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = containerRef.current;
+        if (el) {
+          el.scrollTop = el.scrollHeight;
+        }
+      });
+    });
   }, [containerRef]);
 
   // ── Scroll to first unread or bottom (on badge click) ───────────────
