@@ -254,6 +254,10 @@ export class SessionOrchestrator extends EventEmitter {
   private lastInboundMessages: Map<string, InboundMessage> = new Map();
   // agentId → reinjection throttle timestamp
   private lastReinjectionAt: Map<string, number> = new Map();
+  // Streaming text buffer: sessionKey(agentId, sessionId) → accumulated text
+  private streamTextBuffer: Map<string, string> = new Map();
+  // Streaming message ref: sessionKey → { agentId, sessionId, msgId }
+  private streamMsgRef: Map<string, { agentId: string; sessionId: string; msgId: string }> = new Map();
 
   constructor(deps: OrchestratorDeps) {
     super();
@@ -544,6 +548,18 @@ export class SessionOrchestrator extends EventEmitter {
         this.activeSessions.set(agentId, newActive);
         this.emit("sessionActiveChanged", { agentId, sessionId: newActive });
       }
+    }
+
+    // Clear streaming buffer for the closed session
+    const sKey = sessionKey(agentId, sessionId);
+    const hadBuffer = this.streamTextBuffer.has(sKey);
+    this.streamTextBuffer.delete(sKey);
+    this.streamMsgRef.delete(sKey);
+    if (hadBuffer) {
+      log.debug("stream buffer cleared on session close", {
+        agentId,
+        sessionId,
+      });
     }
 
     // Clear any queued prompts for the closed session
@@ -1071,11 +1087,17 @@ export class SessionOrchestrator extends EventEmitter {
       sessionInfo.isStreaming = false;
       sessionInfo.lastResponseAt = new Date().toISOString();
       this.flushPendingToolCalls(agentId, sessionId);
+      // Clear streaming buffer for this session
+      const sKey = sessionKey(agentId, sessionId);
+      this.streamTextBuffer.delete(sKey);
+      this.streamMsgRef.delete(sKey);
+
       log.info("turn completed", {
         agentId,
         sessionId,
         tokens: sessionInfo.tokenUsage,
         stopReason,
+        streamChunks: this.streamMsgRef.has(sessionKey(agentId, sessionId)),
       });
       this.emit("sessionCompleted", {
         agentId,
@@ -1212,7 +1234,6 @@ export class SessionOrchestrator extends EventEmitter {
 
   async cancel(agentId: string, sessionId: string): Promise<void> {
     const connection = this.connections.get(agentId);
-    if (!connection) return;
 
     const agentSessions = this.sessions.get(agentId);
     const sessionInfo = agentSessions?.get(sessionId);
@@ -1237,6 +1258,16 @@ export class SessionOrchestrator extends EventEmitter {
       log.info("turn cancelling", { agentId, sessionId });
     }
 
+    // Clear streaming buffer on cancel — always clear even if connection is gone
+    const sKey2 = sessionKey(agentId, sessionId);
+    const hadBuffer = this.streamTextBuffer.has(sKey2);
+    this.streamTextBuffer.delete(sKey2);
+    this.streamMsgRef.delete(sKey2);
+    if (hadBuffer) {
+      log.debug("stream buffer cleared on cancel", { agentId, sessionId });
+    }
+
+    if (!connection) return;
     await connection.cancel({ sessionId } satisfies CancelNotification);
   }
 
@@ -1396,6 +1427,26 @@ export class SessionOrchestrator extends EventEmitter {
     if (sessionInfo) {
       this.historyStore?.saveSession(sessionInfo);
     }
+  }
+
+  /** Update the last streaming agent message in-place (for chunk accumulation).
+   *  Only updates in-memory state; the webview is notified via sessionStreamChunk
+   *  which calls appendStreamChunk to append to the last agent message. */
+  private updateLastStreamingMessage(
+    agentId: string,
+    sessionId: string,
+    updatedMsg: ChatMessage
+  ): void {
+    const sessionInfo = this.getSessionInfo(agentId, sessionId);
+    if (!sessionInfo) return;
+    const msgs = sessionInfo.messages;
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      if (msgs[i].id === updatedMsg.id && msgs[i].role === "agent") {
+        msgs[i] = updatedMsg;
+        break;
+      }
+    }
+    sessionInfo.updatedAt = new Date();
   }
 
   /** Append without emitting (caller already pushed to webview) */
@@ -1783,15 +1834,45 @@ export class SessionOrchestrator extends EventEmitter {
         const content = update.content;
         const text = content?.type === "text" ? content.text : undefined;
         if (text) {
-          const streamingMsg: ChatMessage = {
-            id: `stream-${sessionId}-${crypto.randomUUID()}`,
-            role: "agent",
-            content: text,
-            timestamp: Date.now(),
-            agentId,
-            sessionId,
-          };
-          this.appendMessage(agentId, sessionId, streamingMsg);
+          const sKey = sessionKey(agentId, sessionId);
+          const existing = this.streamMsgRef.get(sKey);
+          if (existing) {
+            // Accumulate into existing streaming message
+            const newContent = (this.streamTextBuffer.get(sKey) ?? "") + text;
+            this.streamTextBuffer.set(sKey, newContent);
+            const updatedMsg: ChatMessage = {
+              id: existing.msgId,
+              role: "agent",
+              content: newContent,
+              timestamp: Date.now(),
+              agentId,
+              sessionId,
+            };
+            // Update in-memory session message (replace last streaming msg)
+            this.updateLastStreamingMessage(agentId, sessionId, updatedMsg);
+          } else {
+            // First chunk — create the streaming message
+            const msgId = `stream-${sessionId}-${crypto.randomUUID()}`;
+            this.streamMsgRef.set(sKey, { agentId, sessionId, msgId });
+            this.streamTextBuffer.set(sKey, text);
+            const streamingMsg: ChatMessage = {
+              id: msgId,
+              role: "agent",
+              content: text,
+              timestamp: Date.now(),
+              agentId,
+              sessionId,
+            };
+            this.appendMessageSilent(agentId, sessionId, streamingMsg);
+            log.debug("stream chunk started", {
+              agentId,
+              sessionId,
+              msgId,
+              chunkLen: text.length,
+            });
+          }
+          // Always emit sessionStreamChunk so the webview's appendStreamChunk
+          // handles the actual UI update (creates or appends in the store)
           this.emit("sessionStreamChunk", {
             agentId,
             sessionId,
@@ -2300,6 +2381,8 @@ export class SessionOrchestrator extends EventEmitter {
     this.activeSessions.clear();
     this.agentConfigs.clear();
     this.emittedToolCallIds.clear();
+    this.streamTextBuffer.clear();
+    this.streamMsgRef.clear();
     this.removeAllListeners();
   }
 }
