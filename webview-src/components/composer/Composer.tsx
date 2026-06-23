@@ -254,6 +254,15 @@ export function Composer({
     }
   }, []);
 
+  // ── Auto-fit textarea height to content ──────────────────────────
+  const autoResizeHeight = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = "auto";
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`;
+    }
+  }, []);
+
   // ── Reset picker (ref-wired; useTriggerPicker.reset is assigned after init) ──
   const resetPickerImpl = useRef<() => void>(() => {});
   const resetPicker = useCallback(() => {
@@ -858,12 +867,9 @@ export function Composer({
         inputBeforeNavRef.current = "";
       }
       setText(value);
-
-      const textarea = e.target;
-      textarea.style.height = "auto";
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`;
+      autoResizeHeight();
     },
-    [onTriggerChange, setPickerIndex, isMultiMode]
+    [onTriggerChange, setPickerIndex, isMultiMode, autoResizeHeight]
   );
 
   // ── Attachment management ────────────────────────────────────────
@@ -948,6 +954,8 @@ export function Composer({
     setSelectedTeam,
     resetHeight,
     resetPicker,
+    communicationMode,
+    setCommunicationMode,
   ]);
 
   // ── Keyboard navigation (history + picker) ───────────────────────
@@ -1010,15 +1018,13 @@ export function Composer({
           historyIdxRef.current = history.length - 1;
           e.preventDefault();
           setText(history[historyIdxRef.current]);
-          resetHeight();
-          return;
-        }
-        if (historyIdxRef.current > 0) {
+        } else if (historyIdxRef.current > 0) {
           historyIdxRef.current--;
           e.preventDefault();
           setText(history[historyIdxRef.current]);
-          resetHeight();
         }
+        // Defer resize to after React commits the new text to the DOM
+        requestAnimationFrame(() => autoResizeHeight());
         return;
       }
 
@@ -1029,18 +1035,17 @@ export function Composer({
           historyIdxRef.current++;
           e.preventDefault();
           setText(history[historyIdxRef.current]);
-          resetHeight();
         } else {
           e.preventDefault();
           setText(inputBeforeNavRef.current);
           historyIdxRef.current = -1;
           inputBeforeNavRef.current = "";
-          resetHeight();
         }
+        requestAnimationFrame(() => autoResizeHeight());
         return;
       }
     },
-    [handleSend, text, resetHeight, triggerState.active, pickerKeyDownRef]
+    [handleSend, text, autoResizeHeight, triggerState.active, pickerKeyDownRef]
   );
 
   // ── Render ───────────────────────────────────────────────────────

@@ -561,6 +561,13 @@ function handleSessionSwitch(data: SessionSwitch): void {
     model: data.model,
   });
 
+  // No-op if already active (prevents redundant re-renders / race loops).
+  if (currentKey === key) {
+    log.debug("handleSessionSwitch: already active, skipping", { key });
+    pendingSwitchGuard = null;
+    return;
+  }
+
   // Guard: if the webview has since switched to a different session,
   // this is a stale echo from the extension — discard it.
   if (pendingSwitchGuard !== null && pendingSwitchGuard !== key) {

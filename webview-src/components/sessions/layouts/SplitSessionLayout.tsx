@@ -101,12 +101,6 @@ const SessionSectionInner = React.memo(function SessionSectionInner({
         ? "var(--warning)"
         : "var(--success)";
 
-  useEffect(() => {
-    if (!info) {
-      onClose(sessionKey);
-    }
-  }, [info, onClose, sessionKey]);
-
   if (!info) return null;
 
   const sectionClassName = [
