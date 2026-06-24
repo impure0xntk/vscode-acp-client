@@ -89,7 +89,7 @@ describe("SessionOrchestrator — getSessionOverview()", () => {
 
   it("returns correct session count after sessions are added via internal map", () => {
     // Access internal sessions map directly for testing
-    const sessions = (orch as any).sessions as Map<
+    const sessions = (orch as any).getInternalState().sessions as Map<
       string,
       Map<string, AppSessionInfo>
     >;
@@ -112,7 +112,7 @@ describe("SessionOrchestrator — getSessionOverview()", () => {
   });
 
   it("aggregates sessions across multiple agents", () => {
-    const sessions = (orch as any).sessions as Map<
+    const sessions = (orch as any).getInternalState().sessions as Map<
       string,
       Map<string, AppSessionInfo>
     >;
@@ -143,7 +143,7 @@ describe("SessionOrchestrator — getSessionOverview()", () => {
   });
 
   it("computes progress.messageCount from messages array", () => {
-    const sessions = (orch as any).sessions as Map<
+    const sessions = (orch as any).getInternalState().sessions as Map<
       string,
       Map<string, AppSessionInfo>
     >;
@@ -166,7 +166,7 @@ describe("SessionOrchestrator — getSessionOverview()", () => {
   });
 
   it("counts tool calls correctly", () => {
-    const sessions = (orch as any).sessions as Map<
+    const sessions = (orch as any).getInternalState().sessions as Map<
       string,
       Map<string, AppSessionInfo>
     >;
@@ -223,7 +223,7 @@ describe("SessionOrchestrator — getSessionOverview()", () => {
   });
 
   it("computes contextWindow percentage when contextWindowMax is set", () => {
-    const sessions = (orch as any).sessions as Map<
+    const sessions = (orch as any).getInternalState().sessions as Map<
       string,
       Map<string, AppSessionInfo>
     >;
@@ -247,7 +247,7 @@ describe("SessionOrchestrator — getSessionOverview()", () => {
   });
 
   it("does not include contextWindow when contextWindowMax is not set", () => {
-    const sessions = (orch as any).sessions as Map<
+    const sessions = (orch as any).getInternalState().sessions as Map<
       string,
       Map<string, AppSessionInfo>
     >;
@@ -266,7 +266,7 @@ describe("SessionOrchestrator — getSessionOverview()", () => {
   });
 
   it("sets elapsedMs to 0 for non-running sessions", () => {
-    const sessions = (orch as any).sessions as Map<
+    const sessions = (orch as any).getInternalState().sessions as Map<
       string,
       Map<string, AppSessionInfo>
     >;
@@ -286,7 +286,7 @@ describe("SessionOrchestrator — getSessionOverview()", () => {
   });
 
   it("includes recentResponses from agent messages (last 3)", () => {
-    const sessions = (orch as any).sessions as Map<
+    const sessions = (orch as any).getInternalState().sessions as Map<
       string,
       Map<string, AppSessionInfo>
     >;
@@ -310,7 +310,7 @@ describe("SessionOrchestrator — getSessionOverview()", () => {
   });
 
   it("extracts ISO date strings for createdAt", () => {
-    const sessions = (orch as any).sessions as Map<
+    const sessions = (orch as any).getInternalState().sessions as Map<
       string,
       Map<string, AppSessionInfo>
     >;
@@ -332,7 +332,7 @@ describe("SessionOrchestrator — getSessionOverview()", () => {
   });
 
   it("includes model and mode when set", () => {
-    const sessions = (orch as any).sessions as Map<
+    const sessions = (orch as any).getInternalState().sessions as Map<
       string,
       Map<string, AppSessionInfo>
     >;
@@ -369,7 +369,7 @@ describe("SessionOrchestrator — extractRecentResponses()", () => {
     agentId: string,
     messages: ChatMessage[]
   ) {
-    const sessions = (orch as any).sessions as Map<
+    const sessions = (orch as any).getInternalState().sessions as Map<
       string,
       Map<string, AppSessionInfo>
     >;
@@ -446,7 +446,7 @@ describe("SessionOrchestrator — emitOverviewUpdate", () => {
   beforeEach(() => {
     orch = createMockSessionOrchestrator();
     // Set up a session so the overview has something to emit
-    const sessions = (orch as any).sessions as Map<
+    const sessions = (orch as any).getInternalState().sessions as Map<
       string,
       Map<string, AppSessionInfo>
     >;

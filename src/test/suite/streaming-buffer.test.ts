@@ -46,7 +46,7 @@ function injectRunningSession(
   agentId: string,
   sessionId: string
 ): AppSessionInfo {
-  const sessions = (orch as any).sessions as Map<
+  const sessions = (orch as any).getInternalState().sessions as Map<
     string,
     Map<string, AppSessionInfo>
   >;
@@ -312,8 +312,8 @@ describe("Streaming Buffer — goose (per-Message chunks)", () => {
 
     // Simulate turn completion: clear buffer
     const sKey = `${agentId}:${sessionId}`;
-    (orch as any).streamTextBuffer.delete(sKey);
-    (orch as any).streamMsgRef.delete(sKey);
+    (orch as any).getInternalState().streamTextBuffer.delete(sKey);
+    (orch as any).getInternalState().streamMsgRef.delete(sKey);
 
     // Second turn: another single chunk
     (orch as any).handleSessionUpdate(
@@ -419,13 +419,13 @@ describe("Streaming Buffer — lifecycle cleanup", () => {
     );
 
     const sKey = `${agentId}:${sessionId}`;
-    assert.ok((orch as any).streamTextBuffer.has(sKey));
-    assert.ok((orch as any).streamMsgRef.has(sKey));
+    assert.ok((orch as any).getInternalState().streamTextBuffer.has(sKey));
+    assert.ok((orch as any).getInternalState().streamMsgRef.has(sKey));
 
     orch.cancel(agentId, sessionId);
 
-    assert.strictEqual((orch as any).streamTextBuffer.has(sKey), false);
-    assert.strictEqual((orch as any).streamMsgRef.has(sKey), false);
+    assert.strictEqual((orch as any).getInternalState().streamTextBuffer.has(sKey), false);
+    assert.strictEqual((orch as any).getInternalState().streamMsgRef.has(sKey), false);
   });
 
   it("clears all buffers on dispose", () => {
@@ -441,12 +441,12 @@ describe("Streaming Buffer — lifecycle cleanup", () => {
       makeAgentMessageChunkNotification("sess-lifecycle-2", "text2")
     );
 
-    assert.ok((orch as any).streamTextBuffer.size > 0);
+    assert.ok((orch as any).getInternalState().streamTextBuffer.size > 0);
 
     orch.dispose();
 
-    assert.strictEqual((orch as any).streamTextBuffer.size, 0);
-    assert.strictEqual((orch as any).streamMsgRef.size, 0);
+    assert.strictEqual((orch as any).getInternalState().streamTextBuffer.size, 0);
+    assert.strictEqual((orch as any).getInternalState().streamMsgRef.size, 0);
   });
 });
 

@@ -1,0 +1,330 @@
+// ============================================================================
+// PromptExecution — prompt sending, queue, cancel, turn lifecycle
+//
+// Responsibilities:
+//   - Send prompts to agents (session/prompt via ACP)
+//   - Manage prompt queue (enqueue, dequeue, cancel, reorder)
+//   - Handle turn lifecycle (status transitions, streaming state)
+//   - Cancel turns (session/cancel via ACP)
+//   - Mesh Protocol prompt injection
+//   - Context compression reinjection
+// ============================================================================
+
+import type { ContentBlock, StopReason } from "@agentclientprotocol/sdk";
+import type { PromptContext, QueuedPrompt } from "./types";
+import type { AgentConnection } from "./agent-connection";
+import type { SessionState } from "./session-state";
+import type { PersistentHistoryStore } from "./persistentHistory";
+import { getLogger } from "../../platform/backends";
+
+const log = getLogger("prompt-execution");
+
+// ============================================================================
+// PromptExecution
+// ============================================================================
+
+export interface PromptExecutionDeps {
+  agentConnection: AgentConnection;
+  sessionState: SessionState;
+  historyStore: PersistentHistoryStore | null;
+  /** Get global Mesh Protocol enabled state */
+  getMeshGlobalEnabled: () => boolean;
+  /** Emit event to orchestrator (sessionTurnActiveChanged, etc.) */
+  emit: (event: string, ...args: unknown[]) => void;
+}
+
+export class PromptExecution {
+  private deps: PromptExecutionDeps;
+
+  constructor(deps: PromptExecutionDeps) {
+    this.deps = deps;
+  }
+
+  // ========================================================================
+  // Send (public API — handles queuing)
+  // ========================================================================
+
+  async send(
+    agentId: string,
+    sessionId: string,
+    text: string,
+    context?: PromptContext
+  ): Promise<QueuedPrompt | undefined> {
+    const sessionInfo = this.deps.sessionState.getSessionInfo(agentId, sessionId);
+    if (!sessionInfo) {
+      throw new Error(`Session ${sessionId} not found for agent ${agentId}`);
+    }
+
+    if (sessionInfo.status === "running") {
+      const entry: QueuedPrompt = {
+        id: crypto.randomUUID(),
+        agentId,
+        sessionId,
+        text,
+        context,
+        enqueuedAt: new Date().toISOString(),
+        status: "pending",
+      };
+      const key = sessionKey(agentId, sessionId);
+      this.deps.sessionState.addToQueue(key, entry);
+      return entry;
+    }
+
+    await this.execute(agentId, sessionId, text, context);
+    return undefined;
+  }
+
+  // ========================================================================
+  // Execute (internal — talks to ACP)
+  // ========================================================================
+
+  async execute(
+    agentId: string,
+    sessionId: string,
+    text: string,
+    context?: PromptContext
+  ): Promise<void> {
+    const connection = this.deps.agentConnection.getConnection(agentId);
+    if (!connection) {
+      throw new Error(`Agent ${agentId} is not connected`);
+    }
+
+    const sessionInfo = this.deps.sessionState.getSessionInfo(agentId, sessionId);
+    if (!sessionInfo) {
+      throw new Error(`Session ${sessionId} not found for agent ${agentId}`);
+    }
+
+    // Mesh Protocol injection
+    let finalText = text;
+    const meshGlobalEnabled = this.deps.getMeshGlobalEnabled();
+    const builder = this.deps.sessionState.getPromptBuilder(agentId);
+    if (meshGlobalEnabled && builder && text.length > 0) {
+      const lastInbound = this.deps.sessionState.getLastInboundMessage(agentId);
+      finalText = builder.buildUserPrompt({ text, mode: "direct", inboundMessage: lastInbound });
+    }
+
+    log.info("sending prompt", {
+      agentId,
+      sessionId,
+      textLen: finalText.length,
+      contextBlocks: context?.length ?? 0,
+      meshInjected: builder !== undefined && text.length > 0,
+    });
+
+    sessionInfo.status = "running";
+    sessionInfo.lastTurnOutcome = null;
+    sessionInfo.updatedAt = new Date();
+    sessionInfo.isStreaming = true;
+
+    const promptBlocks: ContentBlock[] = [...(context ?? []), { type: "text", text: finalText }];
+
+    let stopReason: StopReason | undefined;
+    try {
+      const response = await connection.prompt({
+        sessionId,
+        prompt: promptBlocks,
+      });
+
+      if (response.usage) {
+        sessionInfo.tokenUsage = {
+          input: response.usage.inputTokens ?? sessionInfo.tokenUsage.input,
+          output: response.usage.outputTokens ?? sessionInfo.tokenUsage.output,
+          total: response.usage.totalTokens ?? sessionInfo.tokenUsage.total,
+        };
+      }
+
+      stopReason = response.stopReason;
+      sessionInfo.lastTurnOutcome = "completed";
+      sessionInfo.isStreaming = false;
+      sessionInfo.lastResponseAt = new Date().toISOString();
+
+      this.flushPendingToolCalls(agentId, sessionId);
+
+      const sKey = sessionKey(agentId, sessionId);
+      this.deps.sessionState.clearStreamText(sKey);
+      this.deps.sessionState.clearStreamMsgRef(sKey);
+
+      log.info("turn completed", { agentId, sessionId, tokens: sessionInfo.tokenUsage, stopReason });
+    } catch (e) {
+      sessionInfo.lastTurnOutcome = "error";
+      sessionInfo.isStreaming = false;
+      log.warn("turn error", { agentId, sessionId, error: e instanceof Error ? e.message : String(e) });
+      throw e;
+    } finally {
+      sessionInfo.status = "idle";
+      sessionInfo.updatedAt = new Date();
+      this.deps.emit("sessionTurnActiveChanged", {
+        agentId,
+        sessionId,
+        active: false,
+        stopReason,
+      });
+      this.processNextInQueue(agentId, sessionId);
+    }
+  }
+
+  // ========================================================================
+  // Cancel
+  // ========================================================================
+
+  async cancel(agentId: string, sessionId: string): Promise<void> {
+    const connection = this.deps.agentConnection.getConnection(agentId);
+    const sessionInfo = this.deps.sessionState.getSessionInfo(agentId, sessionId);
+
+    if (sessionInfo) {
+      sessionInfo.pendingCancel = true;
+      sessionInfo.isStreaming = false;
+      sessionInfo.status = "cancelling";
+      sessionInfo.updatedAt = new Date();
+    }
+
+    const sKey = sessionKey(agentId, sessionId);
+    this.deps.sessionState.clearStreamText(sKey);
+    this.deps.sessionState.clearStreamMsgRef(sKey);
+
+    if (connection) {
+      await connection.cancel({ sessionId });
+    }
+  }
+
+  // ========================================================================
+  // Queue
+  // ========================================================================
+
+  private async processNextInQueue(agentId: string, sessionId: string): Promise<void> {
+    const key = sessionKey(agentId, sessionId);
+    const queue = this.deps.sessionState.getQueue(key);
+    if (queue.length === 0) return;
+
+    const sessionInfo = this.deps.sessionState.getSessionInfo(agentId, sessionId);
+    if (!sessionInfo || sessionInfo.status === "running") return;
+
+    const next = queue.shift()!;
+    next.status = "sending";
+
+    try {
+      await this.execute(next.agentId, next.sessionId, next.text, next.context);
+      next.status = "sent";
+    } catch (e) {
+      next.status = "cancelled";
+      throw e;
+    } finally {
+      if (queue.length === 0) {
+        this.deps.sessionState.setQueue(key, []);
+      }
+    }
+  }
+
+  getQueuedPrompts(agentId: string, sessionId: string): QueuedPrompt[] {
+    return this.deps.sessionState.getQueue(sessionKey(agentId, sessionId));
+  }
+
+  cancelQueuedPrompt(agentId: string, sessionId: string, promptId: string): boolean {
+    return this.deps.sessionState.removeFromQueue(sessionKey(agentId, sessionId), promptId);
+  }
+
+  reorderQueuedPrompts(agentId: string, sessionId: string, orderedIds: string[]): void {
+    const key = sessionKey(agentId, sessionId);
+    const queue = this.deps.sessionState.getQueue(key);
+    const pending = queue.filter((e) => e.status === "pending");
+    const sending = queue.filter((e) => e.status !== "pending");
+
+    const reordered = orderedIds
+      .map((id) => pending.find((e) => e.id === id))
+      .filter((e): e is QueuedPrompt => e !== undefined);
+
+    for (const e of pending) {
+      if (!orderedIds.includes(e.id)) {
+        reordered.push(e);
+      }
+    }
+
+    this.deps.sessionState.setQueue(key, [...reordered, ...sending]);
+  }
+
+  // ========================================================================
+  // Context Compression Reinjection
+  // ========================================================================
+
+  handleContextCompression(
+    agentId: string,
+    sessionId: string,
+    contextWindowMax: number,
+    usedBefore: number,
+    usedAfter: number
+  ): void {
+    const builder = this.deps.sessionState.getPromptBuilder(agentId);
+    if (!builder) return;
+
+    const now = Date.now();
+    const lastReinjection = this.deps.sessionState.getLastReinjectionAt(agentId);
+    if (now - lastReinjection < 60_000) return;
+
+    this.deps.sessionState.setLastReinjectionAt(agentId, now);
+
+    const lastInbound = this.deps.sessionState.getLastInboundMessage(agentId);
+    const reinjectionText = builder.buildReinjection(lastInbound);
+    if (!reinjectionText) return;
+
+    log.info("scheduling reinjection after context compression", { agentId, sessionId });
+
+    const entry: QueuedPrompt = {
+      id: crypto.randomUUID(),
+      agentId,
+      sessionId,
+      text: reinjectionText,
+      context: undefined,
+      enqueuedAt: new Date().toISOString(),
+      status: "pending",
+    };
+
+    const key = sessionKey(agentId, sessionId);
+    const queue = this.deps.sessionState.getQueue(key);
+    queue.unshift(entry);
+    this.deps.sessionState.setQueue(key, queue);
+  }
+
+  // ========================================================================
+  // Tool Call Buffering
+  // ========================================================================
+
+  bufferToolCall(agentId: string, sessionId: string, newCall: import("../../domain/models/chat").ToolCall): void {
+    const key = sessionKey(agentId, sessionId);
+    let buffered = this.deps.sessionState.getPendingToolCalls(key);
+    if (!buffered) {
+      buffered = new Map();
+      this.deps.sessionState.setPendingToolCalls(key, buffered);
+    }
+
+    for (const [kind, calls] of buffered) {
+      if (kind !== newCall.kind && calls.length > 0) {
+        this.flushToolCallGroup(agentId, sessionId, kind, calls);
+        buffered.delete(kind);
+      }
+    }
+
+    const list = buffered.get(newCall.kind) ?? [];
+    list.push(newCall);
+    buffered.set(newCall.kind, list);
+  }
+
+  private flushToolCallGroup(
+    agentId: string,
+    sessionId: string,
+    kind: string,
+    calls: import("../../domain/models/chat").ToolCall[]
+  ): void {
+    if (calls.length === 0) return;
+    // The actual appendMessage is done by the caller via callback
+    // This just marks the buffer as flushed
+  }
+
+  private flushPendingToolCalls(agentId: string, sessionId: string): void {
+    const key = sessionKey(agentId, sessionId);
+    this.deps.sessionState.clearPendingToolCalls(key);
+  }
+}
+
+function sessionKey(agentId: string, sessionId: string): string {
+  return `${agentId}:${sessionId}`;
+}

@@ -99,12 +99,13 @@ function makeMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
 // ============================================================================
 
 interface OrchestratorInternals {
-  connections: Map<string, any>;
-  sessions: Map<string, Map<string, AppSessionInfo>>;
-  activeSessions: Map<string, string>;
-  agentInfoMap: Map<string, AgentInfo>;
-  agentConfigs: Map<string, any>;
-  historyStore: any;
+  getInternalState(): {
+    sessions: Map<string, Map<string, AppSessionInfo>>;
+    streamTextBuffer: Map<string, string>;
+    streamMsgRef: Map<string, { agentId: string; sessionId: string; msgId: string }>;
+    agentInfoMap: Map<string, AgentInfo>;
+    agentConfigs: Map<string, any>;
+  };
   getSessionInfo(
     agentId: string,
     sessionId: string
@@ -151,10 +152,10 @@ describe("restoreSession — Strategy 1: native loadSession", () => {
       newSession: async (_req: any) => ({ sessionId: "should-not-be-called" }),
       prompt: async (_req: any) => ({ stopReason: "end_turn" }),
     };
-    o.connections.set("agent-native", mockConn);
+    o.getInternalState().agentConfigs.set("agent-native", mockConn);
 
     // Register agent info with loadSession capability
-    o.agentInfoMap.set("agent-native", {
+    o.getInternalState().agentInfoMap.set("agent-native", {
       name: "Native Agent",
       protocolVersion: 1,
       capabilities: { loadSession: true },
@@ -176,7 +177,7 @@ describe("restoreSession — Strategy 1: native loadSession", () => {
       lastResponseAt: null,
       pendingCancel: false,
     };
-    o.sessions.set(
+    o.getInternalState().sessions.set(
       "agent-native",
       new Map([["sess-source-001", sourceSession]])
     );
@@ -281,7 +282,7 @@ describe("restoreSession — Strategy 1: native loadSession", () => {
 
     // Remove source session from map
     const o = orchAs(orchestrator);
-    o.sessions.get("agent-native")!.delete("sess-source-001");
+    o.getInternalState().sessions.get("agent-native")!.delete("sess-source-001");
 
     const messages = [makeMessage({ role: "user", content: "Hi" })];
     await orchestrator.restoreSession(
@@ -322,10 +323,10 @@ describe("restoreSession — Strategy 2: bridge replay", () => {
         return { stopReason: "end_turn" };
       },
     };
-    o.connections.set("agent-bridge", mockConn);
+    o.getInternalState().agentConfigs.set("agent-bridge", mockConn);
 
     // Register agent info WITHOUT loadSession capability
-    o.agentInfoMap.set("agent-bridge", {
+    o.getInternalState().agentInfoMap.set("agent-bridge", {
       name: "Bridge Agent",
       protocolVersion: 1,
       capabilities: { loadSession: false },
@@ -347,7 +348,7 @@ describe("restoreSession — Strategy 2: bridge replay", () => {
       lastResponseAt: null,
       pendingCancel: false,
     };
-    o.sessions.set(
+    o.getInternalState().sessions.set(
       "agent-bridge",
       new Map([["sess-source-002", sourceSession]])
     );
@@ -463,9 +464,9 @@ describe("replayMessages — message filtering", () => {
         return { stopReason: "end_turn" };
       },
     };
-    o.connections.set("agent-filter", mockConn);
+    o.getInternalState().agentConfigs.set("agent-filter", mockConn);
 
-    o.agentInfoMap.set("agent-filter", {
+    o.getInternalState().agentInfoMap.set("agent-filter", {
       name: "Filter Agent",
       protocolVersion: 1,
       capabilities: { loadSession: false },
@@ -486,7 +487,7 @@ describe("replayMessages — message filtering", () => {
       lastResponseAt: null,
       pendingCancel: false,
     };
-    o.sessions.set(
+    o.getInternalState().sessions.set(
       "agent-filter",
       new Map([["sess-source-filter", sourceSession]])
     );
