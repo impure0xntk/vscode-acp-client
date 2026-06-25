@@ -73,16 +73,20 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
         (sessionKey ? `Waiting for ${sessionKey.split(":")[0]}…` : "Waiting…")
       : null;
 
-  // Timer anchor: turnStartedAt (fresh) → sessionInfo.lastResponseAt (stale) → now
+  // Timer anchor: turnStartedAt (set by UnifiedMode when the user sends).
+  // Do NOT fall back to sessionInfo.lastResponseAt — it stores the
+  // PREVIOUS response timestamp and would make the second turn's timer
+  // start from the first response (showing tens of seconds of phantom
+  // wait time).
+  // null means "no anchor yet" — the rAF loop won't start until
+  // effectiveAction is truthy AND anchorMs is non-null.
   const anchorMs = turnStartedAt
     ? new Date(turnStartedAt).getTime()
-    : sessionInfo?.lastResponseAt
-      ? new Date(sessionInfo.lastResponseAt).getTime()
-      : Date.now();
+    : null;
 
   const [elapsedSec, setElapsedSec] = useState(0);
   const rafRef = useRef<number | null>(null);
-  const anchorRef = useRef(anchorMs);
+  const anchorRef = useRef<number | null>(null);
 
   // Keep anchorRef in sync without tearing down the rAF loop
   useEffect(() => {
@@ -90,17 +94,19 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
   }, [anchorMs]);
 
   useEffect(() => {
-    if (!effectiveAction && !isCancelling) {
+    if (!effectiveAction || !anchorRef.current) {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
-      setElapsedSec(0);
+      if (!effectiveAction) setElapsedSec(0);
       return;
     }
     const tick = () => {
-      setElapsedSec((Date.now() - anchorRef.current) / 1000);
+      if (anchorRef.current !== null) {
+        setElapsedSec((Date.now() - anchorRef.current) / 1000);
+      }
       rafRef.current = requestAnimationFrame(tick);
     };
-    setElapsedSec((Date.now() - anchorRef.current) / 1000);
+    setElapsedSec((Date.now() - anchorRef.current!) / 1000);
     rafRef.current = requestAnimationFrame(tick);
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);

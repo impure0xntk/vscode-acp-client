@@ -526,16 +526,13 @@ function handleSessionMessage(data: SessionMessage): void {
 }
 
 function handleSessionStreamStart(data: SessionStreamStart): void {
-  // Do NOT create an empty agent message here.  It interferes with tool-call
-  // placement: when a tool message arrives before the first stream chunk
-  // (Goose-style structured JSON responses), the empty agent message absorbs
-  // the tool call via Case 1 merge, hiding it from IntermediateStepsBanner.
-  //
-  // Instead, appendStreamChunk will create a new agent message when the first
-  // chunk arrives (if no stoppable agent message exists), and the merge
-  // pipeline's Case 3 will correctly separate pending tools from agent text.
-  const _msgKey = sessionKeyOf(data.agentId, data.sessionId);
-  void _msgKey; // explicitly no-op — streamStart is informational only
+  const msgKey = sessionKeyOf(data.agentId, data.sessionId);
+  // Set streaming flag immediately so the blinking cursor appears from
+  // the very first stream chunk.  Without this, the first session (where
+  // no prior agent message exists for appendStreamChunks to append to)
+  // never gets streaming=true because appendStreamChunks only sets it when
+  // shouldAppend is true (i.e. a prior agent message exists).
+  useMessageStore.getState().setStreaming(msgKey, true);
 }
 
 function handleSessionStream(data: SessionStream): void {
