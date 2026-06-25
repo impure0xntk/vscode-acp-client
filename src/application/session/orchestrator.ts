@@ -115,6 +115,8 @@ export class SessionOrchestrator extends EventEmitter {
       getMeshGlobalEnabled: () =>
         deps.ui.getConfiguration<boolean>("acp.meshProtocol", "enabled", false),
       emit: (event: string, ...args: unknown[]) => this.emit(event, ...args),
+      appendToolMessage: (agentId: string, sessionId: string, message: import("../../domain/models/chat").ChatMessage) =>
+        this.appendMessage(agentId, sessionId, message),
     });
 
     // 5. SessionLifecycle (depends on agentConnection, sessionState, promptExecution)

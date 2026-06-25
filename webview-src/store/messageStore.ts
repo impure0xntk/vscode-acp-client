@@ -98,15 +98,34 @@ export const useMessageStore = create<MessageState>((set) => ({
       let newMessages: ChatMessage[];
       if (lastAgentIdx >= 0) {
         const last = existing[lastAgentIdx];
-        const updatedLast: ChatMessage = {
-          ...last,
-          content: last.content + chunk,
-        };
-        newMessages = [
-          ...existing.slice(0, lastAgentIdx),
-          updatedLast,
-          ...existing.slice(lastAgentIdx + 1),
-        ];
+        // If the last agent message already has a stopReason, this chunk
+        // belongs to a NEW turn — create a separate agent message instead
+        // of appending to the completed one.  Without this guard, the
+        // response of turn N+1 silently merges into turn N's final
+        // message, making two agent turns appear as one.
+        if (last.stopReason != null && last.stopReason !== "") {
+          newMessages = [
+            ...existing,
+            {
+              id: crypto.randomUUID(),
+              role: "agent",
+              content: chunk,
+              timestamp: Date.now(),
+              agentId,
+              sessionId,
+            },
+          ];
+        } else {
+          const updatedLast: ChatMessage = {
+            ...last,
+            content: last.content + chunk,
+          };
+          newMessages = [
+            ...existing.slice(0, lastAgentIdx),
+            updatedLast,
+            ...existing.slice(lastAgentIdx + 1),
+          ];
+        }
       } else {
         newMessages = [
           ...existing,

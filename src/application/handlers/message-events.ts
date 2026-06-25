@@ -117,6 +117,22 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
   );
 
   // -----------------------------------------------------------------------
+  // Session stream start — signal turn boundary to webview so a new
+  // agent message is created for each turn (prevents turn N+1 chunks
+  // from being appended to turn N's completed message).
+  // -----------------------------------------------------------------------
+  orchestrator.on(
+    "sessionStreamStart",
+    (event: { agentId: string; sessionId: string }) => {
+      const { agentId, sessionId } = event;
+      const cp = getChatPanel();
+      if (cp) {
+        cp.postMessage({ type: "session/streamStart", agentId, sessionId });
+      }
+    }
+  );
+
+  // -----------------------------------------------------------------------
   // Session update (raw SDK notification)
   // -----------------------------------------------------------------------
   orchestrator.on(

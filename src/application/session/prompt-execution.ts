@@ -13,7 +13,8 @@
 import type { ContentBlock, StopReason } from "@agentclientprotocol/sdk";
 import type { PromptContext, QueuedPrompt } from "./types";
 import type { AgentConnection } from "./agent-connection";
-import type { SessionState } from "./session-state";
+import type { ChatMessage } from "../../domain/models/chat";
+import { SessionState } from "./session-state";
 import type { PersistentHistoryStore } from "./persistentHistory";
 import { getLogger } from "../../platform/backends";
 
@@ -31,6 +32,8 @@ export interface PromptExecutionDeps {
   getMeshGlobalEnabled: () => boolean;
   /** Emit event to orchestrator (sessionTurnActiveChanged, etc.) */
   emit: (event: string, ...args: unknown[]) => void;
+  /** Append a tool message to the session — used by flushToolCallGroup to surface buffered calls */
+  appendToolMessage: (agentId: string, sessionId: string, message: import("../../domain/models/chat").ChatMessage) => void;
 }
 
 export class PromptExecution {
@@ -320,12 +323,30 @@ export class PromptExecution {
     calls: import("../../domain/models/chat").ToolCall[]
   ): void {
     if (calls.length === 0) return;
-    // The actual appendMessage is done by the caller via callback
-    // This just marks the buffer as flushed
+    // Create a tool ChatMessage and append it to the session so the
+    // webview pipeline can render it as a ToolCallCard.
+    const toolMsg: ChatMessage = {
+      id: `tool-${kind}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
+      role: "tool",
+      content: "",
+      timestamp: Date.now(),
+      agentId,
+      sessionId,
+      toolCalls: calls,
+    };
+    this.deps.appendToolMessage(agentId, sessionId, toolMsg);
   }
 
   private flushPendingToolCalls(agentId: string, sessionId: string): void {
     const key = sessionKey(agentId, sessionId);
+    const buffered = this.deps.sessionState.getPendingToolCalls(key);
+    if (buffered) {
+      for (const [kind, calls] of buffered) {
+        if (calls.length > 0) {
+          this.flushToolCallGroup(agentId, sessionId, kind, calls);
+        }
+      }
+    }
     this.deps.sessionState.clearPendingToolCalls(key);
   }
 }

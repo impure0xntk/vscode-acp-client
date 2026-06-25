@@ -69,6 +69,12 @@ interface SessionStream {
   chunk: string;
 }
 
+interface SessionStreamStart {
+  type: "session/streamStart";
+  agentId: string;
+  sessionId: string;
+}
+
 interface SessionStreamEnd {
   type: "session/streamEnd";
   agentId: string;
@@ -413,6 +419,7 @@ type WebviewMessage =
   | SetTabsMessage
   | SessionMessage
   | SessionStream
+  | SessionStreamStart
   | SessionStreamEnd
   | SessionSwitch
   | SessionTurnActive
@@ -516,6 +523,21 @@ function handleSessionMessage(data: SessionMessage): void {
         ) as import("./types").ContextAttachment[])
       : undefined);
   useMessageStore.getState().appendMessage(msgKey, { ...msg, attachments });
+}
+
+function handleSessionStreamStart(data: SessionStreamStart): void {
+  const msgKey = sessionKeyOf(data.agentId, data.sessionId);
+  // Create a new agent message entry for the incoming turn so that
+  // appendStreamChunk calls append to this fresh message instead of
+  // the previous turn's completed one.
+  useMessageStore.getState().appendMessage(msgKey, {
+    id: `stream-${data.sessionId}-${crypto.randomUUID()}`,
+    role: "agent",
+    content: "",
+    timestamp: Date.now(),
+    agentId: data.agentId,
+    sessionId: data.sessionId,
+  });
 }
 
 function handleSessionStream(data: SessionStream): void {
@@ -1201,6 +1223,9 @@ export function setupMessageHandlers(): void {
         break;
       case "session/stream":
         handleSessionStream(data);
+        break;
+      case "session/streamStart":
+        handleSessionStreamStart(data);
         break;
       case "session/streamEnd":
         handleSessionStreamEnd(data);

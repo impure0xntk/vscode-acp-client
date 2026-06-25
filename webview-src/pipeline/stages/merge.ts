@@ -68,7 +68,8 @@ export function mergeToolBatches(
       if (
         lastNonTool &&
         lastNonTool.role === "agent" &&
-        lastNonTool.systemKind === "info"
+        lastNonTool.systemKind === "info" &&
+        !lastNonTool.stopReason
       ) {
         // Case 1: merge into preceding agent message in-place.
         // Do NOT set pendingTool — the tool calls are fully absorbed here,
