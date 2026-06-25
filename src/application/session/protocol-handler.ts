@@ -207,6 +207,11 @@ export class ProtocolHandler {
     }));
     const tcDiff = extractDiffContent(u.content as ToolCallContent[] | undefined);
 
+    const inputSummary = truncateForLog(
+      typeof u.rawInput === "string" ? u.rawInput as string : JSON.stringify(u.rawInput),
+      200,
+    );
+
     const newCall: ToolCall = {
       id: u.toolCallId as string,
       title: (u.title as string) ?? "",
@@ -219,6 +224,18 @@ export class ProtocolHandler {
       locations: tcLocations,
       diffContent: tcDiff,
     };
+
+    log.info("tool_call", {
+      agentId,
+      sessionId,
+      toolCallId: newCall.id,
+      title: newCall.title,
+      kind: newCall.kind,
+      status: newCall.status,
+      inputSummary,
+      hasLocations: (tcLocations?.length ?? 0) > 0,
+      hasDiff: tcDiff !== undefined,
+    });
 
     this.deps.promptExecution.bufferToolCall(agentId, sessionId, newCall);
   }
@@ -256,6 +273,22 @@ export class ProtocolHandler {
           }
           const tcDiff = u.content ? extractDiffContent(u.content as ToolCallContent[]) : undefined;
           if (tcDiff) tc.diffContent = tcDiff;
+
+          const outputSummary = u.rawOutput !== undefined
+            ? truncateForLog(
+                typeof u.rawOutput === "string" ? u.rawOutput as string : JSON.stringify(u.rawOutput),
+                200,
+              )
+            : undefined;
+
+          log.info("tool_call_update", {
+            agentId,
+            sessionId,
+            toolCallId: tc.id,
+            status: tc.status,
+            outputSummary,
+            hasDiff: tcDiff !== undefined,
+          });
           return;
         }
       }
@@ -406,6 +439,11 @@ export class ProtocolHandler {
 // ============================================================================
 // Helpers
 // ============================================================================
+
+function truncateForLog(value: string, maxLen: number): string {
+  if (value.length <= maxLen) return value;
+  return value.slice(0, maxLen) + `...(${value.length - maxLen} more chars)`;
+}
 
 function normalizeToolStatus(
   raw: string | null | undefined

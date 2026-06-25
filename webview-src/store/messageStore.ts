@@ -81,15 +81,32 @@ export const useMessageStore = create<MessageState>((set) => ({
   appendStreamChunk: (key, agentId, sessionId, chunk) =>
     set((state) => {
       const existing = state.perSession[key] ?? [];
-      const last = existing[existing.length - 1];
+      // Find the last agent message, skipping tool messages that were
+      // inserted between streaming chunks (e.g. tool calls arrive while
+      // the agent is still streaming text).  Without this scan, every
+      // chunk after a tool message creates a separate agent message,
+      // which causes the pipeline to attach tool calls to one message
+      // and stopReason to another — hiding tool cards from the final
+      // response.
+      let lastAgentIdx = -1;
+      for (let i = existing.length - 1; i >= 0; i--) {
+        if (existing[i].role === "agent" && existing[i].agentId === agentId) {
+          lastAgentIdx = i;
+          break;
+        }
+      }
       let newMessages: ChatMessage[];
-      if (last && last.role === "agent" && last.agentId === agentId) {
-        const newContent = last.content + chunk;
+      if (lastAgentIdx >= 0) {
+        const last = existing[lastAgentIdx];
         const updatedLast: ChatMessage = {
           ...last,
-          content: newContent,
+          content: last.content + chunk,
         };
-        newMessages = [...existing.slice(0, -1), updatedLast];
+        newMessages = [
+          ...existing.slice(0, lastAgentIdx),
+          updatedLast,
+          ...existing.slice(lastAgentIdx + 1),
+        ];
       } else {
         newMessages = [
           ...existing,
@@ -119,9 +136,13 @@ export const useMessageStore = create<MessageState>((set) => ({
     set((state) => {
       const existing = state.perSession[key];
       if (!existing || existing.length === 0) return state;
-      // Find the last agent or tool message
+      // Find the last agent message (skip tool messages so stopReason
+      // is always stamped on the text response, not a tool-only message).
+      // selectFinalResponse in SessionChatContainer uses stopReason as
+      // the primary signal for the final response boundary — stamping it
+      // on a tool message causes the text response to be hidden.
       for (let i = existing.length - 1; i >= 0; i--) {
-        if (existing[i].role === "agent" || existing[i].role === "tool") {
+        if (existing[i].role === "agent") {
           const updated = { ...existing[i], ...update };
           const next = [...existing];
           next[i] = updated;

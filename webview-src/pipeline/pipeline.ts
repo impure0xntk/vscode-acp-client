@@ -188,6 +188,126 @@ export class MessagePipeline {
   }
 
   /**
+   * Re-process the last raw message when it was updated in-place
+   * (e.g. streaming chunk appended to an existing message, or
+   * stopReason stamped by turnEnded).
+   *
+   * This avoids a full cache-clear (which would lose groupKey context)
+   * while still reflecting the latest content/metadata in the cache.
+   */
+  refreshLast(
+    rawMessages: RawMessage[],
+    ctx: PipelineContext
+  ): PipelineItem[] {
+    if (rawMessages.length === 0) {
+      this.cache = [];
+      return this.cache;
+    }
+
+    // Only re-process the last raw message.  Everything else is still
+    // valid — we just need to replace the last cached PipelineItem
+    // with fresh annotation from the updated raw message.
+    const lastRaw = rawMessages[rawMessages.length - 1];
+    const classified = classifyMessage(lastRaw);
+    const filtered = filterMessages([classified], this.config.filter);
+
+    // Merge with the preceding cached item (if any) for cross-boundary
+    // tool deduplication.
+    let merged: ClassifiedMessage[];
+    if (this.config.merge.enabled && this.cache.length > 0) {
+      const lastCached = this.cache[this.cache.length - 1];
+      const contextPrefix: ClassifiedMessage[] = [
+        {
+          id: lastCached.key,
+          role:
+            lastCached.type === "chat"
+              ? lastCached.role
+              : ("system" as const),
+          content: lastCached.type === "chat" ? lastCached.content : "",
+          timestamp: lastCached.timestamp ?? 0,
+          agentId:
+            lastCached.type === "chat" ? lastCached.agentId : undefined,
+          systemKind:
+            lastCached.type === "chat"
+              ? ("info" as const)
+              : (lastCached.type as ClassifiedMessage["systemKind"]),
+          toolCalls:
+            lastCached.type === "chat"
+              ? (lastCached.resolvedToolCalls as unknown as import("../types").ToolCall[])
+              : undefined,
+        } satisfies ClassifiedMessage,
+      ];
+      merged = mergeToolBatches(
+        [...contextPrefix, ...filtered],
+        this.config.merge
+      );
+
+      // Check if the contextPrefix was modified by merge.
+      // If so, the preceding cached item absorbed tool calls from the
+      // re-processed message — update it in the cache.
+      if (contextPrefix.length > 0 && merged.length > 0) {
+        const originalTCs = contextPrefix[0].toolCalls;
+        const mergedTCs = merged[0].toolCalls;
+        if (mergedTCs !== originalTCs && mergedTCs != null) {
+          // Take groupKey from the existing cached item so the
+          // consecutive status is preserved.
+          const existingGroupKey =
+            this.cache.length > 0 &&
+            this.cache[this.cache.length - 1].type === "chat"
+              ? (this.cache[this.cache.length - 1] as import("./types").ChatDisplayItem).groupKey
+              : this.lastGroupKey;
+          const reannotated = annotateMessages(
+            [merged[0]],
+            this.config.annotate,
+            existingGroupKey
+          );
+          if (reannotated.length > 0) {
+            this.cache[this.cache.length - 1] = reannotated[0];
+          }
+        }
+      }
+
+      // Drop the contextPrefix — it was only needed for merge context
+      merged = merged.slice(contextPrefix.length);
+    } else {
+      merged = filtered;
+    }
+
+    // Annotate the new/changed message.
+    // Carry over groupKey from the preceding item so consecutive
+    // detection is consistent.
+    let initializeGroupKey = "";
+    if (this.cache.length > 0) {
+      const prev = this.cache[this.cache.length - 1];
+      if (prev.type === "chat" && prev.isConsecutive && prev.role === classified.role) {
+        initializeGroupKey = prev.groupKey;
+      }
+    }
+    const annotated = annotateMessages(
+      merged,
+      this.config.annotate,
+      initializeGroupKey
+    );
+
+    if (annotated.length > 0) {
+      if (this.cache.length > 0) {
+        this.cache[this.cache.length - 1] = annotated[0];
+      } else {
+        this.cache = annotated;
+      }
+    }
+
+    // Update lastGroupKey
+    const lastItem =
+      this.cache.length > 0 ? this.cache[this.cache.length - 1] : null;
+    this.lastGroupKey =
+      lastItem && lastItem.type === "chat" ? lastItem.groupKey : "";
+
+    // Return a new array reference so React re-renders
+    return [...this.cache];
+  }
+
+  /**
    * Clear the internal cache (e.g. on session switch).
    * Resets lastGroupKey so that the first message after a clear
    * always shows its header.

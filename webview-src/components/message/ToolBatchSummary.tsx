@@ -97,8 +97,14 @@ export function ToolBatchSummary({
   const kindSummary = useMemo(() => summarizeKinds(countKinds(calls)), [calls]);
   const totalOps = calls.length;
   const totalMs = useMemo(() => totalDuration(calls), [calls]);
+  const { errors, ok } = useMemo(() => partitionErrors(calls), [calls]);
 
   const appearClass = isNew ? "animate-tool-batch-appear" : "";
+
+  // All-error batches auto-expand so failures are immediately visible,
+  // matching the mixed-errors behaviour.
+  const [expanded, setExpanded] = useState(() => hasOnlyErrors);
+  const [allExpanded, setAllExpanded] = useState(() => true);
 
   // ── Single call: render directly, no wrapper ──
   if (calls.length === 1) {
@@ -113,10 +119,6 @@ export function ToolBatchSummary({
 
   // ── All-same-status: single collapsible via chevron ──
   if (!hasErrors || hasOnlyErrors) {
-    // All-error batches auto-expand so failures are immediately visible,
-    // matching the mixed-errors behaviour.
-    const [expanded, setExpanded] = useState(hasOnlyErrors);
-
     return (
       <div
         className={`${expanded ? "overflow-visible" : ""} ${appearClass} mt-[2px] rounded overflow-hidden text-[10px] text-fg-primary bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]`}
@@ -183,10 +185,6 @@ export function ToolBatchSummary({
   }
 
   // ── Mixed (errors + ok): top-level chevron collapses everything ──
-  const { errors, ok } = useMemo(() => partitionErrors(calls), [calls]);
-
-  // Top-level: auto-expand on render when errors present
-  const [allExpanded, setAllExpanded] = useState(true);
 
   return (
     <div

@@ -153,11 +153,16 @@ export class PromptExecution {
     } finally {
       sessionInfo.status = "idle";
       sessionInfo.updatedAt = new Date();
+      // Always send a stopReason so the webview can reset isStreaming.
+      // When the agent produces only tool calls (no text), stopReason
+      // may be undefined — default to "end_turn" so the UI turn boundary
+      // is always closed.
+      const resolvedStopReason = stopReason ?? "end_turn";
       this.deps.emit("sessionTurnActiveChanged", {
         agentId,
         sessionId,
         active: false,
-        stopReason,
+        stopReason: resolvedStopReason,
       });
       this.processNextInQueue(agentId, sessionId);
     }

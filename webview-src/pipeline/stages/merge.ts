@@ -103,12 +103,21 @@ export function mergeToolBatches(
         };
       }
     } else if (msg.role === "agent" && pendingTool) {
-      // Case 3: agent after a pending tool — flush the pending tool first
-      // (promoted to agent role), then push the agent message separately.
-      // Mark originalRole so annotate keeps the promoted tool in the "tool"
-      // group (intermediate), not the "agent" group (final response).
-      result.push({ ...pendingTool, role: "agent" as const, originalRole: "tool" as const });
-      result.push(msg);
+      // Case 3: agent after a pending tool — merge the pending tool's
+      // toolCalls INTO the agent message instead of emitting them as a
+      // separate promoted-tool item.  When tool_call notifications
+      // arrive before agent_message_chunk (e.g. Goose structured JSON
+      // responses), this keeps the tool-call cards rendering directly
+      // below the agent text as part of the final response, rather than
+      // being exiled to the intermediate-steps banner.
+      const mergedAgent: ClassifiedMessage = {
+        ...msg,
+        toolCalls: deduplicateToolCalls([
+          ...(pendingTool.toolCalls ?? []),
+          ...(msg.toolCalls ?? []),
+        ]),
+      };
+      result.push(mergedAgent);
       pendingTool = null;
     } else {
       // Any other message — pass through.

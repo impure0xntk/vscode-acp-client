@@ -195,6 +195,12 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
         cp?.pushSessionInfo(agentId, sessionId, info);
         cp?.pushTurnActive(agentId, sessionId, info.status === "running");
       }
+      // Always notify webview of stream end so isStreaming is reset.
+      // Without this, tool-call-only turns (where the agent produces no
+      // text chunks) leave isStreaming=true forever, blocking subsequent
+      // messages from appearing in the chat UI.
+      cp?.pushStreamEnd(agentId, sessionId);
+
       // Notify webview of turn completion with stopReason
       if (stopReason) {
         cp?.postMessage({

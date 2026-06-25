@@ -18,7 +18,7 @@ import {
 export type SessionStatus = "idle" | "running" | "cancelling";
 /** Turn outcome — set after a turn completes */
 export type TurnOutcome = "completed" | "error" | "cancelled";
-export type ToolStatus = "in_progress" | "completed" | "failed";
+export type ToolStatus = "in_progress" | "completed" | "failed" | "cancelled";
 
 export type StatusIconType =
   | SessionStatus
