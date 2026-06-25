@@ -25,6 +25,13 @@ export interface MessageState {
     sessionId: string,
     chunk: string
   ) => void;
+  /** Append multiple streaming chunks at once to reduce store updates */
+  appendStreamChunks: (
+    key: string,
+    agentId: string,
+    sessionId: string,
+    chunks: string[]
+  ) => void;
   /**
    * Update the last agent/tool message with turn-end metadata.
    * Used by session/turnEnded to stamp stopReason onto the final response
@@ -75,6 +82,66 @@ export const useMessageStore = create<MessageState>((set) => ({
       return {
         ...state,
         streaming: { ...state.streaming, [key]: v },
+      };
+    }),
+
+  /** Append multiple streaming chunks at once to reduce store updates */
+  appendStreamChunks: (key, agentId, sessionId, chunks: string[]) =>
+    set((state) => {
+      if (chunks.length === 0) return state;
+      const merged = chunks.join("");
+      const existing = state.perSession[key] ?? [];
+      let lastAgentIdx = -1;
+      for (let i = existing.length - 1; i >= 0; i--) {
+        if (existing[i].role === "agent" && existing[i].agentId === agentId) {
+          lastAgentIdx = i;
+          break;
+        }
+      }
+      let newMessages: ChatMessage[];
+      if (lastAgentIdx >= 0) {
+        const last = existing[lastAgentIdx];
+        if (last.stopReason != null && last.stopReason !== "") {
+          newMessages = [
+            ...existing,
+            {
+              id: crypto.randomUUID(),
+              role: "agent",
+              content: merged,
+              timestamp: Date.now(),
+              agentId,
+              sessionId,
+            },
+          ];
+        } else {
+          const updatedLast: ChatMessage = { ...last, content: last.content + merged };
+          newMessages = [
+            ...existing.slice(0, lastAgentIdx),
+            updatedLast,
+            ...existing.slice(lastAgentIdx + 1),
+          ];
+        }
+      } else {
+        newMessages = [
+          ...existing,
+          {
+            id: crypto.randomUUID(),
+            role: "agent",
+            content: merged,
+            timestamp: Date.now(),
+            agentId,
+            sessionId,
+          },
+        ];
+      }
+      const newStreaming =
+        state.streaming[key] === true
+          ? state.streaming
+          : { ...state.streaming, [key]: true };
+      return {
+        ...state,
+        perSession: { ...state.perSession, [key]: newMessages },
+        streaming: newStreaming,
       };
     }),
 

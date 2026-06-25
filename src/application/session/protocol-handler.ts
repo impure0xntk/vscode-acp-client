@@ -47,6 +47,8 @@ export class ProtocolHandler {
   private deps: ProtocolHandlerDeps;
   // sessionKey → AvailableCommand[]
   private sessionCommands: Map<string, AvailableCommand[]> = new Map();
+  // sessionKey → buffered thought text (flushed on turn end or message chunk)
+  private pendingThoughts: Map<string, string> = new Map();
 
   constructor(deps: ProtocolHandlerDeps) {
     this.deps = deps;
@@ -99,6 +101,16 @@ export class ProtocolHandler {
           sessionInfo.isStreaming = true;
           this.deps.emit("sessionStreamStart", { agentId, sessionId });
         }
+        // Buffer thought text — flushed via flushThoughts() on turn boundary
+        // or when agent_message_chunk arrives.  This prevents one notification
+        // per character from reaching the webview (Codex/Copilot).
+        {
+          const sKey = sessionKey(agentId, sessionId);
+          const existing = this.pendingThoughts.get(sKey) ?? "";
+          const u = update as { content?: { text?: string } };
+          const delta = u.content?.text ?? "";
+          this.pendingThoughts.set(sKey, existing + delta);
+        }
         break;
       case "tool_call":
         this.handleToolCall(agentId, sessionId, sessionInfo, update);
@@ -141,7 +153,53 @@ export class ProtocolHandler {
         break;
     }
 
+    // When agent_message_chunk arrives, flush any buffered thoughts first
+    // so they appear as a single block before the visible response text.
+    if (kind === "agent_message_chunk") {
+      this.flushThoughts(agentId, sessionId);
+    }
+
     this.deps.emit("sessionUpdate", { agentId, sessionId, notification });
+  }
+
+  // ========================================================================
+  // Thought Buffering
+  // ========================================================================
+
+  /**
+   * Flush buffered thought text as a single agent_message_chunk event.
+   * Called when agent_message_chunk arrives or when the turn ends.
+   * This converts hundreds of individual thought_chunk notifications into
+   * at most one or two streamChunk events for the webview.
+   */
+  flushThoughts(agentId: string, sessionId: string): void {
+    const sKey = sessionKey(agentId, sessionId);
+    const buffered = this.pendingThoughts.get(sKey);
+    if (!buffered || buffered.length === 0) {
+      this.pendingThoughts.delete(sKey);
+      return;
+    }
+    this.pendingThoughts.delete(sKey);
+
+    const sessionInfo = this.deps.sessionState.getSessionInfo(agentId, sessionId);
+    if (!sessionInfo) return;
+
+    // Emit as a single chunk event
+    if (!sessionInfo.isStreaming) {
+      sessionInfo.isStreaming = true;
+      this.deps.emit("sessionStreamStart", { agentId, sessionId });
+    }
+
+    const existing = this.deps.sessionState.getStreamMsgRef(sKey);
+    if (existing) {
+      this.deps.sessionState.appendStreamText(sKey, buffered);
+    } else {
+      const msgId = `stream-${sessionId}-${crypto.randomUUID()}`;
+      this.deps.sessionState.setStreamMsgRef(sKey, { agentId, sessionId, msgId });
+      this.deps.sessionState.setStreamText(sKey, buffered);
+    }
+    this.deps.emit("sessionStreamChunk", { agentId, sessionId, chunk: buffered });
+    sessionInfo.lastResponseAt = new Date().toISOString();
   }
 
   // ========================================================================

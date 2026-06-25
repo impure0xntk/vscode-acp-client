@@ -63,6 +63,15 @@ export class ChatPanel {
   private pathResolver: BatchedPathResolver;
   private currentSessionKey: string = "";
 
+  // Streaming chunk batching — coalesce high-frequency single-character
+  // chunks from agents (Codex/Copilot ACP) into fewer postMessage calls.
+  // Uses setTimeout since requestAnimationFrame is unavailable in the
+  // Node.js extension host; the webview also coalesces via its own store.
+  private _streamChunkBuffer: Array<{ agentId: string; sessionId: string; chunk: string }> = [];
+  private _streamChunkFlushTimer: ReturnType<typeof setTimeout> | null = null;
+  // Max wait before flushing (ms) — keeps latency low even with sparse chunks
+  private static readonly STREAM_FLUSH_INTERVAL_MS = 50;
+
   private _onSendMessage: EventEmitter<{
     agentId: string;
     sessionId: string;
@@ -281,15 +290,53 @@ export class ChatPanel {
   }
 
   pushStreamChunk(agentId: string, sessionId: string, chunk: string): void {
-    this.postMessage({ type: "session/stream", agentId, sessionId, chunk });
-    // Enqueue path candidates from streaming chunks
-    const candidates = extractCandidatePaths(chunk);
-    if (candidates.length > 0) {
-      this.pathResolver.enqueue(candidates);
+    // Buffer chunks and flush on a timer to avoid overwhelming the webview
+    // with high-frequency single-character updates (Codex/Copilot ACP).
+    this._streamChunkBuffer.push({ agentId, sessionId, chunk });
+
+    if (this._streamChunkFlushTimer === null) {
+      this._streamChunkFlushTimer = setTimeout(() => {
+        this.flushStreamChunks();
+      }, ChatPanel.STREAM_FLUSH_INTERVAL_MS);
+    }
+  }
+
+  private flushStreamChunks(): void {
+    const buffer = this._streamChunkBuffer;
+    this._streamChunkBuffer = [];
+    if (this._streamChunkFlushTimer !== null) {
+      clearTimeout(this._streamChunkFlushTimer);
+      this._streamChunkFlushTimer = null;
+    }
+
+    if (buffer.length === 0) return;
+
+    // Group consecutive chunks from same agent/session and merge
+    const merged: Array<{ agentId: string; sessionId: string; chunk: string }> = [];
+    for (const item of buffer) {
+      const last = merged[merged.length - 1];
+      if (last && last.agentId === item.agentId && last.sessionId === item.sessionId) {
+        last.chunk += item.chunk;
+      } else {
+        merged.push({ ...item });
+      }
+    }
+
+    for (const { agentId, sessionId, chunk } of merged) {
+      this.postMessage({ type: "session/stream", agentId, sessionId, chunk });
+      const candidates = extractCandidatePaths(chunk);
+      if (candidates.length > 0) {
+        this.pathResolver.enqueue(candidates);
+      }
     }
   }
 
   pushStreamEnd(agentId: string, sessionId: string): void {
+    // Flush any buffered chunks BEFORE sending streamEnd so the webview
+    // receives all text before the end signal.  Without this, chunks
+    // buffered during the turn arrive AFTER streamEnd, re-setting
+    // streaming=true and leaving the blinking cursor stuck.
+    this.flushStreamChunks();
     this.postMessage({ type: "session/streamEnd", agentId, sessionId });
   }
 
@@ -527,6 +574,16 @@ export class ChatPanel {
         timestamp: Date.now(),
         context,
       });
+    }
+  }
+
+  dispose(): void {
+    if (this._streamChunkFlushTimer !== null) {
+      clearTimeout(this._streamChunkFlushTimer);
+      this._streamChunkFlushTimer = null;
+    }
+    if (this._streamChunkBuffer.length > 0) {
+      this.flushStreamChunks();
     }
   }
 

@@ -148,8 +148,10 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
       const activeSessionId = orchestrator.getActiveSessionId(agentId);
       const isActive = sessionId === activeSessionId;
 
-      // Forward raw SDK notification only for the active session
-      if (isActive) {
+      // Forward raw SDK notification only for the active session.
+      // Skip agent_thought_chunk — these are buffered in ProtocolHandler
+      // and flushed as a single chunk to avoid overwhelming the webview.
+      if (isActive && update.sessionUpdate !== "agent_thought_chunk") {
         cp?.pushSessionNotification(agentId, sessionId, notification);
       }
 
@@ -174,7 +176,6 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
       if (
         isActive &&
         (update.sessionUpdate === "agent_message_chunk" ||
-          update.sessionUpdate === "agent_thought_chunk" ||
           update.sessionUpdate === "current_mode_update" ||
           update.sessionUpdate === "config_option_update" ||
           update.sessionUpdate === "tool_call" ||
