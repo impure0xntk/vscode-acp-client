@@ -87,39 +87,37 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
   );
 
   // -----------------------------------------------------------------------
-  // Session stream chunk — process agent output through MeshOrchestrator
-  // to extract P2P markers before they reach the chat UI.
-  // The sanitized chunk (markers stripped) replaces the original for display.
+  // Session message (batched) — emitted by ProtocolHandler.flushPendingAgentText
+  // after turn completion. Delivers the full agent response as a single
+  // ChatMessage, reducing extension-host ↔ webview message frequency.
   // -----------------------------------------------------------------------
   orchestrator.on(
-    "sessionStreamChunk",
-    async (event: { agentId: string; sessionId: string; chunk: string }) => {
-      const { agentId, sessionId, chunk } = event;
-      let displayChunk = chunk;
-      try {
-        displayChunk = await meshOrchestrator.processAgentOutput(
-          agentId,
-          chunk
-        );
-      } catch (e) {
-        log.warn("processAgentOutput failed", {
-          agentId,
-          sessionId,
-          error: (e as Error).message,
-        });
-      }
-      // Push the sanitized chunk (P2P markers removed) to the chat UI
+    "sessionMessage",
+    (event: { agentId: string; sessionId: string; message: import("../../domain/models/chat").ChatMessage }) => {
+      const { agentId, sessionId, message } = event;
       const cp = getChatPanel();
-      if (cp && displayChunk) {
-        cp.pushStreamChunk(agentId, sessionId, displayChunk);
+      if (cp) {
+        cp.pushMessage(agentId, sessionId, message);
+        presenter.updateTabFromMessage(agentId, sessionId);
       }
+      const sessionInfo = orchestrator.getSessionInfo(agentId, sessionId);
+      statusTracker.updateSessionStatus(agentId, sessionId, {
+        sessionId,
+        title: sessionInfo?.title ?? sessionId,
+        status: "idle",
+        isActive: true,
+        messageCount: sessionInfo ? sessionInfo.messages.length : 0,
+        tokenUsage: sessionInfo?.tokenUsage ?? { input: 0, output: 0, total: 0 },
+      });
+      treeProvider.refresh();
+      updateContext();
     }
   );
 
   // -----------------------------------------------------------------------
-  // Session stream start — signal turn boundary to webview so a new
-  // agent message is created for each turn (prevents turn N+1 chunks
-  // from being appended to turn N's completed message).
+  // Session stream start — signal turn start to webview.
+  // With batched delivery, this signals the start of a new turn so the
+  // webview can prepare for a single message append (not per-chunk).
   // -----------------------------------------------------------------------
   orchestrator.on(
     "sessionStreamStart",
@@ -155,11 +153,15 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
       // session/message via flushPendingToolCalls → appendMessage to
       // avoid duplicate delivery (both session/notification and
       // session/message paths).
+      // Skip agent_message_chunk — text is buffered in ProtocolHandler
+      // and flushed as a single ChatMessage via sessionMessage event
+      // on turn completion (batched delivery to reduce webview overhead).
       if (
         isActive &&
         update.sessionUpdate !== "agent_thought_chunk" &&
         update.sessionUpdate !== "tool_call" &&
-        update.sessionUpdate !== "tool_call_update"
+        update.sessionUpdate !== "tool_call_update" &&
+        update.sessionUpdate !== "agent_message_chunk"
       ) {
         cp?.pushSessionNotification(agentId, sessionId, notification);
       }
@@ -184,8 +186,7 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
       // Push updated sessionInfo only for the active session
       if (
         isActive &&
-        (update.sessionUpdate === "agent_message_chunk" ||
-          update.sessionUpdate === "current_mode_update" ||
+        (update.sessionUpdate === "current_mode_update" ||
           update.sessionUpdate === "config_option_update" ||
           update.sessionUpdate === "tool_call" ||
           update.sessionUpdate === "tool_call_update" ||

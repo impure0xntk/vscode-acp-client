@@ -111,6 +111,7 @@ export class SessionOrchestrator extends EventEmitter {
     this.promptExecution = new PromptExecution({
       agentConnection: undefined as any,
       sessionState: this.sessionState,
+      protocolHandler: this.protocolHandler,
       historyStore: null,
       getMeshGlobalEnabled: () =>
         deps.ui.getConfiguration<boolean>("acp.meshProtocol", "enabled", false),
@@ -629,6 +630,7 @@ export class SessionOrchestrator extends EventEmitter {
     streamMsgRef: Map<string, { agentId: string; sessionId: string; msgId: string }>;
     agentInfoMap: Map<string, AgentInfo>;
     agentConfigs: Map<string, AgentConfig>;
+    protocolHandler: ProtocolHandler;
   } {
     return {
       sessions: this.sessionState["sessions"],
@@ -636,6 +638,7 @@ export class SessionOrchestrator extends EventEmitter {
       streamMsgRef: this.sessionState["streamMsgRef"],
       agentInfoMap: this.agentConnection["agentInfoMap"],
       agentConfigs: this.agentConnection["agentConfigs"],
+      protocolHandler: this.protocolHandler,
     };
   }
 

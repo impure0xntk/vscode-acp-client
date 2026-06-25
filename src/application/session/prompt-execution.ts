@@ -14,7 +14,7 @@ import type { ContentBlock, StopReason } from "@agentclientprotocol/sdk";
 import type { PromptContext, QueuedPrompt } from "./types";
 import type { AgentConnection } from "./agent-connection";
 import type { ChatMessage } from "../../domain/models/chat";
-import { SessionState } from "./session-state";
+import { SessionState, sessionKey } from "./session-state";
 import type { PersistentHistoryStore } from "./persistentHistory";
 import { getLogger } from "../../platform/backends";
 
@@ -27,6 +27,7 @@ const log = getLogger("prompt-execution");
 export interface PromptExecutionDeps {
   agentConnection: AgentConnection;
   sessionState: SessionState;
+  protocolHandler: import("./protocol-handler").ProtocolHandler;
   historyStore: PersistentHistoryStore | null;
   /** Get global Mesh Protocol enabled state */
   getMeshGlobalEnabled: () => boolean;
@@ -142,6 +143,9 @@ export class PromptExecution {
       sessionInfo.lastResponseAt = new Date().toISOString();
 
       this.flushPendingToolCalls(agentId, sessionId);
+
+      // Flush buffered agent text as a single ChatMessage (batched delivery)
+      this.deps.protocolHandler.flushPendingAgentText(agentId, sessionId);
 
       const sKey = sessionKey(agentId, sessionId);
       this.deps.sessionState.clearStreamText(sKey);
@@ -350,8 +354,4 @@ export class PromptExecution {
     }
     this.deps.sessionState.clearPendingToolCalls(key);
   }
-}
-
-function sessionKey(agentId: string, sessionId: string): string {
-  return `${agentId}:${sessionId}`;
 }

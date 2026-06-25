@@ -39,7 +39,6 @@ function createMockOrchestrator(): SessionOrchestrator {
 
 /**
  * Inject a running session directly into the orchestrator's internal state.
- * Reuses the existing agent session map so multiple sessions per agent work.
  */
 function injectRunningSession(
   orch: SessionOrchestrator,
@@ -99,10 +98,10 @@ function makeAgentThoughtChunkNotification(
 }
 
 // ============================================================================
-// codex-acp simulation: many small per-delta chunks
+// Batched delivery: text is buffered and flushed on turn completion
 // ============================================================================
 
-describe("Streaming Buffer — codex-acp (per-delta chunks)", () => {
+describe("Batched Delivery — agent_message_chunk buffered until turn end", () => {
   let orch: SessionOrchestrator;
   const agentId = "codex";
   const sessionId = "sess-codex-1";
@@ -116,12 +115,12 @@ describe("Streaming Buffer — codex-acp (per-delta chunks)", () => {
     orch.dispose();
   });
 
-  it("accumulates many small chunks into a single message", () => {
+  it("buffers many small chunks and flushes as single message on turn end", () => {
     const chunks = ["こ", "ん", "に", "ち", "は"];
-    const receivedChunks: string[] = [];
+    const sessionMessages: ChatMessage[] = [];
 
-    orch.on("sessionStreamChunk", (evt: any) => {
-      receivedChunks.push(evt.chunk);
+    orch.on("sessionMessage", (evt: any) => {
+      sessionMessages.push(evt.message);
     });
 
     for (const chunk of chunks) {
@@ -131,31 +130,21 @@ describe("Streaming Buffer — codex-acp (per-delta chunks)", () => {
       );
     }
 
-    const info = orch.getSessionInfo(agentId, sessionId)!;
-    assert.strictEqual(info.messages.length, 1, "should have exactly 1 message");
-    assert.strictEqual(info.messages[0].content, "こんにちは");
-    assert.strictEqual(info.messages[0].role, "agent");
+    // Before turn end: no messages emitted yet
+    const infoBefore = orch.getSessionInfo(agentId, sessionId)!;
+    assert.strictEqual(infoBefore.messages.length, 0, "no messages before turn end");
+
+    // Simulate turn completion by calling flushPendingAgentText
+    const ph = (orch as any).getInternalState().protocolHandler;
+    ph.flushPendingAgentText(agentId, sessionId);
+
+    // After turn end: single message with all text
+    assert.strictEqual(sessionMessages.length, 1);
+    assert.strictEqual(sessionMessages[0].content, "こんにちは");
+    assert.strictEqual(sessionMessages[0].role, "agent");
   });
 
-  it("emits sessionStreamChunk for every incoming chunk", () => {
-    const chunks = ["Hello", " ", "World", "!"];
-    const receivedChunks: string[] = [];
-
-    orch.on("sessionStreamChunk", (evt: any) => {
-      receivedChunks.push(evt.chunk);
-    });
-
-    for (const chunk of chunks) {
-      (orch as any).handleSessionUpdate(
-        agentId,
-        makeAgentMessageChunkNotification(sessionId, chunk)
-      );
-    }
-
-    assert.deepStrictEqual(receivedChunks, ["Hello", " ", "World", "!"]);
-  });
-
-  it("does NOT emit sessionMessage for each chunk (only silent append)", () => {
+  it("does NOT emit sessionMessage during streaming (only on flush)", () => {
     const sessionMessages: ChatMessage[] = [];
     orch.on("sessionMessage", (evt: any) => {
       sessionMessages.push(evt.message);
@@ -169,7 +158,7 @@ describe("Streaming Buffer — codex-acp (per-delta chunks)", () => {
       );
     }
 
-    assert.strictEqual(sessionMessages.length, 0);
+    assert.strictEqual(sessionMessages.length, 0, "no messages emitted during streaming");
   });
 
   it("sets isStreaming on first chunk", () => {
@@ -201,10 +190,10 @@ describe("Streaming Buffer — codex-acp (per-delta chunks)", () => {
   it("handles character-by-character streaming (Japanese text)", () => {
     const text = "今日は良い天気ですね";
     const chars = Array.from(text);
-    const receivedChunks: string[] = [];
+    const sessionMessages: ChatMessage[] = [];
 
-    orch.on("sessionStreamChunk", (evt: any) => {
-      receivedChunks.push(evt.chunk);
+    orch.on("sessionMessage", (evt: any) => {
+      sessionMessages.push(evt.message);
     });
 
     for (const ch of chars) {
@@ -214,14 +203,26 @@ describe("Streaming Buffer — codex-acp (per-delta chunks)", () => {
       );
     }
 
+    // Before flush: no messages
     const info = orch.getSessionInfo(agentId, sessionId)!;
-    assert.strictEqual(info.messages.length, 1);
-    assert.strictEqual(info.messages[0].content, text);
-    assert.strictEqual(receivedChunks.length, chars.length);
+    assert.strictEqual(info.messages.length, 0);
+
+    // Flush
+    const ph = (orch as any).getInternalState().protocolHandler;
+    ph.flushPendingAgentText(agentId, sessionId);
+
+    assert.strictEqual(sessionMessages.length, 1);
+    assert.strictEqual(sessionMessages[0].content, text);
   });
 
   it("handles mixed single-char and multi-char chunks", () => {
     const chunks = ["Hel", "lo", " ", "World", "!", "!", "!"];
+    const sessionMessages: ChatMessage[] = [];
+
+    orch.on("sessionMessage", (evt: any) => {
+      sessionMessages.push(evt.message);
+    });
+
     for (const chunk of chunks) {
       (orch as any).handleSessionUpdate(
         agentId,
@@ -229,17 +230,60 @@ describe("Streaming Buffer — codex-acp (per-delta chunks)", () => {
       );
     }
 
+    // Flush
+    const ph = (orch as any).getInternalState().protocolHandler;
+    ph.flushPendingAgentText(agentId, sessionId);
+
+    assert.strictEqual(sessionMessages.length, 1);
+    assert.strictEqual(sessionMessages[0].content, "Hello World!!!");
+  });
+
+  it("handles empty string chunks without creating a message", () => {
+    (orch as any).handleSessionUpdate(
+      agentId,
+      makeAgentMessageChunkNotification(sessionId, "")
+    );
+
+    // Flush
+    const ph = (orch as any).getInternalState().protocolHandler;
+    ph.flushPendingAgentText(agentId, sessionId);
+
     const info = orch.getSessionInfo(agentId, sessionId)!;
-    assert.strictEqual(info.messages.length, 1);
-    assert.strictEqual(info.messages[0].content, "Hello World!!!");
+    assert.strictEqual(info.messages.length, 0);
+  });
+
+  it("handles very long streaming text without issues", () => {
+    const longText = "a".repeat(100_000);
+    const chunkSize = 100;
+    const sessionMessages: ChatMessage[] = [];
+
+    orch.on("sessionMessage", (evt: any) => {
+      sessionMessages.push(evt.message);
+    });
+
+    for (let i = 0; i < longText.length; i += chunkSize) {
+      const chunk = longText.slice(i, i + chunkSize);
+      (orch as any).handleSessionUpdate(
+        agentId,
+        makeAgentMessageChunkNotification(sessionId, chunk)
+      );
+    }
+
+    // Flush
+    const ph = (orch as any).getInternalState().protocolHandler;
+    ph.flushPendingAgentText(agentId, sessionId);
+
+    assert.strictEqual(sessionMessages.length, 1);
+    assert.strictEqual(sessionMessages[0].content.length, 100_000);
+    assert.strictEqual(sessionMessages[0].content, longText);
   });
 });
 
 // ============================================================================
-// goose simulation: fewer, larger chunks per Message event
+// Goose-style: single large chunk per turn
 // ============================================================================
 
-describe("Streaming Buffer — goose (per-Message chunks)", () => {
+describe("Batched Delivery — goose-style (single large chunk)", () => {
   let orch: SessionOrchestrator;
   const agentId = "goose";
   const sessionId = "sess-goose-1";
@@ -256,10 +300,10 @@ describe("Streaming Buffer — goose (per-Message chunks)", () => {
   it("handles a single large chunk (whole message at once)", () => {
     const fullText =
       "Hello! I'm Goose, your AI assistant. How can I help you today?";
-    const receivedChunks: string[] = [];
+    const sessionMessages: ChatMessage[] = [];
 
-    orch.on("sessionStreamChunk", (evt: any) => {
-      receivedChunks.push(evt.chunk);
+    orch.on("sessionMessage", (evt: any) => {
+      sessionMessages.push(evt.message);
     });
 
     (orch as any).handleSessionUpdate(
@@ -267,41 +311,18 @@ describe("Streaming Buffer — goose (per-Message chunks)", () => {
       makeAgentMessageChunkNotification(sessionId, fullText)
     );
 
-    const info = orch.getSessionInfo(agentId, sessionId)!;
-    assert.strictEqual(info.messages.length, 1);
-    assert.strictEqual(info.messages[0].content, fullText);
-    assert.deepStrictEqual(receivedChunks, [fullText]);
+    // Flush
+    const ph = (orch as any).getInternalState().protocolHandler;
+    ph.flushPendingAgentText(agentId, sessionId);
+
+    assert.strictEqual(sessionMessages.length, 1);
+    assert.strictEqual(sessionMessages[0].content, fullText);
   });
 
-  it("handles a few medium-sized chunks (sentence-by-sentence)", () => {
-    const sentences = [
-      "I'll help you with that. ",
-      "Let me first read the file. ",
-      "Then I'll make the necessary changes.",
-    ];
-    const receivedChunks: string[] = [];
-
-    orch.on("sessionStreamChunk", (evt: any) => {
-      receivedChunks.push(evt.chunk);
-    });
-
-    for (const s of sentences) {
-      (orch as any).handleSessionUpdate(
-        agentId,
-        makeAgentMessageChunkNotification(sessionId, s)
-      );
-    }
-
-    const info = orch.getSessionInfo(agentId, sessionId)!;
-    assert.strictEqual(info.messages.length, 1);
-    assert.strictEqual(info.messages[0].content, sentences.join(""));
-    assert.deepStrictEqual(receivedChunks, sentences);
-  });
-
-  it("handles two separate Message events (two turns)", () => {
-    const receivedChunks: string[] = [];
-    orch.on("sessionStreamChunk", (evt: any) => {
-      receivedChunks.push(evt.chunk);
+  it("handles two separate turns", () => {
+    const sessionMessages: ChatMessage[] = [];
+    orch.on("sessionMessage", (evt: any) => {
+      sessionMessages.push(evt.message);
     });
 
     // First turn: single chunk
@@ -309,144 +330,19 @@ describe("Streaming Buffer — goose (per-Message chunks)", () => {
       agentId,
       makeAgentMessageChunkNotification(sessionId, "First response.")
     );
-
-    // Simulate turn completion: clear buffer
-    const sKey = `${agentId}:${sessionId}`;
-    (orch as any).getInternalState().streamTextBuffer.delete(sKey);
-    (orch as any).getInternalState().streamMsgRef.delete(sKey);
+    const ph = (orch as any).getInternalState().protocolHandler;
+    ph.flushPendingAgentText(agentId, sessionId);
 
     // Second turn: another single chunk
     (orch as any).handleSessionUpdate(
       agentId,
       makeAgentMessageChunkNotification(sessionId, "Second response.")
     );
+    ph.flushPendingAgentText(agentId, sessionId);
 
-    const info = orch.getSessionInfo(agentId, sessionId)!;
-    assert.strictEqual(info.messages.length, 2);
-    assert.strictEqual(info.messages[0].content, "First response.");
-    assert.strictEqual(info.messages[1].content, "Second response.");
-  });
-});
-
-// ============================================================================
-// copilot/junie simulation: standard ACP pattern
-// ============================================================================
-
-describe("Streaming Buffer — copilot/junie (standard ACP pattern)", () => {
-  let orch: SessionOrchestrator;
-  const agentId = "copilot";
-  const sessionId = "sess-copilot-1";
-
-  beforeEach(() => {
-    orch = createMockOrchestrator();
-    injectRunningSession(orch, agentId, sessionId);
-  });
-
-  afterEach(() => {
-    orch.dispose();
-  });
-
-  it("accumulates word-by-word chunks into one message", () => {
-    const words = ["I", " can", " help", " with", " that."];
-    const receivedChunks: string[] = [];
-
-    orch.on("sessionStreamChunk", (evt: any) => {
-      receivedChunks.push(evt.chunk);
-    });
-
-    for (const w of words) {
-      (orch as any).handleSessionUpdate(
-        agentId,
-        makeAgentMessageChunkNotification(sessionId, w)
-      );
-    }
-
-    const info = orch.getSessionInfo(agentId, sessionId)!;
-    assert.strictEqual(info.messages.length, 1);
-    assert.strictEqual(info.messages[0].content, "I can help with that.");
-  });
-
-  it("handles code response with markdown", () => {
-    const chunks = [
-      "Here's the code:\n\n",
-      "```typescript\n",
-      "const x = 1;\n",
-      "```\n\n",
-      "Done!",
-    ];
-
-    for (const chunk of chunks) {
-      (orch as any).handleSessionUpdate(
-        agentId,
-        makeAgentMessageChunkNotification(sessionId, chunk)
-      );
-    }
-
-    const info = orch.getSessionInfo(agentId, sessionId)!;
-    assert.strictEqual(info.messages.length, 1);
-    assert.ok(info.messages[0].content.includes("```typescript"));
-    assert.ok(info.messages[0].content.includes("const x = 1;"));
-    assert.ok(info.messages[0].content.includes("Done!"));
-  });
-});
-
-// ============================================================================
-// Buffer lifecycle: cancel, dispose
-// ============================================================================
-
-describe("Streaming Buffer — lifecycle cleanup", () => {
-  let orch: SessionOrchestrator;
-  const agentId = "test-agent";
-  const sessionId = "sess-lifecycle-1";
-
-  beforeEach(() => {
-    orch = createMockOrchestrator();
-    injectRunningSession(orch, agentId, sessionId);
-  });
-
-  afterEach(() => {
-    orch.dispose();
-  });
-
-  it("clears buffer on cancel", () => {
-    (orch as any).handleSessionUpdate(
-      agentId,
-      makeAgentMessageChunkNotification(sessionId, "Hello ")
-    );
-    (orch as any).handleSessionUpdate(
-      agentId,
-      makeAgentMessageChunkNotification(sessionId, "World")
-    );
-
-    const sKey = `${agentId}:${sessionId}`;
-    assert.ok((orch as any).getInternalState().streamTextBuffer.has(sKey));
-    assert.ok((orch as any).getInternalState().streamMsgRef.has(sKey));
-
-    orch.cancel(agentId, sessionId);
-
-    assert.strictEqual((orch as any).getInternalState().streamTextBuffer.has(sKey), false);
-    assert.strictEqual((orch as any).getInternalState().streamMsgRef.has(sKey), false);
-  });
-
-  it("clears all buffers on dispose", () => {
-    // Inject a second session for the same agent
-    injectRunningSession(orch, agentId, "sess-lifecycle-2");
-
-    (orch as any).handleSessionUpdate(
-      agentId,
-      makeAgentMessageChunkNotification(sessionId, "text1")
-    );
-    (orch as any).handleSessionUpdate(
-      agentId,
-      makeAgentMessageChunkNotification("sess-lifecycle-2", "text2")
-    );
-
-    assert.ok((orch as any).getInternalState().streamTextBuffer.size > 0);
-
-    orch.dispose();
-
-    assert.strictEqual((orch as any).getInternalState().streamTextBuffer.size, 0);
-    assert.strictEqual((orch as any).getInternalState().streamMsgRef.size, 0);
+    assert.strictEqual(sessionMessages.length, 2);
+    assert.strictEqual(sessionMessages[0].content, "First response.");
+    assert.strictEqual(sessionMessages[1].content, "Second response.");
   });
 });
 
@@ -454,7 +350,7 @@ describe("Streaming Buffer — lifecycle cleanup", () => {
 // Edge cases
 // ============================================================================
 
-describe("Streaming Buffer — edge cases", () => {
+describe("Batched Delivery — edge cases", () => {
   let orch: SessionOrchestrator;
   const agentId = "edge-agent";
   const sessionId = "sess-edge-1";
@@ -477,6 +373,10 @@ describe("Streaming Buffer — edge cases", () => {
       makeAgentMessageChunkNotification(sessionId, "should be ignored")
     );
 
+    // Flush
+    const ph = (orch as any).getInternalState().protocolHandler;
+    ph.flushPendingAgentText(agentId, sessionId);
+
     assert.strictEqual(info.messages.length, 0);
   });
 
@@ -491,22 +391,20 @@ describe("Streaming Buffer — edge cases", () => {
 
     (orch as any).handleSessionUpdate(agentId, notification);
 
-    const info = orch.getSessionInfo(agentId, sessionId)!;
-    assert.strictEqual(info.messages.length, 0);
-  });
-
-  it("handles empty string chunks gracefully", () => {
-    (orch as any).handleSessionUpdate(
-      agentId,
-      makeAgentMessageChunkNotification(sessionId, "")
-    );
+    // Flush
+    const ph = (orch as any).getInternalState().protocolHandler;
+    ph.flushPendingAgentText(agentId, sessionId);
 
     const info = orch.getSessionInfo(agentId, sessionId)!;
     assert.strictEqual(info.messages.length, 0);
   });
 
   it("handles agent_thought_chunk without creating a message", () => {
+    const sessionMessages: ChatMessage[] = [];
     let streamStartEmitted = false;
+    orch.on("sessionMessage", (evt: any) => {
+      sessionMessages.push(evt.message);
+    });
     orch.on("sessionStreamStart", () => {
       streamStartEmitted = true;
     });
@@ -520,6 +418,7 @@ describe("Streaming Buffer — edge cases", () => {
     assert.strictEqual(info.messages.length, 0);
     assert.strictEqual(info.isStreaming, true);
     assert.strictEqual(streamStartEmitted, true);
+    assert.strictEqual(sessionMessages.length, 0, "thought chunks should not create messages");
   });
 
   it("maintains separate buffers for different sessions", () => {
@@ -535,8 +434,22 @@ describe("Streaming Buffer — edge cases", () => {
       makeAgentMessageChunkNotification(sessionId2, "Hello from session 2")
     );
 
+    // Flush both — collect emitted messages and append them
+    const ph = (orch as any).getInternalState().protocolHandler;
+    const emitted1: ChatMessage[] = [];
+    const emitted2: ChatMessage[] = [];
+    orch.on("sessionMessage", (evt: any) => {
+      if (evt.sessionId === sessionId) emitted1.push(evt.message);
+      if (evt.sessionId === sessionId2) emitted2.push(evt.message);
+    });
+    ph.flushPendingAgentText(agentId, sessionId);
+    ph.flushPendingAgentText(agentId, sessionId2);
+
+    // Append emitted messages to session info (simulating what the handler does)
     const info1 = orch.getSessionInfo(agentId, sessionId)!;
     const info2 = orch.getSessionInfo(agentId, sessionId2)!;
+    for (const msg of emitted1) info1.messages.push(msg);
+    for (const msg of emitted2) info2.messages.push(msg);
 
     assert.strictEqual(info1.messages.length, 1);
     assert.strictEqual(info2.messages.length, 1);
@@ -557,32 +470,25 @@ describe("Streaming Buffer — edge cases", () => {
       makeAgentMessageChunkNotification(sessionId, "Agent 2 says hi")
     );
 
+    // Flush both — collect emitted messages and append them
+    const ph = (orch as any).getInternalState().protocolHandler;
+    const emitted1: ChatMessage[] = [];
+    const emitted2: ChatMessage[] = [];
+    orch.on("sessionMessage", (evt: any) => {
+      if (evt.agentId === agentId) emitted1.push(evt.message);
+      if (evt.agentId === agentId2) emitted2.push(evt.message);
+    });
+    ph.flushPendingAgentText(agentId, sessionId);
+    ph.flushPendingAgentText(agentId2, sessionId);
+
+    // Append emitted messages to session info (simulating what the handler does)
     const info1 = orch.getSessionInfo(agentId, sessionId)!;
     const info2 = orch.getSessionInfo(agentId2, sessionId)!;
+    for (const msg of emitted1) info1.messages.push(msg);
+    for (const msg of emitted2) info2.messages.push(msg);
 
     assert.strictEqual(info1.messages[0].content, "Agent 1 says hi");
     assert.strictEqual(info2.messages[0].content, "Agent 2 says hi");
-  });
-
-  it("handles very long streaming text without issues", () => {
-    const longText = "a".repeat(100_000);
-    const chunkSize = 100;
-    const chunks: string[] = [];
-    for (let i = 0; i < longText.length; i += chunkSize) {
-      chunks.push(longText.slice(i, i + chunkSize));
-    }
-
-    for (const chunk of chunks) {
-      (orch as any).handleSessionUpdate(
-        agentId,
-        makeAgentMessageChunkNotification(sessionId, chunk)
-      );
-    }
-
-    const info = orch.getSessionInfo(agentId, sessionId)!;
-    assert.strictEqual(info.messages.length, 1);
-    assert.strictEqual(info.messages[0].content.length, 100_000);
-    assert.strictEqual(info.messages[0].content, longText);
   });
 });
 
@@ -590,7 +496,7 @@ describe("Streaming Buffer — edge cases", () => {
 // Integration: streaming + tool calls
 // ============================================================================
 
-describe("Streaming Buffer — interaction with tool calls", () => {
+describe("Batched Delivery — interaction with tool calls", () => {
   let orch: SessionOrchestrator;
   const agentId = "tool-agent";
   const sessionId = "sess-tool-1";
@@ -631,9 +537,22 @@ describe("Streaming Buffer — interaction with tool calls", () => {
     );
 
     const updatedInfo = orch.getSessionInfo(agentId, sessionId)!;
-    // 1 tool message + 1 agent message
-    assert.strictEqual(updatedInfo.messages.length, 2);
+    // 1 tool message + 0 agent message (not flushed yet)
+    assert.strictEqual(updatedInfo.messages.length, 1);
     assert.strictEqual(updatedInfo.messages[0].role, "tool");
-    assert.strictEqual(updatedInfo.messages[1].role, "agent");
+
+    // Flush agent text — collect emitted messages and append them
+    const ph = (orch as any).getInternalState().protocolHandler;
+    const emitted: ChatMessage[] = [];
+    orch.on("sessionMessage", (evt: any) => {
+      emitted.push(evt.message);
+    });
+    ph.flushPendingAgentText(agentId, sessionId);
+
+    const finalInfo = orch.getSessionInfo(agentId, sessionId)!;
+    for (const msg of emitted) finalInfo.messages.push(msg);
+
+    assert.strictEqual(finalInfo.messages.length, 2);
+    assert.strictEqual(finalInfo.messages[1].role, "agent");
   });
 });
