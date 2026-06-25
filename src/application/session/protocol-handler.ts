@@ -220,7 +220,10 @@ export class ProtocolHandler {
       this.deps.emit("sessionStreamStart", { agentId, sessionId });
     }
 
-    this.flushPendingToolCalls(agentId, sessionId);
+    // Flush buffered tool calls via promptExecution, which emits them as actual
+    // ChatMessage objects (via appendMessage → sessionMessage event → webview).
+    // Do NOT use the local clear-only helper.
+    this.deps.promptExecution.flushPendingToolCalls(agentId, sessionId);
 
     const u = update as Record<string, unknown>;
     const content = u.content as Record<string, unknown> | undefined;

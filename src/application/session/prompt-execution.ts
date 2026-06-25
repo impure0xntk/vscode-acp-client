@@ -337,7 +337,8 @@ export class PromptExecution {
     this.deps.appendToolMessage(agentId, sessionId, toolMsg);
   }
 
-  private flushPendingToolCalls(agentId: string, sessionId: string): void {
+  /** Flush buffered tool calls as ChatMessage → appendToolMessage → sessionMessage event. */
+  public flushPendingToolCalls(agentId: string, sessionId: string): void {
     const key = sessionKey(agentId, sessionId);
     const buffered = this.deps.sessionState.getPendingToolCalls(key);
     if (buffered) {

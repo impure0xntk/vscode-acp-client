@@ -91,36 +91,20 @@ export const useMessageStore = create<MessageState>((set) => ({
       if (chunks.length === 0) return state;
       const merged = chunks.join("");
       const existing = state.perSession[key] ?? [];
-      let lastAgentIdx = -1;
-      for (let i = existing.length - 1; i >= 0; i--) {
-        if (existing[i].role === "agent" && existing[i].agentId === agentId) {
-          lastAgentIdx = i;
-          break;
-        }
-      }
+      // Check whether the last message is a same-agent streaming agent.
+      // If the last message is a tool, user, system, or a completed agent,
+      // create a NEW agent message — this prevents post-tool chunks from
+      // being appended to pre-tool agent text (Goose structured JSON).
+      const lastMsg = existing.length > 0 ? existing[existing.length - 1] : null;
+      const shouldAppend =
+        lastMsg !== null &&
+        lastMsg.role === "agent" &&
+        lastMsg.agentId === agentId &&
+        (lastMsg.stopReason == null || lastMsg.stopReason === "");
       let newMessages: ChatMessage[];
-      if (lastAgentIdx >= 0) {
-        const last = existing[lastAgentIdx];
-        if (last.stopReason != null && last.stopReason !== "") {
-          newMessages = [
-            ...existing,
-            {
-              id: crypto.randomUUID(),
-              role: "agent",
-              content: merged,
-              timestamp: Date.now(),
-              agentId,
-              sessionId,
-            },
-          ];
-        } else {
-          const updatedLast: ChatMessage = { ...last, content: last.content + merged };
-          newMessages = [
-            ...existing.slice(0, lastAgentIdx),
-            updatedLast,
-            ...existing.slice(lastAgentIdx + 1),
-          ];
-        }
+      if (shouldAppend) {
+        const updatedLast: ChatMessage = { ...lastMsg, content: lastMsg.content + merged };
+        newMessages = [...existing.slice(0, -1), updatedLast];
       } else {
         newMessages = [
           ...existing,
@@ -148,51 +132,23 @@ export const useMessageStore = create<MessageState>((set) => ({
   appendStreamChunk: (key, agentId, sessionId, chunk) =>
     set((state) => {
       const existing = state.perSession[key] ?? [];
-      // Find the last agent message, skipping tool messages that were
-      // inserted between streaming chunks (e.g. tool calls arrive while
-      // the agent is still streaming text).  Without this scan, every
-      // chunk after a tool message creates a separate agent message,
-      // which causes the pipeline to attach tool calls to one message
-      // and stopReason to another — hiding tool cards from the final
-      // response.
-      let lastAgentIdx = -1;
-      for (let i = existing.length - 1; i >= 0; i--) {
-        if (existing[i].role === "agent" && existing[i].agentId === agentId) {
-          lastAgentIdx = i;
-          break;
-        }
-      }
+      // Check whether the last message is a same-agent streaming agent.
+      // If the last message is a tool, user, system, or a completed agent,
+      // create a NEW agent message — this prevents post-tool chunks from
+      // being appended to pre-tool agent text (Goose structured JSON).
+      const lastMsg = existing.length > 0 ? existing[existing.length - 1] : null;
+      const shouldAppend =
+        lastMsg !== null &&
+        lastMsg.role === "agent" &&
+        lastMsg.agentId === agentId &&
+        (lastMsg.stopReason == null || lastMsg.stopReason === "");
       let newMessages: ChatMessage[];
-      if (lastAgentIdx >= 0) {
-        const last = existing[lastAgentIdx];
-        // If the last agent message already has a stopReason, this chunk
-        // belongs to a NEW turn — create a separate agent message instead
-        // of appending to the completed one.  Without this guard, the
-        // response of turn N+1 silently merges into turn N's final
-        // message, making two agent turns appear as one.
-        if (last.stopReason != null && last.stopReason !== "") {
-          newMessages = [
-            ...existing,
-            {
-              id: crypto.randomUUID(),
-              role: "agent",
-              content: chunk,
-              timestamp: Date.now(),
-              agentId,
-              sessionId,
-            },
-          ];
-        } else {
-          const updatedLast: ChatMessage = {
-            ...last,
-            content: last.content + chunk,
-          };
-          newMessages = [
-            ...existing.slice(0, lastAgentIdx),
-            updatedLast,
-            ...existing.slice(lastAgentIdx + 1),
-          ];
-        }
+      if (shouldAppend) {
+        const updatedLast: ChatMessage = {
+          ...lastMsg,
+          content: lastMsg.content + chunk,
+        };
+        newMessages = [...existing.slice(0, -1), updatedLast];
       } else {
         newMessages = [
           ...existing,

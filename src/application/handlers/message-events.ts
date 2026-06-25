@@ -151,7 +151,16 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
       // Forward raw SDK notification only for the active session.
       // Skip agent_thought_chunk — these are buffered in ProtocolHandler
       // and flushed as a single chunk to avoid overwhelming the webview.
-      if (isActive && update.sessionUpdate !== "agent_thought_chunk") {
+      // Skip tool_call / tool_call_update — tool calls are flushed as
+      // session/message via flushPendingToolCalls → appendMessage to
+      // avoid duplicate delivery (both session/notification and
+      // session/message paths).
+      if (
+        isActive &&
+        update.sessionUpdate !== "agent_thought_chunk" &&
+        update.sessionUpdate !== "tool_call" &&
+        update.sessionUpdate !== "tool_call_update"
+      ) {
         cp?.pushSessionNotification(agentId, sessionId, notification);
       }
 

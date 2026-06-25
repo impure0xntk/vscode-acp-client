@@ -34,10 +34,11 @@ function findLastNonTool(
  *     The promoted message inherits the original tool message's agentId
  *     (when available) so that the annotate stage can group it correctly
  *     with subsequent agent messages from the same agent.
- *  3. agent after a promoted tool     → inherit toolCalls from the promoted
- *     tool so that the agent's content and tool calls appear together, and
- *     the annotate stage can group the promoted tool and this agent as
- *     consecutive (same groupKey).
+ *  3. agent after a promoted tool     → emit the tool as a separate
+ *     promoted-tool item BEFORE the agent message. This keeps tool-call
+ *     cards in IntermediateStepsBanner when tool_call arrives before
+ *     agent_message_chunk (Goose-style structured JSON responses),
+ *     rather than absorbing them into the final response text.
  *
  * Only "info" classified messages participate in merging.
  * System-kind messages (compression, mode_change, etc.) pass through and
@@ -104,21 +105,13 @@ export function mergeToolBatches(
         };
       }
     } else if (msg.role === "agent" && pendingTool) {
-      // Case 3: agent after a pending tool — merge the pending tool's
-      // toolCalls INTO the agent message instead of emitting them as a
-      // separate promoted-tool item.  When tool_call notifications
-      // arrive before agent_message_chunk (e.g. Goose structured JSON
-      // responses), this keeps the tool-call cards rendering directly
-      // below the agent text as part of the final response, rather than
-      // being exiled to the intermediate-steps banner.
-      const mergedAgent: ClassifiedMessage = {
-        ...msg,
-        toolCalls: deduplicateToolCalls([
-          ...(pendingTool.toolCalls ?? []),
-          ...(msg.toolCalls ?? []),
-        ]),
-      };
-      result.push(mergedAgent);
+      // Case 3: agent after a pending tool — emit the tool as a separate
+      // promoted-tool item BEFORE the agent message. This keeps tool-call
+      // cards in IntermediateStepsBanner rather than being absorbed into
+      // the final response text. Critical for Goose-style structured JSON
+      // responses where tool_call arrives before agent_message_chunk.
+      result.push({ ...pendingTool, role: "agent" as const, originalRole: "tool" as const });
+      result.push(msg);
       pendingTool = null;
     } else {
       // Any other message — pass through.
