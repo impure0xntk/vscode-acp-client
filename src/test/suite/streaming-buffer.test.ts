@@ -115,7 +115,7 @@ describe("Streaming — agent_message_chunk creates per-chunk ChatMessage", () =
     orch.dispose();
   });
 
-  it("emits one sessionStreamChunk per chunk during streaming", () => {
+  it("emits first chunk immediately, batches subsequent chunks", () => {
     const chunks = ["こ", "ん", "に", "ち", "は"];
     const streamChunks: string[] = [];
 
@@ -130,16 +130,23 @@ describe("Streaming — agent_message_chunk creates per-chunk ChatMessage", () =
       );
     }
 
-    assert.strictEqual(streamChunks.length, 5);
-    assert.deepStrictEqual(streamChunks, chunks);
+    // First chunk emitted immediately, rest are batched (timer not yet fired)
+    assert.strictEqual(streamChunks.length, 1);
+    assert.strictEqual(streamChunks[0], "こ");
+
+    // Flush the batch timer
+    (orch as any).getInternalState().protocolHandler.flushAllBatches(agentId, sessionId);
+
+    // After flush, the remaining 4 chunks are emitted as one combined chunk
+    assert.strictEqual(streamChunks.length, 2);
+    assert.strictEqual(streamChunks[1], "んにちは");
   });
 
-  it("each chunk becomes a separate ChatMessage in the session", () => {
+  it("first chunk is immediate, subsequent are batched", () => {
     const chunks = ["Hello", " ", "World"];
     const sessionMessages: ChatMessage[] = [];
 
     orch.on("sessionStreamChunk", (evt: any) => {
-      // Simulate what the webview/messageStore does: each chunk → own message
       const msg: ChatMessage = {
         id: `msg-${evt.chunk}-${Date.now()}-${Math.random()}`,
         role: "agent",
@@ -158,11 +165,16 @@ describe("Streaming — agent_message_chunk creates per-chunk ChatMessage", () =
       );
     }
 
-    // Each chunk is a separate message
-    assert.strictEqual(sessionMessages.length, 3);
+    // First chunk emitted immediately
+    assert.strictEqual(sessionMessages.length, 1);
     assert.strictEqual(sessionMessages[0].content, "Hello");
-    assert.strictEqual(sessionMessages[1].content, " ");
-    assert.strictEqual(sessionMessages[2].content, "World");
+
+    // Flush batch timer
+    (orch as any).getInternalState().protocolHandler.flushAllBatches(agentId, sessionId);
+
+    // After flush, remaining chunks are one combined message
+    assert.strictEqual(sessionMessages.length, 2);
+    assert.strictEqual(sessionMessages[1].content, " World");
   });
 
   it("sets isStreaming on first chunk", () => {
@@ -191,7 +203,7 @@ describe("Streaming — agent_message_chunk creates per-chunk ChatMessage", () =
     assert.strictEqual(streamStartEmitted, true);
   });
 
-  it("handles character-by-character streaming (Japanese text)", () => {
+  it("handles character-by-character streaming — first immediate, rest batched", () => {
     const text = "今日は良い天気ですね";
     const chars = Array.from(text);
     const streamChunks: string[] = [];
@@ -207,8 +219,16 @@ describe("Streaming — agent_message_chunk creates per-chunk ChatMessage", () =
       );
     }
 
-    assert.strictEqual(streamChunks.length, chars.length);
-    assert.strictEqual(streamChunks.join(""), text);
+    // First char emitted immediately, rest are in the batch (timer not fired)
+    assert.strictEqual(streamChunks.length, 1);
+    assert.strictEqual(streamChunks[0], chars[0]);
+
+    // Flush the batch timer
+    (orch as any).getInternalState().protocolHandler.flushAllBatches(agentId, sessionId);
+
+    // After flush, all remaining chars are emitted as one combined chunk
+    assert.strictEqual(streamChunks.length, 2);
+    assert.strictEqual(streamChunks[1], chars.slice(1).join(""));
   });
 
   it("handles mixed single-char and multi-char chunks", () => {
@@ -226,8 +246,16 @@ describe("Streaming — agent_message_chunk creates per-chunk ChatMessage", () =
       );
     }
 
-    assert.strictEqual(streamChunks.length, 7);
-    assert.strictEqual(streamChunks.join(""), "Hello World!!!");
+    // First chunk emitted immediately, rest are in the batch (timer not fired)
+    assert.strictEqual(streamChunks.length, 1);
+    assert.strictEqual(streamChunks[0], "Hel");
+
+    // Flush the batch timer
+    (orch as any).getInternalState().protocolHandler.flushAllBatches(agentId, sessionId);
+
+    // After flush, remaining chunks are combined into one
+    assert.strictEqual(streamChunks.length, 2);
+    assert.strictEqual(streamChunks[1], "lo World!!!");
   });
 
   it("handles empty string chunks", () => {
@@ -240,7 +268,7 @@ describe("Streaming — agent_message_chunk creates per-chunk ChatMessage", () =
     assert.strictEqual(info.isStreaming, true);
   });
 
-  it("handles very long streaming text — each chunk is delivered", () => {
+  it("handles very long streaming text — batched delivery", () => {
     const longText = "a".repeat(100_000);
     const chunkSize = 100;
     const streamChunks: string[] = [];
@@ -257,8 +285,16 @@ describe("Streaming — agent_message_chunk creates per-chunk ChatMessage", () =
       );
     }
 
-    const expectedChunks = Math.ceil(longText.length / chunkSize);
-    assert.strictEqual(streamChunks.length, expectedChunks);
+    // First chunk emitted immediately, rest are in the batch (timer not fired)
+    assert.strictEqual(streamChunks.length, 1);
+    assert.strictEqual(streamChunks[0], longText.slice(0, chunkSize));
+
+    // Flush the batch timer
+    (orch as any).getInternalState().protocolHandler.flushAllBatches(agentId, sessionId);
+
+    // After flush, all remaining chunks are emitted as one combined chunk
+    assert.strictEqual(streamChunks.length, 2);
+    assert.strictEqual(streamChunks[1], longText.slice(chunkSize));
     assert.strictEqual(streamChunks.join(""), longText);
   });
 });
@@ -299,33 +335,23 @@ describe("Streaming — goose-style (single large chunk per turn)", () => {
     assert.strictEqual(streamChunks[0], fullText);
   });
 
-  it("two separate turns produce two separate turns of streamChunk events", () => {
-    const streamChunks: Array<{ text: string; turn: number }> = [];
-    let turnCount = 0;
+  it("single large chunk produces one streamChunk event (goose-style)", () => {
+    const fullText =
+      "Hello! I'm Goose, your AI assistant. How can I help you today?";
+    const streamChunks: string[] = [];
 
     orch.on("sessionStreamChunk", (evt: any) => {
-      streamChunks.push({ text: evt.chunk, turn: turnCount });
-    });
-    // Simulate turn boundary by listening for turn end
-    orch.on("sessionTurnActiveChanged", () => {
-      turnCount++;
+      streamChunks.push(evt.chunk);
     });
 
-    // First turn: single chunk
     (orch as any).handleSessionUpdate(
       agentId,
-      makeAgentMessageChunkNotification(sessionId, "First response.")
+      makeAgentMessageChunkNotification(sessionId, fullText)
     );
 
-    // Second turn: another single chunk
-    (orch as any).handleSessionUpdate(
-      agentId,
-      makeAgentMessageChunkNotification(sessionId, "Second response.")
-    );
-
-    assert.strictEqual(streamChunks.length, 2);
-    assert.strictEqual(streamChunks[0].text, "First response.");
-    assert.strictEqual(streamChunks[1].text, "Second response.");
+    // Single chunk emitted immediately (first chunk of stream)
+    assert.strictEqual(streamChunks.length, 1);
+    assert.strictEqual(streamChunks[0], fullText);
   });
 });
 
@@ -397,7 +423,7 @@ describe("Streaming — edge cases", () => {
       streamStartEmitted = true;
     });
 
-    // Send thought chunk — buffered, NOT flushed yet
+    // Send thought chunk — buffered internally
     (orch as any).handleSessionUpdate(
       agentId,
       makeAgentThoughtChunkNotification(sessionId, "thinking...")
@@ -407,18 +433,19 @@ describe("Streaming — edge cases", () => {
     assert.strictEqual(info.isStreaming, true);
     assert.strictEqual(streamStartEmitted, true);
     // Thoughts are buffered — not yet delivered as sessionStreamChunk
-    // (thoughts are flushed when agent_message_chunk arrives or turn ends)
     assert.strictEqual(sessionMessages.length, 0, "thought chunks should not create agent messages");
+    assert.strictEqual(streamChunks.length, 0, "thoughts buffered, no stream chunks yet");
 
-    // Sending agent_message_chunk flushes buffered thoughts
+    // Sending agent_message_chunk flushes buffered thoughts + emits text
     (orch as any).handleSessionUpdate(
       agentId,
       makeAgentMessageChunkNotification(sessionId, "hello")
     );
 
-    // Now thoughts should have been flushed as a single streamChunk
-    assert.strictEqual(streamChunks.length, 1);
+    // Thoughts flushed as one chunk, then "hello" emitted immediately
+    assert.strictEqual(streamChunks.length, 2);
     assert.strictEqual(streamChunks[0], "thinking...");
+    assert.strictEqual(streamChunks[1], "hello");
   });
 
   it("handles different sessions independently", () => {
@@ -432,19 +459,33 @@ describe("Streaming — edge cases", () => {
       if (evt.sessionId === sessionId2) chunks2.push(evt.chunk);
     });
 
+    // Send first chunk to session 1 — starts streaming
     (orch as any).handleSessionUpdate(
       agentId,
       makeAgentMessageChunkNotification(sessionId, "Hello from session 1")
     );
+    // Send second chunk to session 1 — batched
+    (orch as any).handleSessionUpdate(
+      agentId,
+      makeAgentMessageChunkNotification(sessionId, " continued")
+    );
+    // Send first chunk to session 2 — starts streaming
     (orch as any).handleSessionUpdate(
       agentId,
       makeAgentMessageChunkNotification(sessionId2, "Hello from session 2")
     );
 
+    // Session 1: first chunk immediate, second in batch
     assert.strictEqual(chunks1.length, 1);
-    assert.strictEqual(chunks2.length, 1);
     assert.strictEqual(chunks1[0], "Hello from session 1");
+    // Session 2: first chunk immediate
+    assert.strictEqual(chunks2.length, 1);
     assert.strictEqual(chunks2[0], "Hello from session 2");
+
+    // Flush batch for session 1
+    (orch as any).getInternalState().protocolHandler.flushAllBatches(agentId, sessionId);
+    assert.strictEqual(chunks1.length, 2);
+    assert.strictEqual(chunks1[1], " continued");
   });
 
   it("handles different agents independently", () => {
@@ -458,10 +499,12 @@ describe("Streaming — edge cases", () => {
       if (evt.agentId === agentId2) chunks2.push(evt.chunk);
     });
 
+    // First chunk to agent 1 — immediate
     (orch as any).handleSessionUpdate(
       agentId,
       makeAgentMessageChunkNotification(sessionId, "Agent 1 says hi")
     );
+    // First chunk to agent 2 — immediate
     (orch as any).handleSessionUpdate(
       agentId2,
       makeAgentMessageChunkNotification(sessionId, "Agent 2 says hi")

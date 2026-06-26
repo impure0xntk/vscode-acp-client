@@ -43,14 +43,82 @@ export interface ProtocolHandlerDeps {
   emit: (event: string, ...args: unknown[]) => void;
 }
 
+/**
+ * Micro-batch buffer for streaming text chunks.
+ * Accumulates agent_message_chunk text and flushes on a timer,
+ * on tool_call arrival, or on turn end.  This prevents one
+ * postMessage per character (Codex/Copilot) from overwhelming
+ * the extension host ↔ webview channel.
+ */
+interface TextBatch {
+  text: string;
+  timer: ReturnType<typeof setTimeout> | null;
+}
+
+const TEXT_BATCH_FLUSH_MS = 50;
+
 export class ProtocolHandler {
   private deps: ProtocolHandlerDeps;
   // sessionKey → AvailableCommand[]
   private sessionCommands: Map<string, AvailableCommand[]> = new Map();
   // sessionKey → buffered thought text (flushed on turn end or message chunk)
   private pendingThoughts: Map<string, string> = new Map();
+  // sessionKey → micro-batch for agent_message_chunk text
+  private pendingTextBatch: Map<string, TextBatch> = new Map();
   constructor(deps: ProtocolHandlerDeps) {
     this.deps = deps;
+  }
+
+  /**
+   * Flush pending text batch for a session as a single sessionStreamChunk event.
+   * Called by the timer, on tool_call arrival, or on turn end.
+   * Emits the accumulated text as one chunk.
+   */
+  private flushTextBatch(agentId: string, sessionId: string): void {
+    const sKey = sessionKey(agentId, sessionId);
+    const batch = this.pendingTextBatch.get(sKey);
+    if (!batch) return;
+
+    if (batch.timer) {
+      clearTimeout(batch.timer);
+      batch.timer = null;
+    }
+
+    const text = batch.text;
+    if (!text) {
+      this.pendingTextBatch.delete(sKey);
+      return;
+    }
+    this.pendingTextBatch.delete(sKey);
+
+    const sessionInfo = this.deps.sessionState.getSessionInfo(agentId, sessionId);
+    if (!sessionInfo) return;
+
+    if (!sessionInfo.isStreaming) {
+      sessionInfo.isStreaming = true;
+      this.deps.emit("sessionStreamStart", { agentId, sessionId });
+    }
+
+    this.deps.emit("sessionStreamChunk", { agentId, sessionId, chunk: text });
+    sessionInfo.lastResponseAt = new Date().toISOString();
+  }
+
+  /**
+   * Flush a single chunk immediately (no batching).
+   * Used for the first chunk to ensure perceived responsiveness.
+   */
+  private emitImmediateChunk(
+    agentId: string,
+    sessionId: string,
+    sessionInfo: AppSessionInfo,
+    text: string
+  ): void {
+    if (!sessionInfo.isStreaming) {
+      sessionInfo.isStreaming = true;
+      this.deps.emit("sessionStreamStart", { agentId, sessionId });
+    }
+    this.deps.emit("sessionStreamChunk", { agentId, sessionId, chunk: text });
+    sessionInfo.lastResponseAt = new Date().toISOString();
   }
 
   getSessionCommands(sessionKey: string): AvailableCommand[] {
@@ -96,6 +164,8 @@ export class ProtocolHandler {
         break;
       case "agent_thought_chunk":
         sessionInfo.status = "running";
+        // Flush any pending text batch before thought starts
+        this.flushTextBatch(agentId, sessionId);
         if (!sessionInfo.isStreaming) {
           sessionInfo.isStreaming = true;
           this.deps.emit("sessionStreamStart", { agentId, sessionId });
@@ -112,6 +182,8 @@ export class ProtocolHandler {
         }
         break;
       case "tool_call":
+        // Flush pending text batch before tool call so text appears first
+        this.flushTextBatch(agentId, sessionId);
         this.handleToolCall(agentId, sessionId, sessionInfo, update);
         break;
       case "tool_call_update":
@@ -152,9 +224,9 @@ export class ProtocolHandler {
         break;
     }
 
-    // When agent_message_chunk arrives, flush any buffered thoughts first
-    // so they appear as a single block before the visible response text.
-    if (kind === "agent_message_chunk") {
+    // Flush any pending text batch on turn end signals
+    if (kind === "session_info_update" || kind === "usage_update") {
+      this.flushTextBatch(agentId, sessionId);
       this.flushThoughts(agentId, sessionId);
     }
 
@@ -182,6 +254,9 @@ export class ProtocolHandler {
 
     const sessionInfo = this.deps.sessionState.getSessionInfo(agentId, sessionId);
     if (!sessionInfo) return;
+
+    // Flush any pending text batch first so thoughts come after text
+    this.flushTextBatch(agentId, sessionId);
 
     // Emit as a single chunk event
     if (!sessionInfo.isStreaming) {
@@ -214,11 +289,6 @@ export class ProtocolHandler {
     sessionInfo.status = "running";
     sessionInfo.lastResponseAt = new Date().toISOString();
 
-    if (!sessionInfo.isStreaming) {
-      sessionInfo.isStreaming = true;
-      this.deps.emit("sessionStreamStart", { agentId, sessionId });
-    }
-
     // Flush buffered tool calls via promptExecution, which emits them as actual
     // ChatMessage objects (via appendMessage → sessionMessage event → webview).
     // Do NOT use the local clear-only helper.
@@ -228,12 +298,32 @@ export class ProtocolHandler {
     const content = u.content as Record<string, unknown> | undefined;
     const text = content?.type === "text" ? (content.text as string) : undefined;
 
+    // Ensure streaming state is set even for empty text chunks
+    if (!sessionInfo.isStreaming) {
+      sessionInfo.isStreaming = true;
+      this.deps.emit("sessionStreamStart", { agentId, sessionId });
+    }
+
+    // Flush buffered thoughts BEFORE text so thoughts appear first
+    this.flushThoughts(agentId, sessionId);
+
     if (text) {
-      // Emit each chunk as a stream event so the webview creates a
-      // separate ChatMessage per chunk.  The pipeline's groupByUserBoundary
-      // classifies consecutive chunks as intermediate steps and the
-      // last one (with stopReason) as the final response.
-      this.deps.emit("sessionStreamChunk", { agentId, sessionId, chunk: text });
+      const sKey = sessionKey(agentId, sessionId);
+      const existing = this.pendingTextBatch.get(sKey);
+      if (existing) {
+        // Already batching — accumulate and let the timer flush
+        existing.text += text;
+      } else {
+        // First chunk of a new stream — emit immediately for perceived
+        // responsiveness, then start batching subsequent chunks.
+        this.emitImmediateChunk(agentId, sessionId, sessionInfo, text);
+        // Start the batch timer for any subsequent chunks
+        const batch: TextBatch = { text: "", timer: null };
+        batch.timer = setTimeout(() => {
+          this.flushTextBatch(agentId, sessionId);
+        }, TEXT_BATCH_FLUSH_MS);
+        this.pendingTextBatch.set(sKey, batch);
+      }
       sessionInfo.lastResponseAt = new Date().toISOString();
     }
   }
@@ -486,7 +576,18 @@ export class ProtocolHandler {
 
   private flushPendingToolCalls(agentId: string, sessionId: string): void {
     const key = sessionKey(agentId, sessionId);
+    // Flush text batch before clearing tool calls so text appears first
+    this.flushTextBatch(agentId, sessionId);
     this.deps.sessionState.clearPendingToolCalls(key);
+  }
+
+  /**
+   * Flush all pending batches for a session (text + thoughts).
+   * Called when the turn ends (via prompt-execution's finally block).
+   */
+  flushAllBatches(agentId: string, sessionId: string): void {
+    this.flushTextBatch(agentId, sessionId);
+    this.flushThoughts(agentId, sessionId);
   }
 }
 

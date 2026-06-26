@@ -33,6 +33,51 @@ const log = getLogger("webview.messageHandler");
 // - if mismatched → stale echo from a previous switch, discard
 let pendingSwitchGuard: string | null = null;
 
+// ── rAF-based stream chunk batching ────────────────────────────────────────
+// Coalesce rapid session/stream messages into a single Zustand update per
+// frame.  The extension host already micro-batches via ProtocolHandler's
+// 50ms timer, but multiple postMessage round-trips can still arrive in one
+// frame.  This prevents a store update + pipeline re-render per chunk.
+
+interface StreamBatch {
+  chunks: string[];
+  rafId: number | null;
+}
+
+const streamBatchMap = new Map<string, StreamBatch>();
+const STREAM_BATCH_RAF_MS = 16; // ~1 frame at 60fps
+
+function scheduleStreamFlush(msgKey: string, agentId: string, sessionId: string, chunk: string): void {
+  let batch = streamBatchMap.get(msgKey);
+  if (!batch) {
+    batch = { chunks: [], rafId: null };
+    streamBatchMap.set(msgKey, batch);
+  }
+  batch.chunks.push(chunk);
+
+  if (batch.rafId == null) {
+    batch.rafId = requestAnimationFrame(() => {
+      const b = streamBatchMap.get(msgKey);
+      if (!b) return;
+      streamBatchMap.delete(msgKey);
+      const accumulated = b.chunks;
+      b.chunks = [];
+      b.rafId = null;
+
+      // Single Zustand update for all accumulated chunks
+      useMessageStore.getState().appendStreamChunks(msgKey, agentId, sessionId, accumulated);
+      const store = useSessionStore.getState();
+      const existing = store.sessionInfoMap[msgKey];
+      if (existing && existing.status === "running") {
+        store.setSessionInfo(agentId, sessionId, {
+          ...existing,
+          lastResponseAt: new Date().toISOString(),
+        });
+      }
+    });
+  }
+}
+
 /**
  * Call this right before sending a switchSession message to the extension.
  * The guard key is stored and checked in handleSessionSwitch.
@@ -533,27 +578,42 @@ function handleSessionStreamStart(data: SessionStreamStart): void {
   // never gets streaming=true because appendStreamChunks only sets it when
   // shouldAppend is true (i.e. a prior agent message exists).
   useMessageStore.getState().setStreaming(msgKey, true);
+  // Also flush any pending stream batch so the first text appears immediately
+  const batch = streamBatchMap.get(msgKey);
+  if (batch && batch.chunks.length > 0) {
+    if (batch.rafId != null) {
+      cancelAnimationFrame(batch.rafId);
+      batch.rafId = null;
+    }
+    const accumulated = batch.chunks;
+    streamBatchMap.delete(msgKey);
+    batch.chunks = [];
+    useMessageStore.getState().appendStreamChunks(msgKey, data.agentId, data.sessionId, accumulated);
+  }
 }
 
 function handleSessionStream(data: SessionStream): void {
   const msgKey = sessionKeyOf(data.agentId, data.sessionId);
-  // Deliver each chunk individually to appendStreamChunks so the store
-  // can decide whether to merge into the last message or create a new one.
-  // This enables the pipeline to classify separate text blocks (separated
-  // by tool calls) as distinct intermediate steps.
-  useMessageStore.getState().appendStreamChunks(msgKey, data.agentId, data.sessionId, [data.chunk]);
-  const store = useSessionStore.getState();
-  const existing = store.sessionInfoMap[msgKey];
-  if (existing && existing.status === "running") {
-    store.setSessionInfo(data.agentId, data.sessionId, {
-      ...existing,
-      lastResponseAt: new Date().toISOString(),
-    });
-  }
+  // Schedule via rAF to coalesce multiple chunks arriving in the same frame
+  // into a single Zustand update.  This prevents one store update + pipeline
+  // re-render per chunk when the extension host delivers batched text.
+  scheduleStreamFlush(msgKey, data.agentId, data.sessionId, data.chunk);
 }
 
 function handleSessionStreamEnd(data: SessionStreamEnd): void {
   const msgKey = sessionKeyOf(data.agentId, data.sessionId);
+  // Flush any pending stream batch before clearing streaming flag
+  const batch = streamBatchMap.get(msgKey);
+  if (batch && batch.chunks.length > 0) {
+    if (batch.rafId != null) {
+      cancelAnimationFrame(batch.rafId);
+      batch.rafId = null;
+    }
+    const accumulated = batch.chunks;
+    streamBatchMap.delete(msgKey);
+    batch.chunks = [];
+    useMessageStore.getState().appendStreamChunks(msgKey, data.agentId, data.sessionId, accumulated);
+  }
   useMessageStore.getState().setStreaming(msgKey, false);
   // Sync sessionInfoMap status so Overview/Tab indicators return to idle
   const existing = useSessionStore.getState().sessionInfoMap[msgKey];

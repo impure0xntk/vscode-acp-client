@@ -144,6 +144,9 @@ export class PromptExecution {
 
       this.flushPendingToolCalls(agentId, sessionId);
 
+      // Flush all remaining text/thought batches so nothing is stuck in the buffer
+      this.deps.protocolHandler.flushAllBatches(agentId, sessionId);
+
       const sKey = sessionKey(agentId, sessionId);
       this.deps.sessionState.clearStreamText(sKey);
       this.deps.sessionState.clearStreamMsgRef(sKey);
@@ -186,6 +189,9 @@ export class PromptExecution {
       sessionInfo.status = "cancelling";
       sessionInfo.updatedAt = new Date();
     }
+
+    // Flush all remaining text/thought batches on cancel too
+    this.deps.protocolHandler.flushAllBatches(agentId, sessionId);
 
     const sKey = sessionKey(agentId, sessionId);
     this.deps.sessionState.clearStreamText(sKey);
