@@ -284,17 +284,12 @@ export class ChatPanel {
     }
   }
 
-  /** No-op: streaming chunks are now delivered as batched messages via pushMessage. */
-  pushStreamChunk(_agentId: string, _sessionId: string, _chunk: string): void {
-    // Batched delivery: agent text is now flushed as a single ChatMessage
-    // via sessionMessage event on turn completion. This method is kept for
-    // backward compatibility but is no longer called.
+  pushStreamChunk(agentId: string, sessionId: string, chunk: string): void {
+    this.postMessage({ type: "session/stream", agentId, sessionId, chunk });
   }
 
-  /** No-op: streaming chunks are now delivered as batched messages via pushMessage. */
-  pushStreamEnd(_agentId: string, _sessionId: string): void {
-    // Batched delivery: no explicit streamEnd needed; the webview
-    // derives turn boundaries from sessionMessage events.
+  pushStreamEnd(agentId: string, sessionId: string): void {
+    this.postMessage({ type: "session/streamEnd", agentId, sessionId });
   }
 
   pushSessionNotification(

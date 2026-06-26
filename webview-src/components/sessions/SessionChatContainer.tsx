@@ -704,17 +704,24 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                         onExpandSettled={recomputeScrollState}
                       />
                     )}
-                    {lastIntermediate && (
-                      <DisplayItemView
-                        item={lastIntermediate}
-                        idx={0}
-                        items={[lastIntermediate]}
-                        sessionId={sessionId}
-                        agentId={agentId}
-                        isNew={newKeys.has(lastIntermediate.key)}
-                        dimmed={true}
-                      />
-                    )}
+                    {lastIntermediate && (() => {
+                      const li = lastIntermediate;
+                      const hasTC =
+                        li.type === "chat" &&
+                        li.resolvedToolCalls != null &&
+                        li.resolvedToolCalls.length > 0;
+                      return (
+                        <DisplayItemView
+                          item={li}
+                          idx={0}
+                          items={[li]}
+                          sessionId={sessionId}
+                          agentId={agentId}
+                          isNew={newKeys.has(li.key)}
+                          dimmed={!hasTC}
+                        />
+                      );
+                    })()}
                     {latestGroup.finalResponse && (
                       <DisplayItemView
                         item={latestGroup.finalResponse.item}

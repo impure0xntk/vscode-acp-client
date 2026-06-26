@@ -131,6 +131,23 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
   );
 
   // -----------------------------------------------------------------------
+  // Session stream chunk — forward buffered thought text to webview.
+  // ProtocolHandler.flushThoughts() emits this when agent_message_chunk
+  // arrives or when the turn ends. The webview creates a new agent message
+  // so it appears as an intermediate step in the pipeline.
+  // -----------------------------------------------------------------------
+  orchestrator.on(
+    "sessionStreamChunk",
+    (event: { agentId: string; sessionId: string; chunk: string }) => {
+      const { agentId, sessionId, chunk } = event;
+      const cp = getChatPanel();
+      if (cp) {
+        cp.pushStreamChunk(agentId, sessionId, chunk);
+      }
+    }
+  );
+
+  // -----------------------------------------------------------------------
   // Session update (raw SDK notification)
   // -----------------------------------------------------------------------
   orchestrator.on(
@@ -149,18 +166,12 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
       // Forward raw SDK notification only for the active session.
       // Skip agent_thought_chunk — these are buffered in ProtocolHandler
       // and flushed as a single chunk to avoid overwhelming the webview.
-      // Skip tool_call / tool_call_update — tool calls are flushed as
-      // session/message via flushPendingToolCalls → appendMessage to
-      // avoid duplicate delivery (both session/notification and
-      // session/message paths).
       // Skip agent_message_chunk — text is buffered in ProtocolHandler
       // and flushed as a single ChatMessage via sessionMessage event
       // on turn completion (batched delivery to reduce webview overhead).
       if (
         isActive &&
         update.sessionUpdate !== "agent_thought_chunk" &&
-        update.sessionUpdate !== "tool_call" &&
-        update.sessionUpdate !== "tool_call_update" &&
         update.sessionUpdate !== "agent_message_chunk"
       ) {
         cp?.pushSessionNotification(agentId, sessionId, notification);
