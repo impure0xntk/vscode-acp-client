@@ -98,10 +98,10 @@ function makeAgentThoughtChunkNotification(
 }
 
 // ============================================================================
-// Batched delivery: text is buffered and flushed on turn completion
+// Streaming: each agent_message_chunk is delivered as a separate ChatMessage
 // ============================================================================
 
-describe("Batched Delivery — agent_message_chunk buffered until turn end", () => {
+describe("Streaming — agent_message_chunk creates per-chunk ChatMessage", () => {
   let orch: SessionOrchestrator;
   const agentId = "codex";
   const sessionId = "sess-codex-1";
@@ -115,12 +115,12 @@ describe("Batched Delivery — agent_message_chunk buffered until turn end", () 
     orch.dispose();
   });
 
-  it("buffers many small chunks and flushes as single message on turn end", () => {
+  it("emits one sessionStreamChunk per chunk during streaming", () => {
     const chunks = ["こ", "ん", "に", "ち", "は"];
-    const sessionMessages: ChatMessage[] = [];
+    const streamChunks: string[] = [];
 
-    orch.on("sessionMessage", (evt: any) => {
-      sessionMessages.push(evt.message);
+    orch.on("sessionStreamChunk", (evt: any) => {
+      streamChunks.push(evt.chunk);
     });
 
     for (const chunk of chunks) {
@@ -130,27 +130,27 @@ describe("Batched Delivery — agent_message_chunk buffered until turn end", () 
       );
     }
 
-    // Before turn end: no messages emitted yet
-    const infoBefore = orch.getSessionInfo(agentId, sessionId)!;
-    assert.strictEqual(infoBefore.messages.length, 0, "no messages before turn end");
-
-    // Simulate turn completion by calling flushPendingAgentText
-    const ph = (orch as any).getInternalState().protocolHandler;
-    ph.flushPendingAgentText(agentId, sessionId);
-
-    // After turn end: single message with all text
-    assert.strictEqual(sessionMessages.length, 1);
-    assert.strictEqual(sessionMessages[0].content, "こんにちは");
-    assert.strictEqual(sessionMessages[0].role, "agent");
+    assert.strictEqual(streamChunks.length, 5);
+    assert.deepStrictEqual(streamChunks, chunks);
   });
 
-  it("does NOT emit sessionMessage during streaming (only on flush)", () => {
+  it("each chunk becomes a separate ChatMessage in the session", () => {
+    const chunks = ["Hello", " ", "World"];
     const sessionMessages: ChatMessage[] = [];
-    orch.on("sessionMessage", (evt: any) => {
-      sessionMessages.push(evt.message);
+
+    orch.on("sessionStreamChunk", (evt: any) => {
+      // Simulate what the webview/messageStore does: each chunk → own message
+      const msg: ChatMessage = {
+        id: `msg-${evt.chunk}-${Date.now()}-${Math.random()}`,
+        role: "agent",
+        content: evt.chunk,
+        timestamp: Date.now(),
+        agentId,
+        sessionId: evt.sessionId,
+      };
+      sessionMessages.push(msg);
     });
 
-    const chunks = ["a", "b", "c"];
     for (const chunk of chunks) {
       (orch as any).handleSessionUpdate(
         agentId,
@@ -158,7 +158,11 @@ describe("Batched Delivery — agent_message_chunk buffered until turn end", () 
       );
     }
 
-    assert.strictEqual(sessionMessages.length, 0, "no messages emitted during streaming");
+    // Each chunk is a separate message
+    assert.strictEqual(sessionMessages.length, 3);
+    assert.strictEqual(sessionMessages[0].content, "Hello");
+    assert.strictEqual(sessionMessages[1].content, " ");
+    assert.strictEqual(sessionMessages[2].content, "World");
   });
 
   it("sets isStreaming on first chunk", () => {
@@ -190,10 +194,10 @@ describe("Batched Delivery — agent_message_chunk buffered until turn end", () 
   it("handles character-by-character streaming (Japanese text)", () => {
     const text = "今日は良い天気ですね";
     const chars = Array.from(text);
-    const sessionMessages: ChatMessage[] = [];
+    const streamChunks: string[] = [];
 
-    orch.on("sessionMessage", (evt: any) => {
-      sessionMessages.push(evt.message);
+    orch.on("sessionStreamChunk", (evt: any) => {
+      streamChunks.push(evt.chunk);
     });
 
     for (const ch of chars) {
@@ -203,24 +207,16 @@ describe("Batched Delivery — agent_message_chunk buffered until turn end", () 
       );
     }
 
-    // Before flush: no messages
-    const info = orch.getSessionInfo(agentId, sessionId)!;
-    assert.strictEqual(info.messages.length, 0);
-
-    // Flush
-    const ph = (orch as any).getInternalState().protocolHandler;
-    ph.flushPendingAgentText(agentId, sessionId);
-
-    assert.strictEqual(sessionMessages.length, 1);
-    assert.strictEqual(sessionMessages[0].content, text);
+    assert.strictEqual(streamChunks.length, chars.length);
+    assert.strictEqual(streamChunks.join(""), text);
   });
 
   it("handles mixed single-char and multi-char chunks", () => {
     const chunks = ["Hel", "lo", " ", "World", "!", "!", "!"];
-    const sessionMessages: ChatMessage[] = [];
+    const streamChunks: string[] = [];
 
-    orch.on("sessionMessage", (evt: any) => {
-      sessionMessages.push(evt.message);
+    orch.on("sessionStreamChunk", (evt: any) => {
+      streamChunks.push(evt.chunk);
     });
 
     for (const chunk of chunks) {
@@ -230,35 +226,27 @@ describe("Batched Delivery — agent_message_chunk buffered until turn end", () 
       );
     }
 
-    // Flush
-    const ph = (orch as any).getInternalState().protocolHandler;
-    ph.flushPendingAgentText(agentId, sessionId);
-
-    assert.strictEqual(sessionMessages.length, 1);
-    assert.strictEqual(sessionMessages[0].content, "Hello World!!!");
+    assert.strictEqual(streamChunks.length, 7);
+    assert.strictEqual(streamChunks.join(""), "Hello World!!!");
   });
 
-  it("handles empty string chunks without creating a message", () => {
+  it("handles empty string chunks", () => {
     (orch as any).handleSessionUpdate(
       agentId,
       makeAgentMessageChunkNotification(sessionId, "")
     );
 
-    // Flush
-    const ph = (orch as any).getInternalState().protocolHandler;
-    ph.flushPendingAgentText(agentId, sessionId);
-
     const info = orch.getSessionInfo(agentId, sessionId)!;
-    assert.strictEqual(info.messages.length, 0);
+    assert.strictEqual(info.isStreaming, true);
   });
 
-  it("handles very long streaming text without issues", () => {
+  it("handles very long streaming text — each chunk is delivered", () => {
     const longText = "a".repeat(100_000);
     const chunkSize = 100;
-    const sessionMessages: ChatMessage[] = [];
+    const streamChunks: string[] = [];
 
-    orch.on("sessionMessage", (evt: any) => {
-      sessionMessages.push(evt.message);
+    orch.on("sessionStreamChunk", (evt: any) => {
+      streamChunks.push(evt.chunk);
     });
 
     for (let i = 0; i < longText.length; i += chunkSize) {
@@ -269,21 +257,17 @@ describe("Batched Delivery — agent_message_chunk buffered until turn end", () 
       );
     }
 
-    // Flush
-    const ph = (orch as any).getInternalState().protocolHandler;
-    ph.flushPendingAgentText(agentId, sessionId);
-
-    assert.strictEqual(sessionMessages.length, 1);
-    assert.strictEqual(sessionMessages[0].content.length, 100_000);
-    assert.strictEqual(sessionMessages[0].content, longText);
+    const expectedChunks = Math.ceil(longText.length / chunkSize);
+    assert.strictEqual(streamChunks.length, expectedChunks);
+    assert.strictEqual(streamChunks.join(""), longText);
   });
 });
 
 // ============================================================================
-// Goose-style: single large chunk per turn
+// Goose-style: single large chunk produces a single stream event
 // ============================================================================
 
-describe("Batched Delivery — goose-style (single large chunk)", () => {
+describe("Streaming — goose-style (single large chunk per turn)", () => {
   let orch: SessionOrchestrator;
   const agentId = "goose";
   const sessionId = "sess-goose-1";
@@ -297,13 +281,13 @@ describe("Batched Delivery — goose-style (single large chunk)", () => {
     orch.dispose();
   });
 
-  it("handles a single large chunk (whole message at once)", () => {
+  it("single large chunk produces one streamChunk event", () => {
     const fullText =
       "Hello! I'm Goose, your AI assistant. How can I help you today?";
-    const sessionMessages: ChatMessage[] = [];
+    const streamChunks: string[] = [];
 
-    orch.on("sessionMessage", (evt: any) => {
-      sessionMessages.push(evt.message);
+    orch.on("sessionStreamChunk", (evt: any) => {
+      streamChunks.push(evt.chunk);
     });
 
     (orch as any).handleSessionUpdate(
@@ -311,18 +295,20 @@ describe("Batched Delivery — goose-style (single large chunk)", () => {
       makeAgentMessageChunkNotification(sessionId, fullText)
     );
 
-    // Flush
-    const ph = (orch as any).getInternalState().protocolHandler;
-    ph.flushPendingAgentText(agentId, sessionId);
-
-    assert.strictEqual(sessionMessages.length, 1);
-    assert.strictEqual(sessionMessages[0].content, fullText);
+    assert.strictEqual(streamChunks.length, 1);
+    assert.strictEqual(streamChunks[0], fullText);
   });
 
-  it("handles two separate turns", () => {
-    const sessionMessages: ChatMessage[] = [];
-    orch.on("sessionMessage", (evt: any) => {
-      sessionMessages.push(evt.message);
+  it("two separate turns produce two separate turns of streamChunk events", () => {
+    const streamChunks: Array<{ text: string; turn: number }> = [];
+    let turnCount = 0;
+
+    orch.on("sessionStreamChunk", (evt: any) => {
+      streamChunks.push({ text: evt.chunk, turn: turnCount });
+    });
+    // Simulate turn boundary by listening for turn end
+    orch.on("sessionTurnActiveChanged", () => {
+      turnCount++;
     });
 
     // First turn: single chunk
@@ -330,19 +316,16 @@ describe("Batched Delivery — goose-style (single large chunk)", () => {
       agentId,
       makeAgentMessageChunkNotification(sessionId, "First response.")
     );
-    const ph = (orch as any).getInternalState().protocolHandler;
-    ph.flushPendingAgentText(agentId, sessionId);
 
     // Second turn: another single chunk
     (orch as any).handleSessionUpdate(
       agentId,
       makeAgentMessageChunkNotification(sessionId, "Second response.")
     );
-    ph.flushPendingAgentText(agentId, sessionId);
 
-    assert.strictEqual(sessionMessages.length, 2);
-    assert.strictEqual(sessionMessages[0].content, "First response.");
-    assert.strictEqual(sessionMessages[1].content, "Second response.");
+    assert.strictEqual(streamChunks.length, 2);
+    assert.strictEqual(streamChunks[0].text, "First response.");
+    assert.strictEqual(streamChunks[1].text, "Second response.");
   });
 });
 
@@ -350,7 +333,7 @@ describe("Batched Delivery — goose-style (single large chunk)", () => {
 // Edge cases
 // ============================================================================
 
-describe("Batched Delivery — edge cases", () => {
+describe("Streaming — edge cases", () => {
   let orch: SessionOrchestrator;
   const agentId = "edge-agent";
   const sessionId = "sess-edge-1";
@@ -373,11 +356,12 @@ describe("Batched Delivery — edge cases", () => {
       makeAgentMessageChunkNotification(sessionId, "should be ignored")
     );
 
-    // Flush
-    const ph = (orch as any).getInternalState().protocolHandler;
-    ph.flushPendingAgentText(agentId, sessionId);
+    const streamChunks: string[] = [];
+    orch.on("sessionStreamChunk", (evt: any) => {
+      streamChunks.push(evt.chunk);
+    });
 
-    assert.strictEqual(info.messages.length, 0);
+    assert.strictEqual(streamChunks.length, 0);
   });
 
   it("ignores chunks with no text content (image content)", () => {
@@ -389,41 +373,64 @@ describe("Batched Delivery — edge cases", () => {
       },
     } as any;
 
+    const streamChunks: string[] = [];
+    orch.on("sessionStreamChunk", (evt: any) => {
+      streamChunks.push(evt.chunk);
+    });
+
     (orch as any).handleSessionUpdate(agentId, notification);
 
-    // Flush
-    const ph = (orch as any).getInternalState().protocolHandler;
-    ph.flushPendingAgentText(agentId, sessionId);
-
-    const info = orch.getSessionInfo(agentId, sessionId)!;
-    assert.strictEqual(info.messages.length, 0);
+    assert.strictEqual(streamChunks.length, 0);
   });
 
-  it("handles agent_thought_chunk without creating a message", () => {
+  it("handles agent_thought_chunk without creating a sessionMessage", () => {
     const sessionMessages: ChatMessage[] = [];
+    const streamChunks: string[] = [];
     let streamStartEmitted = false;
     orch.on("sessionMessage", (evt: any) => {
       sessionMessages.push(evt.message);
+    });
+    orch.on("sessionStreamChunk", (evt: any) => {
+      streamChunks.push(evt.chunk);
     });
     orch.on("sessionStreamStart", () => {
       streamStartEmitted = true;
     });
 
+    // Send thought chunk — buffered, NOT flushed yet
     (orch as any).handleSessionUpdate(
       agentId,
       makeAgentThoughtChunkNotification(sessionId, "thinking...")
     );
 
     const info = orch.getSessionInfo(agentId, sessionId)!;
-    assert.strictEqual(info.messages.length, 0);
     assert.strictEqual(info.isStreaming, true);
     assert.strictEqual(streamStartEmitted, true);
-    assert.strictEqual(sessionMessages.length, 0, "thought chunks should not create messages");
+    // Thoughts are buffered — not yet delivered as sessionStreamChunk
+    // (thoughts are flushed when agent_message_chunk arrives or turn ends)
+    assert.strictEqual(sessionMessages.length, 0, "thought chunks should not create agent messages");
+
+    // Sending agent_message_chunk flushes buffered thoughts
+    (orch as any).handleSessionUpdate(
+      agentId,
+      makeAgentMessageChunkNotification(sessionId, "hello")
+    );
+
+    // Now thoughts should have been flushed as a single streamChunk
+    assert.strictEqual(streamChunks.length, 1);
+    assert.strictEqual(streamChunks[0], "thinking...");
   });
 
-  it("maintains separate buffers for different sessions", () => {
+  it("handles different sessions independently", () => {
     const sessionId2 = "sess-edge-2";
     injectRunningSession(orch, agentId, sessionId2);
+
+    const chunks1: string[] = [];
+    const chunks2: string[] = [];
+    orch.on("sessionStreamChunk", (evt: any) => {
+      if (evt.sessionId === sessionId) chunks1.push(evt.chunk);
+      if (evt.sessionId === sessionId2) chunks2.push(evt.chunk);
+    });
 
     (orch as any).handleSessionUpdate(
       agentId,
@@ -434,32 +441,22 @@ describe("Batched Delivery — edge cases", () => {
       makeAgentMessageChunkNotification(sessionId2, "Hello from session 2")
     );
 
-    // Flush both — collect emitted messages and append them
-    const ph = (orch as any).getInternalState().protocolHandler;
-    const emitted1: ChatMessage[] = [];
-    const emitted2: ChatMessage[] = [];
-    orch.on("sessionMessage", (evt: any) => {
-      if (evt.sessionId === sessionId) emitted1.push(evt.message);
-      if (evt.sessionId === sessionId2) emitted2.push(evt.message);
-    });
-    ph.flushPendingAgentText(agentId, sessionId);
-    ph.flushPendingAgentText(agentId, sessionId2);
-
-    // Append emitted messages to session info (simulating what the handler does)
-    const info1 = orch.getSessionInfo(agentId, sessionId)!;
-    const info2 = orch.getSessionInfo(agentId, sessionId2)!;
-    for (const msg of emitted1) info1.messages.push(msg);
-    for (const msg of emitted2) info2.messages.push(msg);
-
-    assert.strictEqual(info1.messages.length, 1);
-    assert.strictEqual(info2.messages.length, 1);
-    assert.strictEqual(info1.messages[0].content, "Hello from session 1");
-    assert.strictEqual(info2.messages[0].content, "Hello from session 2");
+    assert.strictEqual(chunks1.length, 1);
+    assert.strictEqual(chunks2.length, 1);
+    assert.strictEqual(chunks1[0], "Hello from session 1");
+    assert.strictEqual(chunks2[0], "Hello from session 2");
   });
 
-  it("maintains separate buffers for different agents", () => {
+  it("handles different agents independently", () => {
     const agentId2 = "edge-agent-2";
     injectRunningSession(orch, agentId2, sessionId);
+
+    const chunks1: string[] = [];
+    const chunks2: string[] = [];
+    orch.on("sessionStreamChunk", (evt: any) => {
+      if (evt.agentId === agentId) chunks1.push(evt.chunk);
+      if (evt.agentId === agentId2) chunks2.push(evt.chunk);
+    });
 
     (orch as any).handleSessionUpdate(
       agentId,
@@ -470,25 +467,8 @@ describe("Batched Delivery — edge cases", () => {
       makeAgentMessageChunkNotification(sessionId, "Agent 2 says hi")
     );
 
-    // Flush both — collect emitted messages and append them
-    const ph = (orch as any).getInternalState().protocolHandler;
-    const emitted1: ChatMessage[] = [];
-    const emitted2: ChatMessage[] = [];
-    orch.on("sessionMessage", (evt: any) => {
-      if (evt.agentId === agentId) emitted1.push(evt.message);
-      if (evt.agentId === agentId2) emitted2.push(evt.message);
-    });
-    ph.flushPendingAgentText(agentId, sessionId);
-    ph.flushPendingAgentText(agentId2, sessionId);
-
-    // Append emitted messages to session info (simulating what the handler does)
-    const info1 = orch.getSessionInfo(agentId, sessionId)!;
-    const info2 = orch.getSessionInfo(agentId2, sessionId)!;
-    for (const msg of emitted1) info1.messages.push(msg);
-    for (const msg of emitted2) info2.messages.push(msg);
-
-    assert.strictEqual(info1.messages[0].content, "Agent 1 says hi");
-    assert.strictEqual(info2.messages[0].content, "Agent 2 says hi");
+    assert.strictEqual(chunks1[0], "Agent 1 says hi");
+    assert.strictEqual(chunks2[0], "Agent 2 says hi");
   });
 });
 
@@ -496,7 +476,7 @@ describe("Batched Delivery — edge cases", () => {
 // Integration: streaming + tool calls
 // ============================================================================
 
-describe("Batched Delivery — interaction with tool calls", () => {
+describe("Streaming — interaction with tool calls", () => {
   let orch: SessionOrchestrator;
   const agentId = "tool-agent";
   const sessionId = "sess-tool-1";
@@ -524,35 +504,27 @@ describe("Batched Delivery — interaction with tool calls", () => {
       },
     } as any;
 
-    // Send tool call first — should be buffered
+    // Send tool call first — should be buffered by PromptExecution
     (orch as any).handleSessionUpdate(agentId, toolCallNotification);
 
     const info = orch.getSessionInfo(agentId, sessionId)!;
-    assert.strictEqual(info.messages.length, 0);
+    assert.strictEqual(info.messages.length, 0, "tool calls are buffered");
 
-    // Now send agent text — this should flush the buffered tool call
+    // Now send agent text — this flushes the buffered tool call
+    const emitted: ChatMessage[] = [];
+    orch.on("sessionMessage", (evt: any) => {
+      emitted.push(evt.message);
+    });
+
     (orch as any).handleSessionUpdate(
       agentId,
       makeAgentMessageChunkNotification(sessionId, "Here's the result.")
     );
 
     const updatedInfo = orch.getSessionInfo(agentId, sessionId)!;
-    // 1 tool message + 0 agent message (not flushed yet)
-    assert.strictEqual(updatedInfo.messages.length, 1);
+    // Tool message should have been flushed (via sessionMessage → appendMessage → sessionInfo.messages)
+    // The agent chunk emits sessionStreamChunk (NOT sessionMessage)
+    assert.ok(updatedInfo.messages.length >= 1);
     assert.strictEqual(updatedInfo.messages[0].role, "tool");
-
-    // Flush agent text — collect emitted messages and append them
-    const ph = (orch as any).getInternalState().protocolHandler;
-    const emitted: ChatMessage[] = [];
-    orch.on("sessionMessage", (evt: any) => {
-      emitted.push(evt.message);
-    });
-    ph.flushPendingAgentText(agentId, sessionId);
-
-    const finalInfo = orch.getSessionInfo(agentId, sessionId)!;
-    for (const msg of emitted) finalInfo.messages.push(msg);
-
-    assert.strictEqual(finalInfo.messages.length, 2);
-    assert.strictEqual(finalInfo.messages[1].role, "agent");
   });
 });

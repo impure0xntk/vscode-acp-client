@@ -144,9 +144,6 @@ export class PromptExecution {
 
       this.flushPendingToolCalls(agentId, sessionId);
 
-      // Flush buffered agent text as a single ChatMessage (batched delivery)
-      this.deps.protocolHandler.flushPendingAgentText(agentId, sessionId);
-
       const sKey = sessionKey(agentId, sessionId);
       this.deps.sessionState.clearStreamText(sKey);
       this.deps.sessionState.clearStreamMsgRef(sKey);

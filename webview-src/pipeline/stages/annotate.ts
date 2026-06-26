@@ -238,6 +238,11 @@ export function annotateMessages(
   let prevGroupKey = initialGroupKey;
   let prevRole = "";
   let isFirst = true;
+  // Track seen keys to resolve collisions defensively.
+  // If two messages produce the same key (e.g. duplicate tool messages
+  // with the same id after merge promotion), append a counter so React
+  // children always have unique keys.
+  const seenKeys = new Map<string, number>();
 
   for (const msg of messages) {
     // Use msg.role (not originalRole) for consecutive detection.
@@ -251,8 +256,17 @@ export function annotateMessages(
       prevGroupKey = "";
     }
     isFirst = false;
-    const { item, groupKey } = toPipelineItem(msg, config, prevGroupKey);
-    if (item) items.push(item);
+    let { item, groupKey } = toPipelineItem(msg, config, prevGroupKey);
+    if (item) {
+      // Resolve key collisions by appending a counter.
+      const baseKey = item.key;
+      const count = seenKeys.get(baseKey) ?? 0;
+      seenKeys.set(baseKey, count + 1);
+      if (count > 0) {
+        item = { ...item, key: `${baseKey}-${count}` };
+      }
+      items.push(item);
+    }
     // Non-info messages (compression, mode_change, etc.) reset the group
     // so the next info message always shows its header.
     prevGroupKey = groupKey;

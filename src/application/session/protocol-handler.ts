@@ -49,12 +49,6 @@ export class ProtocolHandler {
   private sessionCommands: Map<string, AvailableCommand[]> = new Map();
   // sessionKey → buffered thought text (flushed on turn end or message chunk)
   private pendingThoughts: Map<string, string> = new Map();
-  // sessionKey → buffered agent message text (flushed on turn end)
-  // Collects agent_message_chunk text during a turn so it can be emitted as
-  // a single ChatMessage when the turn completes (like Goose ACP), rather
-  // than per-character streaming (like Copilot CLI ACP).
-  private pendingAgentText: Map<string, string> = new Map();
-
   constructor(deps: ProtocolHandlerDeps) {
     this.deps = deps;
   }
@@ -208,46 +202,6 @@ export class ProtocolHandler {
   }
 
   // ========================================================================
-  // Flush Pending Agent Text (called on turn completion)
-  // ========================================================================
-
-  /**
-   * Flush buffered agent text as a single ChatMessage via sessionMessage event.
-   * This converts many small agent_message_chunk notifications into one
-   * batched message delivery, reducing extension-host ↔ webview overhead.
-   */
-  flushPendingAgentText(agentId: string, sessionId: string): void {
-    const sKey = sessionKey(agentId, sessionId);
-    const buffered = this.pendingAgentText.get(sKey);
-    if (!buffered || buffered.length === 0) {
-      this.pendingAgentText.delete(sKey);
-      return;
-    }
-    this.pendingAgentText.delete(sKey);
-
-    const sessionInfo = this.deps.sessionState.getSessionInfo(agentId, sessionId);
-    if (!sessionInfo) return;
-
-    const msgId = `agent-${sessionId}-${crypto.randomUUID()}`;
-    const message: ChatMessage = {
-      id: msgId,
-      role: "agent",
-      content: buffered,
-      timestamp: Date.now(),
-      agentId,
-      sessionId,
-    };
-
-    log.debug("flushPendingAgentText", {
-      agentId,
-      sessionId,
-      textLen: buffered.length,
-    });
-
-    this.deps.emit("sessionMessage", { agentId, sessionId, message });
-  }
-
-  // ========================================================================
   // Agent Message Chunk
   // ========================================================================
 
@@ -275,20 +229,12 @@ export class ProtocolHandler {
     const text = content?.type === "text" ? (content.text as string) : undefined;
 
     if (text) {
-      const sKey = sessionKey(agentId, sessionId);
-      const existing = this.deps.sessionState.getStreamMsgRef(sKey);
-
-      if (existing) {
-        this.deps.sessionState.appendStreamText(sKey, text);
-      } else {
-        const msgId = `stream-${sessionId}-${crypto.randomUUID()}`;
-        this.deps.sessionState.setStreamMsgRef(sKey, { agentId, sessionId, msgId });
-        this.deps.sessionState.setStreamText(sKey, text);
-      }
-
-      // Buffer text for batched delivery on turn completion
-      const buffered = this.pendingAgentText.get(sKey) ?? "";
-      this.pendingAgentText.set(sKey, buffered + text);
+      // Emit each chunk as a stream event so the webview creates a
+      // separate ChatMessage per chunk.  The pipeline's groupByUserBoundary
+      // classifies consecutive chunks as intermediate steps and the
+      // last one (with stopReason) as the final response.
+      this.deps.emit("sessionStreamChunk", { agentId, sessionId, chunk: text });
+      sessionInfo.lastResponseAt = new Date().toISOString();
     }
   }
 

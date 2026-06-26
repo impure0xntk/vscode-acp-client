@@ -133,6 +133,41 @@ export function clearPipelineCache(): void {
 }
 
 /**
+ * Deduplicate raw messages by id, preserving insertion order.
+ * When the same message id appears multiple times (e.g. session/notification
+ * tool_call + session/message delivering the same tool message), keep the
+ * latest version (last occurrence) so it has the most up-to-date content,
+ * toolCalls, and stopReason.
+ */
+function deduplicateRawMessages(msgs: RawMessage[]): RawMessage[] {
+  const byId = new Map<string, RawMessage>();
+  for (const msg of msgs) {
+    const id = msg.id ?? (msg.timestamp != null ? String(msg.timestamp) : "");
+    if (id) {
+      byId.set(id, msg);
+    } else {
+      // Messages without id or timestamp cannot be deduplicated —
+      // use a unique key so they are always kept.
+      byId.set(`__no-id-${byId.size}`, msg);
+    }
+  }
+  // Preserve original order: iterate original array, keep only the last
+  // occurrence of each id.
+  const seen = new Set<string>();
+  const result: RawMessage[] = [];
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const msg = msgs[i];
+    const id = msg.id ?? (msg.timestamp != null ? String(msg.timestamp) : "");
+    const dedupId = id || `__no-id-${i}`;
+    if (!seen.has(dedupId)) {
+      seen.add(dedupId);
+      result.unshift(byId.get(dedupId)!);
+    }
+  }
+  return result;
+}
+
+/**
  * Process raw messages into PipelineItem[] using the pipeline.
  * Pipeline instances are preserved across session switches to maintain
  * groupKey context for consecutive message header merging.
@@ -159,6 +194,15 @@ export function useMessagePipeline(
     };
   }, [entry]);
 
+  // Deduplicate raw messages to prevent duplicate keys in the pipeline output.
+  // This handles the case where session/notification and session/message both
+  // deliver the same tool message (same id), which would produce two
+  // PipelineItems with the same key after merge promotion.
+  const dedupedMessages = useMemo(
+    () => deduplicateRawMessages(rawMessages),
+    [rawMessages]
+  );
+
   return useMemo(() => {
     const ctx: PipelineContext = {
       sessionId,
@@ -170,14 +214,14 @@ export function useMessagePipeline(
     // First render for this session or empty pipeline
     if (
       pipeline.cached.length === 0 ||
-      rawMessages.length < processedRawCount
+      dedupedMessages.length < processedRawCount
     ) {
       // Reset if we have fewer messages than processed (e.g. session reset)
-      const result = pipeline.process(rawMessages, ctx);
-      entry.processedRawCount = rawMessages.length;
+      const result = pipeline.process(dedupedMessages, ctx);
+      entry.processedRawCount = dedupedMessages.length;
       entry.contentHash =
-        rawMessages.length > 0
-          ? computeContentHash(rawMessages)
+        dedupedMessages.length > 0
+          ? computeContentHash(dedupedMessages)
           : "";
       return result;
     }
@@ -189,13 +233,13 @@ export function useMessagePipeline(
     // refreshed — the incremental codepath can't handle cross-message
     // content mutations (e.g. appendStreamChunk mutates a message that
     // is not at the end of the array when tool messages follow it).
-    if (rawMessages.length === processedRawCount) {
-      if (rawMessages.length > 0) {
-        const currentHash = computeContentHash(rawMessages);
+    if (dedupedMessages.length === processedRawCount) {
+      if (dedupedMessages.length > 0) {
+        const currentHash = computeContentHash(dedupedMessages);
         if (currentHash !== entry.contentHash) {
           entry.contentHash = currentHash;
-          const result = pipeline.process(rawMessages, ctx);
-          entry.processedRawCount = rawMessages.length;
+          const result = pipeline.process(dedupedMessages, ctx);
+          entry.processedRawCount = dedupedMessages.length;
           return result;
         }
       }
@@ -203,13 +247,13 @@ export function useMessagePipeline(
     }
 
     // Process only new messages
-    const newMessages = rawMessages.slice(processedRawCount);
+    const newMessages = dedupedMessages.slice(processedRawCount);
     const result = pipeline.processIncremental(newMessages, ctx);
-    entry.processedRawCount = rawMessages.length;
+    entry.processedRawCount = dedupedMessages.length;
     entry.contentHash =
-      rawMessages.length > 0
-        ? computeContentHash(rawMessages)
+      dedupedMessages.length > 0
+        ? computeContentHash(dedupedMessages)
         : "";
     return result;
-  }, [rawMessages, pipeline, sessionId, agentId, processedRawCount, entry]);
+  }, [dedupedMessages, pipeline, sessionId, agentId, processedRawCount, entry]);
 }

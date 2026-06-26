@@ -85,58 +85,90 @@ export const useMessageStore = create<MessageState>((set) => ({
       };
     }),
 
-  /** Append multiple streaming chunks at once to reduce store updates */
+  /**
+   * Append multiple streaming chunks to the message store.
+   *
+   * When the last message is an in-progress same-agent stream (no stopReason),
+   * chunks are appended in-place — this is the common case during
+   * high-frequency streaming where chunks belong to the same logical message.
+   *
+   * When the last message is NOT an in-progress agent stream (e.g. it is a
+   * tool, user, or completed agent), each chunk becomes a SEPARATE ChatMessage.
+   * This is critical for intermediate-step handling: after a tool_call is
+   * flushed, the next agent_message_chunk starts a new logical message, and
+   * the pipeline's groupByUserBoundary can classify it as a separate
+   * intermediate step rather than merging it into the previous response.
+   */
   appendStreamChunks: (key, agentId, sessionId, chunks: string[]) =>
     set((state) => {
       if (chunks.length === 0) return state;
-      const merged = chunks.join("");
       const existing = state.perSession[key] ?? [];
-      // Check whether the last message is a same-agent streaming agent.
-      // If the last message is a tool, user, system, or a completed agent,
-      // create a NEW agent message — this prevents post-tool chunks from
-      // being appended to pre-tool agent text (Goose structured JSON).
       const lastMsg = existing.length > 0 ? existing[existing.length - 1] : null;
-      const shouldAppend =
+      const shouldMergeIntoLast =
         lastMsg !== null &&
         lastMsg.role === "agent" &&
         lastMsg.agentId === agentId &&
         (lastMsg.stopReason == null || lastMsg.stopReason === "");
+
       let newMessages: ChatMessage[];
-      if (shouldAppend) {
-        const updatedLast: ChatMessage = { ...lastMsg, content: lastMsg.content + merged };
+      if (shouldMergeIntoLast) {
+        // Same-agent in-progress stream: append in-place
+        const merged = chunks.join("");
+        const updatedLast: ChatMessage = {
+          ...lastMsg,
+          content: lastMsg.content + merged,
+        };
         newMessages = [...existing.slice(0, -1), updatedLast];
+      } else if (lastMsg !== null && lastMsg.role === "agent" && lastMsg.agentId !== agentId) {
+        // Different agent: each chunk becomes a separate message
+        newMessages = existing;
+        for (const chunk of chunks) {
+          newMessages = [
+            ...newMessages,
+            {
+              id: crypto.randomUUID(),
+              role: "agent",
+              content: chunk,
+              timestamp: Date.now(),
+              agentId,
+              sessionId,
+            },
+          ];
+        }
       } else {
-        newMessages = [
-          ...existing,
-          {
-            id: crypto.randomUUID(),
-            role: "agent",
-            content: merged,
-            timestamp: Date.now(),
-            agentId,
-            sessionId,
-          },
-        ];
+        // Last message is tool/user/system/completed-agent, or no messages yet:
+        // each chunk becomes a separate ChatMessage.  This enables the pipeline
+        // to treat each as an intermediate step when a tool_call boundary
+        // separates them within the same turn.
+        newMessages = existing;
+        for (const chunk of chunks) {
+          newMessages = [
+            ...newMessages,
+            {
+              id: crypto.randomUUID(),
+              role: "agent",
+              content: chunk,
+              timestamp: Date.now(),
+              agentId,
+              sessionId,
+            },
+          ];
+        }
       }
-      const newStreaming =
-        state.streaming[key] === true
-          ? state.streaming
-          : { ...state.streaming, [key]: true };
+
       return {
         ...state,
         perSession: { ...state.perSession, [key]: newMessages },
-        streaming: newStreaming,
+        streaming: { ...state.streaming, [key]: true },
       };
     }),
 
   appendStreamChunk: (key, agentId, sessionId, chunk) =>
     set((state) => {
       const existing = state.perSession[key] ?? [];
-      // Check whether the last message is a same-agent streaming agent.
-      // If the last message is a tool, user, system, or a completed agent,
-      // create a NEW agent message — this prevents post-tool chunks from
-      // being appended to pre-tool agent text (Goose structured JSON).
       const lastMsg = existing.length > 0 ? existing[existing.length - 1] : null;
+      // Single chunk from a same-agent in-progress stream: append
+      // in-place for efficiency (avoids flooding the store).
       const shouldAppend =
         lastMsg !== null &&
         lastMsg.role === "agent" &&

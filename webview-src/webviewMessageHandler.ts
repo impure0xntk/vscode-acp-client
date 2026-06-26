@@ -537,59 +537,23 @@ function handleSessionStreamStart(data: SessionStreamStart): void {
 
 function handleSessionStream(data: SessionStream): void {
   const msgKey = sessionKeyOf(data.agentId, data.sessionId);
-  // Batch multiple chunks in the same microtask to reduce store updates.
-  // The ChatPanel extension host already coalesces via timer; this adds
-  // a second layer of batching on the webview side for any remaining
-  // high-frequency chunks.
-  const pending = pendingStreamChunks.get(msgKey);
-  if (pending) {
-    pending.push(data.chunk);
-    return;
+  // Deliver each chunk individually to appendStreamChunks so the store
+  // can decide whether to merge into the last message or create a new one.
+  // This enables the pipeline to classify separate text blocks (separated
+  // by tool calls) as distinct intermediate steps.
+  useMessageStore.getState().appendStreamChunks(msgKey, data.agentId, data.sessionId, [data.chunk]);
+  const store = useSessionStore.getState();
+  const existing = store.sessionInfoMap[msgKey];
+  if (existing && existing.status === "running") {
+    store.setSessionInfo(data.agentId, data.sessionId, {
+      ...existing,
+      lastResponseAt: new Date().toISOString(),
+    });
   }
-  const chunks = [data.chunk];
-  pendingStreamChunks.set(msgKey, chunks);
-  queueMicrotask(() => {
-    // If handleSessionStreamEnd already drained this batch (deleted it
-    // from the Map or replaced it with a new one), skip — otherwise we'd
-    // re-set streaming=true after streamEnd just cleared it.
-    if (pendingStreamChunks.get(msgKey) !== chunks) return;
-    pendingStreamChunks.delete(msgKey);
-    const merged = chunks;
-    useMessageStore.getState().appendStreamChunks(msgKey, data.agentId, data.sessionId, merged);
-    const store = useSessionStore.getState();
-    const existing = store.sessionInfoMap[msgKey];
-    if (existing && existing.status === "running") {
-      store.setSessionInfo(data.agentId, data.sessionId, {
-        ...existing,
-        lastResponseAt: new Date().toISOString(),
-      });
-    }
-  });
 }
-
-/** Per-sessionKey accumulator for microtask-batched stream chunks */
-const pendingStreamChunks = new Map<string, string[]>();
 
 function handleSessionStreamEnd(data: SessionStreamEnd): void {
   const msgKey = sessionKeyOf(data.agentId, data.sessionId);
-
-  // Drain any microtask-batched chunks before clearing streaming.
-  // Without this, a queued microtask from handleSessionStream could
-  // fire AFTER setStreaming(false) and re-set streaming=true via
-  // appendStreamChunks, leaving the blinking cursor stuck.
-  const pending = pendingStreamChunks.get(msgKey);
-  if (pending && pending.length > 0) {
-    pendingStreamChunks.delete(msgKey);
-    useMessageStore.getState().appendStreamChunks(
-      msgKey,
-      data.agentId,
-      data.sessionId,
-      pending
-    );
-  } else {
-    pendingStreamChunks.delete(msgKey);
-  }
-
   useMessageStore.getState().setStreaming(msgKey, false);
   // Sync sessionInfoMap status so Overview/Tab indicators return to idle
   const existing = useSessionStore.getState().sessionInfoMap[msgKey];
