@@ -112,7 +112,7 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     };
-  }, [effectiveAction, isCancelling]);
+  }, [effectiveAction, isCancelling, anchorMs]);
 
   // Show "Sending…" when the user has sent a message (pending) and
   // turnStartedAt is recorded.  Do NOT gate on !effectiveActive — the

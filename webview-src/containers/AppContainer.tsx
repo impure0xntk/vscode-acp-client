@@ -50,13 +50,11 @@ export function AppContainer(): React.ReactElement {
     }))
   );
 
-  const activeSessionInfo = useMemo(
-    () =>
+  const activeSessionInfo = useSessionStore(
+    (s) =>
       activeSessionKey
-        ? useSessionStore.getState().sessionInfoMap[activeSessionKey]
-        : undefined,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activeSessionKey]
+        ? s.sessionInfoMap[activeSessionKey]
+        : undefined
   );
 
   const activeSessionId = activeSessionKey
