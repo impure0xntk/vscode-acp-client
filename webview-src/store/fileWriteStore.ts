@@ -15,6 +15,8 @@ export interface FileWriteRecord {
   originalContent: string | null;
   /** Monotonically increasing sequence number across all sessions */
   seq: number;
+  /** SHA-256 hash of the content after writing (for stale-file detection) */
+  contentHash: string;
 }
 
 export interface FileWriteStoreState {
@@ -28,10 +30,12 @@ export interface FileWriteStoreState {
     path: string,
     content: string,
     originalContent?: string | null,
+    contentHash?: string,
   ) => void;
   clearSession: (agentId: string, sessionId: string) => void;
   getWritesForSession: (agentId: string, sessionId: string) => FileWriteRecord[];
   getOriginalContent: (agentId: string, sessionId: string, path: string) => string | null;
+  getLastWriteHash: (agentId: string, sessionId: string, path: string) => string | null;
   currentSeq: () => number;
 }
 
@@ -39,7 +43,7 @@ export const useFileWriteStore = create<FileWriteStoreState>((set, get) => ({
   writes: {},
   nextSeq: 0,
 
-  addWrite: (agentId, sessionId, path, content, originalContent) => {
+  addWrite: (agentId, sessionId, path, content, originalContent, contentHash) => {
     const key = sessionKeyOf(agentId, sessionId);
     set((s) => {
       const existing = s.writes[key] ?? [];
@@ -49,7 +53,7 @@ export const useFileWriteStore = create<FileWriteStoreState>((set, get) => ({
         nextSeq: seq + 1,
         writes: {
           ...s.writes,
-          [key]: [...existing, { path, content, originalContent: originalContent ?? null, seq }],
+          [key]: [...existing, { path, content, originalContent: originalContent ?? null, seq, contentHash: contentHash ?? "" }],
         },
       };
     });
@@ -80,6 +84,18 @@ export const useFileWriteStore = create<FileWriteStoreState>((set, get) => ({
       }
     }
     return null;
+  },
+
+  getLastWriteHash: (agentId: string, sessionId: string, path: string): string | null => {
+    const key = sessionKeyOf(agentId, sessionId);
+    const writes = get().writes[key] ?? [];
+    let lastHash: string | null = null;
+    for (const w of writes) {
+      if (w.path === path && w.contentHash) {
+        lastHash = w.contentHash;
+      }
+    }
+    return lastHash;
   },
 
   currentSeq: () => get().nextSeq,

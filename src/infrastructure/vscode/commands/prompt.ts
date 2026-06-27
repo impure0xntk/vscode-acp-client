@@ -1,5 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
+import * as fs from "fs";
+import * as os from "os";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { attachmentsToContentBlocks } from "../../../adapter/context/prompt-context";
@@ -785,51 +787,11 @@ export function wireChatPanelEvents(
       // ==================================================================
       // File Edit messages
       // ==================================================================
-      case "revertFile": {
-        const { agentId, sessionId, path: filePath } = data as {
-          agentId: string;
-          sessionId: string;
-          path: string;
-        };
-        // Read the original content from the session's fileWriteStore is not
-        // available on the extension host side. Instead, we need to get it
-        // from the webview or store it when the write happened.
-        // For now, use git to restore the file.
-        void (async () => {
-          const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-          if (!ws) return;
-          try {
-            // Try git restore first
-            const { stdout, stderr } = await execAsync(
-              `git checkout -- "${filePath}"`,
-              { cwd: ws }
-            );
-            if (stderr) {
-              getLogger("prompt").warn("revertFile: git restore had warnings", {
-                path: filePath,
-                stderr,
-              });
-            }
-            getLogger("prompt").info("revertFile: file reverted via git", {
-              path: filePath,
-            });
-          } catch (err) {
-            getLogger("prompt").error("revertFile: git restore failed", {
-              path: filePath,
-              error: err instanceof Error ? err.message : String(err),
-            });
-            void vscode.window.showWarningMessage(
-              `Failed to revert ${filePath}. The file may not be tracked by git.`
-            );
-          }
-        })();
-        break;
-      }
-
       case "openDiff": {
-        const { path: diffPath, originalContent } = data as {
+        const { path: diffPath, originalContent, expectedHash } = data as {
           path: string;
           originalContent?: string;
+          expectedHash?: string;
         };
         void (async () => {
           const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
@@ -839,35 +801,98 @@ export function wireChatPanelEvents(
             : path.resolve(ws, diffPath);
           const currentUri = vscode.Uri.file(absPath);
 
+          if (expectedHash) {
+            try {
+              const currentContent = await vscode.workspace.fs.readFile(currentUri);
+              const currentHash = require("node:crypto")
+                .createHash("sha256")
+                .update(new TextDecoder().decode(currentContent), "utf8")
+                .digest("hex");
+              if (currentHash !== expectedHash) {
+                const action = await vscode.window.showWarningMessage(
+                  `File ${path.basename(absPath)} has been modified since the agent wrote it. The diff may not reflect the current state.`,
+                  "Open Anyway",
+                  "Cancel"
+                );
+                if (action !== "Open Anyway") return;
+              }
+            } catch {
+              // File may not exist — proceed with diff
+            }
+          }
+
           if (typeof originalContent === "string") {
-            // Create an untitled document with the original content so VS Code
-            // can compare it against the current file on disk.
-            const originalUri = vscode.Uri.parse(
-              `untitled:${absPath}.original`
-            ).with({ scheme: "untitled" });
-            const originalDoc = await vscode.workspace.openTextDocument(
-              originalUri
-            );
-            const edit = new vscode.WorkspaceEdit();
-            edit.insert(
-              originalUri,
-              new vscode.Position(0, 0),
-              originalContent
-            );
-            await vscode.workspace.applyEdit(edit);
+            // Write original content to a temp file so VS Code can open it
+            // in a Beside tab alongside the current file.
+            const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "acp-diff-"));
+            const tmpFileName = `.${path.basename(absPath)}.original`;
+            const tmpFilePath = path.join(tmpDir, tmpFileName);
+            fs.writeFileSync(tmpFilePath, originalContent, "utf8");
+            const originalUri = vscode.Uri.file(tmpFilePath);
+
+            // Open both documents in Beside view columns.
+            const originalDoc = await vscode.workspace.openTextDocument(originalUri);
+            await vscode.window.showTextDocument(originalDoc, {
+              viewColumn: vscode.ViewColumn.Beside,
+              preview: false,
+            });
+
+            const currentDoc = await vscode.workspace.openTextDocument(currentUri);
+            await vscode.window.showTextDocument(currentDoc, {
+              viewColumn: vscode.ViewColumn.Beside,
+              preview: false,
+            });
+
+            // Open diff editor with original (left) vs current (right).
             await vscode.commands.executeCommand(
               "vscode.diff",
               originalUri,
               currentUri,
               `${path.basename(absPath)} (Original ↔ Current)`
             );
+
+            // Clean up temp file after a delay (diff editor has loaded by then).
+            // If the user saves changes in the diff, VS Code writes to the
+            // current file (right side), so the temp file is no longer needed.
+            setTimeout(() => {
+              try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
+            }, 60_000);
           } else {
-            // No original content available — open the file directly
             const doc = await vscode.workspace.openTextDocument(currentUri);
             await vscode.window.showTextDocument(doc, {
               viewColumn: vscode.ViewColumn.Beside,
             });
           }
+        })();
+        break;
+      }
+      // ── Check file hash (for stale detection in FileEditSummary) ──
+      case "checkFileHash": {
+        const { path: checkPath, expectedHash, msgId } = data as {
+          path: string;
+          expectedHash: string;
+          msgId: string;
+        };
+        void (async () => {
+          const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+          const absPath = path.isAbsolute(checkPath) ? checkPath : path.resolve(wsRoot, checkPath);
+          let isStale = false;
+          try {
+            const content = await vscode.workspace.fs.readFile(vscode.Uri.file(absPath));
+            const currentHash = require("node:crypto")
+              .createHash("sha256")
+              .update(new TextDecoder().decode(content), "utf8")
+              .digest("hex");
+            isStale = currentHash !== expectedHash;
+          } catch {
+            // File doesn't exist → treat as stale
+            isStale = true;
+          }
+          chatPanel?.postMessage({
+            type: "hashCheckResult",
+            msgId,
+            isStale,
+          });
         })();
         break;
       }

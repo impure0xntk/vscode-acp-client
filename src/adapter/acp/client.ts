@@ -16,6 +16,7 @@ import type {
   WaitForTerminalExitResponse,
   KillTerminalRequest,
 } from "@agentclientprotocol/sdk";
+import { createHash } from "node:crypto";
 import { getLogger } from "../../platform/backends";
 import type { FileSystemAPI } from "../../platform/filesystem";
 import type { UIAPI, QuickPickItem } from "../../platform/ui";
@@ -33,6 +34,15 @@ export interface FileWriteEvent {
   content: string;
   /** Original content before this write (null if file didn't exist) */
   originalContent: string | null;
+  /** SHA-256 hash of the content after writing */
+  contentHash: string;
+}
+
+/**
+ * Compute SHA-256 hash of a string.
+ */
+export function computeContentHash(content: string): string {
+  return createHash("sha256").update(content, "utf8").digest("hex");
 }
 
 export interface AcpClientDeps {
@@ -134,6 +144,7 @@ export class PlatformAcpClient implements Client {
       path: params.path,
       content: params.content,
       originalContent,
+      contentHash: computeContentHash(params.content),
     });
     return {};
   }

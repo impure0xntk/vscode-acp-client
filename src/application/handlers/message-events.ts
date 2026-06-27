@@ -241,11 +241,11 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
   orchestrator.on(
     "fileWrite",
     (event: FileWriteEvent) => {
-      const { agentId, sessionId, path, content, originalContent } = event;
+      const { agentId, sessionId, path, content, originalContent, contentHash } = event;
       const activeSessionId = orchestrator.getActiveSessionId(agentId);
       if (sessionId !== activeSessionId) return;
       const cp = getChatPanel();
-      cp?.pushFileWrite(agentId, sessionId, path, content, originalContent);
+      cp?.pushFileWrite(agentId, sessionId, path, content, originalContent, contentHash);
     }
   );
 }

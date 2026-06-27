@@ -359,7 +359,8 @@ export class ChatPanel {
     sessionId: string,
     path: string,
     content: string,
-    originalContent?: string | null
+    originalContent?: string | null,
+    contentHash?: string
   ): void {
     this.postMessage({
       type: "session/webviewFileWrite",
@@ -368,6 +369,7 @@ export class ChatPanel {
       path,
       content,
       originalContent: originalContent ?? undefined,
+      contentHash: contentHash ?? undefined,
     });
   }
 

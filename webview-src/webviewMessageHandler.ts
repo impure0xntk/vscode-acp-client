@@ -437,6 +437,8 @@ interface SessionFileWriteMessage {
   content: string;
   /** Original content before this write (null if file didn't exist) */
   originalContent?: string | null;
+  /** SHA-256 hash of the content after writing */
+  contentHash?: string;
 }
 
 /**
@@ -1241,7 +1243,8 @@ function handleSessionFileWrite(data: SessionFileWriteMessage): void {
     data.sessionId,
     data.path,
     data.content,
-    data.originalContent ?? null
+    data.originalContent ?? null,
+    data.contentHash
   );
 }
 
