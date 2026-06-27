@@ -6,49 +6,39 @@ import React, {
 } from "react";
 import { Icon } from "../../lib/icons";
 import { DisplayItemView } from "./DisplayItemView";
-import type { PipelineItem } from "../../pipeline";
+import { StepView } from "./StepView";
+import type { IntermediateStep, PipelineItem } from "../../pipeline";
 
-const COLLAPSE_ANIMATION_DURATION = 150; // ms — must match CSS
+const COLLAPSE_ANIMATION_DURATION = 150;
 
 // ── Props ──────────────────────────────────────────────────────────────────
 
 export interface IntermediateStepsBannerProps {
-  items: PipelineItem[];
+  steps: IntermediateStep[];
   defaultCollapsed?: boolean;
   sessionId?: string;
   agentId?: string;
-  /**
-   * When true, renders expanded on first mount then immediately collapses.
-   * Creates a visual "auto-fold" effect for newly-completed intermediate steps.
-   */
   autoCollapse?: boolean;
-  /**
-   * When true, forces the banner to show expanded state (content visible).
-   * Used when the group is expanded via the store to keep the banner as a
-   * persistent collapse toggle.
-   */
   forceExpanded?: boolean;
-  /** Called when the user toggles the banner. */
   onToggle?: () => void;
-  /**
-   * Called after the expand/collapse animation / DOM mutation settles and
-   * the final layout is stable.  The parent uses this to recompute scroll
-   * state (isAtBottom / readUpTo) so the scroll-to-bottom button and
-   * unread badge stay correct.
-   */
   onExpandSettled?: () => void;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-function totalDurationMs(items: PipelineItem[]): number {
+function totalDurationMs(steps: IntermediateStep[]): number {
   let minTs: number | undefined;
   let maxTs: number | undefined;
-  for (const item of items) {
-    const ts = item.timestamp;
-    if (ts != null) {
-      if (minTs == null || ts < minTs) minTs = ts;
-      if (maxTs == null || ts > maxTs) maxTs = ts;
+  for (const step of steps) {
+    const items = step.agentMessage
+      ? [step.agentMessage, ...step.toolCalls]
+      : step.toolCalls;
+    for (const item of items) {
+      const ts = item.timestamp;
+      if (ts != null) {
+        if (minTs == null || ts < minTs) minTs = ts;
+        if (maxTs == null || ts > maxTs) maxTs = ts;
+      }
     }
   }
   if (minTs != null && maxTs != null) return maxTs - minTs;
@@ -64,10 +54,34 @@ function formatDuration(ms: number): string {
   return `${m}m ${rem.toFixed(0)}s`;
 }
 
+function stepLabel(step: IntermediateStep): string {
+  if (step.isPreAgent && step.agentMessage == null) {
+    return "Tool call";
+  }
+  if (step.agentMessage?.thinking) {
+    return "Thinking";
+  }
+  if (step.toolCalls.length > 0) {
+    return `Tool call${step.toolCalls.length > 1 ? `s (${step.toolCalls.length})` : ""}`;
+  }
+  return "Step";
+}
+
+function buildSummary(steps: IntermediateStep[]): string {
+  const counts: Record<string, number> = {};
+  for (const step of steps) {
+    const label = stepLabel(step);
+    counts[label] = (counts[label] ?? 0) + 1;
+  }
+  return Object.entries(counts)
+    .map(([label, count]) => `${count > 1 ? `${count}× ` : ""}${label}`)
+    .join(", ");
+}
+
 // ── Component ──────────────────────────────────────────────────────────────
 
 export function IntermediateStepsBanner({
-  items,
+  steps,
   defaultCollapsed = true,
   sessionId,
   agentId,
@@ -76,39 +90,25 @@ export function IntermediateStepsBanner({
   onToggle,
   onExpandSettled,
 }: IntermediateStepsBannerProps): React.ReactElement | null {
-  // isCollapsed = committed state (controls what is finally rendered).
-  // During a collapse transition we keep the content visible and animated
-  // (see animatingCollapsed below).
   const [isCollapsed, setIsCollapsed] = useState(
     autoCollapse ? true : forceExpanded ? false : defaultCollapsed
   );
-
-  // While a collapse animation is in flight we still render the content div
-  // with the animation class.  False → animatingCollapsed becomes false only
-  // after the animation ends.
   const [animatingCollapsed, setAnimatingCollapsed] = useState(false);
   const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Sync with forceExpanded from the store — overrides local state when
-  // the parent decides the group should be expanded/collapsed.
-  // Always respect forceExpanded regardless of autoCollapse, so that
-  // user-initiated toggle (via store) works even after turn completion.
   const prevForceExpanded = useRef(forceExpanded);
   useEffect(() => {
     if (forceExpanded && !prevForceExpanded.current) {
-      // Expanding: clear any in-flight collapse timer, show content immediately.
       if (collapseTimerRef.current) {
         clearTimeout(collapseTimerRef.current);
         collapseTimerRef.current = null;
       }
       setAnimatingCollapsed(false);
       setIsCollapsed(false);
-      // Notify parent after the DOM has settled so it can recompute scroll state.
       requestAnimationFrame(() => {
         requestAnimationFrame(() => onExpandSettled?.());
       });
     } else if (!forceExpanded && prevForceExpanded.current) {
-      // Collapsing: start animation, then commit after it finishes.
       setAnimatingCollapsed(true);
       setIsCollapsed(true);
       if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
@@ -122,7 +122,6 @@ export function IntermediateStepsBanner({
     prevForceExpanded.current = forceExpanded;
   }, [forceExpanded, onExpandSettled]);
 
-  // Clean up timer on unmount.
   useEffect(() => {
     return () => {
       if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
@@ -133,9 +132,10 @@ export function IntermediateStepsBanner({
     onToggle?.();
   }, [onToggle]);
 
-  if (items.length === 0) return null;
+  if (steps.length === 0) return null;
 
-  const duration = formatDuration(totalDurationMs(items));
+  const duration = formatDuration(totalDurationMs(steps));
+  const summary = buildSummary(steps);
   const showContent = !isCollapsed || animatingCollapsed;
 
   return (
@@ -162,12 +162,12 @@ export function IntermediateStepsBanner({
         />
         <span className="font-medium whitespace-nowrap">
           {isCollapsed
-            ? `Show ${items.length} intermediate step${items.length > 1 ? "s" : ""}`
+            ? `Show ${steps.length} intermediate step${steps.length > 1 ? "s" : ""}`
             : "Hide intermediate steps"}
         </span>
         {isCollapsed && (
           <span className="flex-shrink-0 text-[10px] font-mono text-fg-muted opacity-70 ml-1">
-            {duration}
+            {summary} · {duration}
           </span>
         )}
       </button>
@@ -175,15 +175,12 @@ export function IntermediateStepsBanner({
         <div
           className={`px-1 pb-1 pt-0.5 flex flex-col gap-[1px] opacity-70${animatingCollapsed ? " animate-intermediate-steps-collapse" : " animate-intermediate-steps-expand"}`}
         >
-          {items.map((item, idx) => (
-            <DisplayItemView
-              key={item.key}
-              item={item}
-              idx={idx}
-              items={items}
+          {steps.map((step, idx) => (
+            <StepView
+              key={`step-${idx}`}
+              step={step}
               sessionId={sessionId}
               agentId={agentId}
-              isNew={true}
             />
           ))}
           <button
@@ -204,3 +201,5 @@ export function IntermediateStepsBanner({
     </div>
   );
 }
+
+

@@ -567,6 +567,48 @@ function handleSessionMessage(data: SessionMessage): void {
           msg.attachmentsJson
         ) as import("./types").ContextAttachment[])
       : undefined);
+
+  // Deduplicate tool calls: the extension-host buffered flush
+  // (flushPendingToolCalls) delivers tool messages that may already
+  // have been delivered in real-time via session/notification →
+  // handleSessionNotification. Remove any toolCall whose id already
+  // exists in a tool message in the store to prevent duplicate cards.
+  if (msg.role === "tool" && msg.toolCalls && msg.toolCalls.length > 0) {
+    const store = useMessageStore.getState();
+    const existingMsgs = store.perSession[msgKey];
+    if (existingMsgs) {
+      const existingTcIds = new Set<string>();
+      for (const m of existingMsgs) {
+        if (m.role === "tool" && m.toolCalls) {
+          for (const tc of m.toolCalls) {
+            existingTcIds.add(tc.id);
+          }
+        }
+      }
+      const dedupedTCs = msg.toolCalls.filter((tc) => !existingTcIds.has(tc.id));
+      if (dedupedTCs.length === 0) {
+        // All tool calls already exist — skip this message entirely
+        log.debug("handleSessionMessage: skipping duplicate tool message", {
+          msgKey,
+          msgId: msg.id,
+        });
+        return;
+      }
+      if (dedupedTCs.length < msg.toolCalls.length) {
+        // Some tool calls are duplicates — replace with deduped list
+        log.debug("handleSessionMessage: deduplicating tool calls", {
+          msgKey,
+          before: msg.toolCalls.length,
+          after: dedupedTCs.length,
+        });
+        useMessageStore
+          .getState()
+          .appendMessage(msgKey, { ...msg, attachments, toolCalls: dedupedTCs });
+        return;
+      }
+    }
+  }
+
   useMessageStore.getState().appendMessage(msgKey, { ...msg, attachments });
 }
 
@@ -884,6 +926,16 @@ function handleSessionSnapshot(data: SessionSnapshot): void {
     lastResponseAt: data.lastResponseAt,
   });
   useSessionStore.getState().setSessionInfo(data.agentId, data.sessionId, dto);
+
+  // Ensure the tab exists in tabOrder — without this, a restored session's
+  // messages are stored in messageStore but the UI cannot render them because
+  // the session key is missing from tabOrder.  This also prevents the race
+  // where a subsequent setTabs (bulkSetTabs) arrives before session/switch
+  // and overwrites tabOrder without the restored session's key.
+  const sessionStore = useSessionStore.getState();
+  if (!sessionStore.tabOrder.includes(key)) {
+    sessionStore.addTab(data.agentId, data.sessionId, data.sessionId.slice(0, 8));
+  }
 }
 
 function handleSessionInfo(data: SessionInfo): void {
@@ -1189,44 +1241,45 @@ export function handleSessionNotification(data: SessionNotificationMessage): voi
     // If none exists, create a new tool ChatMessage.
     const store = useMessageStore.getState();
     const existingMsgs = store.perSession[msgKey];
-    // Find the last tool message that contains a toolCall with the same kind
-    // (same turn) — we merge into it so batched calls stay grouped.
-    let targetIdx = -1;
+
+    // Deduplicate: if ANY existing tool message already contains a toolCall
+    // with this id, skip — the same toolCallId was already delivered via
+    // the extension-host buffered flush (flushPendingToolCalls → session/message)
+    // or by a previous notification. Without this, duplicate delivery
+    // causes consecutive FETCH (or any same-kind) calls to render as
+    // separate cards instead of being merged into a single batch.
     if (existingMsgs) {
-      for (let i = existingMsgs.length - 1; i >= 0; i--) {
-        const m = existingMsgs[i];
-        if (m.role === "tool" && m.toolCalls?.some((tc) => tc.kind === tcKind)) {
-          targetIdx = i;
-          break;
-        }
+      const alreadyExists = existingMsgs.some(
+        (m) => m.role === "tool" && m.toolCalls?.some((tc) => tc.id === tcId),
+      );
+      if (alreadyExists) {
+        log.debug("handleSessionNotification: skipping duplicate tool_call", { msgKey, tcId });
+        return;
       }
     }
 
-    if (targetIdx >= 0) {
-      // Append to existing tool message
-      const existing = existingMsgs[targetIdx];
-      const mergedTCs = [...(existing.toolCalls ?? []), toolCall];
-      const updated = { ...existing, toolCalls: mergedTCs };
-      store.updateMessage(msgKey, targetIdx, updated);
-    } else {
-      // Create new tool message
-      const toolMsg = {
-        id: `tc-${tcKind}-${tcId}-${Date.now()}`,
-        role: "tool" as const,
-        content: "",
-        timestamp: Date.now(),
-        agentId,
-        sessionId,
-        toolCalls: [toolCall],
-      };
-      store.appendMessage(msgKey, toolMsg);
-    }
+    // Each tool_call notification creates its own tool message.
+    // This ensures that tool calls arriving between different agent messages
+    // are kept as separate PipelineItems, so they can be correctly grouped
+    // with their following agent message as a distinct intermediate step.
+    const toolMsg = {
+      id: `tc-${tcKind}-${tcId}-${Date.now()}`,
+      role: "tool" as const,
+      content: "",
+      timestamp: Date.now(),
+      agentId,
+      sessionId,
+      toolCalls: [toolCall],
+    };
+    store.appendMessage(msgKey, toolMsg);
   } else if (su === "tool_call_update") {
     // Update an existing tool call in the message store
     const tcId = update.toolCallId as string;
     const store = useMessageStore.getState();
     const existingMsgs = store.perSession[msgKey];
     if (!existingMsgs) return;
+
+    log.debug("handleSessionNotification: tool_call_update", { msgKey, tcId });
 
     for (let i = existingMsgs.length - 1; i >= 0; i--) {
       const m = existingMsgs[i];

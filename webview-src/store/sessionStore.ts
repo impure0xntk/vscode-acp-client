@@ -610,11 +610,20 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
       let changed = false;
       const nextState = { ...state };
 
+      // Preserve sessions that exist in current tabOrder but are absent from
+      // the incoming tabs list (e.g. a just-restored session whose snapshot
+      // arrived before the extension host's tab list was updated).  Without
+      // this, bulkSetTabs performs a full replacement and drops the key,
+      // leaving the UI unable to display the restored session's messages.
+      const incomingSet = new Set(order);
+      const preserved = state.tabOrder.filter((k) => !incomingSet.has(k));
+      const mergedOrder = preserved.length > 0 ? [...order, ...preserved] : order;
+
       if (
-        state.tabOrder.length !== order.length ||
-        state.tabOrder.some((k, i) => k !== order[i])
+        state.tabOrder.length !== mergedOrder.length ||
+        state.tabOrder.some((k, i) => k !== mergedOrder[i])
       ) {
-        nextState.tabOrder = order;
+        nextState.tabOrder = mergedOrder;
         changed = true;
       }
       if (Object.keys(titles).length > 0) {

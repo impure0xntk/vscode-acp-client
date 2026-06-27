@@ -11,6 +11,7 @@ export type {
   ErrorNoticeDisplayItem,
   CustomSystemDisplayItem,
   PipelineItem,
+  IntermediateStep,
   PipelineContext,
   FilterConfig,
   MergeConfig,
@@ -21,8 +22,19 @@ export type {
 // Stages
 export { classifyMessage } from "./stages/classify";
 export { filterMessages } from "./stages/filter";
-export { mergeToolBatches } from "./stages/merge";
+export { mergeToolBatches, ToolMergeStrategy, deduplicateToolCalls } from "./stages/merge";
 export { annotateMessages } from "./stages/annotate";
+export {
+  IntermediateStepGrouper,
+  selectFinalResponse,
+  splitIntoSteps,
+  splitLatestSteps,
+} from "./stages/grouping";
+export type {
+  FinalResponse,
+  AgentResponseGroup,
+  GroupedItems,
+} from "./stages/grouping";
 
 // Pipeline
 export { MessagePipeline } from "./pipeline";

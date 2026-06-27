@@ -1,131 +1,131 @@
 import type { ClassifiedMessage, MergeConfig } from "../types";
 import type { ToolCall } from "../../types";
 
-/**
- * Deduplicate tool calls by id, preserving latest status.
- */
-function deduplicateToolCalls(calls: ToolCall[]): ToolCall[] {
-  const seen = new Map<string, ToolCall>();
-  for (const call of calls) {
-    seen.set(call.id, call);
-  }
-  return Array.from(seen.values());
-}
+// ── ToolMergeStrategy ──────────────────────────────────────────────────────
 
 /**
- * Find the last non-tool message in the array, or null if none.
- */
-function findLastNonTool(
-  messages: ClassifiedMessage[]
-): ClassifiedMessage | null {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].role !== "tool") return messages[i];
-  }
-  return null;
-}
-
-/**
- * Merge tool messages into preceding agent messages.
+ * Merging strategy that always promotes tool messages to "agent" role.
  *
- * Rules:
- *  1. tool immediately after agent  → merge toolCalls into that agent message.
- *  2. tool after non-agent (e.g. user) → promote to "agent" role so it is
- *     rendered as an agent tool-call card with an agent header.
- *     The promoted message inherits the original tool message's agentId
- *     (when available) so that the annotate stage can group it correctly
- *     with subsequent agent messages from the same agent.
- *  3. agent after a promoted tool     → emit the tool as a separate
- *     promoted-tool item BEFORE the agent message. This keeps tool-call
- *     cards in IntermediateStepsBanner when tool_call arrives before
- *     agent_message_chunk (Goose-style structured JSON responses),
- *     rather than absorbing them into the final response text.
+ * Tool messages are NEVER merged into preceding agent messages. Instead,
+ * each tool message is promoted to role="agent" and emitted as a separate
+ * item BEFORE the following agent message. This ensures that:
+ *  1. Tool calls between two agent messages form their own step
+ *     (grouped with the following agent message, not the preceding one).
+ *  2. Each tool call is rendered as its own ToolCallCard within a
+ *     ToolBatchSummary, rather than all calls being absorbed into a
+ *     single agent message's resolvedToolCalls.
+ *  3. The pipeline correctly produces separate intermediate steps for
+ *     sequences like: User → Tool1 → Agent1 → Tool2 → Agent2.
  *
  * Only "info" classified messages participate in merging.
  * System-kind messages (compression, mode_change, etc.) pass through and
  * reset the merge state — they act as grouping boundaries.
  */
-export function mergeToolBatches(
-  messages: ClassifiedMessage[],
-  _config: MergeConfig
-): ClassifiedMessage[] {
-  const result: ClassifiedMessage[] = [];
-  /** The last promoted tool message that has not yet been consumed by an agent message. */
-  let pendingTool: ClassifiedMessage | null = null;
+export class ToolMergeStrategy {
+  /** The last tool message that has not yet been flushed. */
+  private pendingTool: ClassifiedMessage | null = null;
 
-  for (const msg of messages) {
-    // Non-info messages pass through and reset merge state (grouping boundary).
-    if (msg.systemKind !== "info") {
-      if (pendingTool) {
-        // Flush pending tool before the boundary so its card is rendered.
-        result.push({ ...pendingTool, role: "agent" as const, originalRole: "tool" as const });
-        pendingTool = null;
+  /**
+   * Merge tool messages — always promote tool messages to "agent" role.
+   */
+  merge(messages: ClassifiedMessage[], _config: MergeConfig): ClassifiedMessage[] {
+    const result: ClassifiedMessage[] = [];
+    this.pendingTool = null;
+
+    for (const msg of messages) {
+      // Non-info messages pass through and reset merge state (grouping boundary).
+      if (msg.systemKind !== "info") {
+        this.flushPending(result, msg);
+        result.push(msg);
+        continue;
       }
-      result.push(msg);
-      continue;
-    }
 
-    if (msg.role === "tool") {
-      const lastNonTool = findLastNonTool(result);
-      if (
-        lastNonTool &&
-        lastNonTool.role === "agent" &&
-        lastNonTool.systemKind === "info" &&
-        !lastNonTool.stopReason
-      ) {
-        // Case 1: merge into preceding agent message in-place.
-        // Do NOT set pendingTool — the tool calls are fully absorbed here,
-        // and the following agent message must not inherit them again.
-        const merged: ClassifiedMessage = {
-          ...lastNonTool,
-          toolCalls: deduplicateToolCalls([
-            ...(lastNonTool.toolCalls ?? []),
-            ...(msg.toolCalls ?? []),
-          ]),
-        };
-        const idx = result.indexOf(lastNonTool);
-        result[idx] = merged;
-      } else {
-        // Case 2: no preceding agent — hold as pending.
-        // Don't push yet; if an agent follows, flush before it so the
-        // promoted tool and the agent are separate items.
-        if (pendingTool) {
-          // Already holding a pending tool — flush the old one first,
-          // promoted to "agent" role so it renders as a tool-call card.
-          // Mark originalRole so annotate can keep it as intermediate (tool) group.
-          result.push({ ...pendingTool, role: "agent" as const, originalRole: "tool" as const });
+      if (msg.role === "tool") {
+        // Flush any existing pending tool first (each tool message is separate).
+        if (this.pendingTool) {
+          this.promoteAndPush(result, this.pendingTool);
         }
         // Inherit agentId from the nearest preceding non-tool message so
         // that the annotate stage produces the same groupKey as subsequent
         // agent messages from the same agent.
-        const lastNonTool = findLastNonTool(result);
+        const lastNonTool = this.findLastNonTool(result);
         const inheritedAgentId = lastNonTool?.agentId ?? msg.agentId;
-        pendingTool = {
-          ...msg,
-          agentId: inheritedAgentId,
-        };
+        this.pendingTool = { ...msg, agentId: inheritedAgentId };
+      } else if (msg.role === "agent" && this.pendingTool) {
+        // Agent after a pending tool — emit the tool as a separate
+        // promoted-tool item BEFORE the agent message.
+        this.promoteAndPush(result, this.pendingTool);
+        result.push(msg);
+        this.pendingTool = null;
+      } else {
+        // Any other message — pass through.
+        result.push(msg);
+        this.pendingTool = null;
       }
-    } else if (msg.role === "agent" && pendingTool) {
-      // Case 3: agent after a pending tool — emit the tool as a separate
-      // promoted-tool item BEFORE the agent message. This keeps tool-call
-      // cards in IntermediateStepsBanner rather than being absorbed into
-      // the final response text. Critical for Goose-style structured JSON
-      // responses where tool_call arrives before agent_message_chunk.
-      result.push({ ...pendingTool, role: "agent" as const, originalRole: "tool" as const });
-      result.push(msg);
-      pendingTool = null;
-    } else {
-      // Any other message — pass through.
-      result.push(msg);
-      pendingTool = null;
+    }
+
+    // Flush any remaining pending tool
+    if (this.pendingTool) {
+      this.promoteAndPush(result, this.pendingTool);
+    }
+
+    return result;
+  }
+
+  // ── Private ───────────────────────────────────────────────────────────
+
+  private promoteAndPush(result: ClassifiedMessage[], msg: ClassifiedMessage): void {
+    result.push({
+      ...msg,
+      role: "agent" as const,
+      originalRole: "tool" as const,
+    });
+  }
+
+  private flushPending(result: ClassifiedMessage[], _next: ClassifiedMessage): void {
+    if (this.pendingTool) {
+      this.promoteAndPush(result, this.pendingTool);
+      this.pendingTool = null;
     }
   }
 
-  // Flush any remaining pending tool, promoted to "agent" role so it
-  // renders as a tool-call card. Mark originalRole so annotate keeps it
-  // in the "tool" group (intermediate), not the "agent" group (final).
-  if (pendingTool) {
-    result.push({ ...pendingTool, role: "agent" as const, originalRole: "tool" as const });
+  /**
+   * Find the last non-tool message in the result array.
+   * Skips promoted tool messages (role=agent, originalRole=tool) so that
+   * tool calls are always associated with the following agent message,
+   * not a preceding promoted tool.
+   */
+  private findLastNonTool(messages: ClassifiedMessage[]): ClassifiedMessage | null {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m.role !== "tool" && m.originalRole !== "tool") return m;
+    }
+    return null;
   }
+}
 
-  return result;
+// ── Functional API (backward compatible) ───────────────────────────────────
+
+/**
+ * Functional wrapper around ToolMergeStrategy.
+ * Maintains backward compatibility with the existing pipeline.
+ */
+export function mergeToolBatches(
+  messages: ClassifiedMessage[],
+  config: MergeConfig
+): ClassifiedMessage[] {
+  return new ToolMergeStrategy().merge(messages, config);
+}
+
+// ── Utility: deduplicate tool calls by id (used by annotate) ───────────────
+
+/**
+ * Deduplicate tool calls by id, preserving latest status.
+ */
+export function deduplicateToolCalls(calls: ToolCall[]): ToolCall[] {
+  const seen = new Map<string, ToolCall>();
+  for (const call of calls) {
+    seen.set(call.id, call);
+  }
+  return Array.from(seen.values());
 }

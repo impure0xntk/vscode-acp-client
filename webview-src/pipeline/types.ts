@@ -136,6 +136,28 @@ export interface CustomSystemDisplayItem {
   timestamp: number | undefined;
 }
 
+// ── IntermediateStep — step-based grouping for banner ───────────────────────
+
+/**
+ * A single intermediate step within an agent response group.
+ *
+ * Each step consists of an optional agent message followed by tool calls.
+ * - Pre-agent tool calls (no agent message yet) → agentMessage is null
+ * - Agent step → agentMessage is the chat message, toolCalls are subsequent promoted tools
+ *
+ * Rendering: when a step has both agentMessage and toolCalls, the agent
+ * message header is shown and tool calls are rendered as consecutive
+ * (merged header via isConsecutive=true on the ToolBatchSummary).
+ */
+export interface IntermediateStep {
+  /** The agent message for this step (null for pre-agent tool calls) */
+  agentMessage: ChatDisplayItem | null;
+  /** Tool calls in this step (promoted tool messages) */
+  toolCalls: ChatDisplayItem[];
+  /** Pre-agent tool calls have no agent message yet */
+  readonly isPreAgent: boolean;
+}
+
 /**
  * Union of all items the pipeline can emit.
  * ChatContainer iterates this array and selects the right component per item.

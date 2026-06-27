@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import { DisplayItemView } from "../message/DisplayItemView";
 import { IntermediateStepsBanner } from "../message/IntermediateStepsBanner";
+import { StepView } from "../message/StepView";
 import { useMessages } from "../../hooks/useMessages";
 import { useMessagePipeline } from "../../hooks/useMessagePipeline";
 import { useScrollController } from "../../hooks/useScrollController";
@@ -18,8 +19,12 @@ import {
   useIntermediateStepsCollapseMap,
   useToggleIntermediateSteps,
 } from "../../hooks/useIntermediateStepsCollapse";
-import type { PipelineItem } from "../../pipeline";
+import type { IntermediateStep, PipelineItem } from "../../pipeline";
 import type { ChatDisplayItem } from "../../pipeline/types";
+import {
+  IntermediateStepGrouper,
+  splitLatestSteps,
+} from "../../pipeline/stages/grouping";
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
@@ -90,146 +95,10 @@ function findStickyUserMessage(
   };
 }
 
-// ── Types ───────────────────────────────────────────────────────────────────
-
-interface FinalResponse {
-  item: PipelineItem;
-  index: number;
-}
-
-interface AgentResponseGroup {
-  userItem: PipelineItem;
-  items: PipelineItem[];
-  finalResponse: FinalResponse | null;
-}
-
-interface GroupedItems {
-  groups: AgentResponseGroup[];
-  latestGroup: AgentResponseGroup | null;
-  trailing: PipelineItem[];
-}
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-function selectFinalResponse(
-  agentChats: PipelineItem[]
-): { item: PipelineItem; index: number } | null {
-  if (agentChats.length === 0) return null;
-
-  const stopReasonIdx = agentChats.findIndex(
-    (item) => item.type === "chat" && item.stopReason != null
-  );
-  if (stopReasonIdx !== -1) {
-    return { item: agentChats[stopReasonIdx], index: stopReasonIdx };
-  }
-
-  const isNonConsecutiveAgent = (item: PipelineItem) =>
-    item.type === "chat" &&
-    item.role === "agent" &&
-    (item as ChatDisplayItem).originalRole !== "tool" &&
-    !item.isConsecutive;
-  const ncIdx = agentChats.findIndex(isNonConsecutiveAgent);
-  if (ncIdx !== -1) {
-    return { item: agentChats[ncIdx], index: ncIdx };
-  }
-
-  for (let i = agentChats.length - 1; i >= 0; i--) {
-    const item = agentChats[i];
-    if (
-      item.type === "chat" &&
-      item.role === "agent" &&
-      (item as ChatDisplayItem).originalRole !== "tool"
-    ) {
-      return { item, index: i };
-    }
-  }
-
-  return null;
-}
-
-/**
- * Split the latest group's intermediate items for rendering.
- *
- * Before final response (hasFinal=false): peel the last intermediate step
- * out of the banner so the user sees the most recent progress without
- * opening the banner. With 0 or 1 intermediate, nothing is peeled.
- *
- * After final response (hasFinal=true): move ALL intermediates into the
- * banner, show only the final response outside.
- */
-export function splitLatestIntermediate(
-  allIntermediate: PipelineItem[],
-  hasFinal: boolean
-): { olderIntermediate: PipelineItem[]; lastIntermediate: PipelineItem | null } {
-  if (hasFinal) {
-    return { olderIntermediate: allIntermediate, lastIntermediate: null };
-  }
-  if (allIntermediate.length === 0) {
-    return { olderIntermediate: [], lastIntermediate: null };
-  }
-  return {
-    olderIntermediate: allIntermediate.slice(0, -1),
-    lastIntermediate: allIntermediate[allIntermediate.length - 1],
-  };
-}
-
-function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
-  const userIndices: number[] = [];
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i];
-    if (item.type === "chat" && item.role === "user") {
-      userIndices.push(i);
-    }
-  }
-
-  if (userIndices.length === 0) {
-    return { groups: [], latestGroup: null, trailing: [] };
-  }
-
-  const lastUserIdx = userIndices[userIndices.length - 1];
-  const afterLastUser = items.slice(lastUserIdx + 1);
-
-  const isAgentOrToolLatest = (item: PipelineItem) =>
-    item.type === "chat" && (item.role === "agent" || item.role === "tool");
-
-  const latestAgentChats = afterLastUser.filter(isAgentOrToolLatest);
-  const trailing = afterLastUser.filter((item) => !isAgentOrToolLatest(item));
-
-  const latestFinal = selectFinalResponse(latestAgentChats);
-  const latestIntermediate = latestFinal
-    ? latestAgentChats.filter((item) => item.key !== latestFinal.item.key)
-    : latestAgentChats;
-
-  const latestGroup: AgentResponseGroup = {
-    userItem: items[lastUserIdx],
-    items: latestIntermediate,
-    finalResponse: latestFinal,
-  };
-
-  const groups: AgentResponseGroup[] = [];
-  for (let g = 0; g < userIndices.length - 1; g++) {
-    const startIdx = userIndices[g];
-    const endIdx = userIndices[g + 1];
-    const groupItems = items.slice(startIdx + 1, endIdx);
-
-    const isAgentOrToolInGroup = (item: PipelineItem) =>
-      item.type === "chat" && (item.role === "agent" || item.role === "tool");
-    const turnAgentChats = groupItems.filter(isAgentOrToolInGroup);
-    const final = selectFinalResponse(turnAgentChats);
-
-    const intermediateItems = final
-      ? groupItems.filter((item) => item.key !== final.item.key)
-      : groupItems;
-
-    groups.push({
-      userItem: items[startIdx],
-      items: intermediateItems,
-      finalResponse: final,
-    });
-  }
-
-  return { groups, latestGroup, trailing };
-}
+import type {
+  GroupedItems,
+  AgentResponseGroup,
+} from "../../pipeline/stages/grouping";
 
 // ── Props ───────────────────────────────────────────────────────────────────
 
@@ -323,9 +192,9 @@ export const SessionChatContainer = memo(function SessionChatContainer({
   // ── Count of new items for CSS stagger ──────────────────────────
   const newCount = newKeys.size;
 
-  // ── Group items by user boundary ─────────────────────────────────
+  // ── Group ─────────────────────────────────
   const { groups, latestGroup, trailing } = useMemo(
-    () => groupByUserBoundary(items),
+    () => new IntermediateStepGrouper(items).compute(),
     [items]
   );
 
@@ -643,7 +512,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                     isNew={newKeys.has(group.userItem.key)}
                   />
                   <IntermediateStepsBanner
-                    items={group.items}
+                    steps={group.steps}
                     defaultCollapsed={true}
                     forceExpanded={expanded}
                     sessionId={sessionId}
@@ -672,11 +541,11 @@ export const SessionChatContainer = memo(function SessionChatContainer({
             {latestGroup &&
               (() => {
                 const expanded = isGroupExpanded(latestGroup);
-                const { olderIntermediate, lastIntermediate } =
-                  splitLatestIntermediate(
-                    latestGroup.items,
-                    latestGroup.finalResponse != null
-                  );
+                const { olderSteps, currentStep } = splitLatestSteps(
+                  latestGroup.steps,
+                  latestGroup.finalResponse != null,
+                  latestGroup.currentStep
+                );
                 return (
                   <React.Fragment key="latest-group">
                     <DisplayItemView
@@ -687,9 +556,9 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                       agentId={agentId}
                       isNew={newKeys.has(latestGroup.userItem.key)}
                     />
-                    {olderIntermediate.length > 0 && (
+                    {olderSteps.length > 0 && (
                       <IntermediateStepsBanner
-                        items={olderIntermediate}
+                        steps={olderSteps}
                         defaultCollapsed={true}
                         forceExpanded={expanded}
                         sessionId={sessionId}
@@ -704,25 +573,17 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                         onExpandSettled={recomputeScrollState}
                       />
                     )}
-                    {lastIntermediate && (() => {
-                      const li = lastIntermediate;
-                      const hasTC =
-                        li.type === "chat" &&
-                        li.resolvedToolCalls != null &&
-                        li.resolvedToolCalls.length > 0;
-                      return (
-                        <DisplayItemView
-                          item={li}
-                          idx={0}
-                          items={[li]}
-                          sessionId={sessionId}
-                          agentId={agentId}
-                          isNew={newKeys.has(li.key)}
-                          dimmed={!hasTC}
-                        />
-                      );
-                    })()}
-                    {latestGroup.finalResponse && (
+                    {currentStep && (
+                      <StepView
+                        step={currentStep}
+                        sessionId={sessionId}
+                        agentId={agentId}
+                        isNew={true}
+                        forceHeader={true}
+                        isAgentNew={currentStep.agentMessage ? newKeys.has(currentStep.agentMessage.key) : false}
+                      />
+                    )}
+                    {!currentStep && latestGroup.finalResponse && (
                       <DisplayItemView
                         item={latestGroup.finalResponse.item}
                         idx={0}
@@ -781,3 +642,5 @@ export const SessionChatContainer = memo(function SessionChatContainer({
     </div>
   );
 });
+
+

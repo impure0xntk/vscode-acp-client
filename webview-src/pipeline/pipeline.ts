@@ -1,15 +1,15 @@
 import type {
+  ChatDisplayItem,
   ClassifiedMessage,
   PipelineConfig,
   PipelineContext,
   PipelineItem,
   RawMessage,
 } from "./types";
-import type { ResolvedToolCall } from "./types";
 import type { ToolCall } from "../types";
 import { classifyMessage } from "./stages/classify";
 import { filterMessages } from "./stages/filter";
-import { mergeToolBatches } from "./stages/merge";
+import { ToolMergeStrategy } from "./stages/merge";
 import { annotateMessages } from "./stages/annotate";
 
 /**
@@ -93,12 +93,12 @@ export class MessagePipeline {
           ]
         : [];
 
-      const merged = mergeToolBatches(
+      const merged = new ToolMergeStrategy().merge(
         [...contextPrefix, ...filtered],
         this.config.merge
       );
 
-      // Check if the contextPrefix was modified by merge (Case 1: tool after agent).
+      // Check if the contextPrefix was modified by merge.
       // When a tool message is absorbed into the contextPrefix agent, the merged
       // result contains the updated agent with combined toolCalls. We must update
       // the cache's last item accordingly — otherwise tool calls are silently lost.
@@ -117,7 +117,7 @@ export class MessagePipeline {
           const existingGroupKey =
             this.cache.length > 0 &&
             this.cache[this.cache.length - 1].type === "chat"
-              ? (this.cache[this.cache.length - 1] as import("./types").ChatDisplayItem).groupKey
+              ? (this.cache[this.cache.length - 1] as ChatDisplayItem).groupKey
               : this.lastGroupKey;
           const reannotated = annotateMessages(
             [merged[0]],
@@ -167,10 +167,18 @@ export class MessagePipeline {
     if (!lastCached && this.lastGroupKey) {
       lastGroupKey = this.lastGroupKey;
     }
+    // Detect cross-batch tool-call boundary: if the last cached item has
+    // resolvedToolCalls, the first new agent message is a new logical step.
+    const previousItemHadToolCalls =
+      lastCached != null &&
+      lastCached.type === "chat" &&
+      lastCached.resolvedToolCalls != null &&
+      lastCached.resolvedToolCalls.length > 0;
     const annotated = annotateMessages(
       mergedNew,
       this.config.annotate,
-      lastGroupKey
+      lastGroupKey,
+      previousItemHadToolCalls
     );
 
     this.cache = [...this.cache, ...annotated];
@@ -233,11 +241,11 @@ export class MessagePipeline {
               : (lastCached.type as ClassifiedMessage["systemKind"]),
           toolCalls:
             lastCached.type === "chat"
-              ? (lastCached.resolvedToolCalls as unknown as import("../types").ToolCall[])
+              ? (lastCached.resolvedToolCalls as unknown as ToolCall[])
               : undefined,
         } satisfies ClassifiedMessage,
       ];
-      merged = mergeToolBatches(
+      merged = new ToolMergeStrategy().merge(
         [...contextPrefix, ...filtered],
         this.config.merge
       );
@@ -254,7 +262,7 @@ export class MessagePipeline {
           const existingGroupKey =
             this.cache.length > 0 &&
             this.cache[this.cache.length - 1].type === "chat"
-              ? (this.cache[this.cache.length - 1] as import("./types").ChatDisplayItem).groupKey
+              ? (this.cache[this.cache.length - 1] as ChatDisplayItem).groupKey
               : this.lastGroupKey;
           const reannotated = annotateMessages(
             [merged[0]],
@@ -283,10 +291,21 @@ export class MessagePipeline {
         initializeGroupKey = prev.groupKey;
       }
     }
+    // If the preceding cached item had toolCalls, the lastRaw's agent
+    // message is a new logical step after tool execution — annotate it
+    // as non-consecutive so it shows its header.
+    const lastCachedItem =
+      this.cache.length > 0 ? this.cache[this.cache.length - 1] : null;
+    const previousItemHadToolCalls =
+      lastCachedItem != null &&
+      lastCachedItem.type === "chat" &&
+      lastCachedItem.resolvedToolCalls != null &&
+      lastCachedItem.resolvedToolCalls.length > 0;
     const annotated = annotateMessages(
       merged,
       this.config.annotate,
-      initializeGroupKey
+      initializeGroupKey,
+      previousItemHadToolCalls
     );
 
     if (annotated.length > 0) {
@@ -347,7 +366,7 @@ export class MessagePipeline {
 
     // 3. Merge
     const merged = this.config.merge.enabled
-      ? mergeToolBatches(filtered, this.config.merge)
+      ? new ToolMergeStrategy().merge(filtered, this.config.merge)
       : filtered;
 
     // 4. Annotate — returns PipelineItem[], carrying over groupKey context

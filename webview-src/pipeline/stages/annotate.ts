@@ -15,6 +15,21 @@ import type {
 import type { ContextAttachment } from "../../types";
 import { extractCandidatePaths } from "../../lib/pathPatterns";
 
+/**
+ * Check if the previous chat item has resolved tool calls.
+ * Used to detect tool-call boundaries where a subsequent agent message
+ * should NOT be treated as consecutive (it's a new step after tool execution).
+ */
+function previousHasToolCalls(
+  items: PipelineItem[]
+): boolean {
+  if (items.length === 0) return false;
+  const prev = items[items.length - 1];
+  if (prev.type !== "chat") return false;
+  const tcs = (prev as ChatDisplayItem).resolvedToolCalls;
+  return tcs != null && tcs.length > 0;
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function resolveToolCalls(
@@ -232,7 +247,8 @@ function toPipelineItem(
 export function annotateMessages(
   messages: ClassifiedMessage[],
   config: AnnotateConfig,
-  initialGroupKey: string = ""
+  initialGroupKey: string = "",
+  previousItemHadToolCalls = false
 ): PipelineItem[] {
   const items: PipelineItem[] = [];
   let prevGroupKey = initialGroupKey;
@@ -255,6 +271,23 @@ export function annotateMessages(
     if (!(isFirst && initialGroupKey !== "") && msg.role !== prevRole) {
       prevGroupKey = "";
     }
+
+    // After tool execution completes, the next agent message is a new
+    // logical step — it must show its header.  We detect this boundary
+    // when the immediately preceding item carries resolvedToolCalls
+    // (merged from tool messages) and the current message is an agent.
+    const isToolCallBoundary =
+      msg.role === "agent" &&
+      (previousItemHadToolCalls ||
+        (items.length > 0 &&
+          items[items.length - 1].type === "chat" &&
+          (items[items.length - 1] as ChatDisplayItem).resolvedToolCalls &&
+          (items[items.length - 1] as ChatDisplayItem).resolvedToolCalls!
+            .length > 0));
+    if (isToolCallBoundary) {
+      prevGroupKey = "";
+    }
+
     isFirst = false;
     let { item, groupKey } = toPipelineItem(msg, config, prevGroupKey);
     if (item) {
