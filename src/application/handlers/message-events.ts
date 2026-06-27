@@ -6,7 +6,6 @@ import type { SessionOrchestrator } from "../orchestrator";
 import type { ChatPanel } from "../../infrastructure/vscode/vscode-ui/chatPanel";
 import type { ChatPresenter } from "../../infrastructure/vscode/vscode-ui/presenter";
 import type { AgentStatusTracker } from "../../adapter/agent/status";
-import type { TreeProvider } from "../../infrastructure/vscode/vscode-ui/tree";
 import type { SessionNotification } from "@agentclientprotocol/sdk";
 import type { FileWriteEvent } from "../../adapter/acp/client";
 import { getLogger } from "../../platform/backends";
@@ -33,7 +32,6 @@ export interface MessageEventDeps {
   getChatPanel: () => ChatPanel | null;
   presenter: ChatPresenter;
   statusTracker: AgentStatusTracker;
-  treeProvider: TreeProvider;
   updateContext: () => void;
   sendTabs: () => void;
   /** MeshOrchestrator for P2P message extraction from agent output */
@@ -50,7 +48,6 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
     getChatPanel,
     presenter,
     statusTracker,
-    treeProvider,
     updateContext,
     sendTabs,
     meshOrchestrator,
@@ -110,7 +107,6 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
         messageCount: sessionInfo ? sessionInfo.messages.length : 0,
         tokenUsage: sessionInfo?.tokenUsage ?? { input: 0, output: 0, total: 0 },
       });
-      treeProvider.refresh();
       updateContext();
     }
   );
@@ -192,7 +188,6 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
           total: 0,
         },
       });
-      treeProvider.refresh();
       updateContext();
 
       // Push updated sessionInfo only for the active session
@@ -246,11 +241,11 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
   orchestrator.on(
     "fileWrite",
     (event: FileWriteEvent) => {
-      const { agentId, sessionId, path, content } = event;
+      const { agentId, sessionId, path, content, originalContent } = event;
       const activeSessionId = orchestrator.getActiveSessionId(agentId);
       if (sessionId !== activeSessionId) return;
       const cp = getChatPanel();
-      cp?.pushFileWrite(agentId, sessionId, path, content);
+      cp?.pushFileWrite(agentId, sessionId, path, content, originalContent);
     }
   );
 }

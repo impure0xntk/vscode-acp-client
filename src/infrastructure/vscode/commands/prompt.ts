@@ -1,5 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
+import { exec } from "child_process";
+import { promisify } from "util";
 import { attachmentsToContentBlocks } from "../../../adapter/context/prompt-context";
 import type { SessionOrchestrator } from "../../../application/orchestrator";
 import type { ChatPanel } from "../vscode-ui/chatPanel";
@@ -20,6 +22,8 @@ import type { SendTarget } from "../../../domain/models/mesh";
 import type { MeshOrchestrator } from "../../../domain/services/mesh-orchestrator";
 import type { SupervisorOrchestrator } from "../../../domain/services/supervisor-orchestrator";
 import { getLogger } from "../../../platform/backends";
+
+const execAsync = promisify(exec);
 
 // -----------------------------------------------------------------------
 // Internal state — captured via closure so meshSend can access
@@ -775,6 +779,81 @@ export function wireChatPanelEvents(
           data.failedStepId as string,
           data.reason as string
         );
+        break;
+      }
+
+      // ==================================================================
+      // File Edit messages
+      // ==================================================================
+      case "revertFile": {
+        const { agentId, sessionId, path: filePath } = data as {
+          agentId: string;
+          sessionId: string;
+          path: string;
+        };
+        // Read the original content from the session's fileWriteStore is not
+        // available on the extension host side. Instead, we need to get it
+        // from the webview or store it when the write happened.
+        // For now, use git to restore the file.
+        void (async () => {
+          const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+          if (!ws) return;
+          try {
+            // Try git restore first
+            const { stdout, stderr } = await execAsync(
+              `git checkout -- "${filePath}"`,
+              { cwd: ws }
+            );
+            if (stderr) {
+              getLogger("prompt").warn("revertFile: git restore had warnings", {
+                path: filePath,
+                stderr,
+              });
+            }
+            getLogger("prompt").info("revertFile: file reverted via git", {
+              path: filePath,
+            });
+          } catch (err) {
+            getLogger("prompt").error("revertFile: git restore failed", {
+              path: filePath,
+              error: err instanceof Error ? err.message : String(err),
+            });
+            void vscode.window.showWarningMessage(
+              `Failed to revert ${filePath}. The file may not be tracked by git.`
+            );
+          }
+        })();
+        break;
+      }
+
+      case "openDiff": {
+        const { path: diffPath } = data as { path: string };
+        void (async () => {
+          const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+          if (!ws) return;
+          const absPath = path.isAbsolute(diffPath)
+            ? diffPath
+            : path.resolve(ws, diffPath);
+          const uri = vscode.Uri.file(absPath);
+          try {
+            // Open diff editor comparing current vs git HEAD version
+            const gitDiffUri = vscode.Uri.parse(
+              `git-diff:${absPath}?HEAD`
+            );
+            await vscode.commands.executeCommand(
+              "vscode.diff",
+              gitDiffUri,
+              uri,
+              `${path.basename(absPath)} (Changes)`
+            );
+          } catch {
+            // Fallback: just open the file
+            const doc = await vscode.workspace.openTextDocument(uri);
+            await vscode.window.showTextDocument(doc, {
+              viewColumn: vscode.ViewColumn.Beside,
+            });
+          }
+        })();
         break;
       }
     }

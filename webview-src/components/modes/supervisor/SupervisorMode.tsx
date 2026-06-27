@@ -50,6 +50,7 @@ export interface SupervisorModeProps {
   availableCommands?: SlashCommand[];
   onCancelQueuedPrompt?: (agentId: string, sessionId: string, promptId: string) => void;
   onClearQueue?: (agentId: string, sessionId: string) => void;
+  onAttachDiff?: (attachment: ContextAttachment) => void;
 }
 
 export const SupervisorMode = React.memo(function SupervisorMode({
@@ -69,6 +70,7 @@ export const SupervisorMode = React.memo(function SupervisorMode({
   availableCommands = [],
   onCancelQueuedPrompt,
   onClearQueue,
+  onAttachDiff,
 }: SupervisorModeProps): React.ReactElement {
   const {
     activeSessionKey,
@@ -209,6 +211,7 @@ export const SupervisorMode = React.memo(function SupervisorMode({
           scrollToMessageRef={scrollToMessageRef}
           forceScrollToBottomRef={forceScrollToBottomRef}
           scrollToUnreadRef={scrollToUnreadRef}
+          onAttachDiff={onAttachDiff}
         />
         <Composer
           onSend={onSendMessage}
@@ -225,6 +228,7 @@ export const SupervisorMode = React.memo(function SupervisorMode({
           resolveSymbol={resolveSymbol}
           availableCommands={availableCommands}
           queue={sessionQueue}
+          onAttachDiff={onAttachDiff}
           onSendNow={(promptId) => {
             const entry = sessionQueue.find((e) => e.id === promptId);
             if (!entry) return;

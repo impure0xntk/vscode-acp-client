@@ -37,6 +37,7 @@ interface SessionSectionInnerProps {
   pendingMap?: Record<string, boolean>;
   renderHeader?: (props: SessionHeaderProps) => React.ReactNode;
   getSessionColor: (key: string) => string;
+  onAttachDiff?: (attachment: import("../../../types").ContextAttachment) => void;
 }
 
 const SessionSectionInner = React.memo(function SessionSectionInner({
@@ -60,6 +61,7 @@ const SessionSectionInner = React.memo(function SessionSectionInner({
   pendingMap,
   renderHeader,
   getSessionColor,
+  onAttachDiff,
 }: SessionSectionInnerProps): React.ReactElement | null {
   const info = useSessionInfo(sessionKey);
   const color = getSessionColor(sessionKey);
@@ -177,6 +179,7 @@ const SessionSectionInner = React.memo(function SessionSectionInner({
           scrollToMessageRef={scrollToMessageRef}
           forceScrollToBottomRef={forceScrollToBottomRef}
           scrollToUnreadRef={scrollToUnreadRef}
+          onAttachDiff={onAttachDiff}
         />
       </div>
       <div className="shrink-0">
@@ -214,6 +217,7 @@ export interface SplitSessionLayoutProps {
   pendingMap?: Record<string, boolean>;
   renderHeader?: (props: SessionHeaderProps) => React.ReactNode;
   getSessionColor: (key: string) => string;
+  onAttachDiff?: (attachment: import("../../../types").ContextAttachment) => void;
 }
 
 export const SplitSessionLayout = React.memo(function SplitSessionLayout({
@@ -233,6 +237,7 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
   pendingMap,
   renderHeader,
   getSessionColor,
+  onAttachDiff,
 }: SplitSessionLayoutProps): React.ReactElement | null {
   const { tabTitles } = useSessionStore(
     useShallow((s: SessionStoreState) => ({
@@ -371,6 +376,7 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
               scrollToUnreadRef={scrollToUnreadRef}
               renderHeader={renderHeader}
               getSessionColor={getSessionColor}
+              onAttachDiff={onAttachDiff}
             />
           );
           if (i === visibleKeys.length - 1) return section;

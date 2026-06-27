@@ -2,14 +2,14 @@
 // Task Event Handlers — StateManager task events → UI updates
 //
 // Task lifecycle events are emitted by TaskSchedulerService via StateManager.
-// These handlers bridge the event bus to VS Code UI (tree, status bar, webview).
+// These handlers bridge the event bus to VS Code UI (webview).
 // ============================================================================
 
 import type {
   OrchestrationEvent,
   OrchestrationEventType,
 } from "../../domain/models/orchestration";
-import type { TreeProvider } from "../../infrastructure/vscode/vscode-ui/tree";
+
 
 
 // ============================================================================
@@ -17,7 +17,6 @@ import type { TreeProvider } from "../../infrastructure/vscode/vscode-ui/tree";
 // ============================================================================
 
 export interface TaskEventDeps {
-  treeProvider: TreeProvider;
   /** Optional: send task status to webview */
   onTaskUpdate?: (event: OrchestrationEvent) => void;
 }
@@ -37,13 +36,12 @@ export function wireTaskEvents(
   stateManager: StateManagerHandle,
   deps: TaskEventDeps
 ): (() => void)[] {
-  const { treeProvider, onTaskUpdate } = deps;
+  const { onTaskUpdate } = deps;
 
   const unsubs: (() => void)[] = [];
 
   unsubs.push(
     stateManager.subscribe("task.created", (event: OrchestrationEvent) => {
-      treeProvider.refresh();
       onTaskUpdate?.(event);
     })
   );
@@ -52,7 +50,6 @@ export function wireTaskEvents(
     stateManager.subscribe(
       "task.status_changed",
       (event: OrchestrationEvent) => {
-        treeProvider.refresh();
         onTaskUpdate?.(event);
       }
     )
@@ -60,7 +57,6 @@ export function wireTaskEvents(
 
   unsubs.push(
     stateManager.subscribe("agent.handoff", (event: OrchestrationEvent) => {
-      treeProvider.refresh();
       onTaskUpdate?.(event);
     })
   );

@@ -56,6 +56,7 @@ export interface UnifiedModeProps {
   availableCommands?: SlashCommand[];
   onCancelQueuedPrompt?: (agentId: string, sessionId: string, promptId: string) => void;
   onClearQueue?: (agentId: string, sessionId: string) => void;
+  onAttachDiff?: (attachment: ContextAttachment) => void;
 }
 
 export const UnifiedMode = React.memo(function UnifiedMode({
@@ -75,6 +76,7 @@ export const UnifiedMode = React.memo(function UnifiedMode({
   availableCommands = [],
   onCancelQueuedPrompt,
   onClearQueue,
+  onAttachDiff,
 }: UnifiedModeProps): React.ReactElement {
   const log = useLogger("UnifiedMode");
   const {
@@ -307,6 +309,15 @@ export const UnifiedMode = React.memo(function UnifiedMode({
         scrollToUnreadRef={scrollToUnreadRef}
         turnStartedAtMap={turnStartedAtMap}
         pendingMap={pendingMap}
+        onAttachDiff={(attachment) => {
+          // Add attachment to composer's context bar
+          // The Composer manages its own attachments state, so we need
+          // to use a global event or direct state injection.
+          // For now, dispatch a custom event that Composer listens to.
+          window.dispatchEvent(new CustomEvent("acp:attachDiff", {
+            detail: { attachment },
+          }));
+        }}
       />
       <Composer
         onSend={handleSendWithTurnTracking}
@@ -323,6 +334,7 @@ export const UnifiedMode = React.memo(function UnifiedMode({
         resolveSymbol={resolveSymbol}
         availableCommands={availableCommands}
         queue={sessionQueue}
+        onAttachDiff={onAttachDiff}
         onSendNow={(promptId) => {
           const entry = sessionQueue.find((e) => e.id === promptId);
           if (!entry) return;

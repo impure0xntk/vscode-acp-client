@@ -10,7 +10,6 @@ import type { ChatMessage } from "../../domain/models/chat";
 import { ChatPanel } from "../../infrastructure/vscode/vscode-ui/chatPanel";
 import { ChatPresenter } from "../../infrastructure/vscode/vscode-ui/presenter";
 import type { AgentStatusTracker } from "../../adapter/agent/status";
-import type { TreeProvider } from "../../infrastructure/vscode/vscode-ui/tree";
 import type {
   SessionHistoryStore,
   HistoryEntry,
@@ -29,7 +28,6 @@ export interface SessionEventDeps {
   getChatPanel: () => ChatPanel | null;
   presenter: ChatPresenter;
   statusTracker: AgentStatusTracker;
-  treeProvider: TreeProvider;
   historyStore: SessionHistoryUpdate;
   updateContext: () => void;
   sendTabs: () => void;
@@ -48,7 +46,6 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
     orchestrator,
     getChatPanel,
     statusTracker,
-    treeProvider,
     historyStore,
     updateContext,
     sendTabs,
@@ -60,7 +57,6 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
   orchestrator.on("agentConnected", (agentId: string) => {
     statusTracker.updateAgentStatus(agentId, { state: "idle" });
     updateContext();
-    treeProvider.refresh();
     sendTabs();
 
     const agentInfo = orchestrator.getAgentInfo(agentId);
@@ -75,7 +71,6 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
   orchestrator.on("agentDisconnected", (agentId: string) => {
     statusTracker.removeAgent(agentId);
     updateContext();
-    treeProvider.refresh();
     sendTabs();
   });
 
@@ -108,7 +103,6 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
         getChatPanel()?.pushSessionInfo(agentId, sessionId, info);
       }
       sendTabs();
-      treeProvider.refresh();
       updateContext();
 
       // Push session overview so newly created sessions appear immediately
@@ -163,7 +157,6 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
       if (info) {
         getChatPanel()?.setActiveSession(agentId, sessionId, info);
       }
-      treeProvider.refresh();
       updateContext();
     }
   );
@@ -294,7 +287,6 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
       }
       // Remove the session from the presenter so it doesn't appear in the next sendTabs()
       deps.presenter.removeSession(agentId, sessionId);
-      treeProvider.refresh();
       sendTabs();
 
       // Push updated overview after session removal

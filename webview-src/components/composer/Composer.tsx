@@ -2,6 +2,7 @@ import React, {
   useState,
   useRef,
   useCallback,
+  useEffect,
   type KeyboardEvent,
 } from "react";
 import type {
@@ -104,6 +105,8 @@ export interface ComposerProps {
   onRemoveQueueItem?: (promptId: string) => void;
   /** Clear all queued prompts */
   onClearQueue?: () => void;
+  /** Attach a diff attachment (from FileEditSummary) */
+  onAttachDiff?: (attachment: ContextAttachment) => void;
 }
 
 // ── Relative time helper ───────────────────────────────────────────
@@ -234,6 +237,7 @@ export function Composer({
   onSendNow,
   onRemoveQueueItem,
   onClearQueue,
+  onAttachDiff,
 }: ComposerProps): React.ReactElement {
   // Read tabs imperatively — getTabs() returns a new array each call,
   // which would cause an infinite loop via useSyncExternalStore.
@@ -246,6 +250,18 @@ export function Composer({
   const historyRef = useRef<string[]>([]);
   const historyIdxRef = useRef(-1);
   const inputBeforeNavRef = useRef("");
+
+  // ── Listen for external attach-diff events ────────────────────────
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.attachment) {
+        setAttachments((prev) => [...prev, detail.attachment]);
+      }
+    };
+    window.addEventListener("acp:attachDiff", handler);
+    return () => window.removeEventListener("acp:attachDiff", handler);
+  }, []);
 
   // ── Reset textarea height ─────────────────────────────────────────
   const resetHeight = useCallback(() => {

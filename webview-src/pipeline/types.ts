@@ -81,6 +81,8 @@ export interface FileEditEntry {
   lineCount: number;
   /** Tool kind — always "fs/write_text_file" for ACP filesystem writes */
   kind: string;
+  /** Original content before this write (for revert/diff) */
+  originalContent: string | null;
 }
 
 export interface ChatDisplayItem {

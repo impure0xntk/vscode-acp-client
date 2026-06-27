@@ -22,6 +22,7 @@ export interface IntermediateStepsBannerProps {
   forceExpanded?: boolean;
   onToggle?: () => void;
   onExpandSettled?: () => void;
+  onAttachDiff?: (attachment: import("../../types").ContextAttachment) => void;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -89,6 +90,7 @@ export function IntermediateStepsBanner({
   forceExpanded = false,
   onToggle,
   onExpandSettled,
+  onAttachDiff,
 }: IntermediateStepsBannerProps): React.ReactElement | null {
   const [isCollapsed, setIsCollapsed] = useState(
     autoCollapse ? true : forceExpanded ? false : defaultCollapsed
@@ -181,6 +183,7 @@ export function IntermediateStepsBanner({
               step={step}
               sessionId={sessionId}
               agentId={agentId}
+              onAttachDiff={onAttachDiff}
             />
           ))}
           <button

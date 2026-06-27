@@ -6,32 +6,32 @@ const log = getLogger("webview.store.fileWrite");
 
 /**
  * ACP fs/write_text_file events, scoped per session.
- *
- * - extension host から session/webviewFileWrite が到達 → addWrite
- * - session/turnActive(active=false) → clearSession (turn 終了 = 次の turn に備えてクリア)
- * - grouping.ts がこの store にアクセスして per-step FileEditSummary を生成
- *
- * Each write carries a sequential `seq` number (monotonically increasing
- * across the entire store).  This allows grouping.ts to partition writes
- * by step boundaries using `writeSeq` stamped on ChatDisplayItems.
  */
 
 export interface FileWriteRecord {
   path: string;
   content: string;
+  /** Original content before this write (for revert/diff) */
+  originalContent: string | null;
   /** Monotonically increasing sequence number across all sessions */
   seq: number;
 }
 
-interface FileWriteStoreState {
+export interface FileWriteStoreState {
   writes: Record<string, FileWriteRecord[]>;
   /** Next sequence number to assign */
   nextSeq: number;
 
-  addWrite: (agentId: string, sessionId: string, path: string, content: string) => void;
+  addWrite: (
+    agentId: string,
+    sessionId: string,
+    path: string,
+    content: string,
+    originalContent?: string | null,
+  ) => void;
   clearSession: (agentId: string, sessionId: string) => void;
   getWritesForSession: (agentId: string, sessionId: string) => FileWriteRecord[];
-  /** Return the current sequence counter (number of writes so far) */
+  getOriginalContent: (agentId: string, sessionId: string, path: string) => string | null;
   currentSeq: () => number;
 }
 
@@ -39,7 +39,7 @@ export const useFileWriteStore = create<FileWriteStoreState>((set, get) => ({
   writes: {},
   nextSeq: 0,
 
-  addWrite: (agentId, sessionId, path, content) => {
+  addWrite: (agentId, sessionId, path, content, originalContent) => {
     const key = sessionKeyOf(agentId, sessionId);
     set((s) => {
       const existing = s.writes[key] ?? [];
@@ -49,7 +49,7 @@ export const useFileWriteStore = create<FileWriteStoreState>((set, get) => ({
         nextSeq: seq + 1,
         writes: {
           ...s.writes,
-          [key]: [...existing, { path, content, seq }],
+          [key]: [...existing, { path, content, originalContent: originalContent ?? null, seq }],
         },
       };
     });
@@ -69,6 +69,17 @@ export const useFileWriteStore = create<FileWriteStoreState>((set, get) => ({
     const writes = get().writes[key] ?? [];
     log.debug("getWritesForSession", { key, count: writes.length, seqs: writes.map((w) => w.seq) });
     return writes;
+  },
+
+  getOriginalContent: (agentId: string, sessionId: string, path: string): string | null => {
+    const key = sessionKeyOf(agentId, sessionId);
+    const writes = get().writes[key] ?? [];
+    for (const w of writes) {
+      if (w.path === path && w.originalContent != null) {
+        return w.originalContent;
+      }
+    }
+    return null;
   },
 
   currentSeq: () => get().nextSeq,

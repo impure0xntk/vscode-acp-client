@@ -131,6 +131,8 @@ export interface SessionChatContainerProps {
     clientHeight: number;
     isAtBottom: boolean;
   }) => void;
+  /** Callback when user wants to attach a diff to the composer */
+  onAttachDiff?: (attachment: import("../../types").ContextAttachment) => void;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -146,6 +148,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
   forceScrollToBottomRef,
   scrollToUnreadRef,
   onScroll,
+  onAttachDiff,
 }: SessionChatContainerProps): React.ReactElement {
   const { messages: rawMessages, isStreaming } = useMessages(
     sessionKey ?? null
@@ -522,6 +525,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                       toggleIntermediateSteps(sessionKey!, group.userItem.key)
                     }
                     onExpandSettled={recomputeScrollState}
+                    onAttachDiff={onAttachDiff}
                   />
                   {group.finalResponse && (
                     <>
@@ -535,7 +539,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                         isNew={newKeys.has(group.finalResponse.item.key)}
                       />
                       {group.turnFileEditSummary && group.turnFileEditSummary.length > 0 && (
-                        <FileEditSummary entries={group.turnFileEditSummary} />
+                        <FileEditSummary entries={group.turnFileEditSummary} sessionId={sessionId} agentId={agentId} onAttachDiff={onAttachDiff} />
                       )}
                     </>
                   )}
@@ -577,6 +581,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                           )
                         }
                         onExpandSettled={recomputeScrollState}
+                        onAttachDiff={onAttachDiff}
                       />
                     )}
                     {currentStep && (
@@ -587,6 +592,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                         isNew={true}
                         forceHeader={true}
                         isAgentNew={currentStep.agentMessage ? newKeys.has(currentStep.agentMessage.key) : false}
+                        onAttachDiff={onAttachDiff}
                       />
                     )}
                     {!currentStep && latestGroup.finalResponse && (
@@ -601,12 +607,12 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                           isNew={newKeys.has(latestGroup.finalResponse.item.key)}
                         />
                         {latestGroup.turnFileEditSummary && latestGroup.turnFileEditSummary.length > 0 && (
-                          <FileEditSummary entries={latestGroup.turnFileEditSummary} />
+                          <FileEditSummary entries={latestGroup.turnFileEditSummary} sessionId={sessionId} agentId={agentId} onAttachDiff={onAttachDiff} />
                         )}
                       </>
                     )}
                     {!currentStep && !latestGroup.finalResponse && latestGroup.turnFileEditSummary && latestGroup.turnFileEditSummary.length > 0 && (
-                      <FileEditSummary entries={latestGroup.turnFileEditSummary} />
+                      <FileEditSummary entries={latestGroup.turnFileEditSummary} sessionId={sessionId} agentId={agentId} onAttachDiff={onAttachDiff} />
                     )}
                   </React.Fragment>
                 );

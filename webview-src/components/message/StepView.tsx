@@ -17,6 +17,8 @@ export interface StepViewProps {
   forceHeader?: boolean;
   /** Whether the agent message key is "new" (for animation) */
   isAgentNew?: boolean;
+  /** Callback when user wants to attach a diff to the composer */
+  onAttachDiff?: (attachment: import("../../types").ContextAttachment) => void;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -36,6 +38,7 @@ export function StepView({
   isNew = true,
   forceHeader = false,
   isAgentNew = true,
+  onAttachDiff,
 }: StepViewProps): React.ReactElement {
   const allToolCalls = step.toolCalls.flatMap(
     (tc) => (tc as ChatDisplayItem).resolvedToolCalls ?? []
@@ -60,7 +63,7 @@ export function StepView({
           <ToolBatchSummary calls={allToolCalls} isNew={isNew} />
         </div>
         {step.fileEditSummary && step.fileEditSummary.length > 0 && (
-          <FileEditSummary entries={step.fileEditSummary} />
+          <FileEditSummary entries={step.fileEditSummary} sessionId={sessionId} agentId={agentId} onAttachDiff={onAttachDiff} />
         )}
       </div>
     );
@@ -85,7 +88,7 @@ export function StepView({
         </div>
       )}
       {step.fileEditSummary && step.fileEditSummary.length > 0 && (
-        <FileEditSummary entries={step.fileEditSummary} />
+        <FileEditSummary entries={step.fileEditSummary} sessionId={sessionId} agentId={agentId} onAttachDiff={onAttachDiff} />
       )}
     </div>
   );

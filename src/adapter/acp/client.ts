@@ -31,6 +31,8 @@ export interface FileWriteEvent {
   sessionId: string;
   path: string;
   content: string;
+  /** Original content before this write (null if file didn't exist) */
+  originalContent: string | null;
 }
 
 export interface AcpClientDeps {
@@ -116,6 +118,13 @@ export class PlatformAcpClient implements Client {
       path: params.path,
       contentLen: params.content.length,
     });
+    // Read original content before writing (for revert support)
+    let originalContent: string | null = null;
+    try {
+      originalContent = await this.deps.fs.readFile(params.path);
+    } catch {
+      // File didn't exist — originalContent stays null
+    }
     await this.deps.fs.writeFile(params.path, params.content);
     // Notify extension host about the file write so the webview can
     // aggregate edits for the turn summary.
@@ -124,6 +133,7 @@ export class PlatformAcpClient implements Client {
       sessionId: params.sessionId,
       path: params.path,
       content: params.content,
+      originalContent,
     });
     return {};
   }

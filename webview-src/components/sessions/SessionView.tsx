@@ -104,6 +104,8 @@ export interface SessionViewProps {
   pendingMap?: Record<string, boolean>;
   renderHeader?: (props: SessionHeaderProps) => React.ReactNode;
   renderFooter?: (props: SessionFooterProps) => React.ReactNode;
+  /** Callback when user wants to attach a diff to the composer */
+  onAttachDiff?: (attachment: ContextAttachment) => void;
 }
 
 // ── Stable scroll-state selector ───────────────────────────────────────────
@@ -176,6 +178,7 @@ export const SessionView = React.memo(function SessionView({
   pendingMap,
   renderHeader,
   renderFooter,
+  onAttachDiff,
 }: SessionViewProps): React.ReactElement | null {
   return (
     <div className="flex-1 min-h-0">
@@ -196,6 +199,7 @@ export const SessionView = React.memo(function SessionView({
         pendingMap={pendingMap}
         renderHeader={renderHeader}
         getSessionColor={getSessionColor}
+        onAttachDiff={onAttachDiff}
       />
     </div>
   );

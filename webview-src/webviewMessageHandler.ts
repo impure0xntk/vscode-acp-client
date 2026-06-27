@@ -435,6 +435,8 @@ interface SessionFileWriteMessage {
   sessionId: string;
   path: string;
   content: string;
+  /** Original content before this write (null if file didn't exist) */
+  originalContent?: string | null;
 }
 
 /**
@@ -1232,8 +1234,15 @@ function handleSessionFileWrite(data: SessionFileWriteMessage): void {
     sessionId: data.sessionId,
     path: data.path,
     contentLen: data.content.length,
+    hasOriginal: data.originalContent !== undefined,
   });
-  useFileWriteStore.getState().addWrite(data.agentId, data.sessionId, data.path, data.content);
+  useFileWriteStore.getState().addWrite(
+    data.agentId,
+    data.sessionId,
+    data.path,
+    data.content,
+    data.originalContent ?? null
+  );
 }
 
 function handleSessionNotification(data: SessionNotificationMessage): void {

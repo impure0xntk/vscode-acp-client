@@ -358,7 +358,8 @@ export class ChatPanel {
     agentId: string,
     sessionId: string,
     path: string,
-    content: string
+    content: string,
+    originalContent?: string | null
   ): void {
     this.postMessage({
       type: "session/webviewFileWrite",
@@ -366,6 +367,7 @@ export class ChatPanel {
       sessionId,
       path,
       content,
+      originalContent: originalContent ?? undefined,
     });
   }
 

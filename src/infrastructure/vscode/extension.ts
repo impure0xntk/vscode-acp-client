@@ -26,11 +26,6 @@ import {
   searchSymbols as searchSymbolsPlatform,
   resolveSymbolByName as resolveSymbolByNamePlatform,
 } from "../../adapter/context/symbol";
-import {
-  createAgentTreeProvider,
-  type TreeProvider,
-  type AgentTreeItem,
-} from "./vscode-ui/tree";
 import { ensureChatPanel, registerConnectCommands } from "./commands/connect";
 import { registerSessionCommands } from "./commands/session";
 import { registerExportDebugLogCommand } from "./commands/exportDebugLog";
@@ -51,7 +46,7 @@ import {
 } from "../../domain/models/mesh";
 import { VscodePlatform } from "../../platform/adapters/vscode";
 import type { PlatformAPI } from "../../platform/platform";
-import { TreeItem, TreeItemCollapsibleState } from "vscode";
+
 import { exec } from "child_process";
 import { promisify } from "util";
 import * as os from "os";
@@ -68,7 +63,6 @@ let registry: AgentRegistry;
 let statusTracker: AgentStatusTracker;
 let historyStore: SessionHistoryStore;
 let persistentHistory: PersistentHistoryStore | null = null;
-let treeProvider: ReturnType<typeof createAgentTreeProvider>;
 let chatPanel: ChatPanel | null = null;
 let meshOrchestrator: MeshOrchestrator | null = null;
 let supervisorOrchestrator: SupervisorOrchestrator | null = null;
@@ -115,22 +109,6 @@ function resolveSymbolByName(name: string): Promise<ContextAttachmentDTO> {
     platform.fs,
     name
   ) as Promise<ContextAttachmentDTO>;
-}
-
-// TreeView adaptor: maps AgentTreeItem → vscode.TreeItem
-function toTreeItem(item: AgentTreeItem): TreeItem {
-  const vscodeItem = new vscode.TreeItem(
-    item.label,
-    item.collapsibleState === "none"
-      ? TreeItemCollapsibleState.None
-      : item.collapsibleState === "collapsed"
-        ? TreeItemCollapsibleState.Collapsed
-        : TreeItemCollapsibleState.Expanded
-  );
-  if (item.iconPath) vscodeItem.iconPath = new vscode.ThemeIcon(item.iconPath);
-  if (item.description) vscodeItem.description = item.description;
-  if (item.contextValue) vscodeItem.contextValue = item.contextValue;
-  return vscodeItem;
 }
 
 // ============================================================================
@@ -226,7 +204,6 @@ function updateContext(): void {
     a.sessions.some((s) => s.status === "running")
   );
   void vscode.commands.executeCommand("setContext", "acp.connected", connected);
-  void vscode.commands.executeCommand("setContext", "acp.hasAgents", connected);
   void vscode.commands.executeCommand(
     "setContext",
     "acp.turnActive",
@@ -454,24 +431,6 @@ export async function activate(
   registerCommands(context);
   updateContext();
 
-  treeProvider = createAgentTreeProvider(orchestrator, platform.ui);
-  context.subscriptions.push(
-    vscode.window.registerTreeDataProvider("acp.agentTree", {
-      onDidChangeTreeData:
-        treeProvider.onDidChangeTreeData as unknown as vscode.Event<
-          AgentTreeItem | undefined
-        >,
-      getTreeItem(element: AgentTreeItem): TreeItem {
-        return toTreeItem(element);
-      },
-      getChildren(
-        element?: AgentTreeItem
-      ): AgentTreeItem[] | Thenable<AgentTreeItem[]> {
-        return treeProvider.getChildren(element);
-      },
-    })
-  );
-
   wireOrchestratorEvents(meshOrchestrator);
 
   // Send statusline info when workspace folders change
@@ -531,7 +490,6 @@ function wireOrchestratorEvents(meshOrch: MeshOrchestrator): void {
     getChatPanel,
     presenter,
     statusTracker,
-    treeProvider,
     historyStore,
     updateContext,
     sendTabs: sendTabsToChatPanel,
@@ -542,7 +500,6 @@ function wireOrchestratorEvents(meshOrch: MeshOrchestrator): void {
     getChatPanel,
     presenter,
     statusTracker,
-    treeProvider,
     updateContext,
     sendTabs: sendTabsToChatPanel,
     meshOrchestrator: meshOrch,

@@ -51,6 +51,7 @@ export function countWrittenLines(content: string): number {
 /**
  * Build a FileEditEntry[] from a slice of FileWriteRecords.
  * Multiple writes to the same path are merged (line counts summed).
+ * Original content is taken from the first write to each path.
  */
 function buildSummaryFromWrites(writes: FileWriteRecord[]): FileEditEntry[] | undefined {
   if (writes.length === 0) return undefined;
@@ -62,7 +63,12 @@ function buildSummaryFromWrites(writes: FileWriteRecord[]): FileEditEntry[] | un
     if (existing) {
       existing.lineCount += lineCount;
     } else {
-      seen.set(w.path, { path: w.path, lineCount, kind: "fs/write_text_file" });
+      seen.set(w.path, {
+        path: w.path,
+        lineCount,
+        kind: "fs/write_text_file",
+        originalContent: w.originalContent,
+      });
     }
   }
   return Array.from(seen.values());

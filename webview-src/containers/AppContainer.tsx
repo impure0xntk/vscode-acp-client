@@ -542,6 +542,11 @@ export function AppContainer(): React.ReactElement {
             availableCommands={availableCommands}
             onCancelQueuedPrompt={cancelQueuedPrompt}
             onClearQueue={clearQueue}
+            onAttachDiff={(attachment) => {
+              window.dispatchEvent(new CustomEvent("acp:attachDiff", {
+                detail: { attachment },
+              }));
+            }}
           />
         ) : (
           <UnifiedMode
@@ -561,6 +566,11 @@ export function AppContainer(): React.ReactElement {
             availableCommands={availableCommands}
             onCancelQueuedPrompt={cancelQueuedPrompt}
             onClearQueue={clearQueue}
+            onAttachDiff={(attachment) => {
+              window.dispatchEvent(new CustomEvent("acp:attachDiff", {
+                detail: { attachment },
+              }));
+            }}
           />
         )}
       </div>
