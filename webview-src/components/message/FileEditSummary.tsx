@@ -1,9 +1,8 @@
-import React, { useCallback, useState, useMemo } from "react";
+import React, { useCallback, useState } from "react";
 import type { FileEditEntry } from "../../pipeline/types";
 import { fileIcon, getFileExtension } from "./ToolCallCard";
 import { getVsCodeApi } from "../../lib/vscodeApi";
 import { useFileWriteStore } from "../../store/fileWriteStore";
-import { useSessionStore } from "../../store/sessionStore";
 import type { ContextAttachment } from "../../types";
 
 export interface FileEditSummaryProps {
@@ -50,14 +49,15 @@ interface FileEditChipProps {
 function FileEditChip({ entry, sessionId, agentId, onAttachDiff }: FileEditChipProps): React.ReactElement {
   const ext = getFileExtension(entry.path);
   const basename = entry.path.split("/").pop() ?? entry.path;
-  const [showActions, setShowActions] = useState(false);
   const [confirmRevert, setConfirmRevert] = useState(false);
-  const [showDiffPreview, setShowDiffPreview] = useState(false);
 
-  const originalContent = useFileWriteStore((s) => {
+  // Prefer originalContent from the entry (grouping.ts already retrieves it
+  // from fileWriteStore), but also try the store directly as fallback.
+  const storedOriginal = useFileWriteStore((s) => {
     if (!agentId || !sessionId) return null;
     return s.getOriginalContent(agentId, sessionId, entry.path);
   });
+  const originalContent = entry.originalContent ?? storedOriginal;
 
   const handleOpenFile = useCallback(() => {
     try {
@@ -69,9 +69,10 @@ function FileEditChip({ entry, sessionId, agentId, onAttachDiff }: FileEditChipP
     if (!agentId || !sessionId) return;
     if (!confirmRevert) {
       setConfirmRevert(true);
+      // Auto-dismiss confirm state after 3 seconds
+      setTimeout(() => setConfirmRevert(false), 3000);
       return;
     }
-    // Send revert message to extension host
     try {
       getVsCodeApi().postMessage({
         type: "revertFile",
@@ -97,11 +98,7 @@ function FileEditChip({ entry, sessionId, agentId, onAttachDiff }: FileEditChipP
       content: diffContent,
     };
     onAttachDiff(attachment);
-  }, [agentId, sessionId, entry, originalContent, basename, ext, onAttachDiff]);
-
-  const handleShowDiff = useCallback(() => {
-    setShowDiffPreview(!showDiffPreview);
-  }, [showDiffPreview]);
+  }, [agentId, sessionId, entry, originalContent, basename, onAttachDiff]);
 
   const handleOpenDiffEditor = useCallback(() => {
     try {
@@ -110,20 +107,21 @@ function FileEditChip({ entry, sessionId, agentId, onAttachDiff }: FileEditChipP
         path: entry.path,
         agentId,
         sessionId,
+        // Pass original content so the extension host can create a proper
+        // untitled URI instead of relying on broken git-diff: scheme.
+        originalContent: originalContent ?? undefined,
       });
     } catch { /* vscodeApi not available */ }
-  }, [entry.path, agentId, sessionId]);
+  }, [entry.path, agentId, sessionId, originalContent]);
 
-  const hasOriginal = originalContent != null;
-  const canRevert = hasOriginal;
+  const canCompare = originalContent != null;
+  const canRevert = originalContent != null;
   const canAttachDiff = true;
-  const canShowDiff = true;
 
   return (
     <span
       className="inline-flex items-center gap-0.5 px-[3px] py-px rounded-[3px] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] text-[9px] select-none transition-colors duration-150 hover:bg-accent-hover"
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => { setShowActions(false); setConfirmRevert(false); }}
+      onMouseLeave={() => setConfirmRevert(false)}
       title={entry.path}
     >
       <span className="inline-flex items-center justify-center w-[13px] h-[10px] rounded-[2px] font-mono text-[7px] font-bold leading-none bg-[color-mix(in_srgb,var(--accent)_20%,transparent)] text-fg-secondary">
@@ -140,115 +138,49 @@ function FileEditChip({ entry, sessionId, agentId, onAttachDiff }: FileEditChipP
       </span>
       <span className="text-fg-muted leading-none">+{entry.lineCount}</span>
 
-      {/* Action buttons — visible on hover */}
-      {showActions && (
-        <span className="inline-flex items-center gap-px ml-0.5">
-          {/* Diff preview toggle */}
-          {canShowDiff && (
-            <button
-              className="inline-flex items-center justify-center w-[14px] h-[14px] p-0 rounded-[2px] bg-transparent text-fg-muted text-[8px] cursor-pointer border-none hover:bg-accent hover:text-user-fg transition-all"
-              onClick={handleShowDiff}
-              title="Preview diff"
-              aria-label="Preview diff"
-            >
-              ±
-            </button>
-          )}
+      {/* Action buttons — always visible */}
+      <span className="inline-flex items-center gap-px ml-0.5">
+        {/* Open in diff editor (compare) */}
+        {canCompare && (
+          <button
+            className="inline-flex items-center justify-center w-[14px] h-[14px] p-0 rounded-[2px] bg-transparent text-fg-muted text-[8px] cursor-pointer border-none hover:bg-accent hover:text-user-fg transition-all"
+            onClick={handleOpenDiffEditor}
+            title="Compare changes"
+            aria-label="Compare changes"
+          >
+            ⇔
+          </button>
+        )}
 
-          {/* Open in diff editor */}
-          {canShowDiff && (
-            <button
-              className="inline-flex items-center justify-center w-[14px] h-[14px] p-0 rounded-[2px] bg-transparent text-fg-muted text-[8px] cursor-pointer border-none hover:bg-accent hover:text-user-fg transition-all"
-              onClick={handleOpenDiffEditor}
-              title="Open diff in editor"
-              aria-label="Open diff in editor"
-            >
-              ⟷
-            </button>
-          )}
+        {/* Attach diff to composer */}
+        {canAttachDiff && onAttachDiff && (
+          <button
+            className="inline-flex items-center justify-center w-[14px] h-[14px] p-0 rounded-[2px] bg-transparent text-fg-muted text-[8px] cursor-pointer border-none hover:bg-accent hover:text-user-fg transition-all"
+            onClick={handleAttachDiff}
+            title="Attach diff to message"
+            aria-label="Attach diff to message"
+          >
+            📎
+          </button>
+        )}
 
-          {/* Attach diff to composer */}
-          {canAttachDiff && onAttachDiff && (
-            <button
-              className="inline-flex items-center justify-center w-[14px] h-[14px] p-0 rounded-[2px] bg-transparent text-fg-muted text-[8px] cursor-pointer border-none hover:bg-accent hover:text-user-fg transition-all"
-              onClick={handleAttachDiff}
-              title="Attach diff to message"
-              aria-label="Attach diff to message"
-            >
-              📎
-            </button>
-          )}
-
-          {/* Revert button */}
-          {canRevert && (
-            <button
-              className={`inline-flex items-center justify-center w-[14px] h-[14px] p-0 rounded-[2px] bg-transparent text-[8px] cursor-pointer border-none transition-all ${
-                confirmRevert
-                  ? "text-error bg-[color-mix(in_srgb,var(--error)_20%,transparent)] hover:bg-error hover:text-user-fg"
-                  : "text-fg-muted hover:bg-error hover:text-user-fg"
-              }`}
-              onClick={handleRevert}
-              title={confirmRevert ? "Click again to confirm revert" : "Revert this file"}
-              aria-label={confirmRevert ? "Confirm revert" : "Revert file"}
-            >
-              ↩
-            </button>
-          )}
-        </span>
-      )}
-
-      {/* Diff preview popover */}
-      {showDiffPreview && originalContent != null && (
-        <DiffPopover
-          originalContent={originalContent}
-          filePath={entry.path}
-          basename={basename}
-          onClose={() => setShowDiffPreview(false)}
-          onOpenDiff={handleOpenDiffEditor}
-        />
-      )}
+        {/* Revert button */}
+        {canRevert && (
+          <button
+            className={`inline-flex items-center justify-center w-[14px] h-[14px] p-0 rounded-[2px] bg-transparent text-[8px] cursor-pointer border-none transition-all ${
+              confirmRevert
+                ? "text-error bg-[color-mix(in_srgb,var(--error)_20%,transparent)] hover:bg-error hover:text-user-fg"
+                : "text-fg-muted hover:bg-error hover:text-user-fg"
+            }`}
+            onClick={handleRevert}
+            title={confirmRevert ? "Click again to confirm revert" : "Revert this file"}
+            aria-label={confirmRevert ? "Confirm revert" : "Revert file"}
+          >
+            ↩
+          </button>
+        )}
+      </span>
     </span>
-  );
-}
-
-interface DiffPopoverProps {
-  originalContent: string;
-  filePath: string;
-  basename: string;
-  onClose: () => void;
-  onOpenDiff: () => void;
-}
-
-function DiffPopover({ originalContent, filePath, basename, onClose, onOpenDiff }: DiffPopoverProps): React.ReactElement {
-  const diffText = useMemo(() => {
-    return `--- a/${basename}\n+++ b/${basename}\n@@ -1,${originalContent.split("\n").length} +1,modified @@\n${originalContent.split("\n").map((l) => `-${l}`).join("\n")}\n+... (modified content)`;
-  }, [originalContent, basename]);
-
-  return (
-    <div className="absolute z-50 top-full left-0 mt-1 w-[320px] max-h-[200px] bg-bg-secondary border border-border rounded shadow-lg overflow-hidden">
-      <div className="flex items-center justify-between px-2 py-1 bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] border-b border-border">
-        <span className="text-[9px] font-mono text-fg-secondary truncate max-w-[200px]">{basename}</span>
-        <div className="flex items-center gap-1">
-          <button
-            className="inline-flex items-center justify-center w-4 h-4 p-0 rounded bg-transparent text-fg-muted text-[9px] cursor-pointer border-none hover:bg-accent hover:text-user-fg"
-            onClick={onOpenDiff}
-            title="Open in diff editor"
-          >
-            ⟷
-          </button>
-          <button
-            className="inline-flex items-center justify-center w-4 h-4 p-0 rounded bg-transparent text-fg-muted text-[9px] cursor-pointer border-none hover:bg-accent hover:text-user-fg"
-            onClick={onClose}
-            title="Close"
-          >
-            ×
-          </button>
-        </div>
-      </div>
-      <pre className="p-1.5 text-[9px] font-mono leading-[1.4] text-fg-secondary overflow-auto max-h-[160px] whitespace-pre-wrap break-all">
-        {diffText.slice(0, 2000)}
-      </pre>
-    </div>
   );
 }
 

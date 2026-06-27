@@ -827,28 +827,43 @@ export function wireChatPanelEvents(
       }
 
       case "openDiff": {
-        const { path: diffPath } = data as { path: string };
+        const { path: diffPath, originalContent } = data as {
+          path: string;
+          originalContent?: string;
+        };
         void (async () => {
-          const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-          if (!ws) return;
+          const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+            ?? process.cwd();
           const absPath = path.isAbsolute(diffPath)
             ? diffPath
             : path.resolve(ws, diffPath);
-          const uri = vscode.Uri.file(absPath);
-          try {
-            // Open diff editor comparing current vs git HEAD version
-            const gitDiffUri = vscode.Uri.parse(
-              `git-diff:${absPath}?HEAD`
+          const currentUri = vscode.Uri.file(absPath);
+
+          if (typeof originalContent === "string") {
+            // Create an untitled document with the original content so VS Code
+            // can compare it against the current file on disk.
+            const originalUri = vscode.Uri.parse(
+              `untitled:${absPath}.original`
+            ).with({ scheme: "untitled" });
+            const originalDoc = await vscode.workspace.openTextDocument(
+              originalUri
             );
+            const edit = new vscode.WorkspaceEdit();
+            edit.insert(
+              originalUri,
+              new vscode.Position(0, 0),
+              originalContent
+            );
+            await vscode.workspace.applyEdit(edit);
             await vscode.commands.executeCommand(
               "vscode.diff",
-              gitDiffUri,
-              uri,
-              `${path.basename(absPath)} (Changes)`
+              originalUri,
+              currentUri,
+              `${path.basename(absPath)} (Original ↔ Current)`
             );
-          } catch {
-            // Fallback: just open the file
-            const doc = await vscode.workspace.openTextDocument(uri);
+          } else {
+            // No original content available — open the file directly
+            const doc = await vscode.workspace.openTextDocument(currentUri);
             await vscode.window.showTextDocument(doc, {
               viewColumn: vscode.ViewColumn.Beside,
             });
