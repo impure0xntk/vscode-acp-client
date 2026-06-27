@@ -80,6 +80,7 @@ export class ChatPanel {
   }>;
   private _onDidReceiveMessage: EventEmitter<Record<string, unknown>>;
   private _onOpenFile: EventEmitter<{ path: string; line?: number }>;
+  private _onRevertFile: EventEmitter<{ path: string; originalContent: string }>;
 
   /** Extension-side logger — set by extension.ts after construction. */
   logger: {
@@ -110,6 +111,9 @@ export class ChatPanel {
   }
   get onOpenFile() {
     return this._onOpenFile.event;
+  }
+  get onRevertFile() {
+    return this._onRevertFile.event;
   }
 
   _onGetSessionCommands:
@@ -150,6 +154,7 @@ export class ChatPanel {
     this._onAttachFile = ui.createEventEmitter();
     this._onDidReceiveMessage = ui.createEventEmitter();
     this._onOpenFile = ui.createEventEmitter();
+    this._onRevertFile = ui.createEventEmitter();
     this.createPanel();
   }
 
@@ -485,6 +490,14 @@ export class ChatPanel {
         const line = data.line as number | undefined;
         if (filePath) {
           this._onOpenFile.fire({ path: filePath, line });
+        }
+        break;
+      }
+      case "revertFile": {
+        const revertPath = data.path as string;
+        const originalContent = data.originalContent as string;
+        if (revertPath && originalContent) {
+          this._onRevertFile.fire({ path: revertPath, originalContent });
         }
         break;
       }

@@ -866,6 +866,51 @@ export function wireChatPanelEvents(
         })();
         break;
       }
+      // ── Revert file to original content ──
+      case "revertFile": {
+        const { path: revertPath, originalContent } = data as {
+          path: string;
+          originalContent: string;
+        };
+        void (async () => {
+          const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+            ?? process.cwd();
+          const absPath = path.isAbsolute(revertPath)
+            ? revertPath
+            : path.resolve(ws, revertPath);
+          const uri = vscode.Uri.file(absPath);
+          try {
+            // Check if file exists
+            const exists = await vscode.workspace.fs.stat(uri).then(() => true, () => false);
+            if (!exists) {
+              void vscode.window.showWarningMessage(
+                `File not found: ${path.basename(absPath)}`
+              );
+              return;
+            }
+
+            // Write original content back
+            const encoder = new TextEncoder();
+            await vscode.workspace.fs.writeFile(uri, encoder.encode(originalContent));
+
+            // Open the reverted file so the user can see the result
+            const doc = await vscode.workspace.openTextDocument(uri);
+            await vscode.window.showTextDocument(doc, {
+              viewColumn: vscode.ViewColumn.Beside,
+            });
+
+            void vscode.window.showInformationMessage(
+              `Reverted ${path.basename(absPath)} to original content`
+            );
+          } catch (err) {
+            getLogger("prompt").error("revertFile failed", { absPath }, err as Error);
+            void vscode.window.showErrorMessage(
+              `Failed to revert ${path.basename(absPath)}: ${(err as Error).message}`
+            );
+          }
+        })();
+        break;
+      }
       // ── Check file hash (for stale detection in FileEditSummary) ──
       case "checkFileHash": {
         const { path: checkPath, expectedHash, msgId } = data as {
