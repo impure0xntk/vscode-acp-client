@@ -265,6 +265,7 @@ export const Message = React.memo(function Message({
           isStreaming={thinking.isStreaming}
         />
       )}
+
     </div>
   );
 });

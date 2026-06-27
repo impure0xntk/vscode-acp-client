@@ -1,6 +1,7 @@
 import React from "react";
 import { DisplayItemView } from "./DisplayItemView";
 import { ToolBatchSummary } from "./ToolBatchSummary";
+import { FileEditSummary } from "./FileEditSummary";
 import type { IntermediateStep } from "../../pipeline";
 import type { ChatDisplayItem } from "../../pipeline/types";
 
@@ -58,6 +59,9 @@ export function StepView({
         <div className="ml-4 mr-1 mb-[2px]">
           <ToolBatchSummary calls={allToolCalls} isNew={isNew} />
         </div>
+        {step.fileEditSummary && step.fileEditSummary.length > 0 && (
+          <FileEditSummary entries={step.fileEditSummary} />
+        )}
       </div>
     );
   }
@@ -79,6 +83,9 @@ export function StepView({
         <div className="ml-4 mr-1 mb-[2px]">
           <ToolBatchSummary calls={allToolCalls} isNew={isNew} />
         </div>
+      )}
+      {step.fileEditSummary && step.fileEditSummary.length > 0 && (
+        <FileEditSummary entries={step.fileEditSummary} />
       )}
     </div>
   );

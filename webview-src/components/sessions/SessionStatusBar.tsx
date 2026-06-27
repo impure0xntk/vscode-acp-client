@@ -78,35 +78,25 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
   // PREVIOUS response timestamp and would make the second turn's timer
   // start from the first response (showing tens of seconds of phantom
   // wait time).
-  // null means "no anchor yet" — the rAF loop won't start until
-  // effectiveAction is truthy AND anchorMs is non-null.
   const anchorMs = turnStartedAt
     ? new Date(turnStartedAt).getTime()
     : null;
 
   const [elapsedSec, setElapsedSec] = useState(0);
   const rafRef = useRef<number | null>(null);
-  const anchorRef = useRef<number | null>(null);
-
-  // Keep anchorRef in sync without tearing down the rAF loop
-  useEffect(() => {
-    anchorRef.current = anchorMs;
-  }, [anchorMs]);
 
   useEffect(() => {
-    if (!effectiveAction || !anchorRef.current) {
+    if (!effectiveAction || !anchorMs) {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
       if (!effectiveAction) setElapsedSec(0);
       return;
     }
     const tick = () => {
-      if (anchorRef.current !== null) {
-        setElapsedSec((Date.now() - anchorRef.current) / 1000);
-      }
+      setElapsedSec((Date.now() - anchorMs) / 1000);
       rafRef.current = requestAnimationFrame(tick);
     };
-    setElapsedSec((Date.now() - anchorRef.current!) / 1000);
+    setElapsedSec((Date.now() - anchorMs) / 1000);
     rafRef.current = requestAnimationFrame(tick);
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);

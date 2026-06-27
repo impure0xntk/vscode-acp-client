@@ -167,7 +167,9 @@ md.renderer.rules.code_inline = (tokens, idx, options, env, self) => {
   const ctx = (env as RenderContext) || {};
   if (ctx.filePaths && ctx.filePaths.has(content)) {
     const escaped = md.utils.escapeHtml(content);
-    return `<a class="inline-code-link" data-file-path="${escaped}" title="${escaped}" tabindex="0" role="button"><span class="inline-code-link-icon">${FILE_ICON_SVG}</span><span class="inline-code-link-label">${escaped}</span></a>`;
+    const basename = content.split("/").pop() ?? content;
+    const escapedLabel = md.utils.escapeHtml(basename);
+    return `<a class="inline-code-link" data-file-path="${escaped}" title="${escaped}" tabindex="0" role="button"><span class="inline-code-link-icon">${FILE_ICON_SVG}</span><span class="inline-code-link-label">${escapedLabel}</span></a>`;
   }
   if (defaultCodeInline) {
     return defaultCodeInline(tokens, idx, options, env, self);

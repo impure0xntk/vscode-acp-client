@@ -73,11 +73,22 @@ export interface RenderContext {
 
 // ── PipelineItem — final pipeline output (union) ────────────────────────────
 
-/** Standard chat message rendered by <Message /> */
+/** File edit summary entry — one file written via ACP fs/write_text_file in the turn */
+export interface FileEditEntry {
+  /** Absolute or workspace-relative file path */
+  path: string;
+  /** Number of written lines (from params.content newline count) */
+  lineCount: number;
+  /** Tool kind — always "fs/write_text_file" for ACP filesystem writes */
+  kind: string;
+}
+
 export interface ChatDisplayItem {
   type: "chat";
   /** Agent identifier — used for grouping consecutive messages from the same agent */
   agentId?: string;
+  /** Session identifier — used to scope file write lookups per session */
+  sessionId?: string;
   /** Resolved tool calls carried over from merge stage */
   resolvedToolCalls?: ResolvedToolCall[];
   /** Resolved context attachments */
@@ -102,6 +113,11 @@ export interface ChatDisplayItem {
   groupKey: string;
   /** Extracted path candidates for inline code linking */
   renderContext?: RenderContext;
+  /**
+   * File-write sequence counter at the time this message was created/finalized.
+   * Used by grouping.ts to partition file writes per step.
+   */
+  writeSeq?: number;
 }
 
 /** Session compression notice rendered by <ContextCompressionNotice /> */
@@ -156,6 +172,8 @@ export interface IntermediateStep {
   toolCalls: ChatDisplayItem[];
   /** Pre-agent tool calls have no agent message yet */
   readonly isPreAgent: boolean;
+  /** File edit summary — writes attributed to this step via writeSeq partitioning */
+  fileEditSummary?: FileEditEntry[];
 }
 
 /**

@@ -9,11 +9,11 @@ import type {
   ContextAttachment,
   QueuedPrompt,
   SelectedTeam,
+  SendTarget,
   SuggestionItem,
   TriggerType,
 } from "../../types";
 import type { SlashCommand, SessionTabState } from "../../store/sessionStore";
-import type { SendTarget } from "../../types";
 import { useSessionStore } from "../../store/sessionStore";
 import { useMessageStore } from "../../store/messageStore";
 import { useMeshStore } from "../../store/meshStore";
@@ -77,7 +77,7 @@ export interface ComposerProps {
     mode?: CommunicationMode | null,
     teamId?: string
   ) => void;
-  onCancel: () => void;
+  onCancel: (targets?: SendTarget[]) => void;
   onNewSession?: () => void;
   onSwitchSession?: (agentId: string, sessionId: string) => void;
   onRenameSession?: (agentId: string, sessionId: string, title: string) => void;
@@ -285,6 +285,10 @@ export function Composer({
 
   // Track multi-@ mode: true when at least one @ target is selected
   const isMultiMode = sendTargets.length > 0;
+
+  // Compute targets for cancel: when sendTargets are selected (multi-@ mode),
+  // use those; the active session fallback is in AppContainer.cancelTurn
+  const cancelTargets = sendTargets.length > 0 ? sendTargets : undefined;
 
   // ── Send to All Pinned ────────────────────────────────────────────
   const pinnedSessionKeys = useSessionStore((s) => s.pinnedSessionKeys);
@@ -1179,7 +1183,7 @@ export function Composer({
         {status === "running" || status === "cancelling" ? (
           <button
             className={`bg-transparent border-none cursor-pointer text-sm w-6 h-6 rounded flex-shrink-0 flex items-center justify-center p-0 leading-none ${status === "cancelling" ? "text-fg-muted cursor-not-allowed" : "text-fg-secondary hover:text-error"}`}
-            onClick={status === "running" ? onCancel : undefined}
+            onClick={status === "running" ? () => onCancel(cancelTargets) : undefined}
             disabled={status === "cancelling"}
             title={status === "cancelling" ? "Cancelling…" : "Stop generation"}
           >

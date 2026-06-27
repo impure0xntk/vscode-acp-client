@@ -9,6 +9,7 @@ import React, {
 import { DisplayItemView } from "../message/DisplayItemView";
 import { IntermediateStepsBanner } from "../message/IntermediateStepsBanner";
 import { StepView } from "../message/StepView";
+import { FileEditSummary } from "../message/FileEditSummary";
 import { useMessages } from "../../hooks/useMessages";
 import { useMessagePipeline } from "../../hooks/useMessagePipeline";
 import { useScrollController } from "../../hooks/useScrollController";
@@ -523,15 +524,20 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                     onExpandSettled={recomputeScrollState}
                   />
                   {group.finalResponse && (
-                    <DisplayItemView
-                      item={group.finalResponse.item}
-                      idx={0}
-                      items={[group.finalResponse.item]}
-                      sessionId={sessionId}
-                      agentId={agentId}
-                      forceHeader={true}
-                      isNew={newKeys.has(group.finalResponse.item.key)}
-                    />
+                    <>
+                      <DisplayItemView
+                        item={group.finalResponse.item}
+                        idx={0}
+                        items={[group.finalResponse.item]}
+                        sessionId={sessionId}
+                        agentId={agentId}
+                        forceHeader={true}
+                        isNew={newKeys.has(group.finalResponse.item.key)}
+                      />
+                      {group.turnFileEditSummary && group.turnFileEditSummary.length > 0 && (
+                        <FileEditSummary entries={group.turnFileEditSummary} />
+                      )}
+                    </>
                   )}
                 </React.Fragment>
               );
@@ -584,15 +590,23 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                       />
                     )}
                     {!currentStep && latestGroup.finalResponse && (
-                      <DisplayItemView
-                        item={latestGroup.finalResponse.item}
-                        idx={0}
-                        items={[latestGroup.finalResponse.item]}
-                        sessionId={sessionId}
-                        agentId={agentId}
-                        forceHeader={true}
-                        isNew={newKeys.has(latestGroup.finalResponse.item.key)}
-                      />
+                      <>
+                        <DisplayItemView
+                          item={latestGroup.finalResponse.item}
+                          idx={0}
+                          items={[latestGroup.finalResponse.item]}
+                          sessionId={sessionId}
+                          agentId={agentId}
+                          forceHeader={true}
+                          isNew={newKeys.has(latestGroup.finalResponse.item.key)}
+                        />
+                        {latestGroup.turnFileEditSummary && latestGroup.turnFileEditSummary.length > 0 && (
+                          <FileEditSummary entries={latestGroup.turnFileEditSummary} />
+                        )}
+                      </>
+                    )}
+                    {!currentStep && !latestGroup.finalResponse && latestGroup.turnFileEditSummary && latestGroup.turnFileEditSummary.length > 0 && (
+                      <FileEditSummary entries={latestGroup.turnFileEditSummary} />
                     )}
                   </React.Fragment>
                 );

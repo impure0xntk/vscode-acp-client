@@ -37,6 +37,8 @@ export interface AgentConnectionDeps {
   onSessionUpdate: (agentId: string, notification: import("@agentclientprotocol/sdk").SessionNotification) => void;
   onRequestPermission: (agentId: string, request: import("@agentclientprotocol/sdk").RequestPermissionRequest) => Promise<import("@agentclientprotocol/sdk").RequestPermissionResponse>;
   onAgentDisconnected: (agentId: string) => void;
+  /** Called when the agent writes a file via ACP fs/write_text_file */
+  onFileWrite: (event: import("../../adapter/acp/client").FileWriteEvent) => void;
 }
 
 export class AgentConnection {
@@ -86,7 +88,8 @@ export class AgentConnection {
     const client = new PlatformAcpClient(
       { fs: this.deps.fs, ui: this.deps.ui },
       (aId, notification) => this.deps.onSessionUpdate(aId, notification),
-      (aId, request) => this.deps.onRequestPermission(aId, request)
+      (aId, request) => this.deps.onRequestPermission(aId, request),
+      (event) => this.deps.onFileWrite(event)
     );
     client.setAgentId(agentId);
 

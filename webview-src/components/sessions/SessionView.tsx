@@ -7,7 +7,11 @@ import {
   useScrollStateStore,
   type SessionScrollState,
 } from "../../store/scrollStateStore";
-import type { ContextAttachment, SendTarget, ChatMessage } from "../../types";
+import type {
+  ContextAttachment,
+  SendTarget,
+  ChatMessage,
+} from "../../types";
 import type { TurnOutcome } from "../primitives/StatusIcon";
 import { SplitSessionLayout } from "./layouts/SplitSessionLayout";
 
@@ -85,7 +89,7 @@ export interface SessionViewProps {
     attachments: ContextAttachment[],
     targets?: SendTarget[]
   ) => void;
-  onCancel: () => void;
+  onCancel: (targets?: SendTarget[]) => void;
   onFocusChange?: (key: string) => void;
   onPin?: (key: string) => void;
   onUnpin?: (key: string) => void;

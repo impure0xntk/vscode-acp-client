@@ -3,6 +3,7 @@ import { useMessageStore } from "./store/messageStore";
 import { useUiStateStore } from "./store/uiStateStore";
 import { useMeshStore } from "./store/meshStore";
 import { usePathResolutionStore } from "./store/pathResolutionStore";
+import { useFileWriteStore } from "./store/fileWriteStore";
 import { getVsCodeApi } from "./lib/vscodeApi";
 import { getLogger } from "./lib/logger";
 import { toSessionInfoDTO } from "./store/mappers";
@@ -424,6 +425,19 @@ interface ComposerFocusMessage {
 }
 
 /**
+ * ACP fs/write_text_file event forwarded from the extension host.
+ * Contains the file path and content so the webview can count lines
+ * written per turn for the file edit summary.
+ */
+interface SessionFileWriteMessage {
+  type: "session/webviewFileWrite";
+  agentId: string;
+  sessionId: string;
+  path: string;
+  content: string;
+}
+
+/**
  * Raw SDK session/update notification forwarded from the extension host.
  * The webview extracts tool_call / tool_call_update events and injects
  * them into the message store as tool-call chat messages so that the
@@ -503,7 +517,8 @@ type WebviewMessage =
   | SessionUnpinnedNotification
   | PathsResolvedMessage
   | ComposerFocusMessage
-  | SessionNotificationMessage;
+  | SessionNotificationMessage
+  | SessionFileWriteMessage;
 
 // ── Handler functions ───────────────────────────────────────────────────────
 
@@ -620,6 +635,18 @@ function handleSessionStreamStart(data: SessionStreamStart): void {
   // never gets streaming=true because appendStreamChunks only sets it when
   // shouldAppend is true (i.e. a prior agent message exists).
   useMessageStore.getState().setStreaming(msgKey, true);
+  // Stamp the current file-write sequence counter onto the last agent
+  // message so grouping.ts can partition writes per step.
+  // writeSeq = N means N writes had been recorded when this step began,
+  // so writes with seq >= N belong to this step.
+  const writeSeq = useFileWriteStore.getState().currentSeq();
+  log.info("handleSessionStreamStart: stamping writeSeq", {
+    agentId: data.agentId,
+    sessionId: data.sessionId,
+    writeSeq,
+    currentFileWriteCount: writeSeq,
+  });
+  useMessageStore.getState().updateLastAgentMessage(msgKey, { writeSeq });
   // Also flush any pending stream batch so the first text appears immediately
   const batch = streamBatchMap.get(msgKey);
   if (batch && batch.chunks.length > 0) {
@@ -734,6 +761,11 @@ function handleSessionTurnActive(data: SessionTurnActive): void {
     active,
     action: data.action,
   });
+
+  // Do NOT clear file write records here — the writeSeq partitioning
+  // in grouping.ts already scopes summaries per-step.  Clearing here
+  // causes attachStepFileEditSummaries to see empty writes after turn end,
+  // resulting in no fileEditSummary on any step.
 
   // Sync streamingMap so Composer button reflects turn state
   useMessageStore.getState().setStreaming(msgKey, active);
@@ -1194,14 +1226,17 @@ export function extractDiffFromContent(
   return undefined;
 }
 
-/**
- * Handle raw SDK session/update notification.
- * Extracts tool_call / tool_call_update events and injects them into the
- * message store as tool-call ChatMessage objects so the existing pipeline
- * (merge → annotate → ToolBatchSummary / ToolCallCard) renders them with
- * diffContent, locations, etc.
- */
-export function handleSessionNotification(data: SessionNotificationMessage): void {
+function handleSessionFileWrite(data: SessionFileWriteMessage): void {
+  log.debug("handleSessionFileWrite", {
+    agentId: data.agentId,
+    sessionId: data.sessionId,
+    path: data.path,
+    contentLen: data.content.length,
+  });
+  useFileWriteStore.getState().addWrite(data.agentId, data.sessionId, data.path, data.content);
+}
+
+function handleSessionNotification(data: SessionNotificationMessage): void {
   const { agentId, sessionId, notification } = data;
   const update = notification.update;
   const su = update.sessionUpdate;
@@ -1484,6 +1519,9 @@ export function setupMessageHandlers(): void {
         break;
       case "session/notification":
         handleSessionNotification(data);
+        break;
+      case "session/webviewFileWrite":
+        handleSessionFileWrite(data);
         break;
     }
   });

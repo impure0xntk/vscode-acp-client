@@ -162,9 +162,23 @@ export function AppContainer(): React.ReactElement {
     [activeAgentId, activeSessionId, displayStatus]
   );
 
-  const cancelTurn = useCallback((agentId?: string, sessionId?: string) => {
-    getVsCodeApi().postMessage({ type: "cancelTurn", agentId, sessionId });
-  }, []);
+  const cancelTurn = useCallback((targets?: SendTarget[]) => {
+    if (targets && targets.length > 0) {
+      for (const t of targets) {
+        getVsCodeApi().postMessage({
+          type: "cancelTurn",
+          agentId: t.agentId,
+          sessionId: t.sessionId,
+        });
+      }
+    } else {
+      getVsCodeApi().postMessage({
+        type: "cancelTurn",
+        agentId: activeAgentId,
+        sessionId: activeSessionId,
+      });
+    }
+  }, [activeAgentId, activeSessionId]);
 
   const switchTab = useCallback((agentId: string, sessionId: string) => {
     const key = sessionKeyOf(agentId, sessionId);

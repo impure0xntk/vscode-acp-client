@@ -35,7 +35,7 @@ export interface UnifiedModeProps {
     mode?: import("../../../types").CommunicationMode | null,
     teamId?: string
   ) => void;
-  onCancel: () => void;
+  onCancel: (targets?: SendTarget[]) => void;
   onSwitchSession: (agentId: string, sessionId: string) => void;
   onRenameSession?: (agentId: string, sessionId: string, title: string) => void;
   onNewSession: () => void;
@@ -285,10 +285,8 @@ export const UnifiedMode = React.memo(function UnifiedMode({
         tabs={tabs}
         activeSessionKey={activeSessionKey}
         connectedAgents={connectedAgents}
-        overviewItems={{}}
         onTabClick={handleTabClick}
         onTabClose={handleTabClose}
-        onTabReorder={() => {}}
         onNewSession={onNewSession}
         onRenameSession={onRenameSession}
         pinnedSessionKeys={pinnedSessionKeys}

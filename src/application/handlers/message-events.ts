@@ -8,6 +8,7 @@ import type { ChatPresenter } from "../../infrastructure/vscode/vscode-ui/presen
 import type { AgentStatusTracker } from "../../adapter/agent/status";
 import type { TreeProvider } from "../../infrastructure/vscode/vscode-ui/tree";
 import type { SessionNotification } from "@agentclientprotocol/sdk";
+import type { FileWriteEvent } from "../../adapter/acp/client";
 import { getLogger } from "../../platform/backends";
 import type { MeshOrchestrator } from "../../domain/services/mesh-orchestrator";
 
@@ -234,6 +235,22 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
         usedTokens: usedAfter,
         usedBefore,
       });
+    }
+  );
+
+  // -----------------------------------------------------------------------
+  // File write event — agent wrote a file via ACP fs/write_text_file.
+  // Forward to webview (active session only) so it can aggregate edits
+  // per turn for the file edit summary displayed below the final response.
+  // -----------------------------------------------------------------------
+  orchestrator.on(
+    "fileWrite",
+    (event: FileWriteEvent) => {
+      const { agentId, sessionId, path, content } = event;
+      const activeSessionId = orchestrator.getActiveSessionId(agentId);
+      if (sessionId !== activeSessionId) return;
+      const cp = getChatPanel();
+      cp?.pushFileWrite(agentId, sessionId, path, content);
     }
   );
 }

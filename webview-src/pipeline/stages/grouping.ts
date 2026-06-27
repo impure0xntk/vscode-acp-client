@@ -1,4 +1,10 @@
-import type { ChatDisplayItem, IntermediateStep, PipelineItem } from "../types";
+import type { ChatDisplayItem, FileEditEntry, IntermediateStep, PipelineItem } from "../types";
+import { sessionKeyOf } from "../../store/sessionStore";
+import { useFileWriteStore } from "../../store/fileWriteStore";
+import type { FileWriteRecord } from "../../store/fileWriteStore";
+import { getLogger } from "../../lib/logger";
+
+const log = getLogger("pipeline.grouping");
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -19,12 +25,145 @@ export interface AgentResponseGroup {
    * preceding intermediate step.
    */
   currentStep: IntermediateStep | null;
+  /** All file edits in this turn, merged across steps — shown below final response */
+  turnFileEditSummary?: FileEditEntry[];
 }
 
 export interface GroupedItems {
   groups: AgentResponseGroup[];
   latestGroup: AgentResponseGroup | null;
   trailing: PipelineItem[];
+}
+
+// ── File edit summary extraction ────────────────────────────────────────────
+
+/**
+ * Count lines written by an ACP fs/write_text_file call.
+ * The content is the full file content; count newlines + 1 for the
+ * last line if it doesn't end with \n.
+ */
+export function countWrittenLines(content: string): number {
+  if (!content) return 0;
+  const newlines = (content.match(/\n/g) ?? []).length;
+  return content.endsWith("\n") ? newlines : newlines + 1;
+}
+
+/**
+ * Build a FileEditEntry[] from a slice of FileWriteRecords.
+ * Multiple writes to the same path are merged (line counts summed).
+ */
+function buildSummaryFromWrites(writes: FileWriteRecord[]): FileEditEntry[] | undefined {
+  if (writes.length === 0) return undefined;
+
+  const seen = new Map<string, FileEditEntry>();
+  for (const w of writes) {
+    const lineCount = countWrittenLines(w.content);
+    const existing = seen.get(w.path);
+    if (existing) {
+      existing.lineCount += lineCount;
+    } else {
+      seen.set(w.path, { path: w.path, lineCount, kind: "fs/write_text_file" });
+    }
+  }
+  return Array.from(seen.values());
+}
+
+/**
+ * Build a FileEditEntry[] from all fileWriteStore records for a session.
+ * (Legacy — used only for tests / backward compat.)
+ */
+export function extractFileEditSummaryFromStore(
+  agentId: string,
+  sessionId: string
+): FileEditEntry[] | undefined {
+  const store = useFileWriteStore.getState();
+  const writes = store.getWritesForSession(agentId, sessionId);
+  return buildSummaryFromWrites(writes);
+}
+
+// ── Per-step file edit partitioning ─────────────────────────────────────────
+
+/**
+ * Boundary for partitioning file writes among steps.
+ * `writeSeq` is the file-write sequence counter stamped on the agent message
+ * that begins each step.  Writes with seq in [lo, hi) belong to that step.
+ */
+interface WriteSeqBoundary {
+  /** Inclusive lower bound of write seq for this step */
+  lo: number;
+  /** Exclusive upper bound (next step's lo, or Infinity for the last step) */
+  hi: number;
+}
+
+/**
+ * Compute write-seq boundaries for each step in a group.
+ * Uses the `writeSeq` field stamped on agent messages via the
+ * webview message handler (handleSessionStreamStart etc.).
+ *
+ * For pre-agent steps (agentMessage === null), the lower bound is 0
+ * (writes before any agent message arrived).
+ */
+function computeWriteSeqBoundaries(steps: IntermediateStep[]): WriteSeqBoundary[] {
+  const boundaries: WriteSeqBoundary[] = [];
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    const lo = step.agentMessage?.writeSeq ?? 0;
+    boundaries.push({ lo, hi: Infinity });
+  }
+  // Fill in exclusive upper bounds: each step's hi = next step's lo
+  for (let i = 0; i < boundaries.length - 1; i++) {
+    boundaries[i].hi = boundaries[i + 1].lo;
+  }
+  log.debug("computeWriteSeqBoundaries", {
+    stepCount: steps.length,
+    boundaries: boundaries.map((b) => ({ lo: b.lo, hi: b.hi === Infinity ? "∞" : b.hi })),
+    agentMessageWriteSeqs: steps.map((s) => s.agentMessage?.writeSeq ?? null),
+  });
+  return boundaries;
+}
+
+/**
+ * Attach per-step file edit summaries to an array of IntermediateSteps.
+ * Partitions the session's writes by writeSeq boundaries derived from
+ * each step's agent message.
+ */
+function attachStepFileEditSummaries(
+  steps: IntermediateStep[],
+  agentId: string,
+  sessionId: string
+): void {
+  if (steps.length === 0) return;
+  const store = useFileWriteStore.getState();
+  const allWrites = store.getWritesForSession(agentId, sessionId);
+  if (allWrites.length === 0) {
+    log.debug("attachStepFileEditSummaries: no writes for session", { agentId, sessionId });
+    return;
+  }
+
+  const boundaries = computeWriteSeqBoundaries(steps);
+  log.debug("attachStepFileEditSummaries", {
+    agentId,
+    sessionId,
+    stepCount: steps.length,
+    writeCount: allWrites.length,
+    boundaries: boundaries.map((b) => ({ lo: b.lo, hi: b.hi === Infinity ? "∞" : b.hi })),
+    writeSeqs: allWrites.map((w) => w.seq),
+    stepWriteSeqs: steps.map((s) => s.agentMessage?.writeSeq ?? null),
+  });
+
+  for (let i = 0; i < steps.length; i++) {
+    const { lo, hi } = boundaries[i];
+    const stepWrites = allWrites.filter((w) => w.seq >= lo && w.seq < hi);
+    const summary = buildSummaryFromWrites(stepWrites);
+    if (summary) {
+      log.debug("attachStepFileEditSummaries: summary attached to step", {
+        stepIndex: i,
+        isPreAgent: steps[i].isPreAgent,
+        files: summary.map((s) => `${s.path} (+${s.lineCount})`),
+      });
+      steps[i] = { ...steps[i], fileEditSummary: summary };
+    }
+  }
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -56,6 +195,23 @@ function isThinking(item: PipelineItem): boolean {
     (item as ChatDisplayItem).thinking != null
   );
 }
+
+/**
+ * Extract agentId and sessionId from the first chat item that carries them.
+ */
+function sessionOfItems(items: PipelineItem[]): { agentId: string; sessionId: string } {
+  for (const item of items) {
+    if (item.type === "chat") {
+      const chat = item as ChatDisplayItem;
+      if (chat.agentId && chat.sessionId) {
+        return { agentId: chat.agentId, sessionId: chat.sessionId };
+      }
+    }
+  }
+  return { agentId: "", sessionId: "" };
+}
+
+// ── IntermediateStepGrouper ─────────────────────────────────────────────────
 
 /**
  * IntermediateStepGrouper groups PipelineItems by user-message boundaries
@@ -235,9 +391,30 @@ function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
       : latestAgentChats;
   const latestSteps = splitIntoSteps(latestIntermediateItems, null);
 
-  // currentStep = final response + subsequent tool calls (if any).
-  // When tool calls follow the final response, they are rendered as part of
-  // the current step, not folded into the banner.
+  // Attach per-step file edit summaries.
+  // The finalResponse acts as a virtual step for partitioning: its writeSeq
+  // defines the boundary between intermediate steps and the final step.
+  const latestSession = sessionOfItems(afterLastUser);
+  const finalStepForPartition: IntermediateStep | null = latestFinal
+    ? {
+        agentMessage: latestFinal.item as ChatDisplayItem,
+        toolCalls: [],
+        isPreAgent: false,
+      }
+    : null;
+  const allStepsForPartition = finalStepForPartition
+    ? [...latestSteps, finalStepForPartition]
+    : latestSteps;
+  attachStepFileEditSummaries(allStepsForPartition, latestSession.agentId, latestSession.sessionId);
+
+  const finalStepSummary = finalStepForPartition
+    ? allStepsForPartition[allStepsForPartition.length - 1].fileEditSummary
+    : undefined;
+  const partitionedLatestSteps = finalStepForPartition
+    ? allStepsForPartition.slice(0, -1)
+    : allStepsForPartition;
+
+  // currentStep with file edits for the final step
   let latestCurrentStep: IntermediateStep | null = null;
   if (latestFinal && latestFinalIdx >= 0) {
     const postFinalItems = latestAgentChats.slice(latestFinalIdx + 1);
@@ -246,15 +423,29 @@ function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
         agentMessage: latestFinal.item as ChatDisplayItem,
         toolCalls: postFinalItems as ChatDisplayItem[],
         isPreAgent: false,
+        fileEditSummary: finalStepSummary,
       };
     }
   }
 
+  // Turn-level file edit summary: ALL writes for this session merged
+  const latestTurnSummary = buildSummaryFromWrites(
+    useFileWriteStore.getState().getWritesForSession(latestSession.agentId, latestSession.sessionId)
+  ) ?? undefined;
+
   const latestGroup: AgentResponseGroup = {
     userItem: items[lastUserIdx],
-    steps: latestSteps,
+    steps: partitionedLatestSteps,
     finalResponse: latestFinal,
-    currentStep: latestCurrentStep,
+    currentStep: latestCurrentStep ?? (finalStepSummary
+      ? {
+          agentMessage: latestFinal!.item as ChatDisplayItem,
+          toolCalls: [],
+          isPreAgent: false,
+          fileEditSummary: finalStepSummary,
+        }
+      : null),
+    turnFileEditSummary: latestTurnSummary,
   };
 
   const groups: AgentResponseGroup[] = [];
@@ -280,11 +471,21 @@ function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
         : groupItems;
     const steps = splitIntoSteps(intermediateItems, null);
 
+    // Attach per-step file edit summaries
+    const turnSession = sessionOfItems(groupItems);
+    attachStepFileEditSummaries(steps, turnSession.agentId, turnSession.sessionId);
+
+    // Turn-level file edit summary: ALL writes for this session merged
+    const turnSummary = buildSummaryFromWrites(
+      useFileWriteStore.getState().getWritesForSession(turnSession.agentId, turnSession.sessionId)
+    ) ?? undefined;
+
     groups.push({
       userItem: items[startIdx],
       steps,
       finalResponse: final,
       currentStep: null,
+      turnFileEditSummary: turnSummary,
     });
   }
 

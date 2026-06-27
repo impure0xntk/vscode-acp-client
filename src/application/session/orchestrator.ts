@@ -141,6 +141,9 @@ export class SessionOrchestrator extends EventEmitter {
         this.sessionState.removeAgent(agentId);
         this.emit("agentDisconnected", agentId);
       },
+      onFileWrite: (event) => {
+        this.emit("fileWrite", event);
+      },
     });
 
     // Now update all cross-references

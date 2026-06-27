@@ -140,6 +140,11 @@ export interface ChatMessage {
   compressionInfo?: SessionCompressionInfo;
   /** ACP stopReason from session/prompt response — signals end of turn */
   stopReason?: string;
+  /**
+   * File-write sequence counter at the time this message was created/finalized.
+   * Used by grouping.ts to partition file writes per step.
+   */
+  writeSeq?: number;
 }
 
 export interface TokenUsage {

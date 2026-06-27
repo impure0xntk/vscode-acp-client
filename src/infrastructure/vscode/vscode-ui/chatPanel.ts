@@ -354,6 +354,21 @@ export class ChatPanel {
     });
   }
 
+  pushFileWrite(
+    agentId: string,
+    sessionId: string,
+    path: string,
+    content: string
+  ): void {
+    this.postMessage({
+      type: "session/webviewFileWrite",
+      agentId,
+      sessionId,
+      path,
+      content,
+    });
+  }
+
   pushSessionUsage(
     agentId: string,
     sessionId: string,

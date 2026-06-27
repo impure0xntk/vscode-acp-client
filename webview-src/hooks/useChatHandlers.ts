@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import type { ContextAttachment } from "../types";
+import type { ContextAttachment, SendTarget } from "../types";
 
 interface ChatHandlerDeps {
   activeAgentId: string | null;
@@ -10,7 +10,7 @@ interface ChatHandlerDeps {
     agentId?: string,
     sessionId?: string
   ) => void;
-  cancelTurn: (agentId?: string, sessionId?: string) => void;
+  cancelTurn: (targets?: SendTarget[]) => void;
   forceScrollToBottomRef: React.MutableRefObject<(() => void) | undefined>;
 }
 
@@ -39,9 +39,12 @@ export function useChatHandlers(deps: ChatHandlerDeps) {
     [sendMessage, activeAgentId, activeSessionId, forceScrollToBottomRef]
   );
 
-  const handleCancel = useCallback(() => {
-    cancelTurn(activeAgentId ?? undefined, activeSessionId ?? undefined);
-  }, [cancelTurn, activeAgentId, activeSessionId]);
+  const handleCancel = useCallback(
+    (targets?: SendTarget[]) => {
+      cancelTurn(targets);
+    },
+    [cancelTurn]
+  );
 
   return useMemo(
     () => ({ handleSend, handleCancel }),

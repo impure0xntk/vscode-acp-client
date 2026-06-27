@@ -22,6 +22,17 @@ import type { UIAPI, QuickPickItem } from "../../platform/ui";
 
 const log = getLogger("protocol");
 
+/**
+ * Event emitted when the agent writes a file via ACP fs/write_text_file.
+ * Contains the file path and content for line counting.
+ */
+export interface FileWriteEvent {
+  agentId: string;
+  sessionId: string;
+  path: string;
+  content: string;
+}
+
 export interface AcpClientDeps {
   fs: FileSystemAPI;
   ui: UIAPI;
@@ -43,7 +54,8 @@ export class PlatformAcpClient implements Client {
     private readonly onRequestPermission: (
       agentId: string,
       request: RequestPermissionRequest
-    ) => Promise<RequestPermissionResponse>
+    ) => Promise<RequestPermissionResponse>,
+    private readonly onFileWrite?: (event: FileWriteEvent) => void
   ) {
     this.deps = deps;
   }
@@ -105,6 +117,14 @@ export class PlatformAcpClient implements Client {
       contentLen: params.content.length,
     });
     await this.deps.fs.writeFile(params.path, params.content);
+    // Notify extension host about the file write so the webview can
+    // aggregate edits for the turn summary.
+    this.onFileWrite?.({
+      agentId: this.agentId,
+      sessionId: params.sessionId,
+      path: params.path,
+      content: params.content,
+    });
     return {};
   }
 
