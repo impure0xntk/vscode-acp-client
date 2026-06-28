@@ -4,51 +4,7 @@ import type { FileEditEntry } from "../../pipeline/types";
 import { getVsCodeApi } from "../../lib/vscodeApi";
 import { useFileWriteStore } from "../../store/fileWriteStore";
 import type { ContextAttachment } from "../../types";
-
-// ── Shared helpers ─────────────────────────────────────────────────────────
-
-function getFileExtension(path: string): string {
-  const parts = path.split("/");
-  const filename = parts[parts.length - 1] ?? path;
-  const dotIdx = filename.lastIndexOf(".");
-  return dotIdx >= 0 ? filename.slice(dotIdx + 1).toLowerCase() : "";
-}
-
-function fileIcon(ext: string): string {
-  switch (ext) {
-    case "ts":
-    case "tsx":
-    case "js":
-    case "jsx":
-      return "TS";
-    case "py":
-      return "PY";
-    case "rs":
-      return "RS";
-    case "go":
-      return "GO";
-    case "java":
-      return "JV";
-    case "c":
-    case "cpp":
-    case "h":
-    case "hpp":
-      return "C";
-    case "md":
-      return "MD";
-    case "json":
-      return "{}";
-    case "yaml":
-    case "yml":
-      return "Y";
-    case "toml":
-      return "T";
-    case "nix":
-      return "N";
-    default:
-      return "•";
-  }
-}
+import { FileIcon, getFileExtension } from "../primitives";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -231,7 +187,6 @@ function FileEditRow({
   agentId,
   onAttachDiff,
 }: FileEditRowProps): React.ReactElement {
-  const ext = getFileExtension(entry.path);
   const basename = entry.path.split("/").pop() ?? entry.path;
   const dirPath = entry.path.slice(0, -(basename.length + 1));
   const isExpanded = state.expanded;
@@ -374,9 +329,7 @@ function FileEditRow({
         />
 
         {/* File icon badge */}
-        <span className="inline-flex items-center justify-center w-[18px] h-[13px] rounded-[2px] font-mono text-[8px] font-bold leading-none bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-fg-secondary flex-shrink-0">
-          {fileIcon(ext)}
-        </span>
+        <FileIcon path={entry.path} />
 
         {/* Path */}
         <span className="flex-1 min-w-0 flex items-baseline gap-0.5 text-[11px] leading-tight">
