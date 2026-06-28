@@ -56,7 +56,7 @@ export class ProtocolHandler {
     this.deps = deps;
   }
 
-  private flushTextBatch(agentId: string, sessionId: string): void {
+  private flushTextBatch(agentId: string, sessionId: string, silent = false): void {
     const sKey = sessionKey(agentId, sessionId);
     const batch = this.pendingTextBatch.get(sKey);
     if (!batch) return;
@@ -76,7 +76,7 @@ export class ProtocolHandler {
     const sessionInfo = this.deps.sessionState.getSessionInfo(agentId, sessionId);
     if (!sessionInfo) return;
 
-    if (!sessionInfo.isStreaming) {
+    if (!silent && !sessionInfo.isStreaming) {
       sessionInfo.isStreaming = true;
       this.deps.emit("sessionStreamStart", { agentId, sessionId });
     }
@@ -193,14 +193,14 @@ export class ProtocolHandler {
     }
 
     if (kind === "session_info_update" || kind === "usage_update") {
-      this.flushTextBatch(agentId, sessionId);
-      this.flushThoughts(agentId, sessionId);
+      this.flushTextBatch(agentId, sessionId, true);
+      this.flushThoughts(agentId, sessionId, true);
     }
 
     this.deps.emit("sessionUpdate", { agentId, sessionId, notification });
   }
 
-  private flushThoughts(agentId: string, sessionId: string): void {
+  private flushThoughts(agentId: string, sessionId: string, silent = false): void {
     const sKey = sessionKey(agentId, sessionId);
     const buffered = this.pendingThoughts.get(sKey);
     if (!buffered || buffered.length === 0) {
@@ -212,9 +212,9 @@ export class ProtocolHandler {
     const sessionInfo = this.deps.sessionState.getSessionInfo(agentId, sessionId);
     if (!sessionInfo) return;
 
-    this.flushTextBatch(agentId, sessionId);
+    this.flushTextBatch(agentId, sessionId, silent);
 
-    if (!sessionInfo.isStreaming) {
+    if (!silent && !sessionInfo.isStreaming) {
       sessionInfo.isStreaming = true;
       this.deps.emit("sessionStreamStart", { agentId, sessionId });
     }

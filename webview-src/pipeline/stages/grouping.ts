@@ -28,6 +28,8 @@ export interface AgentResponseGroup {
 }
 
 export interface GroupedItems {
+  /** Items before the first user message (system notices, etc.) */
+  leading: PipelineItem[];
   groups: AgentResponseGroup[];
   latestGroup: AgentResponseGroup | null;
   trailing: PipelineItem[];
@@ -422,8 +424,12 @@ function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
   }
 
   if (userIndices.length === 0) {
-    return { groups: [], latestGroup: null, trailing: [] };
+    return { leading: items, groups: [], latestGroup: null, trailing: [] };
   }
+
+  // Items before the first user message (system notices, compression, etc.)
+  const firstUserIdx = userIndices[0];
+  const leading = items.slice(0, firstUserIdx);
 
   const lastUserIdx = userIndices[userIndices.length - 1];
   const afterLastUser = items.slice(lastUserIdx + 1);
@@ -567,7 +573,7 @@ function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
     });
   }
 
-  return { groups, latestGroup, trailing };
+  return { leading, groups, latestGroup, trailing };
 }
 
 /**

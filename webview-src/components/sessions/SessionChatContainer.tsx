@@ -186,7 +186,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
 
   const newCount = newKeys.size;
 
-  const { groups, latestGroup, trailing } = useMemo(
+  const { leading, groups, latestGroup, trailing } = useMemo(
     () => new IntermediateStepGrouper(items).compute(),
     [items]
   );
@@ -477,6 +477,19 @@ export const SessionChatContainer = memo(function SessionChatContainer({
               className={`flex flex-col gap-0.5${isStreaming ? " [&>*:last-child]:animate-blink" : ""}`}
             data-new-count={newCount > 0 ? newCount : undefined}
           >
+            {/* Leading items — system notices, compression, etc. before first user message */}
+            {leading.map((item, idx) => (
+              <DisplayItemView
+                key={item.key}
+                item={item}
+                idx={idx}
+                items={leading}
+                sessionId={sessionId}
+                agentId={agentId}
+                isNew={newKeys.has(item.key)}
+              />
+            ))}
+
             {/* Past groups */}
             {groups.map((group) => {
               const expanded = isGroupExpanded(group);
