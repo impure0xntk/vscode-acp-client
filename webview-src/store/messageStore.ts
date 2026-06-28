@@ -1,6 +1,7 @@
-import { create } from "zustand";
+import { create, type StoreApi } from "zustand";
 import type { ChatMessage, QueuedPrompt } from "../types";
 import { getLogger } from "../lib/logger";
+import { useFileWriteStore } from "./fileWriteStore";
 
 const log = getLogger("webview.store.message");
 
@@ -44,7 +45,7 @@ export interface MessageState {
   addQueuedPrompt: (key: string, entry: QueuedPrompt) => void;
 }
 
-export const useMessageStore = create<MessageState>((set) => ({
+export const useMessageStore: StoreApi<MessageState> = create<MessageState>((set) => ({
   perSession: {},
   streaming: {},
   promptQueue: {},
@@ -113,34 +114,19 @@ export const useMessageStore = create<MessageState>((set) => ({
 
       let newMessages: ChatMessage[];
       if (shouldMergeIntoLast) {
-        // Same-agent in-progress stream: append in-place
+        // Same-agent in-progress stream: append in-place.
+        // Preserve existing writeSeq (set by handleSessionStreamStart).
         const merged = chunks.join("");
         const updatedLast: ChatMessage = {
           ...lastMsg,
           content: lastMsg.content + merged,
         };
         newMessages = [...existing.slice(0, -1), updatedLast];
-      } else if (lastMsg !== null && lastMsg.role === "agent" && lastMsg.agentId !== agentId) {
-        // Different agent: each chunk becomes a separate message
-        newMessages = existing;
-        for (const chunk of chunks) {
-          newMessages = [
-            ...newMessages,
-            {
-              id: crypto.randomUUID(),
-              role: "agent",
-              content: chunk,
-              timestamp: Date.now(),
-              agentId,
-              sessionId,
-            },
-          ];
-        }
       } else {
-        // Last message is tool/user/system/completed-agent, or no messages yet:
-        // each chunk becomes a separate ChatMessage.  This enables the pipeline
-        // to treat each as an intermediate step when a tool_call boundary
-        // separates them within the same turn.
+        // Different agent, or last message is tool/user/system/completed-agent:
+        // each chunk becomes a separate ChatMessage.  Stamp writeSeq so the
+        // pipeline's attachStepFileEditSummaries can partition writes per step.
+        const writeSeq = useFileWriteStore.getState().currentSeq();
         newMessages = existing;
         for (const chunk of chunks) {
           newMessages = [
@@ -152,6 +138,7 @@ export const useMessageStore = create<MessageState>((set) => ({
               timestamp: Date.now(),
               agentId,
               sessionId,
+              writeSeq,
             },
           ];
         }
@@ -177,12 +164,15 @@ export const useMessageStore = create<MessageState>((set) => ({
         (lastMsg.stopReason == null || lastMsg.stopReason === "");
       let newMessages: ChatMessage[];
       if (shouldAppend) {
+        // Preserve existing writeSeq (set by handleSessionStreamStart).
         const updatedLast: ChatMessage = {
           ...lastMsg,
           content: lastMsg.content + chunk,
         };
         newMessages = [...existing.slice(0, -1), updatedLast];
       } else {
+        // Stamp writeSeq so the pipeline can partition writes per step.
+        const writeSeq = useFileWriteStore.getState().currentSeq();
         newMessages = [
           ...existing,
           {
@@ -192,6 +182,7 @@ export const useMessageStore = create<MessageState>((set) => ({
             timestamp: Date.now(),
             agentId,
             sessionId,
+            writeSeq,
           },
         ];
       }
@@ -230,8 +221,9 @@ export const useMessageStore = create<MessageState>((set) => ({
       return state;
     }),
 
-  getLastAgentMessage: (key) => {
-    const existing = useMessageStore.getState().perSession[key];
+  getLastAgentMessage: (key: string): ChatMessage | null => {
+    const state = useMessageStore.getState();
+    const existing: ChatMessage[] | undefined = state.perSession[key];
     if (!existing || existing.length === 0) return null;
     for (let i = existing.length - 1; i >= 0; i--) {
       if (existing[i].role === "agent") return existing[i];

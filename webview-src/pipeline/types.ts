@@ -77,13 +77,15 @@ export interface RenderContext {
 export interface FileEditEntry {
   /** Absolute or workspace-relative file path */
   path: string;
-  /** Number of written lines (from params.content newline count) */
+  /** Number of added lines (LCS-based diff from original → latest written) */
   lineCount: number;
+  /** Number of deleted lines (LCS-based diff from original → latest written) */
+  deletedLines: number;
   /** Tool kind — always "fs/write_text_file" for ACP filesystem writes */
   kind: string;
-  /** Original content before this write (for revert/diff) */
+  /** Original content before this write (for revert/diff) — oldest across all steps for this path */
   originalContent: string | null;
-  /** Written content after the agent write (for inline diff preview) */
+  /** Latest written content across all steps for this path (for inline diff preview) */
   writtenContent: string | null;
 }
 

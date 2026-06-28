@@ -1299,7 +1299,7 @@ function handleSessionNotification(data: SessionNotificationMessage): void {
     // separate cards instead of being merged into a single batch.
     if (existingMsgs) {
       const alreadyExists = existingMsgs.some(
-        (m) => m.role === "tool" && m.toolCalls?.some((tc) => tc.id === tcId),
+        (m: ChatMessage) => m.role === "tool" && m.toolCalls?.some((tc) => tc.id === tcId),
       );
       if (alreadyExists) {
         log.debug("handleSessionNotification: skipping duplicate tool_call", { msgKey, tcId });

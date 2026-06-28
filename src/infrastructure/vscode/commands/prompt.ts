@@ -822,10 +822,12 @@ export function wireChatPanelEvents(
           }
 
           if (typeof originalContent === "string") {
-            // Write original content to a temp file and open diff view only.
+            // Write original content to a temp directory, but keep the original
+            // filename so that VS Code's language detection (syntax highlighting)
+            // works correctly in the diff editor.
             const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "acp-diff-"));
-            const tmpFileName = `.${path.basename(absPath)}.original`;
-            const tmpFilePath = path.join(tmpDir, tmpFileName);
+            const originalFileName = path.basename(absPath);
+            const tmpFilePath = path.join(tmpDir, originalFileName);
             fs.writeFileSync(tmpFilePath, originalContent, "utf8");
             const originalUri = vscode.Uri.file(tmpFilePath);
 

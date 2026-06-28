@@ -205,7 +205,8 @@ export const SessionChatContainer = memo(function SessionChatContainer({
   // Debug: log latestGroup state at render time
   {
     const lg = latestGroup;
-    const gk = (e: { path: string; lineCount: number }) => `${e.path} (+${e.lineCount})`;
+    const gk = (e: { path: string; lineCount: number; deletedLines: number }) =>
+      `${e.path} (+${e.lineCount}${e.deletedLines > 0 ? ` -${e.deletedLines}` : ''})`;
     console.log("[FileEditDebug] render", {
       sessionKey,
       itemCount: items.length,

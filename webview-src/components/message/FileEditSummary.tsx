@@ -1,4 +1,5 @@
-import React, { useCallback, useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect, useMemo } from "react";
+import { createTwoFilesPatch } from "diff";
 import type { FileEditEntry } from "../../pipeline/types";
 import { fileIcon, getFileExtension } from "./ToolCallCard";
 import { getVsCodeApi } from "../../lib/vscodeApi";
@@ -30,16 +31,10 @@ function buildUnifiedDiff(
 ): string {
   const origSrc = original ?? "";
   const newSrc = writtenContent ?? "";
-  const origLines = origSrc.split("\n");
-  const newLines = newSrc.split("\n");
-  const header = `--- a/${filePath}\n+++ b/${filePath}\n`;
-  const hunk = `@@ -1,${origLines.length} +1,${newLines.length} @@\n`;
-  const removed = origLines.map((l) => `-${l}`).join("\n");
-  const added = newLines.map((l) => `+${l}`).join("\n");
-  const parts: string[] = [];
-  if (removed) parts.push(removed);
-  if (added) parts.push(added);
-  return header + hunk + parts.join("\n");
+  // Use Myers algorithm via `diff` package for accurate line-level diff
+  return createTwoFilesPatch(filePath, filePath, origSrc, newSrc, undefined, undefined, {
+    context: 3,
+  });
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -77,6 +72,7 @@ export function FileEditSummary({
   }, []);
 
   const totalLines = entries.reduce((s, e) => s + e.lineCount, 0);
+  const totalDeleted = entries.reduce((s, e) => s + e.deletedLines, 0);
 
   return (
     <div className="ml-4 mr-1 mt-1 mb-1 rounded-md border border-[color-mix(in_srgb,var(--border)_60%,transparent)] bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)] overflow-hidden">
@@ -92,7 +88,8 @@ export function FileEditSummary({
           {entries.length}
         </span>
         <span className="text-[10px] font-mono text-fg-muted flex-shrink-0">
-          +{totalLines}
+          <span className="text-success">+{totalLines}</span>
+          {totalDeleted > 0 && <span className="text-error"> -{totalDeleted}</span>}
         </span>
       </button>
 
@@ -216,11 +213,14 @@ function FileEditRow({
       e.stopPropagation();
       if (!agentId || !sessionId || !onAttachDiff) return;
       const diffContent = buildUnifiedDiff(originalContent ?? "", entry.path, entry.writtenContent ?? null);
+      const labelSuffix = entry.deletedLines > 0
+        ? ` (+${entry.lineCount} -${entry.deletedLines})`
+        : ` (+${entry.lineCount})`;
       const attachment: ContextAttachment = {
         id: `diff:${entry.path}:${Date.now()}`,
         type: "diff",
         path: entry.path,
-        label: `${basename} (+${entry.lineCount})`,
+        label: `${basename}${labelSuffix}`,
         lineRange: undefined,
         tokenCount: Math.ceil(diffContent.length / 4),
         content: diffContent,
@@ -249,9 +249,12 @@ function FileEditRow({
   );
 
   const canRevert = originalContent != null;
-  const diffContent = isExpanded
-    ? buildUnifiedDiff(originalContent ?? "", entry.path, entry.writtenContent ?? null)
-    : "";
+  const diffContent = useMemo(
+    () => isExpanded
+      ? buildUnifiedDiff(originalContent ?? "", entry.path, entry.writtenContent ?? null)
+      : "",
+    [isExpanded, originalContent, entry.path, entry.writtenContent],
+  );
 
   return (
     <div className="border-b border-[color-mix(in_srgb,var(--border)_20%,transparent)] last:border-b-0">
@@ -286,6 +289,9 @@ function FileEditRow({
         {/* Line count badge */}
         <span className="inline-flex items-center gap-0.5 flex-shrink-0">
           <span className="text-[10px] font-mono font-semibold text-success">+{entry.lineCount}</span>
+          {entry.deletedLines > 0 && (
+            <span className="text-[10px] font-mono font-semibold text-error">-{entry.deletedLines}</span>
+          )}
         </span>
 
         {/* Stale indicator */}

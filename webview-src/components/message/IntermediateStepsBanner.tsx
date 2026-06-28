@@ -63,7 +63,7 @@ function stepLabel(step: IntermediateStep): string {
     return "Thinking";
   }
   if (step.toolCalls.length > 0) {
-    return `Tool call${step.toolCalls.length > 1 ? `s (${step.toolCalls.length})` : ""}`;
+    return "Tool call";
   }
   return "Step";
 }

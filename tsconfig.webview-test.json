@@ -30,8 +30,7 @@
     "webview-src/types.ts",
     "webview-src/lib/**/*",
     "webview-src/hooks/**/*",
-    "webview-src/pipeline/**/*",
-    "webview-src/util/**/*"
+    "webview-src/pipeline/**/*"
   ],
   "exclude": ["node_modules", "out", "dist"]
 }

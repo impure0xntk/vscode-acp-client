@@ -38,42 +38,91 @@ export interface GroupedItems {
 // ── File edit summary extraction ────────────────────────────────────────────
 
 /**
- * Count lines written by an ACP fs/write_text_file call.
- * The content is the full file content; count newlines + 1 for the
- * last line if it doesn't end with \n.
+ * Compute LCS-based line-level diff between original and new content.
+ * Returns counts of added and deleted lines.
+ *
+ * Uses a simple LCS (Longest Common Subsequence) algorithm optimized
+ * for typical file diffs where lines are mostly preserved.
  */
-export function countWrittenLines(content: string): number {
-  if (!content) return 0;
-  const newlines = (content.match(/\n/g) ?? []).length;
-  return content.endsWith("\n") ? newlines : newlines + 1;
+export function computeLineDiff(
+  original: string | null,
+  newContent: string | null,
+): { added: number; deleted: number } {
+  if (original === newContent) return { added: 0, deleted: 0 };
+
+  const origLines = (original ?? "").split("\n");
+  const newLines = (newContent ?? "").split("\n");
+
+  // Handle empty cases
+  if (origLines.length === 1 && origLines[0] === "" && newLines.length === 1 && newLines[0] === "") {
+    return { added: 0, deleted: 0 };
+  }
+  if (origLines.length === 1 && origLines[0] === "") {
+    // All lines are additions
+    return { added: newLines[newLines.length - 1] === "" ? newLines.length - 1 : newLines.length, deleted: 0 };
+  }
+  if (newLines.length === 1 && newLines[0] === "") {
+    // All lines are deletions
+    return { added: 0, deleted: origLines[origLines.length - 1] === "" ? origLines.length - 1 : origLines.length };
+  }
+
+  // LCS using dynamic programming with O(n*m) time, O(min(n,m)) space
+  // We use a rolling array to minimize memory
+  const m = origLines.length;
+  const n = newLines.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (origLines[i - 1] === newLines[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1] + 1;
+      } else {
+        dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+      }
+    }
+  }
+
+  const lcsLength = dp[m][n];
+  const deleted = m - lcsLength;
+  const added = n - lcsLength;
+
+  return { added, deleted };
 }
 
 /**
  * Build a FileEditEntry[] from a slice of FileWriteRecords.
  * Multiple writes to the same path are merged (line counts summed).
  * Original content is taken from the first write to each path.
+ * Line counts are computed using LCS-based diff for accuracy.
  */
 function buildSummaryFromWrites(writes: FileWriteRecord[]): FileEditEntry[] | undefined {
   if (writes.length === 0) return undefined;
 
   const seen = new Map<string, FileEditEntry>();
   for (const w of writes) {
-    const lineCount = countWrittenLines(w.content);
     const existing = seen.get(w.path);
     if (existing) {
-      existing.lineCount += lineCount;
       // Later writes override earlier written content
       existing.writtenContent = w.content;
     } else {
       seen.set(w.path, {
         path: w.path,
-        lineCount,
+        lineCount: 0,
+        deletedLines: 0,
         kind: "fs/write_text_file",
         originalContent: w.originalContent,
         writtenContent: w.content,
       });
     }
   }
+
+  // Now compute accurate line counts using diff between original and latest written
+  for (const entry of seen.values()) {
+    const { added, deleted } = computeLineDiff(entry.originalContent, entry.writtenContent);
+    entry.lineCount = added;
+    entry.deletedLines = deleted;
+  }
+
   return Array.from(seen.values());
 }
 
