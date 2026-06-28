@@ -279,12 +279,19 @@ export const SessionChatContainer = memo(function SessionChatContainer({
   const onScrollRef = useRef(onScroll);
   onScrollRef.current = onScroll;
 
+  // Throttle for MutationObserver: skip during streaming, RAF-batch otherwise
+  const scrollRafIdRef = useRef<number | null>(null);
+  const scrollPendingRef = useRef(false);
+
   /**
    * Recompute isAtBottom / readUpTo from current DOM state.
    * Called by the scroll handler, the MutationObserver, and the
    * IntermediateStepsBanner onExpandSettled callback so that layout
    * changes caused by intermediate-step toggles are handled identically
    * to user-initiated scrolling.
+   *
+   * During streaming, scroll state is recomputed at most once per frame
+   * to avoid reflow storms from high-frequency DOM mutations.
    */
   const recomputeScrollState = useCallback(() => {
     const el = containerRef.current;
@@ -318,16 +325,44 @@ export const SessionChatContainer = memo(function SessionChatContainer({
     });
   }, []);
 
+  /**
+   * Schedule a throttled scroll recompute via RAF.
+   * Coalesces multiple calls within a single frame into one execution.
+   */
+  const scheduleScrollRecompute = useCallback(() => {
+    if (scrollRafIdRef.current != null) {
+      scrollPendingRef.current = true;
+      return;
+    }
+    scrollRafIdRef.current = requestAnimationFrame(() => {
+      scrollRafIdRef.current = null;
+      recomputeScrollState();
+      // If more mutations arrived during the frame, schedule another
+      if (scrollPendingRef.current) {
+        scrollPendingRef.current = false;
+        scheduleScrollRecompute();
+      }
+    });
+  }, [recomputeScrollState]);
+
   const handleScroll = useCallback(() => {
     recomputeScrollState();
   }, [recomputeScrollState]);
+
+  // Track streaming state for MutationObserver suppression
+  const isStreamingRef = useRef(isStreaming);
+  isStreamingRef.current = isStreaming;
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
     const observer = new MutationObserver(() => {
-      requestAnimationFrame(() => recomputeScrollState());
+      // During streaming, scroll state is updated via the message count
+      // effect below (msgCountRef) — skip MutationObserver to avoid
+      // reflow storms from high-frequency DOM mutations.
+      if (isStreamingRef.current) return;
+      scheduleScrollRecompute();
     });
 
     observer.observe(el, {
@@ -338,19 +373,29 @@ export const SessionChatContainer = memo(function SessionChatContainer({
     });
 
     return () => observer.disconnect();
-  }, [recomputeScrollState]);
+  }, [scheduleScrollRecompute]);
 
   const msgCountRef = useRef(0);
   useEffect(() => {
-    if (!sessionKey || !isAtBottom) return;
+    if (!sessionKey) return;
     const ids = useMessageStore.getState().perSession[sessionKey];
     const len = ids?.length ?? 0;
     if (len <= msgCountRef.current) return;
     msgCountRef.current = len;
     const store = useScrollStateStore.getState();
     const newestId = ids && ids.length > 0 ? ids[ids.length - 1].id : null;
-    store.setReadUpTo(sessionKey, newestId);
-  }, [sessionKey, isAtBottom, unreadCount]);
+
+    if (isAtBottom) {
+      store.setReadUpTo(sessionKey, newestId);
+    }
+
+    // During streaming, use this effect (triggered by message count change)
+    // to update scroll state instead of MutationObserver.  This runs at most
+    // once per store update (already RAF-batched by scheduleStreamFlush).
+    if (isStreaming) {
+      scheduleScrollRecompute();
+    }
+  }, [sessionKey, isAtBottom, unreadCount, isStreaming, scheduleScrollRecompute]);
 
   const handleScrollToBottom = useCallback(() => {
     const wrapper = wrapperRef.current?.querySelector(

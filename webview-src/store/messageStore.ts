@@ -92,35 +92,77 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>((set
    * chunks are appended in-place — this is the common case during
    * high-frequency streaming where chunks belong to the same logical message.
    *
-   * When the last message is NOT an in-progress agent stream (e.g. it is a
-   * tool, user, or completed agent), each chunk becomes a SEPARATE ChatMessage.
-   * This is critical for intermediate-step handling: after a tool_call is
-   * flushed, the next agent_message_chunk starts a new logical message, and
-   * the pipeline's groupByUserBoundary can classify it as a separate
-   * intermediate step rather than merging it into the previous response.
+   * When the last message is a tool message that arrived mid-stream
+   * (between agent message chunks), we look back to find the last agent
+   * message without stopReason and merge into it. This prevents message
+   * fragmentation where tool_call notifications between agent_message_chunk
+   * deliveries would otherwise cause subsequent chunks to become separate
+   * ChatMessages instead of continuing the in-progress agent response.
+   *
+   * Only when there is truly no in-progress agent message to merge into
+   * (e.g. last message is user, system, or completed agent), each chunk
+   * becomes a SEPARATE ChatMessage — this is the correct behavior for
+   * intermediate-step boundaries.
    */
   appendStreamChunks: (key, agentId, sessionId, chunks: string[]) =>
     set((state) => {
       if (chunks.length === 0) return state;
       const existing = state.perSession[key] ?? [];
       const lastMsg = existing.length > 0 ? existing[existing.length - 1] : null;
+
+      // Check if the last message is directly mergeable
       const shouldMergeIntoLast =
         lastMsg !== null &&
         lastMsg.role === "agent" &&
         lastMsg.agentId === agentId &&
         (lastMsg.stopReason == null || lastMsg.stopReason === "");
 
+      // If not directly mergeable, look back past tool messages to find
+      // an in-progress agent message to merge into. This handles the case
+      // where tool_call notifications arrive between agent_message_chunk
+      // deliveries during streaming.
+      let mergeTargetIdx = -1;
+      if (!shouldMergeIntoLast && lastMsg !== null) {
+        for (let i = existing.length - 1; i >= 0; i--) {
+          const m = existing[i];
+          if (
+            m.role === "agent" &&
+            m.agentId === agentId &&
+            (m.stopReason == null || m.stopReason === "")
+          ) {
+            mergeTargetIdx = i;
+            break;
+          }
+          // Stop looking if we hit a user message or completed agent
+          if (m.role === "user" || m.role === "system") break;
+          if (m.role === "agent" && m.stopReason != null && m.stopReason !== "") break;
+        }
+      }
+
+      const effectiveMerge = shouldMergeIntoLast || mergeTargetIdx >= 0;
+
       let newMessages: ChatMessage[];
-      if (shouldMergeIntoLast) {
-        // Preserve existing writeSeq (set by handleSessionStreamStart).
+      if (effectiveMerge) {
         const merged = chunks.join("");
-        const updatedLast: ChatMessage = {
-          ...lastMsg,
-          content: lastMsg.content + merged,
-        };
-        newMessages = [...existing.slice(0, -1), updatedLast];
+        if (shouldMergeIntoLast) {
+          // Fast path: merge into last message
+          const updatedLast: ChatMessage = {
+            ...lastMsg,
+            content: lastMsg.content + merged,
+          };
+          newMessages = [...existing.slice(0, -1), updatedLast];
+        } else {
+          // Merge into the found agent message at mergeTargetIdx
+          const target = existing[mergeTargetIdx];
+          const updatedTarget: ChatMessage = {
+            ...target,
+            content: target.content + merged,
+          };
+          newMessages = [...existing];
+          newMessages[mergeTargetIdx] = updatedTarget;
+        }
       } else {
-        // Different agent, or last message is tool/user/system/completed-agent:
+        // Different agent, or last message is user/system/completed-agent:
         // each chunk becomes a separate ChatMessage.  Stamp writeSeq so the
         // pipeline's attachStepFileEditSummaries can partition writes per step.
         const writeSeq = useFileWriteStore.getState().currentSeq();
@@ -159,14 +201,43 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>((set
         lastMsg.role === "agent" &&
         lastMsg.agentId === agentId &&
         (lastMsg.stopReason == null || lastMsg.stopReason === "");
+
+      // Look back past tool messages for an in-progress agent message
+      let mergeTargetIdx = -1;
+      if (!shouldAppend && lastMsg !== null) {
+        for (let i = existing.length - 1; i >= 0; i--) {
+          const m = existing[i];
+          if (
+            m.role === "agent" &&
+            m.agentId === agentId &&
+            (m.stopReason == null || m.stopReason === "")
+          ) {
+            mergeTargetIdx = i;
+            break;
+          }
+          if (m.role === "user" || m.role === "system") break;
+          if (m.role === "agent" && m.stopReason != null && m.stopReason !== "") break;
+        }
+      }
+
+      const effectiveMerge = shouldAppend || mergeTargetIdx >= 0;
       let newMessages: ChatMessage[];
-      if (shouldAppend) {
-        // Preserve existing writeSeq (set by handleSessionStreamStart).
-        const updatedLast: ChatMessage = {
-          ...lastMsg,
-          content: lastMsg.content + chunk,
-        };
-        newMessages = [...existing.slice(0, -1), updatedLast];
+      if (effectiveMerge) {
+        if (shouldAppend) {
+          const updatedLast: ChatMessage = {
+            ...lastMsg,
+            content: lastMsg.content + chunk,
+          };
+          newMessages = [...existing.slice(0, -1), updatedLast];
+        } else {
+          const target = existing[mergeTargetIdx];
+          const updatedTarget: ChatMessage = {
+            ...target,
+            content: target.content + chunk,
+          };
+          newMessages = [...existing];
+          newMessages[mergeTargetIdx] = updatedTarget;
+        }
       } else {
         // Stamp writeSeq so the pipeline can partition writes per step.
         const writeSeq = useFileWriteStore.getState().currentSeq();

@@ -24,10 +24,26 @@ interface PipelineEntry {
  * Compute a fast hash of mutable fields across all raw messages.
  * Detects in-place mutations (streaming content append, stopReason stamp,
  * toolCalls insertion/update) that don't change the array length.
+ *
+ * Optimization: Only the last few messages can mutate in-place during
+ * normal operation (streaming appends to the last agent message, tool
+ * updates via updateMessage). We hash the last 3 messages fully and
+ * only length/content-length for the rest. This avoids O(n) scanning
+ * of all messages on every streaming chunk.
  */
 function computeContentHash(msgs: RawMessage[]): string {
-  let hash = msgs.length.toString(36) + ":";
-  for (let i = 0; i < msgs.length; i++) {
+  const len = msgs.length;
+  let hash = len.toString(36) + ":";
+
+  // Hash prefix: all messages except last 3 — only content length
+  const fastBound = Math.max(0, len - 3);
+  for (let i = 0; i < fastBound; i++) {
+    const m = msgs[i] as unknown as Record<string, unknown>;
+    hash += (typeof m.content === "string" ? m.content.length : 0).toString(36) + ";";
+  }
+
+  // Hash suffix: last 3 messages — full mutable fields
+  for (let i = fastBound; i < len; i++) {
     const m = msgs[i] as unknown as Record<string, unknown>;
     hash +=
       (typeof m.content === "string" ? m.content.length : 0).toString(36) +
@@ -35,8 +51,6 @@ function computeContentHash(msgs: RawMessage[]): string {
     if (m.stopReason !== undefined && m.stopReason !== null) {
       hash += String(m.stopReason) + ";";
     }
-    // Include toolCalls so in-place updates (e.g. handleSessionNotification
-    // calling updateMessage to append/update tool calls) are detected.
     const tcs = m.toolCalls as unknown[] | undefined;
     if (tcs && tcs.length > 0) {
       hash += tcs.length.toString(36) + ":";

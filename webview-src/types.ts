@@ -143,6 +143,17 @@ export interface ChatMessage {
    * Used by grouping.ts to partition file writes per step.
    */
   writeSeq?: number;
+  /** Plan metadata — attached to user messages that request a plan */
+  planMeta?: {
+    /** True if this message is a plan request */
+    isPlanRequest?: boolean;
+    /** Plan ID generated from this request (populated after plan.update) */
+    planId?: string;
+    /** Current plan status */
+    planStatus?: PlanStatus;
+    /** Team ID at the time of the request */
+    teamId?: string;
+  };
 }
 
 export interface TokenUsage {

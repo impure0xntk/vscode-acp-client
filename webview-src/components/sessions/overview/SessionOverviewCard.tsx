@@ -13,6 +13,7 @@ import {
 } from "./SessionOverviewCardBase";
 import { useSessionStore } from "../../../store/sessionStore";
 import type { TurnOutcome } from "../../primitives/StatusIcon";
+import { IconClose } from "../../../lib/icons";
 
 // Subscribes to its own session info so it re-renders only when its session changes.
 
@@ -145,6 +146,7 @@ export function SessionOverviewCard({
     active: "border-l-[#4fc3f7]",
     waiting: "border-l-[#ffd54f]",
     error: "border-l-error",
+    done: "border-l-transparent",
   }[colorGroup] ?? "border-l-transparent";
 
   const animClass = (() => {
@@ -189,7 +191,7 @@ export function SessionOverviewCard({
             onClose(session.sessionId, session.agentId);
           }}
         >
-          ×
+          <IconClose size={10} />
         </button>
       </div>
 

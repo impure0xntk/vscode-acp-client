@@ -256,6 +256,12 @@ export interface SessionStoreState {
   /** Plan history (previous plans that were approved/rejected) */
   planHistory: Plan[];
 
+  supervisorViewMode: "overview" | "focus";
+  supervisorFocusSessionKey: string | null;
+  teamSessions: Record<string, string[]>;
+  isPlanning: boolean;
+  planningPlanId: string | null;
+
   commandCenterExpanded: boolean;
   commandCenterSelectedKey: string | null;
   /** Completion notification for background session turns */
@@ -319,6 +325,11 @@ export interface SessionStoreState {
   togglePin: (sessionKey: string) => void;
   setFocusSession: (sessionKey: string | null) => void;
   setCurrentPlan: (plan: Plan | null) => void;
+
+  setSupervisorViewMode: (mode: "overview" | "focus") => void;
+  setSupervisorFocusSession: (sessionKey: string | null) => void;
+  setTeamSessions: (teamId: string, sessionKeys: string[]) => void;
+  setIsPlanning: (planning: boolean, planId?: string | null) => void;
   updatePlanStep: (
     stepId: string,
     updates: Partial<Plan["steps"][number]>
@@ -358,6 +369,11 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
   pinnedSessionKeys: [],
   currentPlan: null,
   planHistory: [],
+  supervisorViewMode: "overview",
+  supervisorFocusSessionKey: null,
+  teamSessions: {},
+  isPlanning: false,
+  planningPlanId: null,
   commandCenterExpanded: false,
   commandCenterSelectedKey: null,
   completionNotification: null,
@@ -691,7 +707,39 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
       s.activeSessionKey === sessionKey ? s : { activeSessionKey: sessionKey }
     ),
 
-  setCurrentPlan: (plan) => set((s) => ({ ...s, currentPlan: plan })),
+  setCurrentPlan: (plan) =>
+    set((s) => ({
+      ...s,
+      currentPlan: plan,
+      // Planning finished when a plan arrives
+      isPlanning: plan ? false : s.isPlanning,
+      planningPlanId: plan ? null : s.planningPlanId,
+    })),
+
+  setSupervisorViewMode: (mode) =>
+    set((s) =>
+      s.supervisorViewMode === mode ? s : { supervisorViewMode: mode }
+    ),
+
+  setSupervisorFocusSession: (sessionKey) =>
+    set((s) =>
+      s.supervisorFocusSessionKey === sessionKey
+        ? s
+        : { supervisorFocusSessionKey: sessionKey }
+    ),
+
+  setTeamSessions: (teamId, sessionKeys) =>
+    set((s) => ({
+      ...s,
+      teamSessions: { ...s.teamSessions, [teamId]: sessionKeys },
+    })),
+
+  setIsPlanning: (planning, planId) =>
+    set((s) => ({
+      ...s,
+      isPlanning: planning,
+      planningPlanId: planId !== undefined ? planId : s.planningPlanId,
+    })),
 
   updatePlanStep: (stepId, updates) =>
     set((s) => {

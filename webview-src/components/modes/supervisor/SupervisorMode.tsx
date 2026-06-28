@@ -1,18 +1,18 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { useShallow } from "zustand/shallow";
-import { SessionView } from "../../sessions/SessionView";
-import { SessionTabBar } from "../../sessions/SessionTabBar";
 import { Composer, type ComposerHandle } from "../../composer/Composer";
 import { MeshPanel } from "../../mesh/MeshPanel";
 import { TeamCreateDialog } from "../../mesh/TeamCreateDialog";
 import { PlanViewerOverlay } from "./PlanViewer/PlanViewerOverlay";
+import {
+  SupervisorSessionView,
+  SupervisorTabBar,
+} from "../../sessions/supervisor";
 import { useSessionStore } from "../../../store/sessionStore";
-import type {
-  SessionStoreState,
-  SlashCommand,
-} from "../../../store/sessionStore";
+import type { SessionStoreState } from "../../../store/sessionStore";
 import { useMeshStore } from "../../../store/meshStore";
 import { getVsCodeApi } from "../../../lib/vscodeApi";
+import type { SupervisorRole } from "../../sessions/supervisor/supervisor-types";
 
 import type {
   ContextAttachment,
@@ -21,6 +21,7 @@ import type {
   FileCandidate,
   SuggestionItem,
 } from "../../../types";
+import type { SlashCommand } from "../../../store/sessionStore";
 
 export interface SupervisorModeProps {
   onSendMessage: (
@@ -76,34 +77,67 @@ export const SupervisorMode = React.memo(function SupervisorMode({
   const composerRef = React.useRef<ComposerHandle>(null);
   const {
     activeSessionKey,
-    pinnedSessionKeys,
     connectedAgents,
     tabOrder,
     tabTitles,
     tabIcons,
     currentPlan,
-    togglePin,
-    setFocusSession,
+    teamSessions,
+    isPlanning,
+    supervisorViewMode,
+    supervisorFocusSessionKey,
     removeTab,
+    setSupervisorViewMode,
+    setSupervisorFocusSession,
+    setTeamSessions: setStoreTeamSessions,
   } = useSessionStore(
     useShallow((s: SessionStoreState) => ({
       activeSessionKey: s.activeSessionKey,
-      pinnedSessionKeys: s.pinnedSessionKeys,
       connectedAgents: s.connectedAgents,
       tabOrder: s.tabOrder,
       tabTitles: s.tabTitles,
       tabIcons: s.tabIcons,
       currentPlan: s.currentPlan,
-      togglePin: s.togglePin,
-      setFocusSession: s.setFocusSession,
+      teamSessions: s.teamSessions,
+      isPlanning: s.isPlanning,
+      supervisorViewMode: s.supervisorViewMode,
+      supervisorFocusSessionKey: s.supervisorFocusSessionKey,
       removeTab: s.removeTab,
+      setSupervisorViewMode: s.setSupervisorViewMode,
+      setSupervisorFocusSession: s.setSupervisorFocusSession,
+      setTeamSessions: s.setTeamSessions,
     }))
   );
 
+  // Derive the active team from meshStore
+  const selectedTeam = useMeshStore((s) => s.selectedTeam);
+  const activeTeamId = selectedTeam?.id ?? null;
+
   // Mesh panel visibility (always visible in supervisor mode)
-  const meshPanelVisible = useMeshStore((s) => s.meshPanelVisible);
   const setMeshPanelVisible = useMeshStore((s) => s.setMeshPanelVisible);
   const [showTeamCreate, setShowTeamCreate] = useState(false);
+
+  // Derive team session tabs for the SupervisorTabBar
+  const teamSessionTabs = useMemo(() => {
+    if (!activeTeamId) return [];
+    const keys = teamSessions[activeTeamId] ?? [];
+    return keys.map((key) => {
+      const [agentId, sessionId] = key.split(":");
+      const agent = connectedAgents.find((a) => a.agentId === agentId);
+      // Derive role from agent name convention or default to "worker"
+      const role: SupervisorRole = agentId === agent?.name ? "lead" : "worker";
+      return {
+        sessionKey: key,
+        agentId,
+        sessionId,
+        role,
+        status: "idle",
+        title: tabTitles[key] ?? sessionId,
+        agentColor: agent?.color,
+        hasUnread: false,
+      };
+    });
+  }, [activeTeamId, teamSessions, connectedAgents, tabTitles]);
 
   // Plan for a specific team — sets Composer to supervisor mode with team selected
   const handlePlanTeam = useCallback((teamId: string) => {
@@ -118,73 +152,37 @@ export const SupervisorMode = React.memo(function SupervisorMode({
         leadAgentId: team.lead.agentId,
       });
     }
-    // Focus Composer textarea so user can type their plan request
     composerRef.current?.focusTextarea();
   }, []);
 
-  const tabs = useMemo(
-    () =>
-      tabOrder.map((key) => {
-        const [agentId, sessionId] = key.split(":");
-        return {
-          sessionId,
-          agentId,
-          title: tabTitles[key] ?? sessionId,
-          agentIcon: tabIcons[key],
-        };
-      }),
-    [tabOrder, tabTitles, tabIcons]
-  );
-
-  const handleFocusChange = useCallback(
-    (key: string) => {
-      const current = useSessionStore.getState().activeSessionKey;
-      if (current === key) return;
-      setFocusSession(key);
-      const [agentId, sessionId] = key.split(":");
+  const handleFocusSession = useCallback(
+    (sessionKey: string) => {
+      setSupervisorFocusSession(sessionKey);
+      setSupervisorViewMode("focus");
+      const [agentId, sessionId] = sessionKey.split(":");
       onSwitchSession(agentId, sessionId);
     },
-    [setFocusSession, onSwitchSession]
+    [setSupervisorFocusSession, setSupervisorViewMode, onSwitchSession],
   );
 
-  const handleTogglePin = useCallback(
-    (key: string) => {
-      togglePin(key);
-    },
-    [togglePin]
-  );
+  const handleOverview = useCallback(() => {
+    setSupervisorViewMode("overview");
+    setSupervisorFocusSession(null);
+  }, [setSupervisorViewMode, setSupervisorFocusSession]);
 
-  const handleClose = useCallback(
-    (key: string) => {
-      togglePin(key);
-      removeTab(key);
-      const [agentId, sessionId] = key.split(":");
+  const handleCloseSession = useCallback(
+    (sessionKey: string) => {
+      removeTab(sessionKey);
+      const [agentId, sessionId] = sessionKey.split(":");
       getVsCodeApi().postMessage({ type: "closeSession", sessionId, agentId });
     },
-    [togglePin, removeTab]
+    [removeTab],
   );
 
-  const handleTabClick = useCallback(
-    (sessionKey: string) => {
-      handleFocusChange(sessionKey);
-    },
-    [handleFocusChange]
-  );
-
-  const handleTabClose = useCallback(
-    (sessionKey: string) => {
-      handleClose(sessionKey);
-    },
-    [handleClose]
-  );
-
-  const scrollToMessageRef = React.useRef<((id: string) => void) | undefined>(
-    undefined
-  );
-  const forceScrollToBottomRef = React.useRef<(() => void) | undefined>(
-    undefined
-  );
-  const scrollToUnreadRef = React.useRef<(() => void) | undefined>(undefined);
+  // Current in-progress step ID for highlighting
+  const currentStepId = currentPlan?.steps.find(
+    (s) => s.status === "in_progress",
+  )?.id ?? null;
 
   // Queue for the active session
   const promptQueue = useSessionStore((s) => s.promptQueue);
@@ -194,35 +192,34 @@ export const SupervisorMode = React.memo(function SupervisorMode({
 
   return (
     <div className="flex flex-row flex-1 min-h-0 overflow-hidden h-full">
-      {/* Left: Chat area (session tabs + messages + composer) */}
+      {/* Left: Chat area (supervisor tabbar + session view + composer) */}
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-        <SessionTabBar
-          tabs={tabs}
-          activeSessionKey={activeSessionKey}
-          connectedAgents={connectedAgents}
-          onTabClick={handleTabClick}
-          onTabClose={handleTabClose}
+        <SupervisorTabBar
+          viewMode={supervisorViewMode}
+          focusSessionKey={supervisorFocusSessionKey}
+          teamId={activeTeamId}
+          teamSessions={teamSessionTabs}
+          onOverview={handleOverview}
+          onFocusSession={handleFocusSession}
+          onCloseSession={handleCloseSession}
           onNewSession={onNewSession}
-          onRenameSession={onRenameSession}
-          pinnedSessionKeys={pinnedSessionKeys}
-          onTogglePin={handleTogglePin}
         />
 
-        <SessionView
-          sessionKey={activeSessionKey}
+        <SupervisorSessionView
+          teamId={activeTeamId}
+          viewMode={supervisorViewMode}
+          focusSessionKey={supervisorFocusSessionKey}
+          currentStepId={currentStepId}
+          isPlanning={isPlanning}
+          plan={currentPlan}
           disabled={disabled}
-          pinnedKeys={pinnedSessionKeys}
           onSend={onSendMessage}
           onCancel={onCancel}
-          onFocusChange={handleFocusChange}
-          onPin={handleTogglePin}
-          onUnpin={handleTogglePin}
-          onClose={handleClose}
-          scrollToMessageRef={scrollToMessageRef}
-          forceScrollToBottomRef={forceScrollToBottomRef}
-          scrollToUnreadRef={scrollToUnreadRef}
-          onAttachDiff={onAttachDiff}
+          onFocusSession={handleFocusSession}
+          onOverview={handleOverview}
+          onCloseSession={handleCloseSession}
         />
+
         <Composer
           ref={composerRef}
           onSend={onSendMessage}

@@ -912,6 +912,36 @@ export function IconPlug({
   );
 }
 
+/** Clipboard with checklist — used for plan overview in supervisor mode. */
+export function IconClipboardList({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
+  return (
+    <Svg className={className} size={size}>
+      <rect x="3" y="2.5" width="10" height="11" rx="1.5" />
+      <path d="M6 2V1h4v1" />
+      <path d="M5.5 7h5M5.5 9.5h5M5.5 12h3" />
+      <path d="M4 7h.5M4 9.5h.5M4 12h.5" />
+    </Svg>
+  );
+}
+
+/** Connected nodes / team topology — used for multi-agent team visualization. */
+export function IconNetwork({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
+  return (
+    <Svg className={className} size={size}>
+      <circle cx="8" cy="3" r="2" />
+      <circle cx="3" cy="11" r="2" />
+      <circle cx="13" cy="11" r="2" />
+      <path d="M8 5v3M5 9l3-1M11 9l-3-1" />
+    </Svg>
+  );
+}
+
 const ICON_COMPONENTS: Record<string, React.FC<IconProps>> = {
   chat: IconChat,
   "circle-filled": IconCircleFilled,
@@ -975,6 +1005,8 @@ const ICON_COMPONENTS: Record<string, React.FC<IconProps>> = {
   "layout-grid": IconLayoutGrid,
   single: IconSingle,
   "layout-list": IconLayoutList,
+  "clipboard-list": IconClipboardList,
+  network: IconNetwork,
 };
 
 export function Icon({

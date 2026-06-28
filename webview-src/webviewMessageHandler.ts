@@ -1103,7 +1103,32 @@ function handlePlanUpdate(data: PlanUpdateMessage): void {
     stepCount: data.plan.steps.length,
     status: data.plan.status,
   });
-  useSessionStore.getState().setCurrentPlan(data.plan);
+  const sessionStore = useSessionStore.getState();
+  sessionStore.setCurrentPlan(data.plan);
+  sessionStore.setIsPlanning(false);
+
+  // Replace the planning indicator with a plan summary in the chat
+  const activeKey = sessionStore.activeSessionKey;
+  if (activeKey) {
+    const messages = useMessageStore.getState().perSession[activeKey];
+    if (messages) {
+      const idx = messages.findIndex(
+        (m) => m.planMeta?.planStatus === "draft" && !m.planMeta?.isPlanRequest,
+      );
+      if (idx >= 0) {
+        const updated: ChatMessage = {
+          ...messages[idx],
+          content: `Plan created: ${data.plan.steps.length} steps`,
+          planMeta: {
+            ...messages[idx].planMeta,
+            planId: data.plan.id,
+            planStatus: data.plan.status,
+          },
+        };
+        useMessageStore.getState().updateMessage(activeKey, idx, updated);
+      }
+    }
+  }
 }
 
 function handlePlanStepUpdate(data: PlanStepUpdateMessage): void {
@@ -1434,10 +1459,37 @@ export function setupMessageHandlers(): void {
       case "mesh:openTeamCreate":
         // No-op on extension host — the webview manages the dialog state internally
         break;
-      case "mesh:plan":
+      case "mesh:plan": {
+        // Append the user's plan request to the chat so it is visible in context
+        const activeKey = useSessionStore.getState().activeSessionKey;
+        if (activeKey && data.text) {
+          const [agentId, sessionId] = activeKey.split(":");
+          useMessageStore.getState().appendMessage(activeKey, {
+            id: crypto.randomUUID(),
+            role: "user",
+            content: data.text,
+            timestamp: Date.now(),
+            agentId,
+            sessionId,
+            planMeta: { isPlanRequest: true, teamId: data.teamId ?? "" },
+          });
+
+          // Planning indicator — replaced by plan summary when plan.update arrives
+          useMessageStore.getState().appendMessage(activeKey, {
+            id: `plan-indicator-${Date.now()}`,
+            role: "system",
+            content: "Planning...",
+            timestamp: Date.now(),
+            agentId,
+            sessionId,
+            planMeta: { isPlanRequest: false, planStatus: "draft", teamId: data.teamId ?? "" },
+          });
+
+          useSessionStore.getState().setIsPlanning(true, null);
+        }
         // Forward to extension host — SupervisorOrchestrator.createPlan() handles the rest
-        // No-op on webview side; the extension host will send plan.update when ready
         break;
+      }
       case "mesh:addMemberToTeam":
       case "mesh:removeMemberFromTeam":
         // Forward to extension host — MeshOrchestrator handles the rest

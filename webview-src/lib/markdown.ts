@@ -187,10 +187,39 @@ const PURIFY_OPTS: PurifyConfig = {
   ],
 };
 
+/**
+ * LRU cache for rendered markdown HTML.
+ * Keyed by content hash + filePaths set identity.
+ * Max 50 entries — old entries are evicted automatically.
+ */
+const markdownCache = new Map<string, string>();
+const MARKDOWN_CACHE_MAX = 50;
+
+function getCacheKey(content: string, ctx?: RenderContext): string {
+  // Fast hash: length + first 64 chars + last 32 chars + filePaths size
+  const len = content.length;
+  const head = len > 64 ? content.slice(0, 64) : content;
+  const tail = len > 32 ? content.slice(-32) : "";
+  const fpSize = ctx?.filePaths?.size ?? 0;
+  return `${len}:${fpSize}:${head}:${tail}`;
+}
+
 export function renderMarkdown(content: string, ctx?: RenderContext): string {
+  const cacheKey = getCacheKey(content, ctx);
+  const cached = markdownCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
   const env: RenderContext = ctx || {};
   const rawHtml = md.render(content, env);
-  return DOMPurify.sanitize(rawHtml, PURIFY_OPTS) as unknown as string;
+  const result = DOMPurify.sanitize(rawHtml, PURIFY_OPTS) as unknown as string;
+
+  // Evict oldest if at capacity
+  if (markdownCache.size >= MARKDOWN_CACHE_MAX) {
+    const firstKey = markdownCache.keys().next().value;
+    if (firstKey !== undefined) markdownCache.delete(firstKey);
+  }
+  markdownCache.set(cacheKey, result);
+  return result;
 }
 
 export function renderInline(content: string, ctx?: RenderContext): string {
