@@ -3,7 +3,7 @@ import type { ToolCallCardProps } from "./ToolCallCard";
 import { ToolCallCard, formatDuration } from "./ToolCallCard";
 
 import { StatusIcon } from "../primitives/StatusIcon";
-import { summarizeKinds } from "../../util/toolBatchSummary";
+import { summarizeKinds } from "../../lib/toolKindSummary";
 import { Icon } from "../../lib/icons";
 
 type SummaryStatus =

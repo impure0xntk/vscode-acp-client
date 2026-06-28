@@ -202,6 +202,32 @@ export const SessionChatContainer = memo(function SessionChatContainer({
     [items]
   );
 
+  // Debug: log latestGroup state at render time
+  {
+    const lg = latestGroup;
+    const gk = (e: { path: string; lineCount: number }) => `${e.path} (+${e.lineCount})`;
+    console.log("[FileEditDebug] render", {
+      sessionKey,
+      itemCount: items.length,
+      groupCount: groups.length,
+      hasLatestGroup: !!lg,
+      latestStepCount: lg?.steps.length ?? 0,
+      latestFinalResponse: lg?.finalResponse?.item.key ?? null,
+      latestFinalResponseStopReason: (lg?.finalResponse?.item as any)?.stopReason ?? null,
+      latestCurrentStep: lg?.currentStep?.agentMessage?.key ?? null,
+      latestCurrentStepFES: lg?.currentStep?.fileEditSummary?.length ?? 0,
+      latestTurnFES: lg?.turnFileEditSummary?.length ?? 0,
+      latestTurnFESEntries: lg?.turnFileEditSummary?.map(gk) ?? [],
+      latestStepFES: lg?.steps.map((s, i) => ({
+        idx: i,
+        amKey: s.agentMessage?.key ?? null,
+        amWriteSeq: s.agentMessage?.writeSeq,
+        fes: s.fileEditSummary?.map(gk) ?? [],
+        isPreAgent: s.isPreAgent,
+      })) ?? [],
+    });
+  }
+
   // ── Per-group collapse state ─────────────────────────────────────────
   const collapsedMap = useIntermediateStepsCollapseMap(sessionKey ?? null);
   const toggleIntermediateSteps = useToggleIntermediateSteps();
@@ -596,22 +622,18 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                       />
                     )}
                     {!currentStep && latestGroup.finalResponse && (
-                      <>
-                        <DisplayItemView
-                          item={latestGroup.finalResponse.item}
-                          idx={0}
-                          items={[latestGroup.finalResponse.item]}
-                          sessionId={sessionId}
-                          agentId={agentId}
-                          forceHeader={true}
-                          isNew={newKeys.has(latestGroup.finalResponse.item.key)}
-                        />
-                        {latestGroup.turnFileEditSummary && latestGroup.turnFileEditSummary.length > 0 && (
-                          <FileEditSummary entries={latestGroup.turnFileEditSummary} sessionId={sessionId} agentId={agentId} onAttachDiff={onAttachDiff} />
-                        )}
-                      </>
+                      <DisplayItemView
+                        item={latestGroup.finalResponse.item}
+                        idx={0}
+                        items={[latestGroup.finalResponse.item]}
+                        sessionId={sessionId}
+                        agentId={agentId}
+                        forceHeader={true}
+                        isNew={newKeys.has(latestGroup.finalResponse.item.key)}
+                      />
                     )}
-                    {!currentStep && !latestGroup.finalResponse && latestGroup.turnFileEditSummary && latestGroup.turnFileEditSummary.length > 0 && (
+                    {/* Cumulative file edit summary — shown only after turn completes (finalResponse exists) */}
+                    {latestGroup.finalResponse && latestGroup.turnFileEditSummary && latestGroup.turnFileEditSummary.length > 0 && (
                       <FileEditSummary entries={latestGroup.turnFileEditSummary} sessionId={sessionId} agentId={agentId} onAttachDiff={onAttachDiff} />
                     )}
                   </React.Fragment>

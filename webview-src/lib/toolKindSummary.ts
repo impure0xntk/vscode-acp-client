@@ -1,4 +1,4 @@
-import { iconForToolKind } from "../lib/icons";
+import { iconForToolKind } from "./icons";
 
 export interface KindSummaryItem {
   kind: string;

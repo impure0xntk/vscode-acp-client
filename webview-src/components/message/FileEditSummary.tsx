@@ -26,20 +26,20 @@ interface RowState {
 function buildUnifiedDiff(
   original: string | null,
   filePath: string,
-  writtenLines: number,
+  writtenContent: string | null,
 ): string {
-  const src = original ?? "";
-  const origLines = src.split("\n");
+  const origSrc = original ?? "";
+  const newSrc = writtenContent ?? "";
+  const origLines = origSrc.split("\n");
+  const newLines = newSrc.split("\n");
   const header = `--- a/${filePath}\n+++ b/${filePath}\n`;
-  const hunk = `@@ -1,${origLines.length} +1,${writtenLines} @@\n`;
+  const hunk = `@@ -1,${origLines.length} +1,${newLines.length} @@\n`;
   const removed = origLines.map((l) => `-${l}`).join("\n");
-  const added =
-    writtenLines === 0
-      ? ""
-      : writtenLines <= 3
-        ? Array.from({ length: writtenLines }, (_, i) => `+line ${i + 1}`).join("\n")
-        : `+line 1\n+line 2\n+... (${writtenLines} lines)`;
-  return header + hunk + removed + "\n" + added;
+  const added = newLines.map((l) => `+${l}`).join("\n");
+  const parts: string[] = [];
+  if (removed) parts.push(removed);
+  if (added) parts.push(added);
+  return header + hunk + parts.join("\n");
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -215,7 +215,7 @@ function FileEditRow({
     (e: React.MouseEvent) => {
       e.stopPropagation();
       if (!agentId || !sessionId || !onAttachDiff) return;
-      const diffContent = buildUnifiedDiff(originalContent ?? "", entry.path, entry.lineCount);
+      const diffContent = buildUnifiedDiff(originalContent ?? "", entry.path, entry.writtenContent ?? null);
       const attachment: ContextAttachment = {
         id: `diff:${entry.path}:${Date.now()}`,
         type: "diff",
@@ -250,7 +250,7 @@ function FileEditRow({
 
   const canRevert = originalContent != null;
   const diffContent = isExpanded
-    ? buildUnifiedDiff(originalContent ?? "", entry.path, entry.lineCount)
+    ? buildUnifiedDiff(originalContent ?? "", entry.path, entry.writtenContent ?? null)
     : "";
 
   return (
@@ -347,13 +347,6 @@ function FileEditRow({
                   ↩ Revert
                 </button>
               )}
-              <button
-                className="inline-flex items-center gap-0.5 px-1.5 py-[2px] rounded-[3px] bg-transparent text-fg-muted text-[9px] font-medium cursor-pointer border border-[color-mix(in_srgb,var(--border)_40%,transparent)] hover:bg-accent-hover hover:text-fg-primary transition-all"
-                onClick={handleOpenDiff}
-                title="Open in diff editor"
-              >
-                ⇔ Editor
-              </button>
             </div>
           </div>
           {/* Diff content */}

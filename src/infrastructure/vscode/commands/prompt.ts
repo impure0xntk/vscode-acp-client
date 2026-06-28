@@ -822,28 +822,14 @@ export function wireChatPanelEvents(
           }
 
           if (typeof originalContent === "string") {
-            // Write original content to a temp file so VS Code can open it
-            // in a Beside tab alongside the current file.
+            // Write original content to a temp file and open diff view only.
             const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "acp-diff-"));
             const tmpFileName = `.${path.basename(absPath)}.original`;
             const tmpFilePath = path.join(tmpDir, tmpFileName);
             fs.writeFileSync(tmpFilePath, originalContent, "utf8");
             const originalUri = vscode.Uri.file(tmpFilePath);
 
-            // Open both documents in Beside view columns.
-            const originalDoc = await vscode.workspace.openTextDocument(originalUri);
-            await vscode.window.showTextDocument(originalDoc, {
-              viewColumn: vscode.ViewColumn.Beside,
-              preview: false,
-            });
-
-            const currentDoc = await vscode.workspace.openTextDocument(currentUri);
-            await vscode.window.showTextDocument(currentDoc, {
-              viewColumn: vscode.ViewColumn.Beside,
-              preview: false,
-            });
-
-            // Open diff editor with original (left) vs current (right).
+            // Open diff editor (compare view) only — no separate editor tabs.
             await vscode.commands.executeCommand(
               "vscode.diff",
               originalUri,

@@ -83,6 +83,8 @@ export interface FileEditEntry {
   kind: string;
   /** Original content before this write (for revert/diff) */
   originalContent: string | null;
+  /** Written content after the agent write (for inline diff preview) */
+  writtenContent: string | null;
 }
 
 export interface ChatDisplayItem {

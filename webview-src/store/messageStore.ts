@@ -38,6 +38,7 @@ export interface MessageState {
    * so the pipeline can use it as the authoritative boundary signal.
    */
   updateLastAgentMessage: (key: string, update: Partial<ChatMessage>) => void;
+  getLastAgentMessage: (key: string) => ChatMessage | null;
   clearSession: (key: string) => void;
   /** Add a queued prompt entry */
   addQueuedPrompt: (key: string, entry: QueuedPrompt) => void;
@@ -228,6 +229,15 @@ export const useMessageStore = create<MessageState>((set) => ({
       }
       return state;
     }),
+
+  getLastAgentMessage: (key) => {
+    const existing = useMessageStore.getState().perSession[key];
+    if (!existing || existing.length === 0) return null;
+    for (let i = existing.length - 1; i >= 0; i--) {
+      if (existing[i].role === "agent") return existing[i];
+    }
+    return null;
+  },
 
   updateMessage: (key, index, msg) =>
     set((state) => {

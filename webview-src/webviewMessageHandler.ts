@@ -644,11 +644,13 @@ function handleSessionStreamStart(data: SessionStreamStart): void {
   // writeSeq = N means N writes had been recorded when this step began,
   // so writes with seq >= N belong to this step.
   const writeSeq = useFileWriteStore.getState().currentSeq();
-  log.info("handleSessionStreamStart: stamping writeSeq", {
+  const lastAgentMsg = useMessageStore.getState().getLastAgentMessage(msgKey);
+  log.info("handleSessionStreamStart", {
     agentId: data.agentId,
     sessionId: data.sessionId,
     writeSeq,
-    currentFileWriteCount: writeSeq,
+    hasLastAgentMsg: !!lastAgentMsg,
+    lastAgentMsgWriteSeq: lastAgentMsg?.writeSeq,
   });
   useMessageStore.getState().updateLastAgentMessage(msgKey, { writeSeq });
   // Also flush any pending stream batch so the first text appears immediately

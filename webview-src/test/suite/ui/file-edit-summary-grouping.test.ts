@@ -60,14 +60,19 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
     assert.strictEqual(steps[0].fileEditSummary![0].path, "/a.ts");
     assert.strictEqual(steps[0].fileEditSummary![1].path, "/b.ts");
 
-    // Final step: writes seq in [2,∞) → seq 2,3 → /c.ts, /d.ts
+    // Final step: currentStep has no fileEditSummary (turnFileEditSummary handles it)
     const cs = result.latestGroup!.currentStep;
     assert.ok(cs);
-    assert.ok(cs.fileEditSummary);
-    assert.strictEqual(cs.fileEditSummary!.length, 2);
-    assert.strictEqual(cs.fileEditSummary![0].path, "/c.ts");
-    assert.strictEqual(cs.fileEditSummary![1].path, "/d.ts");
-    assert.strictEqual(cs.fileEditSummary![1].lineCount, 2);
+    assert.strictEqual(cs.fileEditSummary, undefined);
+
+    // turnFileEditSummary merges ALL writes across all steps
+    assert.ok(result.latestGroup!.turnFileEditSummary);
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary!.length, 4);
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary![0].path, "/a.ts");
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary![1].path, "/b.ts");
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary![2].path, "/c.ts");
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary![3].path, "/d.ts");
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary![3].lineCount, 2);
   });
 
   it("assigns writes to the step whose writeSeq bound contains them", () => {
@@ -81,13 +86,16 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
     ];
     const result = new IntermediateStepGrouper(items).compute();
 
-    // No intermediate steps; summary is on currentStep
+    // No intermediate steps; currentStep has no fileEditSummary (turnFileEditSummary handles it)
     const cs = result.latestGroup!.currentStep;
     assert.ok(cs);
-    assert.ok(cs.fileEditSummary);
-    assert.strictEqual(cs.fileEditSummary!.length, 1);
-    assert.strictEqual(cs.fileEditSummary![0].path, "/foo.ts");
-    assert.strictEqual(cs.fileEditSummary![0].lineCount, 2);
+    assert.strictEqual(cs.fileEditSummary, undefined);
+
+    // turnFileEditSummary contains all writes for the turn
+    assert.ok(result.latestGroup!.turnFileEditSummary);
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary!.length, 1);
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary![0].path, "/foo.ts");
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary![0].lineCount, 2);
   });
 
   it("omits fileEditSummary on steps with no writes", () => {
@@ -100,7 +108,9 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
     for (const step of result.latestGroup!.steps) {
       assert.strictEqual(step.fileEditSummary, undefined);
     }
+    // currentStep no longer carries fileEditSummary
     assert.strictEqual(result.latestGroup!.currentStep?.fileEditSummary, undefined);
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary, undefined);
   });
 
   it("clearing store before grouping omits all summaries", () => {
@@ -117,6 +127,7 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
       assert.strictEqual(step.fileEditSummary, undefined);
     }
     assert.strictEqual(result.latestGroup?.currentStep?.fileEditSummary, undefined);
+    assert.strictEqual(result.latestGroup?.turnFileEditSummary, undefined);
   });
 
   it("multiple intermediate steps each get their own writes", () => {
@@ -151,12 +162,16 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
     assert.strictEqual(steps[1].fileEditSummary!.length, 2);
     assert.strictEqual(steps[1].fileEditSummary![0].path, "/b1.ts");
 
-    // CurrentStep (final): writes seq in [4,∞) → /c1.ts
+    // CurrentStep (final): no fileEditSummary (turnFileEditSummary handles it)
     const cs = result.latestGroup!.currentStep;
     assert.ok(cs);
-    assert.ok(cs.fileEditSummary);
-    assert.strictEqual(cs.fileEditSummary!.length, 1);
-    assert.strictEqual(cs.fileEditSummary![0].path, "/c1.ts");
+    assert.strictEqual(cs.fileEditSummary, undefined);
+
+    // turnFileEditSummary merges ALL writes across all steps
+    assert.ok(result.latestGroup!.turnFileEditSummary);
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary!.length, 5);
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary![0].path, "/a1.ts");
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary![4].path, "/c1.ts");
   });
 
   it("merges multiple writes to the same path within a step", () => {
@@ -169,10 +184,14 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
     ];
     const result = new IntermediateStepGrouper(items).compute();
 
+    // currentStep no longer carries fileEditSummary; turnFileEditSummary handles it
     const cs = result.latestGroup!.currentStep;
-    assert.ok(cs?.fileEditSummary);
-    assert.strictEqual(cs.fileEditSummary!.length, 1);
-    assert.strictEqual(cs.fileEditSummary![0].lineCount, 3); // 2 + 1
+    assert.ok(cs);
+    assert.strictEqual(cs?.fileEditSummary, undefined);
+
+    assert.ok(result.latestGroup!.turnFileEditSummary);
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary!.length, 1);
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary![0].lineCount, 3); // 2 + 1
   });
 
   // ── turnFileEditSummary: full-turn aggregate ──────────────────────────
@@ -252,7 +271,7 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
 
   // ── turnFileEditSummary: additional edge cases ────────────────────
 
-  it("turnFileEditSummary coexists with per-step fileEditSummary on currentStep", () => {
+  it("turnFileEditSummary shows all writes after turn completes", () => {
     // Writes across two steps, each attributed to their own step via writeSeq,
     // but turnFileEditSummary merges ALL writes regardless of step partitioning.
     useFileWriteStore.getState().addWrite("a1", "s1", "/a.ts", "aaa"); // seq=0
@@ -266,14 +285,15 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
     ];
     const result = new IntermediateStepGrouper(items).compute();
 
-    // Per-step: step1 has /a.ts + /b.ts, currentStep has /c.ts
+    // Per-step: step1 has /a.ts + /b.ts
     const steps = result.latestGroup!.steps;
     assert.ok(steps[0].fileEditSummary);
     assert.strictEqual(steps[0].fileEditSummary!.length, 2);
 
+    // currentStep no longer carries fileEditSummary
     const cs = result.latestGroup!.currentStep;
-    assert.ok(cs?.fileEditSummary);
-    assert.strictEqual(cs.fileEditSummary!.length, 1);
+    assert.ok(cs);
+    assert.strictEqual(cs.fileEditSummary, undefined);
 
     // Turn-level: ALL 3 files merged
     assert.ok(result.latestGroup!.turnFileEditSummary);
@@ -329,5 +349,274 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
     assert.ok(result2.latestGroup!.turnFileEditSummary);
     assert.strictEqual(result2.latestGroup!.turnFileEditSummary!.length, 1);
     assert.strictEqual(result2.latestGroup!.turnFileEditSummary![0].path, "/bar.ts");
+  });
+
+  // ── currentStep.fileEditSummary: undefined when finalResponse exists ──
+
+  it("currentStep has no fileEditSummary when finalResponse exists with writes", () => {
+    useFileWriteStore.getState().addWrite("a1", "s1", "/x.ts", "xx"); // seq=0
+    useFileWriteStore.getState().addWrite("a1", "s1", "/y.ts", "yy"); // seq=1
+
+    const items: PipelineItem[] = [
+      userMsg("edit"),
+      agentMsg("done!", { isConsecutive: false, writeSeq: 0, stopReason: "end_turn" }),
+    ];
+    const result = new IntermediateStepGrouper(items).compute();
+
+    // currentStep exists (synthetic from finalStepSummary) but has no fileEditSummary
+    const cs = result.latestGroup!.currentStep;
+    assert.ok(cs);
+    assert.strictEqual(cs.fileEditSummary, undefined);
+
+    // turnFileEditSummary carries the aggregate
+    assert.ok(result.latestGroup!.turnFileEditSummary);
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary!.length, 2);
+  });
+
+  it("currentStep is null when finalResponse exists with no writes", () => {
+    // When there are no writes, finalStepSummary is undefined → no synthetic currentStep
+    const items: PipelineItem[] = [
+      userMsg("hello"),
+      agentMsg("hi!", { isConsecutive: false, writeSeq: 0, stopReason: "end_turn" }),
+    ];
+    const result = new IntermediateStepGrouper(items).compute();
+
+    // currentStep is null because finalStepSummary is undefined (no writes)
+    assert.strictEqual(result.latestGroup!.currentStep, null);
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary, undefined);
+  });
+
+  it("with multiple consecutive agent messages, last is final without fileEditSummary", () => {
+    // Streaming scenario: multiple consecutive agent messages, fallback picks last as final.
+    // The last agent becomes finalResponse, and earlier consecutive ones become intermediate steps.
+    useFileWriteStore.getState().addWrite("a1", "s1", "/s.ts", "ss"); // seq=0
+
+    const items: PipelineItem[] = [
+      userMsg("edit"),
+      agentMsg("thinking...", { isConsecutive: true, writeSeq: 0 }),
+      agentMsg("working...", { isConsecutive: true, writeSeq: 0 }),
+    ];
+    const result = new IntermediateStepGrouper(items).compute();
+
+    // Final response is the last consecutive agent (fallback)
+    assert.ok(result.latestGroup!.finalResponse);
+    assert.strictEqual(
+      (result.latestGroup!.finalResponse!.item as ChatDisplayItem).content,
+      "working..."
+    );
+
+    // Intermediate step ("thinking...") is in steps array
+    const steps = result.latestGroup!.steps;
+    assert.ok(steps.length >= 1);
+
+    // Intermediate step has fileEditSummary (writes in [0,0) → none → undefined)
+    // Because writeSeq=0 for both, and partitioning: step1.lo=0, step1.hi=0 (next step's lo)
+    // → no writes in [0,0) → fileEditSummary undefined
+    // This is correct: writes arrive after the agent message is stamped
+
+    // turnFileEditSummary has the write
+    assert.ok(result.latestGroup!.turnFileEditSummary);
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary!.length, 1);
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary![0].path, "/s.ts");
+  });
+
+  // ── turnFileEditSummary: comprehensive aggregation ───────────────────
+
+  it("turnFileEditSummary includes writes from all steps including final", () => {
+    // Intermediate step writes
+    useFileWriteStore.getState().addWrite("a1", "s1", "/step1-a.ts", "a1");   // seq=0
+    useFileWriteStore.getState().addWrite("a1", "s1", "/step1-b.ts", "b1\nb1"); // seq=1
+    // Final step writes
+    useFileWriteStore.getState().addWrite("a1", "s1", "/final-a.ts", "fa");     // seq=2
+    useFileWriteStore.getState().addWrite("a1", "s1", "/final-b.ts", "fb\nfb"); // seq=3
+
+    const items: PipelineItem[] = [
+      userMsg("multi"),
+      agentMsg("intermediate", { isConsecutive: false, writeSeq: 0 }),
+      agentMsg("final", { isConsecutive: false, writeSeq: 2, stopReason: "end_turn" }),
+    ];
+    const result = new IntermediateStepGrouper(items).compute();
+
+    // Per-step: intermediate has 2 files
+    const steps = result.latestGroup!.steps;
+    assert.ok(steps[0].fileEditSummary);
+    assert.strictEqual(steps[0].fileEditSummary!.length, 2);
+
+    // currentStep: no fileEditSummary
+    const cs = result.latestGroup!.currentStep;
+    assert.ok(cs);
+    assert.strictEqual(cs.fileEditSummary, undefined);
+
+    // turnFileEditSummary: ALL 4 files
+    assert.ok(result.latestGroup!.turnFileEditSummary);
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary!.length, 4);
+    const paths = result.latestGroup!.turnFileEditSummary!.map(e => e.path);
+    assert.deepStrictEqual(paths, ["/step1-a.ts", "/step1-b.ts", "/final-a.ts", "/final-b.ts"]);
+  });
+
+  it("turnFileEditSummary merges same-path writes across all steps with correct lineCount", () => {
+    // Same path written in intermediate and final steps
+    useFileWriteStore.getState().addWrite("a1", "s1", "/shared.ts", "line1\nline2"); // seq=0 (intermediate)
+    useFileWriteStore.getState().addWrite("a1", "s1", "/shared.ts", "line3");         // seq=1 (intermediate)
+    useFileWriteStore.getState().addWrite("a1", "s1", "/shared.ts", "line4\nline5"); // seq=2 (final)
+
+    const items: PipelineItem[] = [
+      userMsg("edit shared"),
+      agentMsg("step1", { isConsecutive: false, writeSeq: 0 }),
+      agentMsg("final", { isConsecutive: false, writeSeq: 2, stopReason: "end_turn" }),
+    ];
+    const result = new IntermediateStepGrouper(items).compute();
+
+    // turnFileEditSummary: 1 entry for /shared.ts, lineCount = 2 + 1 + 2 = 5
+    assert.ok(result.latestGroup!.turnFileEditSummary);
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary!.length, 1);
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary![0].path, "/shared.ts");
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary![0].lineCount, 5);
+  });
+
+  it("turnFileEditSummary uses later writtenContent for same-path merges", () => {
+    useFileWriteStore.getState().addWrite("a1", "s1", "/f.ts", "version1");     // seq=0
+    useFileWriteStore.getState().addWrite("a1", "s1", "/f.ts", "version2");     // seq=1
+
+    const items: PipelineItem[] = [
+      userMsg("edit"),
+      agentMsg("done!", { isConsecutive: false, writeSeq: 0, stopReason: "end_turn" }),
+    ];
+    const result = new IntermediateStepGrouper(items).compute();
+
+    assert.ok(result.latestGroup!.turnFileEditSummary);
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary!.length, 1);
+    // Later write's content should be preserved
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary![0].writtenContent, "version2");
+  });
+
+  // ── Per-step fileEditSummary isolation ───────────────────────────────
+
+  it("intermediate step fileEditSummary does not leak into next step", () => {
+    // Step1: seq 0,1 → /a.ts, /b.ts
+    useFileWriteStore.getState().addWrite("a1", "s1", "/a.ts", "aaa"); // seq=0
+    useFileWriteStore.getState().addWrite("a1", "s1", "/b.ts", "bbb"); // seq=1
+    // Step2 (final): seq 2 → /c.ts
+    useFileWriteStore.getState().addWrite("a1", "s1", "/c.ts", "ccc"); // seq=2
+
+    const items: PipelineItem[] = [
+      userMsg("multi"),
+      agentMsg("step1", { isConsecutive: false, writeSeq: 0 }),
+      agentMsg("final", { isConsecutive: false, writeSeq: 2, stopReason: "end_turn" }),
+    ];
+    const result = new IntermediateStepGrouper(items).compute();
+
+    const steps = result.latestGroup!.steps;
+    assert.strictEqual(steps.length, 1);
+
+    // Step 1: only /a.ts and /b.ts (seq in [0,2))
+    assert.ok(steps[0].fileEditSummary);
+    assert.strictEqual(steps[0].fileEditSummary!.length, 2);
+    const step1Paths = steps[0].fileEditSummary!.map(e => e.path);
+    assert.deepStrictEqual(step1Paths, ["/a.ts", "/b.ts"]);
+
+    // currentStep: no fileEditSummary (turnFileEditSummary handles final)
+    const cs = result.latestGroup!.currentStep;
+    assert.ok(cs);
+    assert.strictEqual(cs.fileEditSummary, undefined);
+
+    // turnFileEditSummary: all 3 files
+    assert.ok(result.latestGroup!.turnFileEditSummary);
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary!.length, 3);
+    const turnPaths = result.latestGroup!.turnFileEditSummary!.map(e => e.path);
+    assert.deepStrictEqual(turnPaths, ["/a.ts", "/b.ts", "/c.ts"]);
+  });
+
+  it("pre-agent step writes are attributed to the pre-agent step", () => {
+    // Writes before any agent message (seq 0) → pre-agent step
+    useFileWriteStore.getState().addWrite("a1", "s1", "/pre.ts", "pre"); // seq=0
+
+    const items: PipelineItem[] = [
+      userMsg("setup"),
+      // Pre-agent tool call (originalRole="tool", promoted to agent)
+      { type: "chat", role: "agent", agentId: "a1", sessionId: "s1",
+        content: "", key: "tool-1", timestamp: Date.now(),
+        isConsecutive: true, groupKey: "agent:a1", attachments: [],
+        thinking: undefined, originalRole: "tool",
+        resolvedToolCalls: [{ id: "tc-1", title: "Write", kind: "write",
+          status: "completed", input: undefined, output: undefined,
+          durationMs: undefined, locations: undefined, diffContent: undefined }],
+      } as ChatDisplayItem,
+      agentMsg("done!", { isConsecutive: false, writeSeq: 1, stopReason: "end_turn" }),
+    ];
+    const result = new IntermediateStepGrouper(items).compute();
+
+    // Pre-agent step should have fileEditSummary with /pre.ts
+    const steps = result.latestGroup!.steps;
+    assert.ok(steps.length >= 1);
+    const preAgentStep = steps[0];
+    assert.strictEqual(preAgentStep.isPreAgent, true);
+    assert.ok(preAgentStep.fileEditSummary);
+    assert.strictEqual(preAgentStep.fileEditSummary!.length, 1);
+    assert.strictEqual(preAgentStep.fileEditSummary![0].path, "/pre.ts");
+  });
+
+  // ── Edge: writeSeq gap between steps ────────────────────────────────
+
+  it("handles writeSeq gap between steps (no writes in intermediate)", () => {
+    // Final step has writeSeq=5, but only seq 0 exists → all writes go to intermediate step
+    useFileWriteStore.getState().addWrite("a1", "s1", "/only.ts", "only"); // seq=0
+
+    const items: PipelineItem[] = [
+      userMsg("edit"),
+      agentMsg("intermediate", { isConsecutive: true, writeSeq: 0 }),
+      agentMsg("final", { isConsecutive: false, writeSeq: 5, stopReason: "end_turn" }),
+    ];
+    const result = new IntermediateStepGrouper(items).compute();
+
+    const steps = result.latestGroup!.steps;
+    assert.strictEqual(steps.length, 1);
+
+    // Step 1: writes seq in [0,5) → seq 0 → /only.ts
+    assert.ok(steps[0].fileEditSummary);
+    assert.strictEqual(steps[0].fileEditSummary!.length, 1);
+    assert.strictEqual(steps[0].fileEditSummary![0].path, "/only.ts");
+
+    // currentStep: no fileEditSummary (synthetic from finalStepSummary, which has no writes → null)
+    // Since finalStepSummary is undefined (no writes in [5,∞)), currentStep is null
+    const cs = result.latestGroup!.currentStep;
+    assert.strictEqual(cs, null);
+  });
+
+  // ── Edge: many intermediate steps with separate writes ──────────────
+
+  it("distributes writes across 4 steps correctly", () => {
+    useFileWriteStore.getState().addWrite("a1", "s1", "/s1.ts", "s1");   // seq=0
+    useFileWriteStore.getState().addWrite("a1", "s1", "/s2.ts", "s2");   // seq=1
+    useFileWriteStore.getState().addWrite("a1", "s1", "/s3.ts", "s3");   // seq=2
+    useFileWriteStore.getState().addWrite("a1", "s1", "/s4.ts", "s4");   // seq=3
+
+    const items: PipelineItem[] = [
+      userMsg("multi"),
+      agentMsg("step1", { isConsecutive: false, writeSeq: 0 }),
+      agentMsg("step2", { isConsecutive: true, writeSeq: 1 }),
+      agentMsg("step3", { isConsecutive: true, writeSeq: 2 }),
+      agentMsg("final", { isConsecutive: false, writeSeq: 3, stopReason: "end_turn" }),
+    ];
+    const result = new IntermediateStepGrouper(items).compute();
+
+    const steps = result.latestGroup!.steps;
+    assert.strictEqual(steps.length, 3);
+
+    // Each step gets exactly 1 write
+    for (let i = 0; i < 3; i++) {
+      assert.ok(steps[i].fileEditSummary);
+      assert.strictEqual(steps[i].fileEditSummary!.length, 1);
+      assert.strictEqual(steps[i].fileEditSummary![0].path, `/s${i + 1}.ts`);
+    }
+
+    // currentStep: no fileEditSummary
+    const cs = result.latestGroup!.currentStep;
+    assert.ok(cs);
+    assert.strictEqual(cs.fileEditSummary, undefined);
+
+    // turnFileEditSummary: all 4 files
+    assert.ok(result.latestGroup!.turnFileEditSummary);
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary!.length, 4);
   });
 });

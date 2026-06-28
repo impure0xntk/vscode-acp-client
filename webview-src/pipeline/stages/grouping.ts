@@ -62,12 +62,15 @@ function buildSummaryFromWrites(writes: FileWriteRecord[]): FileEditEntry[] | un
     const existing = seen.get(w.path);
     if (existing) {
       existing.lineCount += lineCount;
+      // Later writes override earlier written content
+      existing.writtenContent = w.content;
     } else {
       seen.set(w.path, {
         path: w.path,
         lineCount,
         kind: "fs/write_text_file",
         originalContent: w.originalContent,
+        writtenContent: w.content,
       });
     }
   }
@@ -147,7 +150,7 @@ function attachStepFileEditSummaries(
   }
 
   const boundaries = computeWriteSeqBoundaries(steps);
-  log.debug("attachStepFileEditSummaries", {
+  log.info("attachStepFileEditSummaries", {
     agentId,
     sessionId,
     stepCount: steps.length,
@@ -439,6 +442,24 @@ function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
     useFileWriteStore.getState().getWritesForSession(latestSession.agentId, latestSession.sessionId)
   ) ?? undefined;
 
+  log.info("groupByUserBoundary: latestGroup", {
+    userItemKey: items[lastUserIdx].key,
+    stepCount: partitionedLatestSteps.length,
+    finalResponseKey: latestFinal?.item.key ?? null,
+    finalResponseStopReason: (latestFinal?.item as ChatDisplayItem)?.stopReason ?? null,
+    currentStepAgentKey: latestCurrentStep?.agentMessage?.key ?? null,
+    currentStepFES: latestCurrentStep?.fileEditSummary?.length ?? 0,
+    turnFESLength: latestTurnSummary?.length ?? 0,
+    turnFESEntries: latestTurnSummary?.map(e => `${e.path} (+${e.lineCount})`) ?? [],
+    agentMessageWriteSeqs: partitionedLatestSteps.map(s => s.agentMessage?.writeSeq ?? null),
+    sessionKey: `${latestSession.agentId}:${latestSession.sessionId}`,
+    writeCount: useFileWriteStore.getState().getWritesForSession(latestSession.agentId, latestSession.sessionId).length,
+  });
+
+  // When finalResponse exists, don't set fileEditSummary on currentStep —
+  // turnFileEditSummary (shown below the final response) handles aggregate display.
+  // During streaming (no finalResponse), currentStep is null and peeled from
+  // steps in splitLatestSteps, which correctly sets per-step fileEditSummary.
   const latestGroup: AgentResponseGroup = {
     userItem: items[lastUserIdx],
     steps: partitionedLatestSteps,
@@ -448,7 +469,6 @@ function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
           agentMessage: latestFinal!.item as ChatDisplayItem,
           toolCalls: [],
           isPreAgent: false,
-          fileEditSummary: finalStepSummary,
         }
       : null),
     turnFileEditSummary: latestTurnSummary,
