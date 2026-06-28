@@ -172,6 +172,19 @@ function computeWriteSeqBoundaries(steps: IntermediateStep[]): WriteSeqBoundary[
   for (let i = 0; i < boundaries.length - 1; i++) {
     boundaries[i].hi = boundaries[i + 1].lo;
   }
+  // Collapse empty ranges: when adjacent steps share the same writeSeq,
+  // the earlier step gets [lo, lo) = empty.  Expand its hi to the next
+  // distinct lo so writes are attributed to the step that was active.
+  for (let i = 0; i < boundaries.length - 1; i++) {
+    if (boundaries[i].lo === boundaries[i].hi) {
+      for (let j = i + 1; j < boundaries.length; j++) {
+        if (boundaries[j].lo > boundaries[i].lo) {
+          boundaries[i].hi = boundaries[j].lo;
+          break;
+        }
+      }
+    }
+  }
   log.debug("computeWriteSeqBoundaries", {
     stepCount: steps.length,
     boundaries: boundaries.map((b) => ({ lo: b.lo, hi: b.hi === Infinity ? "∞" : b.hi })),
@@ -473,6 +486,10 @@ function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
     : allStepsForPartition;
 
   // currentStep with file edits for the final step
+  // Only set currentStep when there are items AFTER the final response
+  // (tool calls that belong to the final step).  When the final response
+  // is the last item, currentStep stays null — the turn-level summary
+  // below the final response handles aggregate display.
   let latestCurrentStep: IntermediateStep | null = null;
   if (latestFinal && latestFinalIdx >= 0) {
     const postFinalItems = latestAgentChats.slice(latestFinalIdx + 1);
@@ -505,10 +522,11 @@ function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
     writeCount: useFileWriteStore.getState().getWritesForSession(latestSession.agentId, latestSession.sessionId).length,
   });
 
-  // When finalResponse exists, don't set fileEditSummary on currentStep —
-  // turnFileEditSummary (shown below the final response) handles aggregate display.
-  // During streaming (no finalResponse), currentStep is null and peeled from
-  // steps in splitLatestSteps, which correctly sets per-step fileEditSummary.
+  // When finalResponse exists with writes but NO post-final items, create a
+  // synthetic currentStep that carries the fileEditSummary — this ensures
+  // the final step's file edits are shown both per-step AND as part of the
+  // turn-level summary without duplication (the SessionChatContainer hides
+  // turnFileEditSummary when currentStep is present).
   const latestGroup: AgentResponseGroup = {
     userItem: items[lastUserIdx],
     steps: partitionedLatestSteps,
@@ -518,6 +536,7 @@ function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
           agentMessage: latestFinal!.item as ChatDisplayItem,
           toolCalls: [],
           isPreAgent: false,
+          fileEditSummary: finalStepSummary,
         }
       : null),
     turnFileEditSummary: latestTurnSummary,

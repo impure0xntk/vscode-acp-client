@@ -105,6 +105,7 @@ interface OrchestratorInternals {
     streamMsgRef: Map<string, { agentId: string; sessionId: string; msgId: string }>;
     agentInfoMap: Map<string, AgentInfo>;
     agentConfigs: Map<string, any>;
+    connections: Map<string, any>;
   };
   getSessionInfo(
     agentId: string,
@@ -152,7 +153,7 @@ describe("restoreSession — Strategy 1: native loadSession", () => {
       newSession: async (_req: any) => ({ sessionId: "should-not-be-called" }),
       prompt: async (_req: any) => ({ stopReason: "end_turn" }),
     };
-    o.getInternalState().agentConfigs.set("agent-native", mockConn);
+    o.getInternalState().connections.set("agent-native", mockConn);
 
     // Register agent info with loadSession capability
     o.getInternalState().agentInfoMap.set("agent-native", {
@@ -323,7 +324,7 @@ describe("restoreSession — Strategy 2: bridge replay", () => {
         return { stopReason: "end_turn" };
       },
     };
-    o.getInternalState().agentConfigs.set("agent-bridge", mockConn);
+    o.getInternalState().connections.set("agent-bridge", mockConn);
 
     // Register agent info WITHOUT loadSession capability
     o.getInternalState().agentInfoMap.set("agent-bridge", {
@@ -464,7 +465,7 @@ describe("replayMessages — message filtering", () => {
         return { stopReason: "end_turn" };
       },
     };
-    o.getInternalState().agentConfigs.set("agent-filter", mockConn);
+    o.getInternalState().connections.set("agent-filter", mockConn);
 
     o.getInternalState().agentInfoMap.set("agent-filter", {
       name: "Filter Agent",

@@ -202,33 +202,6 @@ export const SessionChatContainer = memo(function SessionChatContainer({
     [items]
   );
 
-  // Debug: log latestGroup state at render time
-  {
-    const lg = latestGroup;
-    const gk = (e: { path: string; lineCount: number; deletedLines: number }) =>
-      `${e.path} (+${e.lineCount}${e.deletedLines > 0 ? ` -${e.deletedLines}` : ''})`;
-    console.log("[FileEditDebug] render", {
-      sessionKey,
-      itemCount: items.length,
-      groupCount: groups.length,
-      hasLatestGroup: !!lg,
-      latestStepCount: lg?.steps.length ?? 0,
-      latestFinalResponse: lg?.finalResponse?.item.key ?? null,
-      latestFinalResponseStopReason: (lg?.finalResponse?.item as any)?.stopReason ?? null,
-      latestCurrentStep: lg?.currentStep?.agentMessage?.key ?? null,
-      latestCurrentStepFES: lg?.currentStep?.fileEditSummary?.length ?? 0,
-      latestTurnFES: lg?.turnFileEditSummary?.length ?? 0,
-      latestTurnFESEntries: lg?.turnFileEditSummary?.map(gk) ?? [],
-      latestStepFES: lg?.steps.map((s, i) => ({
-        idx: i,
-        amKey: s.agentMessage?.key ?? null,
-        amWriteSeq: s.agentMessage?.writeSeq,
-        fes: s.fileEditSummary?.map(gk) ?? [],
-        isPreAgent: s.isPreAgent,
-      })) ?? [],
-    });
-  }
-
   // ── Per-group collapse state ─────────────────────────────────────────
   const collapsedMap = useIntermediateStepsCollapseMap(sessionKey ?? null);
   const toggleIntermediateSteps = useToggleIntermediateSteps();
@@ -633,9 +606,16 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                         isNew={newKeys.has(latestGroup.finalResponse.item.key)}
                       />
                     )}
-                    {/* Cumulative file edit summary — shown only after turn completes (finalResponse exists) */}
-                    {latestGroup.finalResponse && latestGroup.turnFileEditSummary && latestGroup.turnFileEditSummary.length > 0 && (
-                      <FileEditSummary entries={latestGroup.turnFileEditSummary} sessionId={sessionId} agentId={agentId} onAttachDiff={onAttachDiff} />
+
+                    {/* Cumulative file edit summary — shown only after turn completes (finalResponse exists)
+                        AND only when currentStep is not already showing it (avoids duplicate display) */}
+                    {!currentStep && latestGroup.finalResponse && latestGroup.turnFileEditSummary && latestGroup.turnFileEditSummary.length > 0 && (
+                      <FileEditSummary
+                        entries={latestGroup.turnFileEditSummary}
+                        sessionId={sessionId}
+                        agentId={agentId}
+                        onAttachDiff={onAttachDiff}
+                      />
                     )}
                   </React.Fragment>
                 );

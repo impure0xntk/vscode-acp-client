@@ -57,6 +57,8 @@ export interface SessionLifecycleDeps {
   promptExecution: PromptExecution;
   historyStore: PersistentHistoryStore | null;
   sessionHistoryStore: SessionHistoryStore | null;
+  /** Emit orchestrator event (sessionReplayStart, etc.) */
+  emit: (event: string, ...args: unknown[]) => void;
 }
 
 export class SessionLifecycle {
@@ -282,6 +284,8 @@ export class SessionLifecycle {
     const replayable = messages.filter((m) => m.role === "user" || m.role === "agent");
     if (replayable.length === 0) return 0;
 
+    this.deps.emit("sessionReplayStart", { agentId, sessionId, total: replayable.length });
+
     let replayed = 0;
     for (const msg of replayable) {
       const blocks = this.chatMessageToContentBlocks(msg);
@@ -292,6 +296,7 @@ export class SessionLifecycle {
           `replay message ${msg.id}`
         );
         replayed++;
+        this.deps.emit("sessionReplayProgress", { agentId, sessionId, index: replayed, total: replayable.length });
       } catch (e) {
         log.warn("replay message failed", {
           agentId,
@@ -302,6 +307,7 @@ export class SessionLifecycle {
       }
     }
 
+    this.deps.emit("sessionReplayComplete", { agentId, sessionId, replayed });
     return replayed;
   }
 

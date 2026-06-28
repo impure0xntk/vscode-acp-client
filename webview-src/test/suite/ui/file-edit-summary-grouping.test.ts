@@ -60,10 +60,13 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
     assert.strictEqual(steps[0].fileEditSummary![0].path, "/a.ts");
     assert.strictEqual(steps[0].fileEditSummary![1].path, "/b.ts");
 
-    // Final step: currentStep has no fileEditSummary (turnFileEditSummary handles it)
+    // Final step (currentStep): writes seq in [2,∞) → /c.ts, /d.ts
     const cs = result.latestGroup!.currentStep;
-    assert.ok(cs);
-    assert.strictEqual(cs.fileEditSummary, undefined);
+    assert.ok(cs, "currentStep should exist (synthetic from finalStepSummary)");
+    assert.ok(cs.fileEditSummary, "currentStep should carry fileEditSummary for final step writes");
+    assert.strictEqual(cs.fileEditSummary!.length, 2);
+    assert.strictEqual(cs.fileEditSummary![0].path, "/c.ts");
+    assert.strictEqual(cs.fileEditSummary![1].path, "/d.ts");
 
     // turnFileEditSummary merges ALL writes across all steps
     assert.ok(result.latestGroup!.turnFileEditSummary);
@@ -86,10 +89,13 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
     ];
     const result = new IntermediateStepGrouper(items).compute();
 
-    // No intermediate steps; currentStep has no fileEditSummary (turnFileEditSummary handles it)
+    // No intermediate steps; currentStep is synthetic with fileEditSummary
     const cs = result.latestGroup!.currentStep;
-    assert.ok(cs);
-    assert.strictEqual(cs.fileEditSummary, undefined);
+    assert.ok(cs, "currentStep should exist (synthetic from finalStepSummary)");
+    assert.ok(cs.fileEditSummary, "currentStep should carry fileEditSummary");
+    assert.strictEqual(cs.fileEditSummary!.length, 1);
+    assert.strictEqual(cs.fileEditSummary![0].path, "/foo.ts");
+    assert.strictEqual(cs.fileEditSummary![0].lineCount, 2);
 
     // turnFileEditSummary contains all writes for the turn
     assert.ok(result.latestGroup!.turnFileEditSummary);
@@ -108,8 +114,8 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
     for (const step of result.latestGroup!.steps) {
       assert.strictEqual(step.fileEditSummary, undefined);
     }
-    // currentStep no longer carries fileEditSummary
-    assert.strictEqual(result.latestGroup!.currentStep?.fileEditSummary, undefined);
+    // currentStep is null when no writes exist
+    assert.strictEqual(result.latestGroup!.currentStep, null);
     assert.strictEqual(result.latestGroup!.turnFileEditSummary, undefined);
   });
 
@@ -162,10 +168,12 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
     assert.strictEqual(steps[1].fileEditSummary!.length, 2);
     assert.strictEqual(steps[1].fileEditSummary![0].path, "/b1.ts");
 
-    // CurrentStep (final): no fileEditSummary (turnFileEditSummary handles it)
+    // CurrentStep (final): carries fileEditSummary for writes in [4,∞) → /c1.ts
     const cs = result.latestGroup!.currentStep;
-    assert.ok(cs);
-    assert.strictEqual(cs.fileEditSummary, undefined);
+    assert.ok(cs, "currentStep should exist");
+    assert.ok(cs.fileEditSummary, "currentStep should carry fileEditSummary");
+    assert.strictEqual(cs.fileEditSummary!.length, 1);
+    assert.strictEqual(cs.fileEditSummary![0].path, "/c1.ts");
 
     // turnFileEditSummary merges ALL writes across all steps
     assert.ok(result.latestGroup!.turnFileEditSummary);
@@ -175,6 +183,8 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
   });
 
   it("merges multiple writes to the same path within a step", () => {
+    // When the same path is written twice, the latest content is diffed against
+    // the original (null → ""). "line3" = 1 line added.
     useFileWriteStore.getState().addWrite("a1", "s1", "/foo.ts", "line1\nline2"); // seq=0
     useFileWriteStore.getState().addWrite("a1", "s1", "/foo.ts", "line3");         // seq=1
 
@@ -184,14 +194,19 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
     ];
     const result = new IntermediateStepGrouper(items).compute();
 
-    // currentStep no longer carries fileEditSummary; turnFileEditSummary handles it
+    // currentStep carries fileEditSummary (synthetic from finalStepSummary)
     const cs = result.latestGroup!.currentStep;
-    assert.ok(cs);
-    assert.strictEqual(cs?.fileEditSummary, undefined);
+    assert.ok(cs, "currentStep should exist");
+    assert.ok(cs.fileEditSummary, "currentStep should carry fileEditSummary");
+    assert.strictEqual(cs.fileEditSummary!.length, 1);
+    // lineCount = diff(null, "line3") = 1 line
+    assert.strictEqual(cs.fileEditSummary![0].lineCount, 1);
+    assert.strictEqual(cs.fileEditSummary![0].writtenContent, "line3");
 
     assert.ok(result.latestGroup!.turnFileEditSummary);
     assert.strictEqual(result.latestGroup!.turnFileEditSummary!.length, 1);
-    assert.strictEqual(result.latestGroup!.turnFileEditSummary![0].lineCount, 3); // 2 + 1
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary![0].lineCount, 1);
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary![0].writtenContent, "line3");
   });
 
   // ── turnFileEditSummary: full-turn aggregate ──────────────────────────
@@ -216,6 +231,8 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
   });
 
   it("merges same-path writes across all steps in turnFileEditSummary", () => {
+    // Two writes to /foo.ts: first "line1\nline2" (seq=0), then "line3" (seq=2).
+    // latest writtenContent = "line3" → diff(null, "line3") = 1 line.
     useFileWriteStore.getState().addWrite("a1", "s1", "/foo.ts", "line1\nline2"); // seq=0
     useFileWriteStore.getState().addWrite("a1", "s1", "/bar.ts", "bb");           // seq=1
     useFileWriteStore.getState().addWrite("a1", "s1", "/foo.ts", "line3");        // seq=2
@@ -233,7 +250,9 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
     const barEntry = result.latestGroup!.turnFileEditSummary!.find(e => e.path === "/bar.ts");
     assert.ok(fooEntry);
     assert.ok(barEntry);
-    assert.strictEqual(fooEntry!.lineCount, 3); // 2 + 1 merged across steps
+    // lineCount = diff(null, "line3") = 1 line (latest content)
+    assert.strictEqual(fooEntry!.lineCount, 1);
+    assert.strictEqual(fooEntry!.writtenContent, "line3");
     assert.strictEqual(barEntry!.lineCount, 1);
   });
 
@@ -290,10 +309,12 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
     assert.ok(steps[0].fileEditSummary);
     assert.strictEqual(steps[0].fileEditSummary!.length, 2);
 
-    // currentStep no longer carries fileEditSummary
+    // currentStep carries fileEditSummary (final step writes seq in [2,∞))
     const cs = result.latestGroup!.currentStep;
-    assert.ok(cs);
-    assert.strictEqual(cs.fileEditSummary, undefined);
+    assert.ok(cs, "currentStep should exist");
+    assert.ok(cs.fileEditSummary, "currentStep should carry fileEditSummary");
+    assert.strictEqual(cs.fileEditSummary!.length, 1);
+    assert.strictEqual(cs.fileEditSummary![0].path, "/c.ts");
 
     // Turn-level: ALL 3 files merged
     assert.ok(result.latestGroup!.turnFileEditSummary);
@@ -363,10 +384,11 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
     ];
     const result = new IntermediateStepGrouper(items).compute();
 
-    // currentStep exists (synthetic from finalStepSummary) but has no fileEditSummary
+    // currentStep carries fileEditSummary (synthetic from finalStepSummary)
     const cs = result.latestGroup!.currentStep;
-    assert.ok(cs);
-    assert.strictEqual(cs.fileEditSummary, undefined);
+    assert.ok(cs, "currentStep should exist");
+    assert.ok(cs.fileEditSummary, "currentStep should carry fileEditSummary");
+    assert.strictEqual(cs.fileEditSummary!.length, 2);
 
     // turnFileEditSummary carries the aggregate
     assert.ok(result.latestGroup!.turnFileEditSummary);
@@ -386,9 +408,9 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
     assert.strictEqual(result.latestGroup!.turnFileEditSummary, undefined);
   });
 
-  it("with multiple consecutive agent messages, last is final without fileEditSummary", () => {
+  it("with multiple consecutive agent messages, last is final with fileEditSummary", () => {
     // Streaming scenario: multiple consecutive agent messages, fallback picks last as final.
-    // The last agent becomes finalResponse, and earlier consecutive ones become intermediate steps.
+    // Both have writeSeq=0; the write collapses into the final step via boundary fix.
     useFileWriteStore.getState().addWrite("a1", "s1", "/s.ts", "ss"); // seq=0
 
     const items: PipelineItem[] = [
@@ -409,10 +431,12 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
     const steps = result.latestGroup!.steps;
     assert.ok(steps.length >= 1);
 
-    // Intermediate step has fileEditSummary (writes in [0,0) → none → undefined)
-    // Because writeSeq=0 for both, and partitioning: step1.lo=0, step1.hi=0 (next step's lo)
-    // → no writes in [0,0) → fileEditSummary undefined
-    // This is correct: writes arrive after the agent message is stamped
+    // currentStep carries fileEditSummary (boundary collapse → writes go to final step)
+    const cs = result.latestGroup!.currentStep;
+    assert.ok(cs, "currentStep should exist");
+    assert.ok(cs.fileEditSummary, "currentStep should carry fileEditSummary");
+    assert.strictEqual(cs.fileEditSummary!.length, 1);
+    assert.strictEqual(cs.fileEditSummary![0].path, "/s.ts");
 
     // turnFileEditSummary has the write
     assert.ok(result.latestGroup!.turnFileEditSummary);
@@ -442,10 +466,12 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
     assert.ok(steps[0].fileEditSummary);
     assert.strictEqual(steps[0].fileEditSummary!.length, 2);
 
-    // currentStep: no fileEditSummary
+    // currentStep carries fileEditSummary (final step writes seq in [2,∞))
     const cs = result.latestGroup!.currentStep;
-    assert.ok(cs);
-    assert.strictEqual(cs.fileEditSummary, undefined);
+    assert.ok(cs, "currentStep should exist");
+    assert.ok(cs.fileEditSummary, "currentStep should carry fileEditSummary");
+    assert.strictEqual(cs.fileEditSummary!.length, 2);
+    assert.strictEqual(cs.fileEditSummary![0].path, "/final-a.ts");
 
     // turnFileEditSummary: ALL 4 files
     assert.ok(result.latestGroup!.turnFileEditSummary);
@@ -455,7 +481,9 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
   });
 
   it("turnFileEditSummary merges same-path writes across all steps with correct lineCount", () => {
-    // Same path written in intermediate and final steps
+    // Same path written multiple times; latest content wins for diff.
+    // First: "line1\nline2", then "line3", finally "line4\nline5".
+    // diff(null, "line4\nline5") = 2 lines.
     useFileWriteStore.getState().addWrite("a1", "s1", "/shared.ts", "line1\nline2"); // seq=0 (intermediate)
     useFileWriteStore.getState().addWrite("a1", "s1", "/shared.ts", "line3");         // seq=1 (intermediate)
     useFileWriteStore.getState().addWrite("a1", "s1", "/shared.ts", "line4\nline5"); // seq=2 (final)
@@ -467,11 +495,12 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
     ];
     const result = new IntermediateStepGrouper(items).compute();
 
-    // turnFileEditSummary: 1 entry for /shared.ts, lineCount = 2 + 1 + 2 = 5
+    // turnFileEditSummary: 1 entry for /shared.ts, lineCount = diff(null, "line4\nline5") = 2
     assert.ok(result.latestGroup!.turnFileEditSummary);
     assert.strictEqual(result.latestGroup!.turnFileEditSummary!.length, 1);
     assert.strictEqual(result.latestGroup!.turnFileEditSummary![0].path, "/shared.ts");
-    assert.strictEqual(result.latestGroup!.turnFileEditSummary![0].lineCount, 5);
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary![0].lineCount, 2);
+    assert.strictEqual(result.latestGroup!.turnFileEditSummary![0].writtenContent, "line4\nline5");
   });
 
   it("turnFileEditSummary uses later writtenContent for same-path merges", () => {
@@ -515,10 +544,12 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
     const step1Paths = steps[0].fileEditSummary!.map(e => e.path);
     assert.deepStrictEqual(step1Paths, ["/a.ts", "/b.ts"]);
 
-    // currentStep: no fileEditSummary (turnFileEditSummary handles final)
+    // currentStep carries fileEditSummary (final step writes seq in [2,∞))
     const cs = result.latestGroup!.currentStep;
-    assert.ok(cs);
-    assert.strictEqual(cs.fileEditSummary, undefined);
+    assert.ok(cs, "currentStep should exist");
+    assert.ok(cs.fileEditSummary, "currentStep should carry fileEditSummary");
+    assert.strictEqual(cs.fileEditSummary!.length, 1);
+    assert.strictEqual(cs.fileEditSummary![0].path, "/c.ts");
 
     // turnFileEditSummary: all 3 files
     assert.ok(result.latestGroup!.turnFileEditSummary);
@@ -610,10 +641,12 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
       assert.strictEqual(steps[i].fileEditSummary![0].path, `/s${i + 1}.ts`);
     }
 
-    // currentStep: no fileEditSummary
+    // currentStep carries fileEditSummary (final step writes seq in [3,∞))
     const cs = result.latestGroup!.currentStep;
-    assert.ok(cs);
-    assert.strictEqual(cs.fileEditSummary, undefined);
+    assert.ok(cs, "currentStep should exist");
+    assert.ok(cs.fileEditSummary, "currentStep should carry fileEditSummary");
+    assert.strictEqual(cs.fileEditSummary!.length, 1);
+    assert.strictEqual(cs.fileEditSummary![0].path, "/s4.ts");
 
     // turnFileEditSummary: all 4 files
     assert.ok(result.latestGroup!.turnFileEditSummary);

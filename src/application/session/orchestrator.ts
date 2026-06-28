@@ -127,6 +127,7 @@ export class SessionOrchestrator extends EventEmitter {
       promptExecution: this.promptExecution,
       historyStore: null,
       sessionHistoryStore: null,
+      emit: (event: string, ...args: unknown[]) => this.emit(event, ...args),
     });
 
     // 6. AgentConnection (depends on protocolHandler callbacks)
@@ -634,6 +635,7 @@ export class SessionOrchestrator extends EventEmitter {
     agentInfoMap: Map<string, AgentInfo>;
     agentConfigs: Map<string, AgentConfig>;
     protocolHandler: ProtocolHandler;
+    connections: Map<string, import("@agentclientprotocol/sdk").ClientSideConnection>;
   } {
     return {
       sessions: this.sessionState["sessions"],
@@ -642,6 +644,7 @@ export class SessionOrchestrator extends EventEmitter {
       agentInfoMap: this.agentConnection["agentInfoMap"],
       agentConfigs: this.agentConnection["agentConfigs"],
       protocolHandler: this.protocolHandler,
+      connections: this.agentConnection["connections"],
     };
   }
 

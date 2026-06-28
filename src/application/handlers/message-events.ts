@@ -235,15 +235,16 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
 
   // -----------------------------------------------------------------------
   // File write event — agent wrote a file via ACP fs/write_text_file.
-  // Forward to webview (active session only) so it can aggregate edits
-  // per turn for the file edit summary displayed below the final response.
+  // Forward to webview for ALL sessions (not just the active one) so the
+  // pipeline can aggregate edits per-session for the file edit summary.
+  // Unlike sessionUpdate (text/thought/tool-call), file writes are per-
+  // session data needed on any tab.  Dropping non-active writes caused
+  // the file edit summary to silently disappear.
   // -----------------------------------------------------------------------
   orchestrator.on(
     "fileWrite",
     (event: FileWriteEvent) => {
       const { agentId, sessionId, path, content, originalContent, contentHash } = event;
-      const activeSessionId = orchestrator.getActiveSessionId(agentId);
-      if (sessionId !== activeSessionId) return;
       const cp = getChatPanel();
       cp?.pushFileWrite(agentId, sessionId, path, content, originalContent, contentHash);
     }

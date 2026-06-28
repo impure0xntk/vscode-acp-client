@@ -1,10 +1,54 @@
 import React, { useCallback, useState, useEffect, useMemo } from "react";
-import { createTwoFilesPatch } from "diff";
+import { createTwoFilesPatch, parsePatch } from "diff";
 import type { FileEditEntry } from "../../pipeline/types";
-import { fileIcon, getFileExtension } from "./ToolCallCard";
 import { getVsCodeApi } from "../../lib/vscodeApi";
 import { useFileWriteStore } from "../../store/fileWriteStore";
 import type { ContextAttachment } from "../../types";
+
+// ── Shared helpers ─────────────────────────────────────────────────────────
+
+function getFileExtension(path: string): string {
+  const parts = path.split("/");
+  const filename = parts[parts.length - 1] ?? path;
+  const dotIdx = filename.lastIndexOf(".");
+  return dotIdx >= 0 ? filename.slice(dotIdx + 1).toLowerCase() : "";
+}
+
+function fileIcon(ext: string): string {
+  switch (ext) {
+    case "ts":
+    case "tsx":
+    case "js":
+    case "jsx":
+      return "TS";
+    case "py":
+      return "PY";
+    case "rs":
+      return "RS";
+    case "go":
+      return "GO";
+    case "java":
+      return "JV";
+    case "c":
+    case "cpp":
+    case "h":
+    case "hpp":
+      return "C";
+    case "md":
+      return "MD";
+    case "json":
+      return "{}";
+    case "yaml":
+    case "yml":
+      return "Y";
+    case "toml":
+      return "T";
+    case "nix":
+      return "N";
+    default:
+      return "•";
+  }
+}
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -35,6 +79,58 @@ function buildUnifiedDiff(
   return createTwoFilesPatch(filePath, filePath, origSrc, newSrc, undefined, undefined, {
     context: 3,
   });
+}
+
+interface DiffLine {
+  /** "|" = context, "+" = addition, "-" = deletion, "@@" = hunk header */
+  type: "|" | "+" | "-" | "@@";
+  /** Display text (without leading +/-/space prefix) */
+  text: string;
+  /** Old file line number (1-based; undefined for additions) */
+  oldLine?: number;
+  /** New file line number (1-based; undefined for deletions) */
+  newLine?: number;
+  /** Hunk header content, e.g. "@@ -10,6 +10,8 @@" */
+  hunkHeader?: string;
+}
+
+/**
+ * Parse a unified-diff string into structured lines for rendering.
+ * Filters out redundant `Index:`, `---`, `+++` lines (file path already in row header).
+ * Preserves `@@` hunk headers with line-number context, styled separately.
+ */
+function parseDiffForRender(diffText: string): DiffLine[] | null {
+  try {
+    const lines: DiffLine[] = [];
+    const files = parsePatch(diffText);
+
+    if (files.length === 0) return null;
+
+    for (const file of files) {
+      for (const hunk of file.hunks) {
+        const header = `@@ -${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@`;
+        lines.push({ type: "@@", text: header, hunkHeader: header });
+
+        let oldLine = hunk.oldStart;
+        let newLine = hunk.newStart;
+        for (const l of hunk.lines) {
+          if (l.startsWith("+")) {
+            lines.push({ type: "+", text: l.slice(1), newLine: newLine++ });
+          } else if (l.startsWith("-")) {
+            lines.push({ type: "-", text: l.slice(1), oldLine: oldLine++ });
+          } else if (l.startsWith(" ")) {
+            lines.push({ type: "|", text: l.slice(1), oldLine: oldLine++, newLine: newLine++ });
+          } else if (l.startsWith("@@")) {
+            lines.push({ type: "@@", text: l, hunkHeader: l });
+          }
+          // Skip "\ No newline at end of file"
+        }
+      }
+    }
+    return lines;
+  } catch {
+    return null;
+  }
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -255,6 +351,10 @@ function FileEditRow({
       : "",
     [isExpanded, originalContent, entry.path, entry.writtenContent],
   );
+  const parsedDiffLines = useMemo(
+    () => isExpanded ? parseDiffForRender(diffContent) : null,
+    [isExpanded, diffContent],
+  );
 
   return (
     <div className="border-b border-[color-mix(in_srgb,var(--border)_20%,transparent)] last:border-b-0">
@@ -355,24 +455,43 @@ function FileEditRow({
               )}
             </div>
           </div>
-          {/* Diff content */}
-          <pre className="px-2.5 py-2 m-0 font-mono text-[10px] leading-[1.5] overflow-x-auto max-h-[200px] overflow-y-auto whitespace-pre text-fg-secondary">
-            {diffContent.split("\n").map((line, i) => (
-              <div
-                key={i}
-                className={
-                  line.startsWith("-") && !line.startsWith("---")
-                    ? "bg-[rgba(241,76,76,0.12)] text-[#f48771]"
-                    : line.startsWith("+") && !line.startsWith("+++")
-                      ? "bg-[rgba(78,201,176,0.12)] text-[#89d185]"
-                      : ""
+          {/* Diff content — hunk-aware with line numbers */}
+          {isExpanded && (
+            <pre className="px-2.5 py-2 m-0 font-mono text-[10px] leading-[1.5] overflow-x-auto max-h-[240px] overflow-y-auto whitespace-pre text-fg-secondary">
+              {parsedDiffLines === null ? (
+                <div className="text-fg-muted text-[10px] opacity-60 px-1 py-2">(Unable to parse diff output)</div>
+              ) : parsedDiffLines.map((dl, i) => {
+                if (dl.type === "@@") {
+                  return (
+                    <div
+                      key={i}
+                      className="px-1 py-[1px] my-[1px] text-[9px] font-medium tracking-wide bg-[color-mix(in_srgb,var(--fg-muted)_8%,transparent)] text-fg-muted"
+                    >
+                      {dl.hunkHeader}
+                    </div>
+                  );
                 }
-              >
-                <span className="inline-block w-3 select-none opacity-50">{line.startsWith("+") ? "+" : line.startsWith("-") ? "-" : " "}</span>
-                <span>{line.replace(/^[+-](?!$)/, "")}</span>
-              </div>
-            ))}
-          </pre>
+                const prefix = dl.type === "+" ? "+" : dl.type === "-" ? "-" : " ";
+                return (
+                  <div
+                    key={i}
+                    className={
+                      dl.type === "-"
+                        ? "bg-[rgba(241,76,76,0.10)] text-[#f48771]"
+                        : dl.type === "+"
+                          ? "bg-[rgba(78,201,176,0.10)] text-[#89d185]"
+                          : ""
+                    }
+                  >
+                    <span className="inline-block w-[3.5ch] text-right pr-[0.5ch] select-none opacity-40 font-mono">{dl.oldLine ?? ""}</span>
+                    <span className="inline-block w-[3.5ch] text-right pr-[0.5ch] select-none opacity-40 font-mono">{dl.newLine ?? ""}</span>
+                    <span className="inline-block w-3 select-none opacity-60">{prefix}</span>
+                    <span>{dl.text}</span>
+                  </div>
+                );
+              })}
+            </pre>
+          )}
         </div>
       )}
     </div>

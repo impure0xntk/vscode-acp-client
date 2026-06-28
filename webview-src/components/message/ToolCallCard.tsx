@@ -1,5 +1,6 @@
-import React, { useState } from "react";
-import type { ToolCallDiffContent, ToolCall } from "../../types";
+import React, { useState, useMemo } from "react";
+import { parsePatch } from "diff";
+import type { ToolCallDiffContent } from "../../types";
 import { StatusIcon } from "../primitives/StatusIcon";
 import { getVsCodeApi } from "../../lib/vscodeApi";
 import { Icon, iconForToolKind } from "../../lib/icons";
@@ -8,14 +9,34 @@ import { getLogger } from "../../lib/logger";
 const log = getLogger("webview.ToolCallCard");
 // ── Shared helpers ─────────────────────────────────────────────────────────
 
-export function getFileExtension(path: string): string {
+export function formatDuration(ms: number): string {
+  if (ms >= 1000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${Math.round(ms)}ms`;
+}
+
+function tryFormatJson(raw: string): string {
+  try {
+    return JSON.stringify(JSON.parse(raw), null, 2);
+  } catch {
+    return raw;
+  }
+}
+
+// ── Location types ───────────────────────────────────────────────────────
+
+interface ToolCallLocation {
+  path: string;
+  line?: number;
+}
+
+function getFileExtension(path: string): string {
   const parts = path.split("/");
   const filename = parts[parts.length - 1] ?? path;
   const dotIdx = filename.lastIndexOf(".");
   return dotIdx >= 0 ? filename.slice(dotIdx + 1).toLowerCase() : "";
 }
 
-export function fileIcon(ext: string): string {
+function fileIcon(ext: string): string {
   switch (ext) {
     case "ts":
     case "tsx":
@@ -51,19 +72,6 @@ export function fileIcon(ext: string): string {
   }
 }
 
-export function formatDuration(ms: number): string {
-  if (ms >= 1000) return `${(ms / 1000).toFixed(1)}s`;
-  return `${Math.round(ms)}ms`;
-}
-
-function tryFormatJson(raw: string): string {
-  try {
-    return JSON.stringify(JSON.parse(raw), null, 2);
-  } catch {
-    return raw;
-  }
-}
-
 // ── Chevron ─────────────────────────────────────────────────────────────────
 
 function Chevron({ open }: { open: boolean }): React.ReactElement {
@@ -79,58 +87,109 @@ function Chevron({ open }: { open: boolean }): React.ReactElement {
 
 // ── DiffView ────────────────────────────────────────────────────────────────
 
+interface RenderedDiffLine {
+  type: "|" | "+" | "-" | "@@";
+  text: string;
+  oldLine?: number;
+  newLine?: number;
+  hunkHeader?: string;
+}
+
+function parseDiffLines(diffText: string): RenderedDiffLine[] | null {
+  try {
+    const lines: RenderedDiffLine[] = [];
+    const files = parsePatch(diffText);
+
+    if (files.length === 0) return null;
+
+    for (const file of files) {
+      for (const hunk of file.hunks) {
+        const header = `@@ -${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@`;
+        lines.push({ type: "@@", text: header, hunkHeader: header });
+
+        let oldLine = hunk.oldStart;
+        let newLine = hunk.newStart;
+        for (const l of hunk.lines) {
+          if (l.startsWith("+")) {
+            lines.push({ type: "+", text: l.slice(1), newLine: newLine++ });
+          } else if (l.startsWith("-")) {
+            lines.push({ type: "-", text: l.slice(1), oldLine: oldLine++ });
+          } else if (l.startsWith(" ")) {
+            lines.push({ type: "|", text: l.slice(1), oldLine: oldLine++, newLine: newLine++ });
+          } else if (l.startsWith("@@")) {
+            lines.push({ type: "@@", text: l, hunkHeader: l });
+          }
+        }
+      }
+    }
+    return lines;
+  } catch {
+    return null;
+  }
+}
+
 export function DiffView({
   diff,
 }: {
   diff: ToolCallDiffContent;
 }): React.ReactElement {
-  const lines: Array<{ prefix: string; text: string }> = [];
-  const diffLines = (diff.diff ?? "").split("\n");
+  const rendered = useMemo(() => {
+    const allLines = parseDiffLines(diff.diff ?? "");
+    if (allLines === null) return { error: true as const };
+    const maxLines = 200;
+    if (allLines.length <= maxLines) return { lines: allLines, truncated: false };
+    return { lines: allLines.slice(0, maxLines), truncated: true };
+  }, [diff.diff]);
 
-  const maxLines = 200;
-  let truncated = false;
-
-  for (const l of diffLines) {
-    if (lines.length >= maxLines) {
-      truncated = true;
-      break;
-    }
-    const prefix = l.startsWith("-") ? "-" : l.startsWith("+") ? "+" : " ";
-    lines.push({ prefix, text: l });
-  }
-
-  if (truncated) {
-    lines.push({ prefix: "…", text: "(truncated)" });
+  if ("error" in rendered) {
+    return (
+      <div className="mb-2">
+        <pre className="mt-1 p-1.5 bg-[color-mix(in_srgb,var(--bg-primary)_50%,transparent)] rounded font-mono text-[11px] leading-[1.5] overflow-x-auto max-h-[300px] overflow-y-auto whitespace-pre-wrap text-fg-secondary">
+          {diff.diff ?? ""}
+        </pre>
+      </div>
+    );
   }
 
   return (
     <div className="mb-2">
       <pre className="mt-1 p-1.5 bg-[color-mix(in_srgb,var(--bg-primary)_50%,transparent)] rounded font-mono text-[11px] leading-[1.5] overflow-x-auto max-h-[300px] overflow-y-auto">
-        {lines.map((l, i) => (
-          <div
-            key={i}
-            className={
-              l.prefix === "-"
-                ? "bg-[rgba(241,76,76,0.15)] text-[#f48771]"
-                : l.prefix === "+"
-                  ? "bg-[rgba(78,201,176,0.15)] text-[#89d185]"
-                  : "text-fg-secondary"
-            }
-          >
-            <span className="inline-block w-4 select-none">{l.prefix}</span>
-            <span>{l.text}</span>
-          </div>
-        ))}
+        {rendered.lines.map((dl, i) => {
+          if (dl.type === "@@") {
+            return (
+              <div
+                key={i}
+                className="px-1 py-[1px] my-[1px] text-[9px] font-medium tracking-wide bg-[color-mix(in_srgb,var(--fg-muted)_8%,transparent)] text-fg-muted"
+              >
+                {dl.hunkHeader}
+              </div>
+            );
+          }
+          const prefix = dl.type === "+" ? "+" : dl.type === "-" ? "-" : " ";
+          return (
+            <div
+              key={i}
+              className={
+                dl.type === "-"
+                  ? "bg-[rgba(241,76,76,0.12)] text-[#f48771]"
+                  : dl.type === "+"
+                    ? "bg-[rgba(78,201,176,0.12)] text-[#89d185]"
+                    : "text-fg-secondary"
+              }
+            >
+              <span className="inline-block w-[3.5ch] text-right pr-[0.5ch] select-none opacity-40 font-mono">{dl.oldLine ?? ""}</span>
+              <span className="inline-block w-[3.5ch] text-right pr-[0.5ch] select-none opacity-40 font-mono">{dl.newLine ?? ""}</span>
+              <span className="inline-block w-3 select-none opacity-60">{prefix}</span>
+              <span>{dl.text}</span>
+            </div>
+          );
+        })}
+        {rendered.truncated && (
+          <div className="text-fg-muted text-[10px] opacity-60">… (truncated)</div>
+        )}
       </pre>
     </div>
   );
-}
-
-// ── ToolCallLocation ───────────────────────────────────────────────────────
-
-interface ToolCallLocation {
-  path: string;
-  line?: number;
 }
 
 // ── ToolCallCard ───────────────────────────────────────────────────────────
@@ -167,14 +226,6 @@ export function ToolCallCard({
   const hasLocations = locations && locations.length > 0;
   const hasBody = hasInput || hasOutput || hasDiff;
 
-  const handleFileClick = (path: string, line?: number) => {
-    try {
-      getVsCodeApi().postMessage({ type: "openFile", path, line });
-    } catch {
-      /* vscodeApi not available */
-    }
-  };
-
   return (
     <div
       className={`mt-0 max-w-full rounded overflow-hidden text-[10px] bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]${status === "completed" ? " opacity-[0.7] data-[completed=true]" : ""}`}
@@ -210,7 +261,9 @@ export function ToolCallCard({
                 className={`inline-flex items-center gap-0.5 px-0.75 py-px rounded-[3px] bg-bg-secondary ${status === "completed" ? "text-fg-secondary hover:text-fg-primary" : "text-fg-primary"} text-[9px] cursor-pointer select-none transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1 flex-shrink-0 ml-[2px]`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleFileClick(loc.path, loc.line);
+                  try {
+                    getVsCodeApi().postMessage({ type: "openFile", path: loc.path, line: loc.line });
+                  } catch { /* vscodeApi not available */ }
                 }}
                 title={loc.line ? `${loc.path}:${loc.line}` : loc.path}
                 role="button"
@@ -218,7 +271,9 @@ export function ToolCallCard({
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.stopPropagation();
-                    handleFileClick(loc.path, loc.line);
+                    try {
+                      getVsCodeApi().postMessage({ type: "openFile", path: loc.path, line: loc.line });
+                    } catch { /* vscodeApi not available */ }
                   }
                 }}
               >
