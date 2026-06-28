@@ -8,15 +8,6 @@ import { getLogger } from "../../lib/logger";
 
 const log = getLogger("webview.SessionTab");
 
-// Subscribes to its own session info via useSessionInfo(sessionKey).
-// Only re-renders when this specific session's fields change — not when
-// other sessions update.  elapsedMs is computed locally from lastResponseAt
-// with a 1-second tick so the spinner color updates in real time.
-//
-// Responsibility split:
-//   SessionTabs (parent) owns: drag/drop, hover timers, popup, unread computation
-//   SessionTab (this)   owns:  status subscription, elapsedMs tick, click, close, layout
-
 interface SessionTabProps {
   tab: SessionTabState;
   isActive: boolean;
@@ -47,19 +38,9 @@ export function SessionTab({
   const sessionKey = `${tab.agentId}:${tab.sessionId}`;
   const info = useSessionInfo(sessionKey);
 
-  // Local tick for elapsedMs — recompute every second while running.
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    if (info?.status !== "running" || !info?.lastResponseAt) return;
-    const id = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(id);
-  }, [info?.status, info?.lastResponseAt]);
-
   const rawStatus = info?.status ?? "idle";
   const lastOutcome: TurnOutcome | null = info?.lastTurnOutcome ?? null;
 
-  // When idle with a turn outcome, show the outcome icon (✓/✗/⊘)
-  // so the user can see what happened without needing a separate indicator.
   const status: StatusIconType =
     rawStatus === "running"
       ? "running"
@@ -68,11 +49,6 @@ export function SessionTab({
         : rawStatus === "idle"
           ? "idle"
           : rawStatus;
-
-  const elapsedMs =
-    status === "running" && info?.lastResponseAt
-      ? Date.now() - new Date(info.lastResponseAt).getTime()
-      : undefined;
 
   const showCloseButton = isActive || isHovered;
 
@@ -124,9 +100,9 @@ export function SessionTab({
       onMouseLeave={onMouseLeave}
       style={{ borderTop: `2px solid ${agentColor ?? "transparent"}` }}
     >
-      {/* Row 1: Status + Agent name — mirrors SessionOverviewCard header */}
+      {/* Row 1: Status + Agent name */}
       <div className="flex items-center gap-1 min-w-0 h-[18px]">
-        <StatusIcon status={status} elapsedMs={elapsedMs} />
+        <StatusIcon status={status} />
         <span
           className="text-[10px] font-semibold font-mono text-fg-secondary overflow-hidden text-ellipsis whitespace-nowrap leading-none"
           style={{ color: agentColor ?? "var(--vscode-descriptionForeground)" }}
@@ -136,7 +112,7 @@ export function SessionTab({
         </span>
       </div>
 
-      {/* Row 2: Session title — compact, no chips/preview/footer */}
+      {/* Row 2: Session title */}
       <div
         className="flex items-center gap-1 min-w-0 h-[20px] mt-[2px]"
         onDoubleClick={(e) => {
@@ -163,14 +139,14 @@ export function SessionTab({
         )}
       </div>
 
-      {/* Unread badge — absolute top-right, shared UnreadBadge */}
+      {/* Unread badge */}
       <UnreadBadge
         count={unreadCount}
         hidden={isActive}
         className="absolute top-1.5 right-1 z-10 inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-lg bg-accent text-user-fg text-[9px] font-bold leading-none shadow-[0_1px_3px_rgba(0,0,0,0.35)] pointer-events-none"
       />
 
-      {/* Close button — visible on hover or active (not always, unlike card) */}
+      {/* Close button */}
       <div
         className={`absolute top-1 right-1 flex items-center gap-0.5 z-10 transition-opacity duration-150 ${showCloseButton ? "opacity-100" : "opacity-0"}`}
       >

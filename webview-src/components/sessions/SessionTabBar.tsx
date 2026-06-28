@@ -61,14 +61,6 @@ const UnifiedTab = React.memo(function UnifiedTab({
   const sessionKey = sessionKeyOf(tab.agentId, tab.sessionId);
   const info = useSessionInfo(sessionKey);
 
-  // Local tick for elapsedMs — recompute every second while running.
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    if (info?.status !== "running" || !info?.lastResponseAt) return;
-    const id = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(id);
-  }, [info?.status, info?.lastResponseAt]);
-
   const rawStatus = info?.status ?? "idle";
   const lastOutcome: TurnOutcome | null = info?.lastTurnOutcome ?? null;
 
@@ -80,11 +72,6 @@ const UnifiedTab = React.memo(function UnifiedTab({
         : rawStatus === "idle"
           ? "idle"
           : rawStatus;
-
-  const elapsedMs =
-    status === "running" && info?.lastResponseAt
-      ? Date.now() - new Date(info.lastResponseAt).getTime()
-      : undefined;
 
   // Inline rename state
   useEffect(() => {
@@ -138,7 +125,7 @@ const UnifiedTab = React.memo(function UnifiedTab({
         boxShadow: isActive ? `inset 0 -2px 0 0 ${agentColor ?? "var(--accent)"}` : "none",
       }}
     >
-      <StatusIcon status={status} elapsedMs={elapsedMs} />
+      <StatusIcon status={status} />
       <span
         className="font-semibold font-mono text-[11px] shrink-0"
         style={{ color: agentColor ?? "var(--vscode-descriptionForeground)" }}
@@ -171,7 +158,7 @@ const UnifiedTab = React.memo(function UnifiedTab({
           {tab.title.length > 12 ? `${tab.title.slice(0, 12)}…` : tab.title}
         </span>
       )}
-      {/* Pin button — clickable, toggles pin state */}
+      {/* Pin button */}
       <button
         className="shrink-0 w-[18px] h-[18px] inline-flex items-center justify-center p-0 border-none rounded-[3px] bg-transparent text-fg-muted cursor-pointer transition-all duration-150 opacity-70 hover:bg-accent-hover hover:text-fg-primary"
         onClick={(e) => {
@@ -192,7 +179,7 @@ const UnifiedTab = React.memo(function UnifiedTab({
         hidden={isActive}
         className="shrink-0"
       />
-      {/* Close button — always reserves space; visibility toggled via CSS */}
+      {/* Close button */}
       <button
         className={`inline-flex items-center justify-center w-[18px] h-[18px] p-0 border-none rounded-[3px] bg-transparent text-fg-muted cursor-pointer shrink-0 transition-all duration-150 hover:bg-[color-mix(in_srgb,var(--error)_15%,transparent)] hover:text-error ${isActive || isHovered ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
         onClick={(e) => {

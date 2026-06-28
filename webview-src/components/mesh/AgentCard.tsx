@@ -10,10 +10,6 @@ import {
   sessionColorGroup,
 } from "../sessions/overview/SessionOverviewCardBase";
 import { fmt } from "../sessions/toolbar/formatting";
-import {
-  ELAPSED_WARNING_MS,
-  ELAPSED_CRITICAL_MS,
-} from "../../shared/constants";
 
 interface AgentCardProps {
   sessionInfo: SessionInfoDTO;
@@ -34,18 +30,6 @@ const STATUS_LABEL: Record<string, string> = {
   cancelled: "Cancelled",
 };
 
-function progressTier(elapsedMs: number): "normal" | "warning" | "critical" {
-  if (elapsedMs >= ELAPSED_CRITICAL_MS) return "critical";
-  if (elapsedMs >= ELAPSED_WARNING_MS) return "warning";
-  return "normal";
-}
-
-function tierColor(tier: "normal" | "warning" | "critical"): string {
-  if (tier === "critical") return "#ef5350";
-  if (tier === "warning") return "#ffd54f";
-  return "#4fc3f7";
-}
-
 export function AgentCard({
   sessionInfo,
   agent,
@@ -62,13 +46,6 @@ export function AgentCard({
   const isTerminal =
     status === "completed" || status === "error" || status === "cancelled";
   const colorGroup = sessionColorGroup(status);
-
-  const elapsedMs =
-    status === "running" && sessionInfo.lastResponseAt
-      ? Date.now() - new Date(sessionInfo.lastResponseAt).getTime()
-      : 0;
-  const tier = progressTier(elapsedMs);
-  const barColor = tierColor(tier);
 
   const tokenTotal = sessionInfo.tokenUsage.totalTokens;
   const ctxMax = sessionInfo.contextWindowMax;
@@ -100,7 +77,7 @@ export function AgentCard({
     >
       {/* Header: status icon + agent name */}
       <div className="flex items-center gap-1 min-w-0">
-        <StatusIcon status={status} size="sm" elapsedMs={elapsedMs} />
+        <StatusIcon status={status} size="sm" />
         <span className="flex-1 min-w-0 text-[10px] font-semibold font-mono text-fg-primary overflow-hidden text-ellipsis whitespace-nowrap">
           {agent?.name ?? sessionInfo.agentId}
         </span>
@@ -114,14 +91,10 @@ export function AgentCard({
         <div className="flex items-center gap-1">
           <div className="flex-1 h-[3px] rounded-[1.5px] bg-[color-mix(in_srgb,var(--fg-muted)_15%,transparent)] overflow-hidden">
             <div
-              className="h-full rounded-[1.5px]"
-              style={{
-                width: `${Math.min(ctxPct ?? 60, 100)}%`,
-                background: barColor,
-              }}
+              className="h-full rounded-[1.5px] bg-[#4fc3f7]"
+              style={{ width: `${Math.min(ctxPct ?? 60, 100)}%` }}
             />
           </div>
-          <span className="flex-shrink-0 text-[9px] text-fg-muted font-mono">{fmtDuration(elapsedMs)}</span>
         </div>
       )}
 

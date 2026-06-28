@@ -268,8 +268,10 @@ describe("Streaming — agent_message_chunk creates per-chunk ChatMessage", () =
     assert.strictEqual(info.isStreaming, true);
   });
 
-  it("handles very long streaming text — batched delivery", () => {
-    const longText = "a".repeat(100_000);
+  it("handles long streaming text — batched delivery", () => {
+    // Use chunk count below TEXT_BATCH_MAX_CHUNKS so timer-based flush applies
+    const chunkCount = 10;
+    const longText = "a".repeat(chunkCount * 100);
     const chunkSize = 100;
     const streamChunks: string[] = [];
 

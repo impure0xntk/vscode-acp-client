@@ -288,11 +288,15 @@ export const SessionFooter = React.memo(function SessionFooter(
     }
   }
 
+  // Static duration: compute once from sessionStartMs and lastResponseAt
+  // (or sessionStartMs to now if still running). No live tick.
   if (sessionStartMs) {
+    const endMs = lastResponseAt ? new Date(lastResponseAt).getTime() : Date.now();
+    const staticElapsed = Math.max(0, endMs - sessionStartMs);
     chips.push({
       key: "dur",
       label: "Duration",
-      value: fmtDuration(Date.now() - sessionStartMs),
+      value: fmtDuration(staticElapsed),
       category: "metrics",
     });
   }
@@ -312,7 +316,7 @@ export const SessionFooter = React.memo(function SessionFooter(
       }
     : null;
 
-  // Turn outcome chip — shows the result of the most recent turn
+  // Turn outcome chip
   const turnChip: ToolbarMeta | null = (() => {
     if (sessionStatus === "running") {
       return {

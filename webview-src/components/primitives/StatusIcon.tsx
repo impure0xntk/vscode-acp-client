@@ -1,5 +1,4 @@
 import React from "react";
-import { elapsedColor } from "../../shared/elapsedColor";
 import {
   IconSpinner,
   IconCircleOutline,
@@ -10,9 +9,7 @@ import {
   IconInput,
 } from "../../lib/icons";
 
-/** Session runtime state — no terminal values */
 export type SessionStatus = "idle" | "running" | "cancelling";
-/** Turn outcome — set after a turn completes */
 export type TurnOutcome = "completed" | "error" | "cancelled";
 export type ToolStatus = "in_progress" | "completed" | "failed" | "cancelled";
 
@@ -63,7 +60,6 @@ export interface StatusIconProps {
   status: StatusIconType;
   size?: "sm" | "md";
   className?: string;
-  elapsedMs?: number;
   /** Force a specific color group accent (e.g. "active" or "waiting") */
   colorGroup?: string;
   /** Context variant: "tool" mutes completed check to gray; default keeps green */
@@ -74,7 +70,6 @@ export function StatusIcon({
   status,
   size = "sm",
   className = "",
-  elapsedMs,
   colorGroup,
   variant = "default",
 }: StatusIconProps): React.ReactElement {
@@ -84,10 +79,6 @@ export function StatusIcon({
   let colorSuffix = "";
   if (colorGroup === "waiting") {
     colorSuffix = " status-icon-waiting";
-  } else if (mapped === "running" && elapsedMs !== undefined) {
-    const tier = elapsedColor(elapsedMs);
-    if (tier === "warning") colorSuffix = " status-icon-running-warning";
-    else if (tier === "critical") colorSuffix = " status-icon-running-critical";
   }
 
   const px = size === "sm" ? 14 : 18;

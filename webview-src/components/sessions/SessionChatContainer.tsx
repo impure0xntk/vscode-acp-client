@@ -582,9 +582,10 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                       />
                     )}
 
-                    {/* Cumulative file edit summary — shown only after turn completes (finalResponse exists)
-                        AND only when currentStep is not already showing it (avoids duplicate display) */}
-                    {!currentStep && latestGroup.finalResponse && latestGroup.turnFileEditSummary && latestGroup.turnFileEditSummary.length > 0 && (
+                    {/* Cumulative file edit summary — shown after turn completes (finalResponse exists).
+                        Per-step file edits are shown via StepView for each step (including intermediate).
+                        This aggregate view shows ALL file edits across the entire turn. */}
+                    {latestGroup.finalResponse && latestGroup.turnFileEditSummary && latestGroup.turnFileEditSummary.length > 0 && (
                       <FileEditSummary
                         entries={latestGroup.turnFileEditSummary}
                         sessionId={sessionId}

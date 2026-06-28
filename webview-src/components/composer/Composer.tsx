@@ -208,31 +208,40 @@ export function enrichSessionSuggestionsAsync(
   });
 }
 
-export function Composer({
-  onSend,
-  onCancel,
-  onNewSession,
-  onSwitchSession,
-  onRenameSession,
-  disabled = false,
-  status = "idle",
-  fetchFiles,
-  resolveFile,
-  resolveSelection,
-  resolveDiff,
-  fetchSymbols,
-  resolveSymbol,
-  availableCommands = [],
-  queue = [],
-  onSendNow,
-  onRemoveQueueItem,
-  onClearQueue,
-  onAttachDiff,
-}: ComposerProps): React.ReactElement {
-  // Read tabs imperatively — getTabs() returns a new array each call,
-  // which would cause an infinite loop via useSyncExternalStore.
-  const tabs = useSessionStore.getState().getTabs();
-  const connectedAgents = useSessionStore((s) => s.connectedAgents);
+/** Imperative handle exposed by Composer via forwardRef */
+export interface ComposerHandle {
+  focusTextarea: () => void;
+}
+
+export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
+  function Composer(
+    {
+      onSend,
+      onCancel,
+      onNewSession,
+      onSwitchSession,
+      onRenameSession,
+      disabled = false,
+      status = "idle",
+      fetchFiles,
+      resolveFile,
+      resolveSelection,
+      resolveDiff,
+      fetchSymbols,
+      resolveSymbol,
+      availableCommands = [],
+      queue = [],
+      onSendNow,
+      onRemoveQueueItem,
+      onClearQueue,
+      onAttachDiff,
+    },
+    ref
+  ): React.ReactElement {
+    // Read tabs imperatively — getTabs() returns a new array each call,
+    // which would cause an infinite loop via useSyncExternalStore.
+    const tabs = useSessionStore.getState().getTabs();
+    const connectedAgents = useSessionStore((s) => s.connectedAgents);
 
   const [text, setText] = useState("");
   const [attachments, setAttachments] = useState<ContextAttachment[]>([]);
@@ -270,6 +279,15 @@ export function Composer({
   const resetPicker = useCallback(() => {
     resetPickerImpl.current();
   }, []);
+
+  // Expose imperative focus method for parent components (e.g. MeshPanel Plan button)
+  React.useImperativeHandle(ref, () => ({
+    focusTextarea: () => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    },
+  }));
 
   const sendTargets = useMeshStore((s) => s.sendTargets);
   const addSendTarget = useMeshStore((s) => s.addSendTarget);
@@ -715,7 +733,14 @@ export function Composer({
             onRenameSession(agentId, sessionId, "");
           }
         } else if (item.value === "meshPlan") {
-          getVsCodeApi().postMessage({ type: "mesh:plan" });
+          // Activate supervisor mode with plan intent; user types request text then Enter
+          setCommunicationMode("supervisor");
+          clearSendTargets();
+          // If a team is already selected, keep it; otherwise user picks via @team:
+          newText = before + after;
+          setText(newText);
+          // Focus textarea so user can type plan request immediately
+          requestAnimationFrame(() => textareaRef.current?.focus());
         } else if (item.value === "meshStatus") {
           getVsCodeApi().postMessage({ type: "mesh:togglePanel" });
         } else if (item.value === "meshCancel") {
@@ -910,6 +935,27 @@ export function Composer({
       }
       historyIdxRef.current = -1;
       inputBeforeNavRef.current = "";
+
+      // Supervisor mode + selectedTeam: route through mesh:plan
+      if (communicationMode === "supervisor" && selectedTeam) {
+        log.info("send:mesh:plan", {
+          textLen: trimmed.length,
+          teamId: selectedTeam.id,
+        });
+        getVsCodeApi().postMessage({
+          type: "mesh:plan",
+          text: trimmed,
+          teamId: selectedTeam.id,
+        });
+        clearSendTargets();
+        setSelectedTeam(null);
+        setCommunicationMode(null);
+        resetPicker();
+        setText("");
+        setAttachments([]);
+        resetHeight();
+        return;
+      }
 
       const targets = sendTargets.length > 0 ? sendTargets : undefined;
       log.info("send", {
@@ -1194,4 +1240,5 @@ export function Composer({
       </div>
     </div>
   );
-}
+  }
+);

@@ -1,6 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
+import React from "react";
 import { Icon } from "../../lib/icons";
-import { elapsedColorValue } from "../../shared/elapsedColor";
 import { useSessionInfo } from "../../hooks/useSessionInfo";
 import type { QueuedPrompt } from "../../types";
 
@@ -66,37 +65,6 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
         (sessionKey ? `Waiting for ${sessionKey.split(":")[0]}…` : "Waiting…")
       : null;
 
-  // Timer anchor: turnStartedAt (set by UnifiedMode when the user sends).
-  // Do NOT fall back to sessionInfo.lastResponseAt — it stores the
-  // PREVIOUS response timestamp and would make the second turn's timer
-  // start from the first response (showing tens of seconds of phantom
-  // wait time).
-  const anchorMs = turnStartedAt
-    ? new Date(turnStartedAt).getTime()
-    : null;
-
-  const [elapsedSec, setElapsedSec] = useState(0);
-  const rafRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (!effectiveAction || !anchorMs) {
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-      if (!effectiveAction) setElapsedSec(0);
-      return;
-    }
-    const tick = () => {
-      setElapsedSec((Date.now() - anchorMs) / 1000);
-      rafRef.current = requestAnimationFrame(tick);
-    };
-    setElapsedSec((Date.now() - anchorMs) / 1000);
-    rafRef.current = requestAnimationFrame(tick);
-    return () => {
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    };
-  }, [effectiveAction, isCancelling, anchorMs]);
-
   // Show "Sending…" when the user has sent a message (pending) and
   // turnStartedAt is recorded.  Do NOT gate on !effectiveActive — the
   // session/turnActive message can arrive almost simultaneously with the
@@ -134,26 +102,20 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
           <span className="whitespace-nowrap overflow-hidden text-ellipsis">Cancelling…</span>
         </div>
       ) : effectiveAction ? (
-        (() => {
-          const color = elapsedColorValue(elapsedSec * 1000);
-          return (
-            <div
-              className="flex items-center gap-[6px] px-3 py-0.5 text-[11px] font-mono bg-bg-secondary border-b border-border shrink-0"
-              style={{ color }}
-              role="status"
-              aria-live="polite"
-            >
-              <Icon
-                name="loading"
-                size="sm"
-                className="shrink-0 animate-streaming-spin"
-              />
-              <span className="whitespace-nowrap overflow-hidden text-ellipsis">
-                {effectiveAction} · {formatElapsed(elapsedSec)}
-              </span>
-            </div>
-          );
-        })()
+        <div
+          className="flex items-center gap-[6px] px-3 py-0.5 text-[11px] font-mono bg-bg-secondary border-b border-border shrink-0 text-fg-primary"
+          role="status"
+          aria-live="polite"
+        >
+          <Icon
+            name="loading"
+            size="sm"
+            className="shrink-0 animate-streaming-spin"
+          />
+          <span className="whitespace-nowrap overflow-hidden text-ellipsis">
+            {effectiveAction}
+          </span>
+        </div>
       ) : null}
 
       {/* Queued prompt list section */}
@@ -193,13 +155,6 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
     </div>
   );
 });
-
-function formatElapsed(sec: number): string {
-  if (sec < 60) return `${Math.floor(sec)}s`;
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60);
-  return `${m}m ${s}s`;
-}
 
 export type StreamingPhase = "idle" | "sending" | "waiting" | "cancelling";
 

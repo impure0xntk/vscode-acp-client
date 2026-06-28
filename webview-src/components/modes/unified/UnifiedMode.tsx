@@ -238,16 +238,12 @@ export const UnifiedMode = React.memo(function UnifiedMode({
   // Use a ref to always read the latest pendingMap inside the subscription.
   const pendingMapRef = useRef(pendingMap);
   pendingMapRef.current = pendingMap;
-  const turnStartedAtMapRef = useRef(turnStartedAtMap);
-  turnStartedAtMapRef.current = turnStartedAtMap;
   useEffect(() => {
     return useSessionStore.subscribe((state) => {
       const infoMap = state.sessionInfoMap;
       const currentPending = pendingMapRef.current;
       let pendingChanged = false;
-      let turnChanged = false;
       const nextPending = { ...currentPending };
-      const nextTurn = { ...turnStartedAtMapRef.current };
       for (const [key, isPending] of Object.entries(currentPending)) {
         if (!isPending) continue;
         const info = infoMap[key];
@@ -259,13 +255,10 @@ export const UnifiedMode = React.memo(function UnifiedMode({
           info.status === "cancelled";
         if (shouldClear) {
           nextPending[key] = false;
-          delete nextTurn[key];
           pendingChanged = true;
-          turnChanged = true;
         }
       }
       if (pendingChanged) setPendingMap(nextPending);
-      if (turnChanged) setTurnStartedAtMap(nextTurn);
     });
   }, []);
 

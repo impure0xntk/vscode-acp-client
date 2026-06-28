@@ -34,6 +34,12 @@ const log = getLogger("webview.messageHandler");
 // - if mismatched → stale echo from a previous switch, discard
 let pendingSwitchGuard: string | null = null;
 
+// Pending snapshot key: set by handleSessionSnapshot when a session is restored.
+// Used by handleSetTabs as a fallback when the extension host's activeSessionKey
+// is null (race condition: setTabs arrives before the extension updates its
+// active session).  Cleared after first use in handleSetTabs.
+let pendingSnapshotKey: string | null = null;
+
 interface StreamBatch {
   chunks: string[];
   rafId: number | null;
@@ -521,7 +527,10 @@ function handleSetTabs(data: SetTabsMessage): void {
       ? data.activeSessionKey
       : existingKey && newKeys.includes(existingKey)
         ? existingKey
-        : (newKeys[0] ?? null);
+        : pendingSnapshotKey && newKeys.includes(pendingSnapshotKey)
+          ? pendingSnapshotKey
+          : (newKeys[0] ?? null);
+  pendingSnapshotKey = null;
 
   useSessionStore.getState().bulkSetTabs({
     tabs: data.tabs,
@@ -904,6 +913,19 @@ function handleSessionSnapshot(data: SessionSnapshot): void {
   if (!sessionStore.tabOrder.includes(key)) {
     sessionStore.addTab(data.agentId, data.sessionId, data.sessionId.slice(0, 8));
   }
+
+  // Explicitly set the restored session as the active session so that
+  // SessionChatContainer renders its messages.  Without this, the
+  // subsequent session/switch message from the extension host hits the
+  // currentKey === key early-return guard and the webview never re-renders
+  // the chat area for the restored session.
+  sessionStore.setActiveSession(key);
+
+  // Record the pending snapshot key so that a subsequent handleSetTabs
+  // (triggered by sendTabsToChatPanel) can use this as a fallback when
+  // the extension host's activeSessionKey is null (race condition: setTabs
+  // arrives before the extension updates its active session).
+  pendingSnapshotKey = key;
 }
 
 function handleSessionInfo(data: SessionInfo): void {

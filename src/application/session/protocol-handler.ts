@@ -27,9 +27,11 @@ const log = getLogger("protocol-handler");
 interface TextBatch {
   text: string;
   timer: ReturnType<typeof setTimeout> | null;
+  chunkCount: number;
 }
 
-const TEXT_BATCH_FLUSH_MS = 50;
+const TEXT_BATCH_FLUSH_MS = 150;
+const TEXT_BATCH_MAX_CHUNKS = 20;
 
 export interface ProtocolHandlerDeps {
   agentConnection: AgentConnection;
@@ -256,9 +258,13 @@ export class ProtocolHandler {
       const existing = this.pendingTextBatch.get(sKey);
       if (existing) {
         existing.text += text;
+        existing.chunkCount++;
+        if (existing.chunkCount >= TEXT_BATCH_MAX_CHUNKS) {
+          this.flushTextBatch(agentId, sessionId);
+        }
       } else {
         this.emitImmediateChunk(agentId, sessionId, sessionInfo, text);
-        const batch: TextBatch = { text: "", timer: null };
+        const batch: TextBatch = { text: "", timer: null, chunkCount: 0 };
         batch.timer = setTimeout(() => {
           this.flushTextBatch(agentId, sessionId);
         }, TEXT_BATCH_FLUSH_MS);

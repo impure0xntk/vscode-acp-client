@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useState } from "react";
 import { useShallow } from "zustand/shallow";
 import { SessionView } from "../../sessions/SessionView";
 import { SessionTabBar } from "../../sessions/SessionTabBar";
-import { Composer } from "../../composer/Composer";
+import { Composer, type ComposerHandle } from "../../composer/Composer";
 import { MeshPanel } from "../../mesh/MeshPanel";
 import { TeamCreateDialog } from "../../mesh/TeamCreateDialog";
 import { PlanViewerOverlay } from "./PlanViewer/PlanViewerOverlay";
@@ -13,6 +13,7 @@ import type {
 } from "../../../store/sessionStore";
 import { useMeshStore } from "../../../store/meshStore";
 import { getVsCodeApi } from "../../../lib/vscodeApi";
+
 import type {
   ContextAttachment,
   QueuedPrompt,
@@ -72,6 +73,7 @@ export const SupervisorMode = React.memo(function SupervisorMode({
   onClearQueue,
   onAttachDiff,
 }: SupervisorModeProps): React.ReactElement {
+  const composerRef = React.useRef<ComposerHandle>(null);
   const {
     activeSessionKey,
     pinnedSessionKeys,
@@ -103,13 +105,21 @@ export const SupervisorMode = React.memo(function SupervisorMode({
   const setMeshPanelVisible = useMeshStore((s) => s.setMeshPanelVisible);
   const [showTeamCreate, setShowTeamCreate] = useState(false);
 
-  // Plan for a specific team — sends mesh:plan with teamId
+  // Plan for a specific team — sets Composer to supervisor mode with team selected
   const handlePlanTeam = useCallback((teamId: string) => {
-    getVsCodeApi().postMessage({
-      type: "mesh:plan",
-      teamId,
-      text: "",
-    });
+    const teams = useMeshStore.getState().teams;
+    const team = teams.find((t) => t.id === teamId);
+    useMeshStore.getState().setCommunicationMode("supervisor");
+    useMeshStore.getState().clearSendTargets();
+    if (team) {
+      useMeshStore.getState().setSelectedTeam({
+        id: team.id,
+        name: team.name,
+        leadAgentId: team.lead.agentId,
+      });
+    }
+    // Focus Composer textarea so user can type their plan request
+    composerRef.current?.focusTextarea();
   }, []);
 
   const tabs = useMemo(
@@ -214,6 +224,7 @@ export const SupervisorMode = React.memo(function SupervisorMode({
           onAttachDiff={onAttachDiff}
         />
         <Composer
+          ref={composerRef}
           onSend={onSendMessage}
           onCancel={onCancel}
           onSwitchSession={onSwitchSession}

@@ -65,8 +65,10 @@ export function MetricsSection({
   messageCount: number;
   model?: string;
 }): React.ReactElement {
+  // Static duration: sessionStartMs → lastResponseAt (or now if running).
+  // No live tick — updates only when props change.
   const duration = sessionStartMs
-    ? fmtDuration(Date.now() - sessionStartMs)
+    ? fmtDuration(Math.max(0, Date.now() - sessionStartMs))
     : "—";
 
   return (
@@ -121,10 +123,10 @@ export function TurnSection({
           ? "ban"
           : "circle-outline";
 
-  // Compute turn duration from session start to last response
+  // Turn duration: sessionStartMs → lastResponseAt.
   const turnDuration =
     lastResponseAt && sessionStartMs
-      ? fmtDuration(new Date(lastResponseAt).getTime() - sessionStartMs)
+      ? fmtDuration(Math.max(0, new Date(lastResponseAt).getTime() - sessionStartMs))
       : null;
 
   return (
@@ -150,9 +152,7 @@ export function TurnSection({
   );
 }
 
-// Compact variant for Unified section header expansion.  Shows the same
-// information as the Classic SessionFooter DetailsPanel but without the
-// section/turn breakdown that is already visible as chips.
+// Compact variant for Unified section header expansion.
 export function SectionDetailsPanel({
   info,
   messageCount,
@@ -168,6 +168,14 @@ export function SectionDetailsPanel({
   const sessionStartMs = info.createdAt
     ? new Date(info.createdAt).getTime()
     : undefined;
+
+  // Static duration from createdAt to lastResponseAt (or now).
+  const detailElapsed = sessionStartMs
+    ? (() => {
+        const end = info.lastResponseAt ? new Date(info.lastResponseAt).getTime() : Date.now();
+        return fmtDuration(Math.max(0, end - sessionStartMs));
+      })()
+    : "—";
 
   return (
     <div className="px-2.5 py-2 bg-bg-primary flex flex-col gap-2 animate-toolbar-details-in">
@@ -187,10 +195,7 @@ export function SectionDetailsPanel({
           <Row label="Total" value={`${total.toLocaleString()} tokens`} />
           <Row label="Messages" value={String(messageCount)} />
           {sessionStartMs && (
-            <Row
-              label="Duration"
-              value={`▸ ${fmtDuration(Date.now() - sessionStartMs)}`}
-            />
+            <Row label="Duration" value={`▸ ${detailElapsed}`} />
           )}
           {info.model && <Row label="Model" value={info.model} />}
         </div>
