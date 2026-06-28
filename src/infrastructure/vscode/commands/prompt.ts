@@ -900,6 +900,37 @@ export function wireChatPanelEvents(
         })();
         break;
       }
+      // ─ Batch check file hashes (single IPC round-trip for multiple files) ──
+      case "checkFileHashBatch": {
+        const { batchId, checks } = data as {
+          batchId: string;
+          checks: Array<{ path: string; expectedHash: string }>;
+        };
+        void (async () => {
+          const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+          for (const check of checks) {
+            const absPath = path.isAbsolute(check.path) ? check.path : path.resolve(wsRoot, check.path);
+            let isStale = false;
+            try {
+              const content = await vscode.workspace.fs.readFile(vscode.Uri.file(absPath));
+              const currentHash = require("node:crypto")
+                .createHash("sha256")
+                .update(new TextDecoder().decode(content), "utf8")
+                .digest("hex");
+              isStale = currentHash !== check.expectedHash;
+            } catch {
+              isStale = true;
+            }
+            chatPanel?.postMessage({
+              type: "hashCheckResult",
+              batchId,
+              path: check.path,
+              isStale,
+            });
+          }
+        })();
+        break;
+      }
     }
   });
 }

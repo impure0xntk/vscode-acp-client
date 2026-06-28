@@ -1,5 +1,4 @@
 import type { ChatDisplayItem, FileEditEntry, IntermediateStep, PipelineItem } from "../types";
-import { sessionKeyOf } from "../../store/sessionStore";
 import { useFileWriteStore } from "../../store/fileWriteStore";
 import type { FileWriteRecord } from "../../store/fileWriteStore";
 import { getLogger } from "../../lib/logger";
@@ -36,11 +35,28 @@ export interface GroupedItems {
 }
 
 /**
+ * Cache key for diff results. Uses content references so identical content
+ * (e.g. same originalContent string object across calls) hits cache.
+ */
+type DiffCacheKey = `${string}__${string}`;
+
+function makeDiffCacheKey(a: string | null, b: string | null): DiffCacheKey {
+  return `${a ?? ""}__${b ?? ""}`;
+}
+
+/**
+ * Module-level diff cache. Persists across calls within a session lifetime.
+ * Keyed by `originalContent__writtenContent` string pair.
+ */
+const diffCache = new Map<DiffCacheKey, { added: number; deleted: number }>();
+
+/**
  * Compute LCS-based line-level diff between original and new content.
  * Returns counts of added and deleted lines.
  *
  * Uses a simple LCS (Longest Common Subsequence) algorithm optimized
  * for typical file diffs where lines are mostly preserved.
+ * Results are cached by content pair to avoid O(n\*m) recomputation.
  */
 export function computeLineDiff(
   original: string | null,
@@ -48,80 +64,88 @@ export function computeLineDiff(
 ): { added: number; deleted: number } {
   if (original === newContent) return { added: 0, deleted: 0 };
 
+  const key = makeDiffCacheKey(original, newContent);
+  const cached = diffCache.get(key);
+  if (cached) return cached;
+
   const origLines = (original ?? "").split("\n");
   const newLines = (newContent ?? "").split("\n");
 
+  let result: { added: number; deleted: number };
+
   // Handle empty cases
   if (origLines.length === 1 && origLines[0] === "" && newLines.length === 1 && newLines[0] === "") {
-    return { added: 0, deleted: 0 };
-  }
-  if (origLines.length === 1 && origLines[0] === "") {
+    result = { added: 0, deleted: 0 };
+  } else if (origLines.length === 1 && origLines[0] === "") {
     // All lines are additions
-    return { added: newLines[newLines.length - 1] === "" ? newLines.length - 1 : newLines.length, deleted: 0 };
-  }
-  if (newLines.length === 1 && newLines[0] === "") {
+    result = { added: newLines[newLines.length - 1] === "" ? newLines.length - 1 : newLines.length, deleted: 0 };
+  } else if (newLines.length === 1 && newLines[0] === "") {
     // All lines are deletions
-    return { added: 0, deleted: origLines[origLines.length - 1] === "" ? origLines.length - 1 : origLines.length };
-  }
+    result = { added: 0, deleted: origLines[origLines.length - 1] === "" ? origLines.length - 1 : origLines.length };
+  } else {
+    // LCS using dynamic programming with O(n*m) time, O(n*m) space
+    const m = origLines.length;
+    const n = newLines.length;
+    const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
 
-  // LCS using dynamic programming with O(n*m) time, O(min(n,m)) space
-  // We use a rolling array to minimize memory
-  const m = origLines.length;
-  const n = newLines.length;
-  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
-
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      if (origLines[i - 1] === newLines[j - 1]) {
-        dp[i][j] = dp[i - 1][j - 1] + 1;
-      } else {
-        dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        if (origLines[i - 1] === newLines[j - 1]) {
+          dp[i][j] = dp[i - 1][j - 1] + 1;
+        } else {
+          dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+        }
       }
     }
+
+    const lcsLength = dp[m][n];
+    result = { added: n - lcsLength, deleted: m - lcsLength };
   }
 
-  const lcsLength = dp[m][n];
-  const deleted = m - lcsLength;
-  const added = n - lcsLength;
+  diffCache.set(key, result);
+  return result;
+}
 
-  return { added, deleted };
+/**
+ * Clear the diff cache. Call when session is cleared or on full reset.
+ */
+export function clearDiffCache(): void {
+  diffCache.clear();
 }
 
 /**
  * Build a FileEditEntry[] from a slice of FileWriteRecords.
- * Multiple writes to the same path are merged (line counts summed).
+ * Multiple writes to the same path are merged (latest written content wins).
  * Original content is taken from the first write to each path.
- * Line counts are computed using LCS-based diff for accuracy.
+ * Line counts are computed using cached LCS-based diff.
  */
 function buildSummaryFromWrites(writes: FileWriteRecord[]): FileEditEntry[] | undefined {
   if (writes.length === 0) return undefined;
 
-  const seen = new Map<string, FileEditEntry>();
+  const seen = new Map<string, { originalContent: string | null; writtenContent: string | null }>();
   for (const w of writes) {
     const existing = seen.get(w.path);
     if (existing) {
-      // Later writes override earlier written content
       existing.writtenContent = w.content;
     } else {
-      seen.set(w.path, {
-        path: w.path,
-        lineCount: 0,
-        deletedLines: 0,
-        kind: "fs/write_text_file",
-        originalContent: w.originalContent,
-        writtenContent: w.content,
-      });
+      seen.set(w.path, { originalContent: w.originalContent, writtenContent: w.content });
     }
   }
 
-  // Now compute accurate line counts using diff between original and latest written
-  for (const entry of seen.values()) {
-    const { added, deleted } = computeLineDiff(entry.originalContent, entry.writtenContent);
-    entry.lineCount = added;
-    entry.deletedLines = deleted;
+  const result: FileEditEntry[] = [];
+  for (const [path, { originalContent, writtenContent }] of seen) {
+    const { added, deleted } = computeLineDiff(originalContent, writtenContent);
+    result.push({
+      path,
+      lineCount: added,
+      deletedLines: deleted,
+      kind: "fs/write_text_file",
+      originalContent,
+      writtenContent,
+    });
   }
 
-  return Array.from(seen.values());
+  return result;
 }
 
 /**

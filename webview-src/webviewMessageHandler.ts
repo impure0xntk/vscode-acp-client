@@ -4,6 +4,7 @@ import { useUiStateStore } from "./store/uiStateStore";
 import { useMeshStore } from "./store/meshStore";
 import { usePathResolutionStore } from "./store/pathResolutionStore";
 import { useFileWriteStore } from "./store/fileWriteStore";
+import { clearDiffCache } from "./pipeline/stages/grouping";
 import { getVsCodeApi } from "./lib/vscodeApi";
 import { getLogger } from "./lib/logger";
 import { toSessionInfoDTO } from "./store/mappers";
@@ -682,6 +683,10 @@ function handleSessionSwitch(data: SessionSwitch): void {
 
   pendingSwitchGuard = null;
 
+  // Session switched — clear diff cache since previous session's content
+  // hashes are irrelevant to the new session.
+  clearDiffCache();
+
   const sessionStore = useSessionStore.getState();
 
   if (!sessionStore.tabOrder.includes(key)) {
@@ -774,6 +779,11 @@ function handleSessionTurnEnded(data: SessionTurnEnded): void {
     sessionId: data.sessionId,
     stopReason: data.stopReason,
   });
+
+  // Clear the diff cache — turn is complete, cached diffs for this turn's
+  // file contents are no longer needed.  Without this, the module-level
+  // cache grows unbounded across turns (memory leak).
+  clearDiffCache();
 
   // Stamp stopReason onto the last agent message in the message store so
   // the pipeline's groupByUserBoundary can use it as the authoritative

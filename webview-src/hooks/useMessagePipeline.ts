@@ -2,6 +2,7 @@ import { useRef, useMemo, useEffect } from "react";
 import type { PipelineContext, PipelineItem, RawMessage } from "../pipeline";
 import { createDefaultPipeline } from "../pipeline";
 import { useFileWriteStore } from "../store/fileWriteStore";
+import { clearDiffCache } from "../pipeline/stages/grouping";
 
 interface PipelineEntry {
   pipeline: import("../pipeline").MessagePipeline;
@@ -61,6 +62,42 @@ function computeContentHash(msgs: RawMessage[]): string {
     }
   }
   return hash;
+}
+
+/**
+ * Compute a hash of only the prefix (all messages except last 3).
+ * Used to detect whether only the last few messages were mutated,
+ * enabling the use of refreshLast instead of full re-process.
+ */
+function computePrefixHash(msgs: RawMessage[]): string {
+  const len = msgs.length;
+  const fastBound = Math.max(0, len - 3);
+  let hash = len.toString(36) + ":";
+  for (let i = 0; i < fastBound; i++) {
+    const m = msgs[i] as unknown as Record<string, unknown>;
+    hash += (typeof m.content === "string" ? m.content.length : 0).toString(36) + ";";
+  }
+  return hash;
+}
+
+/**
+ * Extract the prefix portion from a previously computed content hash.
+ * The hash format is `len:prefix;prefix;suffix_fields` where prefix
+ * segments are separated by `;` and matched to the message count.
+ */
+function extractPrefixFromHash(hash: string, msgCount: number): string {
+  const fastBound = Math.max(0, msgCount - 3);
+  const parts = hash.split(":");
+  if (parts.length < 1) return "";
+  const lenPart = parts[0];
+  const rest = parts.slice(1).join(":");
+  const segs = rest.split(";");
+  // segs[0..fastBound-1] = prefix content-lengths, segs[fastBound..] = suffix
+  // We need the prefix segments (length fastBound) after the ":" delimiter
+  // Reconstruct: "len:" + first fastBound segments joined by ";"
+  if (fastBound === 0) return lenPart + ":";
+  const prefixSegs = segs.slice(0, fastBound);
+  return lenPart + ":" + prefixSegs.join(";");
 }
 
 /**
@@ -145,6 +182,8 @@ export function removePipelineCache(sessionKey: string): void {
 export function clearPipelineCache(): void {
   pipelineCache.clear();
   pipelineAccessOrder.length = 0;
+  // Clear diff cache too — all sessions are being torn down
+  clearDiffCache();
 }
 
 /**
@@ -251,17 +290,24 @@ export function useMessagePipeline(
     }
 
     // In-place update detection: when the message count hasn't changed
-    // but mutable fields (content, stopReason) have been modified across
-    // ANY message (not just the last), the pipeline cache is stale.
-    // Fall through to a full re-process so that all annotations are
-    // refreshed — the incremental codepath can't handle cross-message
-    // content mutations (e.g. appendStreamChunk mutates a message that
-    // is not at the end of the array when tool messages follow it).
+    // but mutable fields (content, stopReason) have been modified.
+    // Use refreshLast (cheap) when only the last few messages were mutated,
+    // fall back to full re-process when earlier messages changed.
     if (dedupedMessages.length === processedRawCount) {
       if (dedupedMessages.length > 0) {
         const currentHash = computeContentHash(dedupedMessages);
         if (currentHash !== entry.contentHash) {
+          // Capture previous hash BEFORE overwriting
+          const prevHash = entry.contentHash;
           entry.contentHash = currentHash;
+
+          // If the prefix hash (messages except last 3) is unchanged,
+          // only the suffix changed → use refreshLast for O(1) update
+          if (prevHash.length > 0 && computePrefixHash(dedupedMessages) === extractPrefixFromHash(prevHash, dedupedMessages.length)) {
+            const result = pipeline.refreshLast(dedupedMessages, ctx);
+            entry.processedRawCount = dedupedMessages.length;
+            return result;
+          }
           const result = pipeline.process(dedupedMessages, ctx);
           entry.processedRawCount = dedupedMessages.length;
           return result;

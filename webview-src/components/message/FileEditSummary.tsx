@@ -1,10 +1,10 @@
-import React, { useCallback, useState, useEffect, useMemo } from "react";
+import React, { useCallback, useState, useEffect, useMemo, useRef } from "react";
 import { createTwoFilesPatch, parsePatch } from "diff";
 import type { FileEditEntry } from "../../pipeline/types";
 import { getVsCodeApi } from "../../lib/vscodeApi";
 import { useFileWriteStore } from "../../store/fileWriteStore";
 import type { ContextAttachment } from "../../types";
-import { FileIcon, getFileExtension } from "../primitives";
+import { FileIcon } from "../primitives";
 
 export interface FileEditSummaryProps {
   entries: FileEditEntry[];
@@ -27,30 +27,19 @@ function buildUnifiedDiff(
 ): string {
   const origSrc = original ?? "";
   const newSrc = writtenContent ?? "";
-  // Use Myers algorithm via `diff` package for accurate line-level diff
   return createTwoFilesPatch(filePath, filePath, origSrc, newSrc, undefined, undefined, {
     context: 3,
   });
 }
 
 interface DiffLine {
-  /** "|" = context, "+" = addition, "-" = deletion, "@@" = hunk header */
   type: "|" | "+" | "-" | "@@";
-  /** Display text (without leading +/-/space prefix) */
   text: string;
-  /** Old file line number (1-based; undefined for additions) */
   oldLine?: number;
-  /** New file line number (1-based; undefined for deletions) */
   newLine?: number;
-  /** Hunk header content, e.g. "@@ -10,6 +10,8 @@" */
   hunkHeader?: string;
 }
 
-/**
- * Parse a unified-diff string into structured lines for rendering.
- * Filters out redundant `Index:`, `---`, `+++` lines (file path already in row header).
- * Preserves `@@` hunk headers with line-number context, styled separately.
- */
 function parseDiffForRender(diffText: string): DiffLine[] | null {
   try {
     const lines: DiffLine[] = [];
@@ -75,7 +64,6 @@ function parseDiffForRender(diffText: string): DiffLine[] | null {
           } else if (l.startsWith("@@")) {
             lines.push({ type: "@@", text: l, hunkHeader: l });
           }
-          // Skip "\ No newline at end of file"
         }
       }
     }
@@ -83,6 +71,78 @@ function parseDiffForRender(diffText: string): DiffLine[] | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Filter entries to only those that have a contentHash in the store.
+ * Entries without a hash are from a previous turn (or pre-session writes)
+ * and are too old to render — skipping them reduces IPC and rendering load.
+ */
+function filterRenderableEntries(
+  entries: FileEditEntry[],
+  agentId: string,
+  sessionId: string,
+): FileEditEntry[] {
+  if (!agentId || !sessionId) return entries;
+  const store = useFileWriteStore.getState();
+  return entries.filter((e) => {
+    const hash = store.getLastWriteHash(agentId, sessionId, e.path);
+    return hash != null && hash.length > 0;
+  });
+}
+
+/**
+ * Batch stale-check: sends a single postMessage for all entries that need
+ * checking, then dispatches results to individual row callbacks.
+ * This replaces per-row postMessage calls that caused IPC storms.
+ */
+function useBatchStaleCheck(
+  entries: FileEditEntry[],
+  agentId: string | undefined,
+  sessionId: string | undefined,
+  onSetStatus: (path: string, status: RowStatus) => void,
+): void {
+  const onSetStatusRef = useRef(onSetStatus);
+  onSetStatusRef.current = onSetStatus;
+
+  useEffect(() => {
+    if (!agentId || !sessionId || entries.length === 0) return;
+
+    const store = useFileWriteStore.getState();
+    const checks: { path: string; hash: string; msgId: string }[] = [];
+
+    for (const entry of entries) {
+      const hash = store.getLastWriteHash(agentId, sessionId, entry.path);
+      if (!hash) continue;
+      checks.push({ path: entry.path, hash, msgId: `checkHash:${entry.path}` });
+    }
+
+    if (checks.length === 0) return;
+
+    // Batch: send all checks in a single postMessage
+    const batchId = `batch:${Date.now()}`;
+    const handler = (event: MessageEvent) => {
+      const data = event.data as Record<string, unknown>;
+      if (data.type === "hashCheckResult" && data.batchId === batchId) {
+        const path = data.path as string;
+        const stale = data.isStale as boolean;
+        if (stale) {
+          onSetStatusRef.current(path, "stale");
+        }
+      }
+    };
+    window.addEventListener("message", handler);
+
+    try {
+      getVsCodeApi().postMessage({
+        type: "checkFileHashBatch",
+        batchId,
+        checks: checks.map((c) => ({ path: c.path, expectedHash: c.hash })),
+      });
+    } catch { /* vscodeApi not available */ }
+
+    return () => window.removeEventListener("message", handler);
+  }, [agentId, sessionId, entries]);
 }
 
 export function FileEditSummary({
@@ -94,7 +154,11 @@ export function FileEditSummary({
   const [collapsed, setCollapsed] = useState(false);
   const [rowStates, setRowStates] = useState<Record<string, RowState>>({});
 
-  if (entries.length === 0) return null;
+  // Filter out entries without a contentHash — they're too old to render
+  const renderableEntries = useMemo(
+    () => filterRenderableEntries(entries, agentId ?? "", sessionId ?? ""),
+    [entries, agentId, sessionId],
+  );
 
   const toggleCollapse = useCallback(() => {
     setCollapsed((c) => !c);
@@ -117,8 +181,13 @@ export function FileEditSummary({
     }));
   }, []);
 
-  const totalLines = entries.reduce((s, e) => s + e.lineCount, 0);
-  const totalDeleted = entries.reduce((s, e) => s + e.deletedLines, 0);
+  // Batch stale-check for all entries (replaces per-row postMessage)
+  useBatchStaleCheck(renderableEntries, agentId, sessionId, setRowStatus);
+
+  if (renderableEntries.length === 0) return null;
+
+  const totalLines = renderableEntries.reduce((s, e) => s + e.lineCount, 0);
+  const totalDeleted = renderableEntries.reduce((s, e) => s + e.deletedLines, 0);
 
   return (
     <div className="ml-4 mr-1 mt-1 mb-1 rounded-md border border-[color-mix(in_srgb,var(--border)_60%,transparent)] bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)] overflow-hidden">
@@ -131,7 +200,7 @@ export function FileEditSummary({
         <span className="text-[10px] text-fg-muted flex-shrink-0 transition-transform duration-150" style={{ transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }} aria-hidden="true">▼</span>
         <span className="text-[11px] font-medium text-fg-secondary flex-shrink-0">Files changed</span>
         <span className="inline-flex items-center justify-center min-w-[18px] h-[16px] px-[5px] rounded-[8px] bg-[color-mix(in_srgb,var(--accent)_15%,transparent)] text-[10px] font-mono font-semibold text-accent flex-shrink-0">
-          {entries.length}
+          {renderableEntries.length}
         </span>
         <span className="text-[10px] font-mono text-fg-muted flex-shrink-0">
           <span className="text-success">+{totalLines}</span>
@@ -142,13 +211,12 @@ export function FileEditSummary({
       {/* Rows */}
       {!collapsed && (
         <div className="border-t border-[color-mix(in_srgb,var(--border)_40%,transparent)]">
-          {entries.map((entry, idx) => (
+          {renderableEntries.map((entry, idx) => (
             <FileEditRow
               key={`${entry.path}-${idx}`}
               entry={entry}
               state={rowStates[entry.path] ?? { expanded: false, status: "modified" }}
               onToggle={() => toggleRow(entry.path)}
-              onSetStatus={setRowStatus}
               sessionId={sessionId}
               agentId={agentId}
               onAttachDiff={onAttachDiff}
@@ -164,7 +232,6 @@ interface FileEditRowProps {
   entry: FileEditEntry;
   state: RowState;
   onToggle: () => void;
-  onSetStatus: (path: string, status: RowStatus) => void;
   sessionId?: string;
   agentId?: string;
   onAttachDiff?: (attachment: ContextAttachment) => void;
@@ -174,7 +241,6 @@ function FileEditRow({
   entry,
   state,
   onToggle,
-  onSetStatus,
   sessionId,
   agentId,
   onAttachDiff,
@@ -190,34 +256,11 @@ function FileEditRow({
   });
   const originalContent = entry.originalContent ?? storedOriginal;
 
-  // Stale detection
-  useEffect(() => {
-    if (!agentId || !sessionId) return;
-    const storedHash = useFileWriteStore.getState().getLastWriteHash(agentId, sessionId, entry.path);
-    if (!storedHash) return;
-
-    const msgId = `checkHash:${entry.path}:${Date.now()}`;
-    const handler = (event: MessageEvent) => {
-      const data = event.data as Record<string, unknown>;
-      if (data.type === "hashCheckResult" && data.msgId === msgId) {
-        const stale = data.isStale as boolean;
-        if (stale) {
-          onSetStatus(entry.path, "stale");
-        }
-        window.removeEventListener("message", handler);
-      }
-    };
-    window.addEventListener("message", handler);
-    try {
-      getVsCodeApi().postMessage({
-        type: "checkFileHash",
-        msgId,
-        path: entry.path,
-        expectedHash: storedHash,
-      });
-    } catch { /* vscodeApi not available */ }
-    return () => window.removeEventListener("message", handler);
-  }, [agentId, sessionId, entry.path, onSetStatus]);
+  // Use contentHash for stable memoization instead of full content string
+  const storedHash = useFileWriteStore((s) => {
+    if (!agentId || !sessionId) return "";
+    return s.getLastWriteHash(agentId, sessionId, entry.path) ?? "";
+  });
 
   const handleOpenFile = useCallback(
     (e: React.MouseEvent) => {
@@ -233,22 +276,17 @@ function FileEditRow({
     (e: React.MouseEvent) => {
       e.stopPropagation();
       try {
-        const storedHash = useFileWriteStore.getState().getLastWriteHash(
-          agentId ?? "",
-          sessionId ?? "",
-          entry.path,
-        );
         getVsCodeApi().postMessage({
           type: "openDiff",
           path: entry.path,
           agentId,
           sessionId,
           originalContent: originalContent ?? undefined,
-          expectedHash: storedHash ?? undefined,
+          expectedHash: storedHash || undefined,
         });
       } catch { /* vscodeApi not available */ }
     },
-    [entry.path, agentId, sessionId, originalContent],
+    [entry.path, agentId, sessionId, originalContent, storedHash],
   );
 
   const handleAttachDiff = useCallback(
@@ -292,11 +330,13 @@ function FileEditRow({
   );
 
   const canRevert = originalContent != null;
+  // Depend on storedHash (string) instead of originalContent (potentially huge string)
+  // to avoid useMemo recomputation when content reference changes
   const diffContent = useMemo(
     () => isExpanded
       ? buildUnifiedDiff(originalContent ?? "", entry.path, entry.writtenContent ?? null)
       : "",
-    [isExpanded, originalContent, entry.path, entry.writtenContent],
+    [isExpanded, originalContent, entry.path, entry.writtenContent, storedHash],
   );
   const parsedDiffLines = useMemo(
     () => isExpanded ? parseDiffForRender(diffContent) : null,
