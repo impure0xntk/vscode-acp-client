@@ -513,7 +513,12 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                         forceHeader={true}
                         isNew={newKeys.has(group.finalResponse.item.key)}
                       />
-                      {group.turnFileEditSummary && group.turnFileEditSummary.length > 0 && (
+                      {/* Turn-level file edit summary — only shown as fallback when
+                          no per-step fileEditSummary exists in this group's steps.
+                          When steps have per-step summaries, they are rendered
+                          inside StepView and we suppress the aggregate to avoid duplication. */}
+                      {group.turnFileEditSummary && group.turnFileEditSummary.length > 0 &&
+                       !group.steps.some((s) => s.fileEditSummary && s.fileEditSummary.length > 0) && (
                         <FileEditSummary entries={group.turnFileEditSummary} sessionId={sessionId} agentId={agentId} onAttachDiff={onAttachDiff} />
                       )}
                     </>
@@ -584,8 +589,9 @@ export const SessionChatContainer = memo(function SessionChatContainer({
 
                     {/* Cumulative file edit summary — shown after turn completes (finalResponse exists).
                         Per-step file edits are shown via StepView for each step (including intermediate).
-                        This aggregate view shows ALL file edits across the entire turn. */}
-                    {latestGroup.finalResponse && latestGroup.turnFileEditSummary && latestGroup.turnFileEditSummary.length > 0 && (
+                        When currentStep exists, its StepView already shows the fileEditSummary,
+                        so we suppress the turn-level aggregate to avoid duplication. */}
+                    {!currentStep && latestGroup.finalResponse && latestGroup.turnFileEditSummary && latestGroup.turnFileEditSummary.length > 0 && (
                       <FileEditSummary
                         entries={latestGroup.turnFileEditSummary}
                         sessionId={sessionId}

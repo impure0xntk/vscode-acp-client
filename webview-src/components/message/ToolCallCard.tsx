@@ -2,7 +2,6 @@ import React, { useState, useMemo } from "react";
 import { parsePatch } from "diff";
 import type { ToolCallDiffContent } from "../../types";
 import { StatusIcon } from "../primitives/StatusIcon";
-import { getVsCodeApi } from "../../lib/vscodeApi";
 import { Icon, iconForToolKind } from "../../lib/icons";
 import { getLogger } from "../../lib/logger";
 
@@ -18,54 +17,6 @@ function tryFormatJson(raw: string): string {
     return JSON.stringify(JSON.parse(raw), null, 2);
   } catch {
     return raw;
-  }
-}
-
-interface ToolCallLocation {
-  path: string;
-  line?: number;
-}
-
-function getFileExtension(path: string): string {
-  const parts = path.split("/");
-  const filename = parts[parts.length - 1] ?? path;
-  const dotIdx = filename.lastIndexOf(".");
-  return dotIdx >= 0 ? filename.slice(dotIdx + 1).toLowerCase() : "";
-}
-
-function fileIcon(ext: string): string {
-  switch (ext) {
-    case "ts":
-    case "tsx":
-    case "js":
-    case "jsx":
-      return "TS";
-    case "py":
-      return "PY";
-    case "rs":
-      return "RS";
-    case "go":
-      return "GO";
-    case "java":
-      return "JV";
-    case "c":
-    case "cpp":
-    case "h":
-    case "hpp":
-      return "C";
-    case "md":
-      return "MD";
-    case "json":
-      return "{}";
-    case "yaml":
-    case "yml":
-      return "Y";
-    case "toml":
-      return "T";
-    case "nix":
-      return "N";
-    default:
-      return "•";
   }
 }
 
@@ -193,7 +144,6 @@ export interface ToolCallCardProps {
   input?: Record<string, unknown> | string;
   output?: string;
   durationMs?: number;
-  locations?: ToolCallLocation[];
   diffContent?: ToolCallDiffContent;
 }
 
@@ -204,7 +154,6 @@ export function ToolCallCard({
   input,
   output,
   durationMs,
-  locations,
   diffContent,
 }: ToolCallCardProps): React.ReactElement {
   const [expanded, setExpanded] = useState(false);
@@ -214,7 +163,6 @@ export function ToolCallCard({
   const hasInput = input !== undefined;
   const hasOutput = output !== undefined;
   const hasDiff = diffContent !== undefined;
-  const hasLocations = locations && locations.length > 0;
   const hasBody = hasInput || hasOutput || hasDiff;
 
   return (
@@ -242,40 +190,6 @@ export function ToolCallCard({
         <span className="font-normal text-[10px] text-fg-primary flex-shrink-0 whitespace-nowrap">
           {title}
         </span>
-        {hasLocations &&
-          locations.map((loc, idx) => {
-            const basename = loc.path.split("/").pop() ?? loc.path;
-            const ext = getFileExtension(loc.path);
-            return (
-              <span
-                key={`${loc.path}:${loc.line ?? 0}-${idx}`}
-                className={`inline-flex items-center gap-0.5 px-0.75 py-px rounded-[3px] bg-bg-secondary ${status === "completed" ? "text-fg-secondary hover:text-fg-primary" : "text-fg-primary"} text-[9px] cursor-pointer select-none transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1 flex-shrink-0 ml-[2px]`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  try {
-                    getVsCodeApi().postMessage({ type: "openFile", path: loc.path, line: loc.line });
-                  } catch { /* vscodeApi not available */ }
-                }}
-                title={loc.line ? `${loc.path}:${loc.line}` : loc.path}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.stopPropagation();
-                    try {
-                      getVsCodeApi().postMessage({ type: "openFile", path: loc.path, line: loc.line });
-                    } catch { /* vscodeApi not available */ }
-                  }
-                }}
-              >
-                <span className={`inline-flex items-center justify-center w-[14px] h-[11px] rounded-[2px] font-mono text-[12px] font-bold leading-none tracking-[-0.3px] flex-shrink-0 ${status === "completed" ? "text-fg-muted bg-[color-mix(in_srgb,var(--fg-muted)_12%,transparent)] hover:text-fg-secondary hover:bg-[color-mix(in_srgb,var(--accent)_20%,transparent)]" : "bg-[color-mix(in_srgb,var(--accent)_20%,transparent)] text-fg-secondary"}`}>{fileIcon(ext)}</span>
-                <span className="leading-none">
-                  {basename}
-                  {loc.line ? `:${loc.line}` : ""}
-                </span>
-              </span>
-            );
-          })}
         <span className="font-mono text-[9px] text-fg-secondary whitespace-nowrap flex-shrink-0">
           {formatDuration(durationMs ?? 0)}
         </span>

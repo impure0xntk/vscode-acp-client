@@ -800,12 +800,14 @@ export function wireChatPanelEvents(
             fs.writeFileSync(tmpFilePath, originalContent, "utf8");
             const originalUri = vscode.Uri.file(tmpFilePath);
 
-            // Open diff editor (compare view) only — no separate editor tabs.
+            // Open diff editor in a separate tab (ViewColumn.Two) so it
+            // does not steal focus from the chat panel.
             await vscode.commands.executeCommand(
               "vscode.diff",
               originalUri,
               currentUri,
-              `${path.basename(absPath)} (Original ↔ Current)`
+              `${path.basename(absPath)} (Original ↔ Current)`,
+              { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true }
             );
 
             // Clean up temp file after a delay (diff editor has loaded by then).
