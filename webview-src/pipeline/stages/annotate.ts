@@ -30,8 +30,6 @@ function previousHasToolCalls(
   return tcs != null && tcs.length > 0;
 }
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
 function resolveToolCalls(
   msg: ClassifiedMessage
 ): ResolvedToolCall[] | undefined {
@@ -131,8 +129,6 @@ function groupKeyOf(msg: ClassifiedMessage): string {
       return msg.role;
   }
 }
-
-// ── ClassifiedMessage → PipelineItem ────────────────────────────────────────
 
 /**
  * Map a classified message to the appropriate PipelineItem variant.

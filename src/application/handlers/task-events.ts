@@ -1,29 +1,12 @@
-// ============================================================================
-// Task Event Handlers — StateManager task events → UI updates
-//
-// Task lifecycle events are emitted by TaskSchedulerService via StateManager.
-// These handlers bridge the event bus to VS Code UI (webview).
-// ============================================================================
-
 import type {
   OrchestrationEvent,
   OrchestrationEventType,
 } from "../../domain/models/orchestration";
 
-
-
-// ============================================================================
-// Dependencies
-// ============================================================================
-
 export interface TaskEventDeps {
   /** Optional: send task status to webview */
   onTaskUpdate?: (event: OrchestrationEvent) => void;
 }
-
-// ============================================================================
-// Wire from a concrete StateManager instance
-// ============================================================================
 
 export interface StateManagerHandle {
   subscribe: (

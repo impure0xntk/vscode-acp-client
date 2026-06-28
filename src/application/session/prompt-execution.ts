@@ -1,15 +1,3 @@
-// ============================================================================
-// PromptExecution — prompt sending, queue, cancel, turn lifecycle
-//
-// Responsibilities:
-//   - Send prompts to agents (session/prompt via ACP)
-//   - Manage prompt queue (enqueue, dequeue, cancel, reorder)
-//   - Handle turn lifecycle (status transitions, streaming state)
-//   - Cancel turns (session/cancel via ACP)
-//   - Mesh Protocol prompt injection
-//   - Context compression reinjection
-// ============================================================================
-
 import type { ContentBlock, StopReason } from "@agentclientprotocol/sdk";
 import type { PromptContext, QueuedPrompt } from "./types";
 import type { AgentConnection } from "./agent-connection";
@@ -19,10 +7,6 @@ import type { PersistentHistoryStore } from "./persistentHistory";
 import { getLogger } from "../../platform/backends";
 
 const log = getLogger("prompt-execution");
-
-// ============================================================================
-// PromptExecution
-// ============================================================================
 
 export interface PromptExecutionDeps {
   agentConnection: AgentConnection;
@@ -43,10 +27,6 @@ export class PromptExecution {
   constructor(deps: PromptExecutionDeps) {
     this.deps = deps;
   }
-
-  // ========================================================================
-  // Send (public API — handles queuing)
-  // ========================================================================
 
   async send(
     agentId: string,
@@ -78,10 +58,6 @@ export class PromptExecution {
     return undefined;
   }
 
-  // ========================================================================
-  // Execute (internal — talks to ACP)
-  // ========================================================================
-
   async execute(
     agentId: string,
     sessionId: string,
@@ -98,7 +74,6 @@ export class PromptExecution {
       throw new Error(`Session ${sessionId} not found for agent ${agentId}`);
     }
 
-    // Mesh Protocol injection
     let finalText = text;
     const meshGlobalEnabled = this.deps.getMeshGlobalEnabled();
     const builder = this.deps.sessionState.getPromptBuilder(agentId);
@@ -143,8 +118,6 @@ export class PromptExecution {
       sessionInfo.lastResponseAt = new Date().toISOString();
 
       this.flushPendingToolCalls(agentId, sessionId);
-
-      // Flush all remaining text/thought batches so nothing is stuck in the buffer
       this.deps.protocolHandler.flushAllBatches(agentId, sessionId);
 
       const sKey = sessionKey(agentId, sessionId);
@@ -160,7 +133,6 @@ export class PromptExecution {
     } finally {
       sessionInfo.status = "idle";
       sessionInfo.updatedAt = new Date();
-      // Always send a stopReason so the webview can reset isStreaming.
       // When the agent produces only tool calls (no text), stopReason
       // may be undefined — default to "end_turn" so the UI turn boundary
       // is always closed.
@@ -175,10 +147,6 @@ export class PromptExecution {
     }
   }
 
-  // ========================================================================
-  // Cancel
-  // ========================================================================
-
   async cancel(agentId: string, sessionId: string): Promise<void> {
     const connection = this.deps.agentConnection.getConnection(agentId);
     const sessionInfo = this.deps.sessionState.getSessionInfo(agentId, sessionId);
@@ -190,7 +158,6 @@ export class PromptExecution {
       sessionInfo.updatedAt = new Date();
     }
 
-    // Flush all remaining text/thought batches on cancel too
     this.deps.protocolHandler.flushAllBatches(agentId, sessionId);
 
     const sKey = sessionKey(agentId, sessionId);
@@ -201,10 +168,6 @@ export class PromptExecution {
       await connection.cancel({ sessionId });
     }
   }
-
-  // ========================================================================
-  // Queue
-  // ========================================================================
 
   private async processNextInQueue(agentId: string, sessionId: string): Promise<void> {
     const key = sessionKey(agentId, sessionId);
@@ -257,10 +220,6 @@ export class PromptExecution {
     this.deps.sessionState.setQueue(key, [...reordered, ...sending]);
   }
 
-  // ========================================================================
-  // Context Compression Reinjection
-  // ========================================================================
-
   handleContextCompression(
     agentId: string,
     sessionId: string,
@@ -299,10 +258,6 @@ export class PromptExecution {
     this.deps.sessionState.setQueue(key, queue);
   }
 
-  // ========================================================================
-  // Tool Call Buffering
-  // ========================================================================
-
   bufferToolCall(agentId: string, sessionId: string, newCall: import("../../domain/models/chat").ToolCall): void {
     const key = sessionKey(agentId, sessionId);
     let buffered = this.deps.sessionState.getPendingToolCalls(key);
@@ -330,8 +285,8 @@ export class PromptExecution {
     calls: import("../../domain/models/chat").ToolCall[]
   ): void {
     if (calls.length === 0) return;
-    // Create a tool ChatMessage and append it to the session so the
-    // webview pipeline can render it as a ToolCallCard.
+    // grouped tool calls become a single ChatMessage so the
+    // webview pipeline can render them as one ToolCallCard.
     const toolMsg: ChatMessage = {
       id: `tool-${kind}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
       role: "tool",

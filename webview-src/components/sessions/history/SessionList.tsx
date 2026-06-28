@@ -1,8 +1,6 @@
 import React from "react";
 import { Icon } from "../../../lib/icons";
 
-// ── Types ──────────────────────────────────────────────────────────────────
-
 export interface PersistentSessionEntry {
   sessionId: string;
   agentId: string;
@@ -21,8 +19,6 @@ export interface PersistentSessionEntry {
   contextWindowMax: number | null;
   isArchived: boolean;
 }
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
 
 export function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -72,8 +68,6 @@ function highlightMatch(text: string, query: string): React.ReactNode {
   );
 }
 
-// ── Status indicator ────────────────────────────────────────────────────────
-
 function StatusDot({ status }: { status: string }): React.ReactElement {
   const color =
     status === "running"
@@ -91,8 +85,6 @@ function StatusDot({ status }: { status: string }): React.ReactElement {
     />
   );
 }
-
-// ── Token usage bar ────────────────────────────────────────────────────────
 
 function TokenBar({
   entry,
@@ -125,8 +117,6 @@ function TokenBar({
     </div>
   );
 }
-
-// ── Session Row ─────────────────────────────────────────────────────────────
 
 function SessionRow({
   entry,
@@ -215,8 +205,6 @@ function SessionRow({
     </div>
   );
 }
-
-// ── Session List ────────────────────────────────────────────────────────────
 
 export interface SessionListProps {
   grouped: Map<string, PersistentSessionEntry[]>;

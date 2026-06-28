@@ -93,24 +93,24 @@ export function AppContainer(): React.ReactElement {
 
   const overviewOnLeft = overviewPosition === "left";
 
-  // ── Local state ─────────────────────────────────────────────────────
+
   const [showHistory, setShowHistory] = useState(false);
   const [selectedHistorySession, setSelectedHistorySession] =
     useState<PersistentSessionEntry | null>(null);
   const scrollToMessageRef = useRef<(id: string) => void>();
 
-  // ── Mesh panel visibility ──────────────────────────────────────────
+
   const meshPanelVisible = useMeshStore((s) => s.meshPanelVisible);
   const setMeshPanelVisible = useMeshStore((s) => s.setMeshPanelVisible);
 
-  // ── Auto-show MeshPanel when plan is executing ────────────────────
+
   useEffect(() => {
     if (currentPlan?.status === "executing") {
       setMeshPanelVisible(true);
     }
   }, [currentPlan?.status, setMeshPanelVisible]);
 
-  // ── Actions ─────────────────────────────────────────────────────────
+
   const sendMessage = useCallback(
     (
       text: string,
@@ -228,7 +228,7 @@ export function AppContainer(): React.ReactElement {
     useUiStateStore.getState().setOverviewSelectedSessionIds(sessionIds);
   }, []);
 
-  // ── Handlers via hooks ──────────────────────────────────────────────
+
   const forceScrollToBottomRef = useRef<() => void>();
   const { handleSend, handleCancel } = useChatHandlers({
     activeAgentId,
@@ -293,7 +293,7 @@ export function AppContainer(): React.ReactElement {
     sessionOverviewState: overviewState,
   });
 
-  // ── Queue operations ──────────────────────────────────────────────
+
   const cancelQueuedPrompt = useCallback(
     (agentId: string, sessionId: string, promptId: string) => {
       getVsCodeApi().postMessage({
@@ -359,7 +359,7 @@ export function AppContainer(): React.ReactElement {
     return () => window.removeEventListener("message", handler);
   }, [log]);
 
-  // ── File/symbol resolution ─────────────────────────────────────────
+
   const fetchFiles = useCallback((query: string, cwd?: string) => {
     return new Promise<import("../types").FileCandidate[]>((resolve) => {
       const reqId = crypto.randomUUID();
@@ -477,7 +477,7 @@ export function AppContainer(): React.ReactElement {
     });
   }, []);
 
-  // ── Render ────────────────────────────────────────────────────────────
+
 
   return (
     <div

@@ -27,10 +27,6 @@ import { getLogger } from "../../../platform/backends";
 
 const execAsync = promisify(exec);
 
-// -----------------------------------------------------------------------
-// Internal state — captured via closure so meshSend can access
-// without threading through every call site.
-// -----------------------------------------------------------------------
 let _chatPanel: ChatPanel | null = null;
 let _orchestrator: SessionOrchestrator | null = null;
 let _meshOrchestrator: MeshOrchestrator | null = null;
@@ -39,8 +35,7 @@ let _supervisorOrchestrator: SupervisorOrchestrator | null = null;
 // handlePlanMessage is imported from plan-message-handler.ts (pure, testable)
 
 /**
- * Multi-send for multi-target (mesh:send) paths.
- * This is the single code path for sending user messages to agent sessions (DRY).
+ * Single code path for sending user messages to agent sessions (DRY).
  */
 function meshSend(
   text: string,
@@ -63,24 +58,14 @@ function meshSend(
   const context = attachmentsToContentBlocks(attachments);
 
   if (meshOrchestrator) {
-    // Route through MeshOrchestrator → FanoutExecutor for parallel delivery.
-    // FanoutExecutor handles pushUserMessage + prompt for each target.
     void meshOrchestrator.meshSend(targets, text, attachments);
   } else {
-    // Fallback: direct per-target send (degraded, no marker routing)
-    // Note: intentionally NOT calling chatPanel.pushMessage here.
-    // The webview performs its own local echo in ChatArea.handleSend,
-    // so pushing here would cause a duplicate message.
     for (const target of targets) {
       void orchestrator.prompt(target.agentId, target.sessionId, text, context);
     }
   }
 }
 
-/**
- * Wire chat panel events to the orchestrator.
- * This replaces the wireChatPanelEvents() function in extension.ts.
- */
 export function wireChatPanelEvents(
   chatPanel: ChatPanel | null,
   orchestrator: SessionOrchestrator,
@@ -98,8 +83,6 @@ export function wireChatPanelEvents(
   meshOrchestrator?: MeshOrchestrator,
   supervisorOrchestrator?: SupervisorOrchestrator
 ): void {
-  // Capture into closure-scoped vars so meshSend can access
-  // without threading through every call site.
   _chatPanel = chatPanel;
   _orchestrator = orchestrator;
   _meshOrchestrator = meshOrchestrator ?? null;
@@ -108,7 +91,6 @@ export function wireChatPanelEvents(
   if (!chatPanel) return;
 
   chatPanel.onSendMessage(({ agentId, sessionId, text, attachments }) => {
-    // Single code path: always route through meshSend (DRY).
     const targets: SendTarget[] = [
       { agentId, sessionId, label: agentId, status: "idle" },
     ];
@@ -125,8 +107,6 @@ export function wireChatPanelEvents(
       if (path.isAbsolute(openPath)) {
         absPath = openPath;
       } else {
-        // Resolve relative to the active session's cwd, not workspace root.
-        // This matches how BatchedPathResolver resolves paths.
         const activeAgent = orchestrator.getAllAgents()[0];
         const activeSessionId = activeAgent
           ? (orchestrator.getActiveSessionId(activeAgent.agentId) ??
@@ -387,8 +367,6 @@ export function wireChatPanelEvents(
         break;
       }
       case "history:restore": {
-        // Delegate to the acp.restoreSession command which handles
-        // loading messages from persistent store and calling orchestrator.restoreSession().
         void vscode.commands.executeCommand("acp.restoreSession");
         break;
       }
@@ -426,9 +404,6 @@ export function wireChatPanelEvents(
       // Session Overview messages
       // ==================================================================
       case "sessionOverview:toggle": {
-        // Webview toggles its own visibility state;
-        // extension host just forwards the current state from the webview.
-        // No-op here — visibility is managed in webview state.
         break;
       }
       case "sessionOverview:focus": {
@@ -451,7 +426,6 @@ export function wireChatPanelEvents(
       }
       case "sessionOverview:expand":
       case "sessionOverview:collapse":
-        // Webview manages expanded state internally; no extension host action needed.
         break;
 
       // ==================================================================
@@ -465,7 +439,6 @@ export function wireChatPanelEvents(
           mode?: string;
           teamId?: string;
         };
-        // Supervisor mode: use SupervisorOrchestrator to distribute to team
         if (mode === "supervisor" && teamId && _supervisorOrchestrator && _orchestrator) {
           const team = meshOrchestrator?.getTeam(teamId);
           if (team) {
@@ -537,17 +510,14 @@ export function wireChatPanelEvents(
         break;
       }
       case "mesh:togglePanel": {
-        // Webview manages its own panel visibility; no-op on extension host side.
         break;
       }
       case "mesh:plan": {
-        // Create a plan via SupervisorOrchestrator
         if (_supervisorOrchestrator && _orchestrator) {
           const teamId = (data.teamId as string) ?? "";
           let plannerAgentId: string | undefined;
           let plannerSessionId: string | undefined;
 
-          // If teamId is specified, use the team's lead session as planner
           if (teamId && meshOrchestrator) {
             const team = meshOrchestrator.getTeam(teamId);
             if (team) {
@@ -556,7 +526,6 @@ export function wireChatPanelEvents(
             }
           }
 
-          // Fallback to first active agent
           if (!plannerAgentId || !plannerSessionId) {
             const activeAgent = _orchestrator.getAllAgents()[0];
             if (activeAgent) {
@@ -933,10 +902,6 @@ export function wireChatPanelEvents(
   });
 }
 
-/**
- * Resolve the session cwd from message data.
- * Falls back to the cwd of the active session for the given agent.
- */
 function resolveSessionCwd(
   orchestrator: SessionOrchestrator,
   data: Record<string, unknown>

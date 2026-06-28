@@ -2,8 +2,6 @@ import { useSyncExternalStore, useCallback } from "react";
 import { useSessionStore } from "../store/sessionStore";
 import type { SessionInfoDTO, SessionTabState } from "../store/sessionStore";
 
-// ── Session / Tab hooks ─────────────────────────────────────────────────────
-
 /**
  * Subscribe to tab/session structural state and actions.
  * Does NOT include sessionInfoMap — use useSessionInfo(sessionKey) for
@@ -39,7 +37,6 @@ export function useSessions() {
       agentInfoMap: s.agentInfoMap,
       workspaceFolders: s.workspaceFolders,
       statusline: s.statusline,
-      // Actions
       setTabOrder: s.setTabOrder,
       addTab: s.addTab,
       removeTab: s.removeTab,

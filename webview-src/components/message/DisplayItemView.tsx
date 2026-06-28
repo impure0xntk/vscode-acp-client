@@ -10,8 +10,6 @@ import type {
   CustomSystemDisplayItem,
 } from "../../pipeline";
 
-// ── Props ──────────────────────────────────────────────────────────────────
-
 export interface DisplayItemViewProps {
   item: PipelineItem;
   idx: number;
@@ -25,8 +23,6 @@ export interface DisplayItemViewProps {
   /** When true, render at reduced opacity to distinguish from final response */
   dimmed?: boolean;
 }
-
-// ── Chat item ───────────────────────────────────────────────────────────────
 
 function RenderChat(
   item: ChatDisplayItem,
@@ -50,15 +46,11 @@ function RenderChat(
   );
 }
 
-// ── Compression notice ──────────────────────────────────────────────────────
-
 function RenderCompression(item: CompressionDisplayItem) {
   return (
     <ContextCompressionNotice key={item.key} compressionInfo={item.info} />
   );
 }
-
-// ── Mode change ─────────────────────────────────────────────────────────────
 
 function RenderModeChange(item: ModeChangeDisplayItem) {
   return (
@@ -71,8 +63,6 @@ function RenderModeChange(item: ModeChangeDisplayItem) {
   );
 }
 
-// ── Error notice ────────────────────────────────────────────────────────────
-
 function RenderErrorNotice(item: ErrorNoticeDisplayItem) {
   return (
     <div
@@ -84,8 +74,6 @@ function RenderErrorNotice(item: ErrorNoticeDisplayItem) {
   );
 }
 
-// ── Custom system ───────────────────────────────────────────────────────────
-
 function RenderCustom(item: CustomSystemDisplayItem) {
   return (
     <div
@@ -96,8 +84,6 @@ function RenderCustom(item: CustomSystemDisplayItem) {
     </div>
   );
 }
-
-// ── DisplayItemView ────────────────────────────────────────────────────────-
 
 /**
  * Renders a PipelineItem by selecting the appropriate component per tag.

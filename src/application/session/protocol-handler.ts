@@ -1,14 +1,3 @@
-// ============================================================================
-// ProtocolHandler — ACP session/update notification processing
-//
-// Responsibilities:
-//   - Process session/update notifications from agents
-//   - Route different update types (agent_message_chunk, tool_call, etc.)
-//   - Handle permission requests (requestPermission from agent)
-//   - Detect context compression via usage_update
-//   - Extract diff content from tool call content blocks
-// ============================================================================
-
 import type {
   SessionNotification,
   RequestPermissionRequest,
@@ -28,21 +17,6 @@ import { getLogger } from "../../platform/backends";
 
 const log = getLogger("protocol-handler");
 
-// ============================================================================
-// ProtocolHandler
-// ============================================================================
-
-export interface ProtocolHandlerDeps {
-  agentConnection: AgentConnection;
-  sessionState: SessionState;
-  promptExecution: PromptExecution;
-  ui: UIAPI;
-  historyStore: import("./persistentHistory").PersistentHistoryStore | null;
-  sessionHistoryStore: import("./historyStore").SessionHistoryStore | null;
-  /** Callback to emit events to external listeners */
-  emit: (event: string, ...args: unknown[]) => void;
-}
-
 /**
  * Micro-batch buffer for streaming text chunks.
  * Accumulates agent_message_chunk text and flushes on a timer,
@@ -57,6 +31,17 @@ interface TextBatch {
 
 const TEXT_BATCH_FLUSH_MS = 50;
 
+export interface ProtocolHandlerDeps {
+  agentConnection: AgentConnection;
+  sessionState: SessionState;
+  promptExecution: PromptExecution;
+  ui: UIAPI;
+  historyStore: import("./persistentHistory").PersistentHistoryStore | null;
+  sessionHistoryStore: import("./historyStore").SessionHistoryStore | null;
+  /** Callback to emit events to external listeners */
+  emit: (event: string, ...args: unknown[]) => void;
+}
+
 export class ProtocolHandler {
   private deps: ProtocolHandlerDeps;
   // sessionKey → AvailableCommand[]
@@ -69,11 +54,6 @@ export class ProtocolHandler {
     this.deps = deps;
   }
 
-  /**
-   * Flush pending text batch for a session as a single sessionStreamChunk event.
-   * Called by the timer, on tool_call arrival, or on turn end.
-   * Emits the accumulated text as one chunk.
-   */
   private flushTextBatch(agentId: string, sessionId: string): void {
     const sKey = sessionKey(agentId, sessionId);
     const batch = this.pendingTextBatch.get(sKey);
@@ -103,10 +83,6 @@ export class ProtocolHandler {
     sessionInfo.lastResponseAt = new Date().toISOString();
   }
 
-  /**
-   * Flush a single chunk immediately (no batching).
-   * Used for the first chunk to ensure perceived responsiveness.
-   */
   private emitImmediateChunk(
     agentId: string,
     sessionId: string,
@@ -124,10 +100,6 @@ export class ProtocolHandler {
   getSessionCommands(sessionKey: string): AvailableCommand[] {
     return this.sessionCommands.get(sessionKey) ?? [];
   }
-
-  // ========================================================================
-  // Handle Session Update
-  // ========================================================================
 
   handleSessionUpdate(agentId: string, notification: SessionNotification): void {
     const { sessionId, update } = notification;
@@ -155,7 +127,6 @@ export class ProtocolHandler {
 
     sessionInfo.updatedAt = new Date();
 
-    // Discriminated union on sessionUpdate
     const kind = update.sessionUpdate;
 
     switch (kind) {
@@ -164,15 +135,11 @@ export class ProtocolHandler {
         break;
       case "agent_thought_chunk":
         sessionInfo.status = "running";
-        // Flush any pending text batch before thought starts
         this.flushTextBatch(agentId, sessionId);
         if (!sessionInfo.isStreaming) {
           sessionInfo.isStreaming = true;
           this.deps.emit("sessionStreamStart", { agentId, sessionId });
         }
-        // Buffer thought text — flushed via flushThoughts() on turn boundary
-        // or when agent_message_chunk arrives.  This prevents one notification
-        // per character from reaching the webview (Codex/Copilot).
         {
           const sKey = sessionKey(agentId, sessionId);
           const existing = this.pendingThoughts.get(sKey) ?? "";
@@ -182,7 +149,6 @@ export class ProtocolHandler {
         }
         break;
       case "tool_call":
-        // Flush pending text batch before tool call so text appears first
         this.flushTextBatch(agentId, sessionId);
         this.handleToolCall(agentId, sessionId, sessionInfo, update);
         break;
@@ -224,7 +190,6 @@ export class ProtocolHandler {
         break;
     }
 
-    // Flush any pending text batch on turn end signals
     if (kind === "session_info_update" || kind === "usage_update") {
       this.flushTextBatch(agentId, sessionId);
       this.flushThoughts(agentId, sessionId);
@@ -233,17 +198,7 @@ export class ProtocolHandler {
     this.deps.emit("sessionUpdate", { agentId, sessionId, notification });
   }
 
-  // ========================================================================
-  // Thought Buffering
-  // ========================================================================
-
-  /**
-   * Flush buffered thought text as a single agent_message_chunk event.
-   * Called when agent_message_chunk arrives or when the turn ends.
-   * This converts hundreds of individual thought_chunk notifications into
-   * at most one or two streamChunk events for the webview.
-   */
-  flushThoughts(agentId: string, sessionId: string): void {
+  private flushThoughts(agentId: string, sessionId: string): void {
     const sKey = sessionKey(agentId, sessionId);
     const buffered = this.pendingThoughts.get(sKey);
     if (!buffered || buffered.length === 0) {
@@ -255,10 +210,8 @@ export class ProtocolHandler {
     const sessionInfo = this.deps.sessionState.getSessionInfo(agentId, sessionId);
     if (!sessionInfo) return;
 
-    // Flush any pending text batch first so thoughts come after text
     this.flushTextBatch(agentId, sessionId);
 
-    // Emit as a single chunk event
     if (!sessionInfo.isStreaming) {
       sessionInfo.isStreaming = true;
       this.deps.emit("sessionStreamStart", { agentId, sessionId });
@@ -276,10 +229,6 @@ export class ProtocolHandler {
     sessionInfo.lastResponseAt = new Date().toISOString();
   }
 
-  // ========================================================================
-  // Agent Message Chunk
-  // ========================================================================
-
   private handleAgentMessageChunk(
     agentId: string,
     sessionId: string,
@@ -289,35 +238,26 @@ export class ProtocolHandler {
     sessionInfo.status = "running";
     sessionInfo.lastResponseAt = new Date().toISOString();
 
-    // Flush buffered tool calls via promptExecution, which emits them as actual
-    // ChatMessage objects (via appendMessage → sessionMessage event → webview).
-    // Do NOT use the local clear-only helper.
     this.deps.promptExecution.flushPendingToolCalls(agentId, sessionId);
 
     const u = update as Record<string, unknown>;
     const content = u.content as Record<string, unknown> | undefined;
     const text = content?.type === "text" ? (content.text as string) : undefined;
 
-    // Ensure streaming state is set even for empty text chunks
     if (!sessionInfo.isStreaming) {
       sessionInfo.isStreaming = true;
       this.deps.emit("sessionStreamStart", { agentId, sessionId });
     }
 
-    // Flush buffered thoughts BEFORE text so thoughts appear first
     this.flushThoughts(agentId, sessionId);
 
     if (text) {
       const sKey = sessionKey(agentId, sessionId);
       const existing = this.pendingTextBatch.get(sKey);
       if (existing) {
-        // Already batching — accumulate and let the timer flush
         existing.text += text;
       } else {
-        // First chunk of a new stream — emit immediately for perceived
-        // responsiveness, then start batching subsequent chunks.
         this.emitImmediateChunk(agentId, sessionId, sessionInfo, text);
-        // Start the batch timer for any subsequent chunks
         const batch: TextBatch = { text: "", timer: null };
         batch.timer = setTimeout(() => {
           this.flushTextBatch(agentId, sessionId);
@@ -327,10 +267,6 @@ export class ProtocolHandler {
       sessionInfo.lastResponseAt = new Date().toISOString();
     }
   }
-
-  // ========================================================================
-  // Tool Call
-  // ========================================================================
 
   private handleToolCall(
     agentId: string,
@@ -384,10 +320,6 @@ export class ProtocolHandler {
     this.deps.promptExecution.bufferToolCall(agentId, sessionId, newCall);
   }
 
-  // ========================================================================
-  // Tool Call Update
-  // ========================================================================
-
   private handleToolCallUpdate(
     agentId: string,
     sessionId: string,
@@ -439,10 +371,6 @@ export class ProtocolHandler {
     }
   }
 
-  // ========================================================================
-  // Config Option Update
-  // ========================================================================
-
   private handleConfigOptionUpdate(
     sessionInfo: AppSessionInfo,
     update: unknown
@@ -474,10 +402,6 @@ export class ProtocolHandler {
       }
     }
   }
-
-  // ========================================================================
-  // Usage Update (context compression detection)
-  // ========================================================================
 
   private handleUsageUpdate(
     agentId: string,
@@ -533,10 +457,6 @@ export class ProtocolHandler {
     sessionInfo._prevContextUsed = newUsed;
   }
 
-  // ========================================================================
-  // Handle Permission Request
-  // ========================================================================
-
   async handleRequestPermission(
     agentId: string,
     request: RequestPermissionRequest
@@ -570,30 +490,17 @@ export class ProtocolHandler {
     return { outcome: { outcome: "selected", optionId } };
   }
 
-  // ========================================================================
-  // Tool Call Flush (called from prompt-execution after turn completes)
-  // ========================================================================
-
   private flushPendingToolCalls(agentId: string, sessionId: string): void {
     const key = sessionKey(agentId, sessionId);
-    // Flush text batch before clearing tool calls so text appears first
     this.flushTextBatch(agentId, sessionId);
     this.deps.sessionState.clearPendingToolCalls(key);
   }
 
-  /**
-   * Flush all pending batches for a session (text + thoughts).
-   * Called when the turn ends (via prompt-execution's finally block).
-   */
   flushAllBatches(agentId: string, sessionId: string): void {
     this.flushTextBatch(agentId, sessionId);
     this.flushThoughts(agentId, sessionId);
   }
 }
-
-// ============================================================================
-// Helpers
-// ============================================================================
 
 function truncateForLog(value: string, maxLen: number): string {
   if (value.length <= maxLen) return value;

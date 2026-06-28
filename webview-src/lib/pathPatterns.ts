@@ -1,18 +1,8 @@
-// ---------------------------------------------------------------------------
-// Path pattern matching — shared logic for extracting file-path-like tokens
-// from text content. Mirrors the regex used in chatPanel.ts (extension host).
-// ---------------------------------------------------------------------------
+// Path pattern matching — shared logic for extracting file-path-like tokens from text content.
+// Mirrors the regex used in chatPanel.ts (extension host).
 
 // Hyphen must be at end of char class to avoid range interpretation.
 // [\w./~$-] is parsed as range "$-]" (U+0024..U+005D), silently dropping $ and -.
-//
-// Alternatives (in order):
-//   1. Prefixed paths:  ./  ../  ~/  /  followed by path segments
-//   2. Relative paths:  segment/segment (at least one directory separator)
-//   3. Dotfiles:        .name or .name.ext (.gitignore, .env.local)
-//   4. Extensionless:   Makefile, Dockerfile, LICENSE, README, etc.
-//   5. Windows paths:   C:\Users\user\file.ts (backslash-separated)
-//   6. Scoped packages: @scope/lib/index.ts or @/components/Button.tsx
 const LOOKS_LIKE_PATH_RE =
   /^(?:(?:\.{0,2}\/|~\/)[\w./~$/-]+(?:\.[a-zA-Z0-9]+)?|\/[\w./~$/-]+(?:\.[a-zA-Z0-9]+)?|[\w./~$/-]+\/[\w./~$/-]+|\.\w[\w.-]*|(?:Makefile|Dockerfile|LICENSE|README|Vagrantfile|Rakefile|Gemfile|Justfile|Procfile)|[A-Za-z]:\\(?:[\w./~$/-]+\\)*[\w./~$/-]+(?:\.[a-zA-Z0-9]+)?|@[\w.-]*\/[\w./~$/-]+)$/;
 
@@ -24,7 +14,7 @@ export function extractCandidatePaths(text: string): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
 
-  // 1. Extract Windows paths first (backslash separators would break tokenization)
+  // Windows paths use backslash separators which would break normal tokenization
   const winRe = /[A-Za-z]:\\(?:[\w./~$/-]+\\)*[\w./~$/-]+(?:\.[a-zA-Z0-9]+)?/g;
   let wm: RegExpExecArray | null;
   while ((wm = winRe.exec(text)) !== null) {
@@ -35,10 +25,8 @@ export function extractCandidatePaths(text: string): string[] {
     }
   }
 
-  // 2. Tokenize (without backslash) and match each token
   const tokens = text.split(/[\s,;:|"'`()[\]{}<>]+/).filter(Boolean);
   for (const t of tokens) {
-    // Strip trailing sentence-period that may remain after tokenization
     const trimmed = t.replace(/\.+$/, "");
     if (trimmed.length === 0) continue;
     if (trimmed.length > 260) continue;

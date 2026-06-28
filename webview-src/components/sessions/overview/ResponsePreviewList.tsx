@@ -2,10 +2,6 @@ import React from "react";
 import type { ResponsePreview } from "../../../types";
 import { Icon } from "../../../lib/icons";
 
-// ============================================================================
-// Response Preview — compact inline list (card & popup)
-// ============================================================================
-
 const STATUS_ICON: Record<string, string> = {
   completed: "pass-filled",
   loading: "loading",

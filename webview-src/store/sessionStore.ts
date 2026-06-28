@@ -11,7 +11,7 @@ import type {
   Plan,
 } from "../types";
 
-// ── Re-exported types (previously from useSessionContext) ──────────────────
+// Re-exported types (previously from useSessionContext)
 
 export interface SessionTabState {
   sessionId: string;
@@ -106,14 +106,12 @@ export type SessionTabStatus =
 // Note: SessionTabStatus includes turn outcome values for backward compatibility
 // with existing UI code. New code should use SessionState + TurnOutcome separately.
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
 /** Session key = `${agentId}:${sessionId}` */
 export function sessionKeyOf(agentId: string, sessionId: string): string {
   return `${agentId}:${sessionId}`;
 }
 
-// ── Selectors (reactive, for use inside components) ────────────────────────
+
 
 export function selectOverviewItems(
   state: SessionStoreState
@@ -232,8 +230,6 @@ export function snapshotToOverviewItem(
   };
 }
 
-// ── Store shape ──────────────────────────────────────────────────────────────
-
 export interface SessionStoreState {
   sessionInfoMap: Record<string, SessionInfoDTO>;
   tabOrder: string[];
@@ -253,18 +249,14 @@ export interface SessionStoreState {
   };
   promptQueue: Record<string, QueuedPrompt[]>;
 
-  // ── UnifiedChatPanel ──────────────────────────────────────────────────
   /** Pinned session keys (agentId:sessionId) */
   pinnedSessionKeys: string[];
-  // ── Plan Viewer ────────────────────────────────────────────────────
   /** Current plan for the active session (null if no plan) */
   currentPlan: Plan | null;
   /** Plan history (previous plans that were approved/rejected) */
   planHistory: Plan[];
 
-  /** Command Center panel expanded state */
   commandCenterExpanded: boolean;
-  /** Command Center selected session key (agentId:sessionId) */
   commandCenterSelectedKey: string | null;
   /** Completion notification for background session turns */
   completionNotification: {
@@ -274,7 +266,6 @@ export interface SessionStoreState {
     outcome: TurnOutcome;
   } | null;
 
-  // ── Actions ───────────────────────────────────────────────────────────
   setSessionInfoMap: (map: Record<string, SessionInfoDTO>) => void;
   setSessionInfo: (
     agentId: string,
@@ -364,15 +355,12 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
   statusline: { hostname: "", repoName: "", branch: "" },
   promptQueue: {},
 
-  // ── UnifiedChatPanel ─────────────────────────────────────────────────
   pinnedSessionKeys: [],
   currentPlan: null,
   planHistory: [],
   commandCenterExpanded: false,
   commandCenterSelectedKey: null,
   completionNotification: null,
-
-  // ── Session info ─────────────────────────────────────────────────────────
 
   setSessionInfoMap: (map) => {
     log.debug("setSessionInfoMap", { count: Object.keys(map).length });
@@ -407,8 +395,6 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
         sessionInfoMap: { ...state.sessionInfoMap, [key]: info },
       };
     }),
-
-  // ── Tabs ────────────────────────────────────────────────────────────────
 
   setTabOrder: (order) =>
     set((s) => (s.tabOrder === order ? s : { tabOrder: order })),
@@ -458,10 +444,8 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
             ? nextOrder[Math.min(idx, nextOrder.length - 1)]
             : null
           : state.activeSessionKey;
-      // Clean up the pipeline cache for the removed session
       removePipelineCache(targetKey);
 
-      // Recompute pinned keys if the removed session was pinned
       let nextPinned = state.pinnedSessionKeys;
       if (state.pinnedSessionKeys.includes(targetKey)) {
         nextPinned = state.pinnedSessionKeys.filter((k) => k !== targetKey);
@@ -481,8 +465,6 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
     set((s) =>
       s.activeSessionKey === sessionKey ? s : { activeSessionKey: sessionKey }
     ),
-
-  // ── Agent / workspace ───────────────────────────────────────────────────
 
   setWorkspaceRoot: (root) =>
     set((s) => (s.workspaceRoot === root ? s : { workspaceRoot: root })),
@@ -517,8 +499,6 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
 
   setStatusline: (statusline) =>
     set((s) => (s.statusline === statusline ? s : { statusline })),
-
-  // ── Prompt Queue ──────────────────────────────────────────────────────────
 
   setPromptQueue: (sessionKey, queue) =>
     set((state) => {
@@ -595,8 +575,6 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
         promptQueue: { ...state.promptQueue, [sessionKey]: updated },
       };
     }),
-
-  // ── Bulk operations ─────────────────────────────────────────────────────
 
   bulkSetTabs: (params) => {
     set((state) => {
@@ -682,12 +660,8 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
     });
   },
 
-  // ── Derived ──────────────────────────────────────────────────────────────
-
   getOverviewItems: (): SessionOverviewItem[] => selectOverviewItems(get()),
   getTabs: (): SessionTabState[] => selectTabs(get()),
-
-  // ── UnifiedChatPanel ─────────────────────────────────────────────────
 
   pinSession: (sessionKey) =>
     set((state) => {
@@ -716,8 +690,6 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
     set((s) =>
       s.activeSessionKey === sessionKey ? s : { activeSessionKey: sessionKey }
     ),
-
-  // ── Plan Viewer ──────────────────────────────────────────────────────
 
   setCurrentPlan: (plan) => set((s) => ({ ...s, currentPlan: plan })),
 
@@ -815,8 +787,6 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
         currentPlan: { ...s.currentPlan, status: "pending", steps },
       };
     }),
-
-  // ── Command Center ─────────────────────────────────────────────────
 
   toggleCommandCenter: () =>
     set((s) => ({ commandCenterExpanded: !s.commandCenterExpanded })),

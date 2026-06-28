@@ -1,7 +1,3 @@
-// ============================================================================
-// Barrel export for event handlers
-// ============================================================================
-
 export { wireSessionEvents } from "./session-events";
 export type { SessionEventDeps } from "./session-events";
 

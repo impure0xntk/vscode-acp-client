@@ -9,8 +9,6 @@ import { SectionDetailsPanel } from "./toolbar";
 import { Icon, IconPin, IconPinFilled } from "../../lib/icons";
 import { abbreviatePath } from "../../lib/path";
 
-// ── props ─────────────────────────────────────────────────────────────────
-
 export interface SessionHeaderProps {
   sessionKey: string | null;
   agentId?: string;
@@ -24,8 +22,6 @@ export interface SessionHeaderProps {
   color?: string;
   onForkSession?: () => void;
 }
-
-// ── component ─────────────────────────────────────────────────────────────
 
 export const SessionHeader = React.memo(function SessionHeader({
   sessionKey,
@@ -44,8 +40,6 @@ export const SessionHeader = React.memo(function SessionHeader({
   const agentInfo = useSessionStore((s) =>
     agentId ? s.agentInfoMap[agentId] : undefined
   );
-
-  // ── Inline rename state for header title ─────────────────────────────
 
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState("");
@@ -91,8 +85,6 @@ export const SessionHeader = React.memo(function SessionHeader({
   );
 
   return renderUnifiedHeader();
-
-  // ── Unified mode render ───────────────────────────────────────────────
 
   function renderUnifiedHeader(): React.ReactElement {
     const handleClick = useCallback(() => {
@@ -221,8 +213,6 @@ export const SessionHeader = React.memo(function SessionHeader({
       </div>
     );
   }
-
-  // ── Expand button (chevron + details panel) ─────────────────────────
 
   function ExpandButton({
     info,

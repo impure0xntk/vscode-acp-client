@@ -5,8 +5,6 @@ import { FileEditSummary } from "./FileEditSummary";
 import type { IntermediateStep } from "../../pipeline";
 import type { ChatDisplayItem } from "../../pipeline/types";
 
-// ── Props ──────────────────────────────────────────────────────────────────
-
 export interface StepViewProps {
   step: IntermediateStep;
   sessionId?: string;
@@ -20,8 +18,6 @@ export interface StepViewProps {
   /** Callback when user wants to attach a diff to the composer */
   onAttachDiff?: (attachment: import("../../types").ContextAttachment) => void;
 }
-
-// ── Component ──────────────────────────────────────────────────────────────
 
 /**
  * Renders a single IntermediateStep: optional agent message + aggregated tool batch.

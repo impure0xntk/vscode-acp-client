@@ -1,7 +1,3 @@
-// ============================================================================
-// Selectors — derived data from Zustand stores
-// ============================================================================
-
 import type { MessageState } from "./messageStore";
 import { sessionKeyOf } from "./sessionStore";
 

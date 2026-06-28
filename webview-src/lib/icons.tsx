@@ -15,8 +15,6 @@ interface IconProps {
   style?: React.CSSProperties;
 }
 
-// ── Primitive SVG wrapper ───────────────────────────────────────────────────
-
 function Svg({
   children,
   className,
@@ -40,8 +38,6 @@ function Svg({
     </svg>
   );
 }
-
-// ── Status icons ────────────────────────────────────────────────────────────
 
 export function IconCircleFilled({
   className,
@@ -159,8 +155,6 @@ export function IconSpinner({
   );
 }
 
-// ── Action icons ────────────────────────────────────────────────────────────
-
 export function IconClose({
   className,
   size = 16,
@@ -225,8 +219,6 @@ export function IconSync({
     </Svg>
   );
 }
-
-// ── File type icons ─────────────────────────────────────────────────────────
 
 export function IconFile({
   className,
@@ -317,8 +309,6 @@ export function IconGitBranch({
     </Svg>
   );
 }
-
-// ── UI icons ────────────────────────────────────────────────────────────────
 
 /**
  * TOOL_CALL fallback icon — a simple "T" monogram inside a rounded square,
@@ -723,8 +713,6 @@ export function IconScroll({
   );
 }
 
-// ── Tool kind icons (for batch summary) ─────────────────────────────────────
-
 export function IconFileRead({
   className,
   size = 16,
@@ -923,8 +911,6 @@ export function IconPlug({
     </Svg>
   );
 }
-
-// ── Lookup table: name → component ──────────────────────────────────────────
 
 const ICON_COMPONENTS: Record<string, React.FC<IconProps>> = {
   chat: IconChat,

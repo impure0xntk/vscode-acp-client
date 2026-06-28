@@ -18,10 +18,6 @@ import { snapshotToOverviewItem } from "../../../store/sessionStore";
 import { ResponsePreviewList } from "./ResponsePreviewList";
 export { snapshotToOverviewItem, ResponsePreviewList };
 
-// ============================================================================
-// Shared helpers
-// ============================================================================
-
 /**
  * Shared color group for Spinner and Session Overview.
  * - active:  agent responding → #4fc3f7 blue
@@ -170,10 +166,6 @@ export function sessionToChips(session: SessionOverviewItem): ToolbarMeta[] {
   return chips;
 }
 
-// ============================================================================
-// Card Props
-// ============================================================================
-
 export interface CardProps {
   session: SessionOverviewItem;
   isExpanded: boolean;
@@ -181,10 +173,6 @@ export interface CardProps {
   onFocus: () => void;
   onCancel: () => void;
 }
-
-// ============================================================================
-// Shared sub-components
-// ============================================================================
 
 /** Header: agent name → title — shared between card and popup */
 export function SessionOverviewHeader({

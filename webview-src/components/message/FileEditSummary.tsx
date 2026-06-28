@@ -6,8 +6,6 @@ import { useFileWriteStore } from "../../store/fileWriteStore";
 import type { ContextAttachment } from "../../types";
 import { FileIcon, getFileExtension } from "../primitives";
 
-// ── Types ──────────────────────────────────────────────────────────────────
-
 export interface FileEditSummaryProps {
   entries: FileEditEntry[];
   sessionId?: string;
@@ -21,8 +19,6 @@ interface RowState {
   expanded: boolean;
   status: RowStatus;
 }
-
-// ── Helpers ────────────────────────────────────────────────────────────────
 
 function buildUnifiedDiff(
   original: string | null,
@@ -88,8 +84,6 @@ function parseDiffForRender(diffText: string): DiffLine[] | null {
     return null;
   }
 }
-
-// ── Component ──────────────────────────────────────────────────────────────
 
 export function FileEditSummary({
   entries,
@@ -165,8 +159,6 @@ export function FileEditSummary({
     </div>
   );
 }
-
-// ── Row ────────────────────────────────────────────────────────────────────
 
 interface FileEditRowProps {
   entry: FileEditEntry;

@@ -1,13 +1,6 @@
-// ============================================================================
-// MeshOrchestrator — P2P mesh team lifecycle and message routing
-//
-// refs: docs/p2p-mesh-design.md Section 9
-//
-// Design notes:
-//   - Owns attachment → ContentBlock conversion (single source of truth).
-//   - FanoutExecutor / PipelineExecutor / SupervisorManager receive
-//     pre-built PromptContext, no SDK imports in domain layer.
-// ============================================================================
+// Owns attachment → ContentBlock conversion (single source of truth).
+// FanoutExecutor / PipelineExecutor / SupervisorManager receive
+// pre-built PromptContext, no SDK imports in domain layer.
 
 import type { SessionOrchestrator } from "../../application/session/orchestrator";
 import type { PromptContext } from "../../application/session/orchestrator";
@@ -39,10 +32,6 @@ import { getLogger } from "../../platform/backends";
 
 const log = getLogger("mesh");
 
-// ----------------------------------------------------------------------------
-// Dependencies
-// ----------------------------------------------------------------------------
-
 export interface MeshOrchestratorDeps {
   sessionOrchestrator: SessionOrchestrator;
   messageBus: MessageBus;
@@ -51,10 +40,6 @@ export interface MeshOrchestratorDeps {
   /** Callback to push user message into the target session chat UI */
   pushUserMessage?: FanoutExecutorDeps["pushUserMessage"];
 }
-
-// ----------------------------------------------------------------------------
-// MeshOrchestrator
-// ----------------------------------------------------------------------------
 
 export class MeshOrchestrator {
   private sessionOrchestrator: SessionOrchestrator;
@@ -158,10 +143,6 @@ export class MeshOrchestrator {
     return Array.from(this.teams.values());
   }
 
-  /**
-   * Add a member session to an existing team.
-   * Registers the agent for message bus subscription.
-   */
   addMemberToTeam(teamId: string, ref: MeshSessionRef): MeshTeam {
     const team = this.teams.get(teamId);
     if (!team) throw new Error(`Team ${teamId} not found`);
@@ -183,10 +164,6 @@ export class MeshOrchestrator {
     return team;
   }
 
-  /**
-   * Remove a member session from a team.
-   * Unsubscribes the agent from the message bus and releases file locks.
-   */
   async removeMemberFromTeam(
     teamId: string,
     ref: MeshSessionRef
@@ -271,10 +248,6 @@ export class MeshOrchestrator {
   // Agent Output Processing
   // -----------------------------------------------------------------------
 
-  /**
-   * Callback invoked for each extracted P2P message.
-   * Enables the extension host to trigger side effects (plan viewer, agent status).
-   */
   onExtractedMessage?: (msg: P2PMessage & { agentId: string }) => void;
 
   async processAgentOutput(
@@ -545,9 +518,6 @@ export class MeshOrchestrator {
     return this.pipelineExecutor.execute(targets, { text, context });
   }
 
-  /**
-   * Supervisor pattern: send task to lead agent, then distribute to workers.
-   */
   async supervise(
     teamId: string,
     leadTarget: SendTarget,
@@ -586,18 +556,10 @@ export class MeshOrchestrator {
     );
   }
 
-  // -----------------------------------------------------------------------
-  // Context builder (single source of truth for attachment → ContentBlock)
-  // -----------------------------------------------------------------------
-
   private buildContext(attachments?: ContextAttachmentDTO[]): PromptContext {
     if (!attachments || attachments.length === 0) return [];
     return attachmentsToContentBlocks(attachments);
   }
-
-  // -----------------------------------------------------------------------
-  // Agent Status
-  // -----------------------------------------------------------------------
 
   getAgentStatuses(): MeshAgentStatus[] {
     const statuses: MeshAgentStatus[] = [];
@@ -673,10 +635,6 @@ export class MeshOrchestrator {
   }> {
     return this.messageBus.getLog().slice(-limit);
   }
-
-  // -----------------------------------------------------------------------
-  // Teardown
-  // -----------------------------------------------------------------------
 
   dispose(): void {
     for (const [, unsub] of this.agentSubscriptions) {

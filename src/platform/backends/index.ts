@@ -28,30 +28,22 @@ import type {
   LogLevelValue,
 } from "./types";
 
-// ── Module-level singleton ────────────────────────────────────────────────
-// Initialized by platform adapter (VscodePlatform).
-// Falls back to console backend so getLogger() works before platform init.
-
 let factory: LoggerFactory = new LoggerFactoryImpl(
   new ConsoleLoggerBackend(2 /* info */)
 );
 
-/** Replace the global logger factory (called from VscodePlatform constructor). */
 export function initLoggerFactory(f: LoggerFactory): void {
   factory = f;
 }
 
-/** Get a logger for the given category. */
 export function getLogger(category: string): Logger {
   return factory.getLogger(category);
 }
 
-/** Change minimum level for all loggers. */
 export function setLogLevel(level: LogLevelValue): void {
   factory.setLevel(level);
 }
 
-/** Swap the backend at runtime. */
 export function setLoggerBackend(backend: LoggerBackend): void {
   factory.setBackend(backend);
 }

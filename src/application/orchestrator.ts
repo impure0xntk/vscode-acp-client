@@ -1,12 +1,3 @@
-// ============================================================================
-// Orchestrator Facade — high-level ACP session orchestration
-// Wraps SessionOrchestrator with event-driven StateManager integration.
-//
-// Migration strategy: This module re-exports SessionOrchestrator types for
-// backward compatibility while the consuming code migrates to the new
-// services/* modules.
-// ============================================================================
-
 import {
   SessionOrchestrator,
   RestoreResult,
@@ -46,10 +37,6 @@ export {
   SessionCompletedEvent,
 };
 
-// ============================================================================
-// Re-exports from models for convenience
-// ============================================================================
-
 export type {
   AgentDefinition,
   Session,
@@ -68,10 +55,6 @@ export type {
   OrchestrationEventType,
 } from "../domain/models";
 
-// ============================================================================
-// Re-exports from services for convenience
-// ============================================================================
-
 export {
   StateManager,
   SessionManager,
@@ -80,10 +63,7 @@ export {
   TaskSchedulerService,
 } from "../domain/services";
 
-// ============================================================================
-// High-Level Orchestrator — multi-agent coordination API
-// ============================================================================
-
+// Multi-agent coordination API
 export class Orchestrator {
   readonly stateManager: StateManager;
   readonly sessionManager: SessionManager;
@@ -99,13 +79,6 @@ export class Orchestrator {
     this.taskScheduler = new TaskSchedulerService(this.stateManager);
   }
 
-  // ========================================================================
-  // Session Lifecycle
-  // ========================================================================
-
-  /**
-   * Start a new session with the given agent.
-   */
   startSession(
     agentId: string,
     sessionId: string,
@@ -118,21 +91,10 @@ export class Orchestrator {
     });
   }
 
-  /**
-   * Cancel a running session.
-   */
   cancelSession(agentId: string, sessionId: string): void {
     this.sessionManager.updateSessionStatus(agentId, sessionId, "idle");
   }
 
-  // ========================================================================
-  // Handoff — transfer session from one agent to another
-  // ========================================================================
-
-  /**
-   * Handoff a session from one agent to another.
-   * Creates a new session with the target agent and copies context.
-   */
   handoff(
     fromAgentId: string,
     toAgentId: string,
@@ -149,7 +111,6 @@ export class Orchestrator {
       );
     }
 
-    // Create new session with target agent
     const newSession = this.sessionManager.createSession(
       toAgentId,
       newSessionId,
@@ -164,11 +125,9 @@ export class Orchestrator {
       }
     );
 
-    // Update source session
     sourceSession.context.childSessionIds.push(newSessionId);
     this.sessionManager.updateSessionStatus(fromAgentId, sessionId, "idle");
 
-    // Emit handoff event
     const event = this.stateManager.createEvent("agent.handoff", {
       fromAgentId,
       toAgentId,
@@ -180,14 +139,6 @@ export class Orchestrator {
     return newSession;
   }
 
-  // ========================================================================
-  // Multi-Agent Execution
-  // ========================================================================
-
-  /**
-   * Execute a pipeline of tasks sequentially.
-   * Each task's output becomes the next task's input.
-   */
   async executePipeline(
     tasks: Array<{ agentId: string; input: unknown }>,
     executeFn: (agentId: string, input: unknown) => Promise<unknown>
@@ -208,9 +159,6 @@ export class Orchestrator {
     });
   }
 
-  /**
-   * Execute tasks in parallel across agents.
-   */
   async executeParallel(
     tasks: Array<{ agentId: string; input: unknown }>,
     executeFn: (agentId: string, input: unknown) => Promise<unknown>
@@ -231,13 +179,6 @@ export class Orchestrator {
     });
   }
 
-  // ========================================================================
-  // State Monitoring
-  // ========================================================================
-
-  /**
-   * Subscribe to orchestration events.
-   */
   subscribe(
     eventType: OrchestrationEventType,
     listener: EventListener
@@ -245,25 +186,15 @@ export class Orchestrator {
     return this.stateManager.subscribe(eventType, listener);
   }
 
-  /**
-   * Subscribe to all orchestration events.
-   */
   subscribeAll(listener: EventListener): Unsubscribe {
     return this.stateManager.subscribeAll(listener);
   }
 
-  /**
-   * Get current orchestration state.
-   */
   getState(): Readonly<
     import("../domain/models/orchestration").OrchestrationState
   > {
     return this.stateManager.getState();
   }
-
-  // ========================================================================
-  // Cleanup
-  // ========================================================================
 
   dispose(): void {
     this.taskScheduler.dispose();

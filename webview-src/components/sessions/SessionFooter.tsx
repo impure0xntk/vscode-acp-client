@@ -20,8 +20,6 @@ export type { ToolbarMeta, ContextColor };
 export { fmt, visualBar, contextColor };
 export type { StatuslineInfo };
 
-// ── Props ──────────────────────────────────────────────────────────────────
-
 export interface DetailsPanelProps {
   mode?: string;
   model?: string;
@@ -47,8 +45,6 @@ const CAT_LABEL: Record<string, string> = {
   metrics: "Metrics",
   workspace: "Workspace",
 };
-
-// ── DetailsPanel ───────────────────────────────────────────────────────────
 
 export function DetailsPanel(p: DetailsPanelProps): React.ReactElement {
   const builtins: ToolbarMeta[] = [];
@@ -179,8 +175,6 @@ export function DetailsPanel(p: DetailsPanelProps): React.ReactElement {
   );
 }
 
-// ── Row (re-exported from DetailSections for convenience) ──────────────────
-
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-[1px] min-w-0">
@@ -191,8 +185,6 @@ function Row({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-
-// ── SessionFooter props ────────────────────────────────────────────────────
 
 export interface SessionFooterProps {
   model?: string;
@@ -213,8 +205,6 @@ export interface SessionFooterProps {
   lastTurnOutcome?: "completed" | "error" | "cancelled" | null;
   lastResponseAt?: string | null;
 }
-
-// ── SessionFooter ──────────────────────────────────────────────────────────
 
 export const SessionFooter = React.memo(function SessionFooter(
   props: SessionFooterProps

@@ -32,15 +32,10 @@ export interface FileWriteEvent {
   sessionId: string;
   path: string;
   content: string;
-  /** Original content before this write (null if file didn't exist) */
   originalContent: string | null;
-  /** SHA-256 hash of the content after writing */
   contentHash: string;
 }
 
-/**
- * Compute SHA-256 hash of a string.
- */
 export function computeContentHash(content: string): string {
   return createHash("sha256").update(content, "utf8").digest("hex");
 }
@@ -50,9 +45,6 @@ export interface AcpClientDeps {
   ui: UIAPI;
 }
 
-/**
- * ACP Client implementation using Platform API.
- */
 export class PlatformAcpClient implements Client {
   private agentId = "";
   private deps: AcpClientDeps;
@@ -128,16 +120,12 @@ export class PlatformAcpClient implements Client {
       path: params.path,
       contentLen: params.content.length,
     });
-    // Read original content before writing (for revert support)
     let originalContent: string | null = null;
     try {
       originalContent = await this.deps.fs.readFile(params.path);
     } catch {
-      // File didn't exist — originalContent stays null
     }
     await this.deps.fs.writeFile(params.path, params.content);
-    // Notify extension host about the file write so the webview can
-    // aggregate edits for the turn summary.
     this.onFileWrite?.({
       agentId: this.agentId,
       sessionId: params.sessionId,
@@ -188,6 +176,4 @@ export class PlatformAcpClient implements Client {
   }
 }
 
-/**
- * VSCode-specific client that uses VSCode QuickPick for permission requests.
- */
+

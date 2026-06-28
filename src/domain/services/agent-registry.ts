@@ -1,13 +1,5 @@
-// ============================================================================
-// Agent Registry — in-memory agent definition store
-// ============================================================================
-
 import type { AgentDefinition } from "../models/agent";
 import { StateManager } from "./state-manager";
-
-// ============================================================================
-// Agent Registry Service
-// ============================================================================
 
 export class AgentRegistryService {
   private agents: Map<string, AgentDefinition> = new Map();
@@ -17,10 +9,6 @@ export class AgentRegistryService {
     this.stateManager = stateManager;
   }
 
-  // ========================================================================
-  // Registration
-  // ========================================================================
-
   registerAgent(definition: AgentDefinition): void {
     this.agents.set(definition.id, definition);
   }
@@ -28,10 +16,6 @@ export class AgentRegistryService {
   unregisterAgent(agentId: string): void {
     this.agents.delete(agentId);
   }
-
-  // ========================================================================
-  // Lookup
-  // ========================================================================
 
   getAgent(agentId: string): AgentDefinition | undefined {
     return this.agents.get(agentId);
@@ -59,19 +43,11 @@ export class AgentRegistryService {
     return Array.from(this.agents.values());
   }
 
-  // ========================================================================
-  // Bulk Load
-  // ========================================================================
-
   loadAgents(definitions: AgentDefinition[]): void {
     for (const def of definitions) {
       this.agents.set(def.id, def);
     }
   }
-
-  // ========================================================================
-  // Cleanup
-  // ========================================================================
 
   dispose(): void {
     this.agents.clear();

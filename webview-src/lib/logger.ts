@@ -23,10 +23,7 @@
 
 import { getVsCodeApi } from "./vscodeApi";
 
-// ── Global dev flag ────────────────────────────────────────────────────────
 declare const __DEV__: boolean;
-
-// ── Log level ──────────────────────────────────────────────────────────────
 
 export const LogLevel = {
   trace: 0,
@@ -53,8 +50,6 @@ function levelName(level: LogLevelValue): LogLevelName {
   return LEVEL_NAMES[level];
 }
 
-// ── Log record ──────────────────────────────────────────────────────────────
-
 export interface LogRecord {
   readonly level: LogLevelValue;
   readonly category: string;
@@ -63,14 +58,10 @@ export interface LogRecord {
   readonly context?: Record<string, unknown>;
 }
 
-// ── LoggerBackend ───────────────────────────────────────────────────────────
-
 export interface LoggerBackend {
   minLevel: LogLevelValue;
   emit(record: LogRecord): void;
 }
-
-// ── Backends ────────────────────────────────────────────────────────────────
 
 const DEV = typeof __DEV__ !== "undefined" && __DEV__;
 
@@ -169,8 +160,6 @@ export class CompositeBackend implements LoggerBackend {
   }
 }
 
-// ── Logger interface ────────────────────────────────────────────────────────
-
 export interface Logger {
   readonly category: string;
   minLevel: LogLevelValue;
@@ -182,8 +171,6 @@ export interface Logger {
   error(msg: string, context?: Record<string, unknown>): void;
   child(suffix: string): Logger;
 }
-
-// ── LoggerImpl ──────────────────────────────────────────────────────────────
 
 class LoggerImpl implements Logger {
   readonly category: string;
@@ -237,8 +224,6 @@ class LoggerImpl implements Logger {
   }
 }
 
-// ── LoggerFactory ───────────────────────────────────────────────────────────
-
 export interface LoggerFactory {
   getLogger(category: string): Logger;
   setLevel(level: LogLevelValue): void;
@@ -276,16 +261,12 @@ class LoggerFactoryImpl implements LoggerFactory {
   }
 }
 
-// ── Module-level singleton ──────────────────────────────────────────────────
-
 // Default: PostMessage + Console in DEV, PostMessage only in production.
 const defaultBackend: LoggerBackend = DEV
   ? new CompositeBackend(new PostMessageBackend(), new ConsoleBackend())
   : new PostMessageBackend();
 
 const factory: LoggerFactory = new LoggerFactoryImpl(defaultBackend);
-
-// ── Public API ──────────────────────────────────────────────────────────────
 
 export const logger: Logger = factory.getLogger("webview");
 

@@ -1,7 +1,4 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { getLogger } from "../../../lib/logger";
-
-const log = getLogger("webview.SessionOverviewCard");
 import type { SessionOverviewItem } from "../../../types";
 import { useSessionInfo } from "../../../hooks/useSessionInfo";
 import { UnreadBadge } from "../../primitives/UnreadBadge";
@@ -17,20 +14,7 @@ import {
 import { useSessionStore } from "../../../store/sessionStore";
 import type { TurnOutcome } from "../../primitives/StatusIcon";
 
-// ============================================================================
-// SessionOverviewCard — full vertical card for the overview panel
-// ============================================================================
-//
-// Subscribes to its own session info via useSessionInfo(sessionKey).
-// The parent (SessionOverviewPanel) still passes a SessionOverviewItem for
-// structural data (title, etc.), but live fields (status, elapsedMs, tokenUsage)
-// come from the hook so the card re-renders only when its own session changes.
-//
-// ═══ Responsibility split ═══
-//   SessionOverviewPanel (parent) owns: filter, selection mode, batch ops
-//   SessionOverviewCard (this)  owns: live status subscription, expand/collapse,
-//                                    long-press, flash anim
-// ============================================================================
+// Subscribes to its own session info so it re-renders only when its session changes.
 
 interface Props {
   session: SessionOverviewItem;
@@ -67,11 +51,9 @@ export function SessionOverviewCard({
   onSelect,
   onLongPress,
 }: Props): React.ReactElement {
-  // Subscribe to live session info — re-renders only when this session changes.
   const sessionKey = `${session.agentId}:${session.sessionId}`;
   const liveInfo = useSessionInfo(sessionKey);
 
-  // Merge: use live info when available, fall back to the snapshot from parent.
   const liveItem: SessionOverviewItem = liveInfo
     ? snapshotToOverviewItem(liveInfo, session.title)
     : session;
@@ -84,7 +66,6 @@ export function SessionOverviewCard({
 
   const tier = elapsedTier(liveItem.progress.elapsedMs);
 
-  // Use lastTurnOutcome for attribute when idle, so CSS can style by outcome
   const effectiveOutcome = liveItem.lastTurnOutcome;
 
   const prevOutcomeRef = useRef<TurnOutcome | null | undefined>(undefined);
@@ -96,13 +77,11 @@ export function SessionOverviewCard({
     const prev = prevOutcomeRef.current;
     const current = liveItem.lastTurnOutcome;
 
-    // Skip on first render (prev is undefined) to avoid false flash
     if (prev === undefined) {
       prevOutcomeRef.current = current;
       return;
     }
 
-    // Flash when a new terminal outcome appears
     const isTerminal =
       current === "completed" || current === "error" || current === "cancelled";
     const isNew = current !== prev;
@@ -122,12 +101,10 @@ export function SessionOverviewCard({
     ? (liveItem.lastTurnOutcome ?? liveItem.status)
     : undefined;
 
-  // ── Long-press handling ────────────────────────────────────────────
   const handlePointerDown = useCallback(() => {
     didLongPressRef.current = false;
     longPressTimerRef.current = setTimeout(() => {
       didLongPressRef.current = true;
-      log.debug("card long press", { sessionId: session.sessionId });
       onLongPress(session.sessionId);
     }, LONG_PRESS_MS);
   }, [session.sessionId, onLongPress]);
@@ -146,19 +123,13 @@ export function SessionOverviewCard({
     }
   }, []);
 
-  // ── Click handler ──────────────────────────────────────────────────
   const handleClick = useCallback(() => {
     if (didLongPressRef.current) {
       return;
     }
     if (selectionMode) {
-      log.debug("card click → toggle select", { sessionId: session.sessionId });
       onSelect(session.sessionId);
     } else {
-      log.info("card click → focus", {
-        sessionId: session.sessionId,
-        agentId: session.agentId,
-      });
       onFocus();
     }
   }, [selectionMode, onSelect, session.sessionId, onFocus]);
@@ -176,7 +147,6 @@ export function SessionOverviewCard({
     error: "border-l-error",
   }[colorGroup] ?? "border-l-transparent";
 
-  // Animation classes driven by session state (replaces CSS selector hooks)
   const animClass = (() => {
     if (flashingStatus === "completed") return "animate-soc-flash-border";
     if (tier === "critical") return "animate-soc-elapsed-critical-pulse";
@@ -205,7 +175,7 @@ export function SessionOverviewCard({
         }
       }}
     >
-      {/* Header row: close button top-right */}
+
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <SessionOverviewHeader session={liveItem} agentColor={agentColor} />
@@ -223,16 +193,16 @@ export function SessionOverviewCard({
         </button>
       </div>
 
-      {/* Chips row */}
+
       <SessionOverviewChips session={liveItem} />
 
-      {/* Response preview */}
+
       <ResponsePreviewList
         responses={liveItem.recentResponses}
         maxItems={isExpanded ? 5 : 3}
       />
 
-      {/* Footer: timestamp + unread badge (bottom-right) */}
+
       <div className="flex flex-col gap-0.5 mt-1">
         <div className="flex items-center justify-between pt-1 border-t border-[color-mix(in_srgb,var(--border)_30%,transparent)]">
           <span className="text-[9px] text-fg-muted font-[var(--font-mono)]">

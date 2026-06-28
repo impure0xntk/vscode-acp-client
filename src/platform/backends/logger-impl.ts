@@ -11,8 +11,6 @@ import type {
   LogLevelValue,
 } from "./types";
 
-// ── LoggerImpl ─────────────────────────────────────────────────────────────
-
 export class LoggerImpl implements Logger {
   readonly category: string;
   minLevel: LogLevelValue; // mutable to support batch level changes via setLevel
@@ -68,8 +66,6 @@ export class LoggerImpl implements Logger {
   }
 }
 
-// ── LoggerFactoryImpl ──────────────────────────────────────────────────────
-
 export class LoggerFactoryImpl implements LoggerFactory {
   private backend: LoggerBackend;
   private cache: Map<string, Logger> = new Map();
@@ -95,7 +91,6 @@ export class LoggerFactoryImpl implements LoggerFactory {
 
   setBackend(backend: LoggerBackend): void {
     this.backend = backend;
-    // Regenerate cache to update backend references
     for (const [category] of this.cache) {
       this.cache.set(category, new LoggerImpl(category, backend));
     }

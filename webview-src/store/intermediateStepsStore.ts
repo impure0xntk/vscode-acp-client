@@ -1,8 +1,5 @@
 import { create } from "zustand";
 
-// ── Types ──────────────────────────────────────────────────────────────────
-
-/** Per-session, per-group collapse flags. true = collapsed, false = expanded. */
 export type IntermediateStepsCollapseMap = Record<
   string,
   Record<string, boolean>
@@ -37,7 +34,7 @@ export const useIntermediateStepsStore = create<IntermediateStepsStore>(
     toggle: (sessionKey, groupId) =>
       set((s) => {
         const session = s.collapseMap[sessionKey] ?? {};
-        const current = session[groupId] ?? true; // default: collapsed
+        const current = session[groupId] ?? true;
         const next = !current;
         if (current === next) return s;
         if (session[groupId] === undefined && next === true) return s;

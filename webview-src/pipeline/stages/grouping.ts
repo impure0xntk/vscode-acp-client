@@ -6,8 +6,6 @@ import { getLogger } from "../../lib/logger";
 
 const log = getLogger("pipeline.grouping");
 
-// ── Types ───────────────────────────────────────────────────────────────────
-
 export interface FinalResponse {
   item: PipelineItem;
   index: number;
@@ -34,8 +32,6 @@ export interface GroupedItems {
   latestGroup: AgentResponseGroup | null;
   trailing: PipelineItem[];
 }
-
-// ── File edit summary extraction ────────────────────────────────────────────
 
 /**
  * Compute LCS-based line-level diff between original and new content.
@@ -139,8 +135,6 @@ export function extractFileEditSummaryFromStore(
   return buildSummaryFromWrites(writes);
 }
 
-// ── Per-step file edit partitioning ─────────────────────────────────────────
-
 /**
  * Boundary for partitioning file writes among steps.
  * `writeSeq` is the file-write sequence counter stamped on the agent message
@@ -237,8 +231,6 @@ function attachStepFileEditSummaries(
   }
 }
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
 function isPromotedTool(item: PipelineItem): boolean {
   return (
     item.type === "chat" &&
@@ -282,8 +274,6 @@ function sessionOfItems(items: PipelineItem[]): { agentId: string; sessionId: st
   return { agentId: "", sessionId: "" };
 }
 
-// ── IntermediateStepGrouper ─────────────────────────────────────────────────
-
 /**
  * IntermediateStepGrouper groups PipelineItems by user-message boundaries
  * and organizes each group into steps.
@@ -304,8 +294,6 @@ export class IntermediateStepGrouper {
     return groupByUserBoundary(this.items);
   }
 }
-
-// ── selectFinalResponse ─────────────────────────────────────────────────────
 
 /**
  * Selects the final response from a flat list of agent/tool items.
@@ -347,8 +335,6 @@ export function selectFinalResponse(
 
   return null;
 }
-
-// ── splitIntoSteps ──────────────────────────────────────────────────────────
 
 /**
  * Split a flat list of agent/tool items into IntermediateStep[].
@@ -425,8 +411,6 @@ export function splitIntoSteps(
   flushPendingAsPreAgent();
   return steps;
 }
-
-// ── groupByUserBoundary ─────────────────────────────────────────────────────
 
 function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
   const userIndices: number[] = [];
@@ -585,8 +569,6 @@ function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
 
   return { groups, latestGroup, trailing };
 }
-
-// ── Latest group rendering helpers ─────────────────────────────────────────
 
 /**
  * Split the latest group's steps for rendering.

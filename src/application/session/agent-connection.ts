@@ -1,14 +1,3 @@
-// ============================================================================
-// AgentConnection — agent process lifecycle and initialization
-//
-// Responsibilities:
-//   - Spawn agent subprocess (child_process)
-//   - Create ndJsonStream from process stdio
-//   - Initialize ACP connection (handshake, capability exchange)
-//   - Handle process exit/error → disconnect
-//   - Store AgentInfo from InitializeResponse
-// ============================================================================
-
 import * as child_process from "child_process";
 import { Readable, Writable } from "stream";
 import {
@@ -26,10 +15,6 @@ import type { AgentConfig } from "./types";
 import type { AgentInfo } from "./types";
 
 const log = getLogger("agent-connection");
-
-// ============================================================================
-// AgentConnection
-// ============================================================================
 
 export interface AgentConnectionDeps {
   ui: UIAPI;
@@ -56,10 +41,6 @@ export class AgentConnection {
   constructor(deps: AgentConnectionDeps) {
     this.deps = deps;
   }
-
-  // ========================================================================
-    // Connection
-    // ========================================================================
 
   async connect(agentId: string, config: AgentConfig): Promise<InitializeResponse> {
     if (this.connections.has(agentId)) {
@@ -151,10 +132,6 @@ export class AgentConnection {
     log.info("agent disconnected", { agentId });
   }
 
-  // ========================================================================
-  // Agent Info
-  // ========================================================================
-
   private storeAgentInfo(agentId: string, response: InitializeResponse): void {
     const sc = response.agentCapabilities?.sessionCapabilities;
     this.agentInfoMap.set(agentId, {
@@ -217,10 +194,6 @@ export class AgentConnection {
   getProcess(agentId: string): child_process.ChildProcess | undefined {
     return this.processes.get(agentId);
   }
-
-  // ========================================================================
-    // Lifecycle
-    // ========================================================================
 
   private handleDisconnected(agentId: string): void {
     this.connections.delete(agentId);

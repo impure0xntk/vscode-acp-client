@@ -1,10 +1,5 @@
-// ---------------------------------------------------------------------------
-// Path abbreviation
-//
-// Self-contained copy of src/shared/util/path.ts.  The webview bundle is
-// built independently (esbuild IIFE) and cannot reach into src/ at
-// build time, so we keep this duplicate in webview-src/lib/.
-// ---------------------------------------------------------------------------
+// Self-contained copy of src/shared/util/path.ts — webview bundle is built
+// independently (esbuild IIFE) and cannot reach into src/ at build time.
 
 const DEFAULT_MAX_LENGTH = 25;
 const ELLIPSIS = "…";
@@ -34,6 +29,5 @@ export function abbreviatePath(
     if (fallback.length <= maxLength) return fallback;
   }
 
-  // Step 3: last resort — truncate the full path to maxLength
   return inputPath.length <= maxLength ? inputPath : inputPath.slice(-maxLength);
 }

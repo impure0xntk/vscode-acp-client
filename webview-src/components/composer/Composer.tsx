@@ -35,8 +35,6 @@ import {
 
 const MAX_HISTORY = 50;
 
-// ── Mode label + icon config ────────────────────────────────────────
-
 const MODE_META: Record<
   CommunicationMode,
   { label: string; icon: string; description: string }
@@ -67,8 +65,6 @@ const MODE_META: Record<
     description: "Autonomous agent-to-agent",
   },
 };
-
-// ── Props ──────────────────────────────────────────────────────────
 
 export interface ComposerProps {
   onSend: (
@@ -109,8 +105,6 @@ export interface ComposerProps {
   onAttachDiff?: (attachment: ContextAttachment) => void;
 }
 
-// ── Relative time helper ───────────────────────────────────────────
-
 function relativeTime(iso: string | null): string {
   if (!iso) return "No response";
   const ms = Date.now() - new Date(iso).getTime();
@@ -124,8 +118,6 @@ function relativeTime(iso: string | null): string {
   const day = Math.floor(hr / 24);
   return `${day}d ago`;
 }
-
-// ── Session suggestion factory (shared by @ and #switch) ───────────
 
 function buildSessionSuggestions(
   tabs: SessionTabState[],
@@ -216,8 +208,6 @@ export function enrichSessionSuggestionsAsync(
   });
 }
 
-// ── Component ───────────────────────────────────────────────────────
-
 export function Composer({
   onSend,
   onCancel,
@@ -251,7 +241,6 @@ export function Composer({
   const historyIdxRef = useRef(-1);
   const inputBeforeNavRef = useRef("");
 
-  // ── Listen for external attach-diff events ────────────────────────
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail;
@@ -263,14 +252,12 @@ export function Composer({
     return () => window.removeEventListener("acp:attachDiff", handler);
   }, []);
 
-  // ── Reset textarea height ─────────────────────────────────────────
   const resetHeight = useCallback(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
   }, []);
 
-  // ── Auto-fit textarea height to content ──────────────────────────
   const autoResizeHeight = useCallback(() => {
     const textarea = textareaRef.current;
     if (textarea) {
@@ -279,23 +266,19 @@ export function Composer({
     }
   }, []);
 
-  // ── Reset picker (ref-wired; useTriggerPicker.reset is assigned after init) ──
   const resetPickerImpl = useRef<() => void>(() => {});
   const resetPicker = useCallback(() => {
     resetPickerImpl.current();
   }, []);
 
-  // ── Multi-@ send targets ──────────────────────────────────────────
   const sendTargets = useMeshStore((s) => s.sendTargets);
   const addSendTarget = useMeshStore((s) => s.addSendTarget);
   const removeSendTarget = useMeshStore((s) => s.removeSendTarget);
   const clearSendTargets = useMeshStore((s) => s.clearSendTargets);
 
-  // ── Selected team (@team: picker) ────────────────────────────────
   const selectedTeam = useMeshStore((s) => s.selectedTeam);
   const setSelectedTeam = useMeshStore((s) => s.setSelectedTeam);
 
-  // ── Mesh communication mode ──────────────────────────────────────
   const communicationMode = useMeshStore((s) => s.communicationMode);
   const setCommunicationMode = useMeshStore((s) => s.setCommunicationMode);
 
@@ -306,7 +289,6 @@ export function Composer({
   // use those; the active session fallback is in AppContainer.cancelTurn
   const cancelTargets = sendTargets.length > 0 ? sendTargets : undefined;
 
-  // ── Send to All Pinned ────────────────────────────────────────────
   const pinnedSessionKeys = useSessionStore((s) => s.pinnedSessionKeys);
   const hasPinnedSessions = pinnedSessionKeys.length > 0;
 
@@ -358,8 +340,6 @@ export function Composer({
     resetPicker,
   ]);
 
-  // ── Team suggestion factory ─────────────────────────────────────
-
   const buildTeamSuggestions = useCallback(
     (query: string): SuggestionItem[] => {
       const teams = useMeshStore.getState().teams;
@@ -381,8 +361,6 @@ export function Composer({
     },
     []
   );
-
-  // ── Suggestion fetch ─────────────────────────────────────────────
 
   const fetchSuggestions = useCallback(
     async (
@@ -661,8 +639,6 @@ export function Composer({
     [fetchFiles, fetchSymbols, tabs, availableCommands]
   );
 
-  // ── Item resolution (called by hook's handleSelect) ──────────────
-
   const resolveItem = useCallback(
     async (
       input: Parameters<typeof handleSelect>[0]
@@ -848,8 +824,6 @@ export function Composer({
     ]
   );
 
-  // ── Trigger picker hook ─────────────────────────────────────────
-
   const {
     triggerState,
     pickerIndex,
@@ -867,8 +841,6 @@ export function Composer({
 
   // Wire up the early-defined resetPicker callback to the hook's reset
   resetPickerImpl.current = resetPickerHook;
-
-  // ── Text-change handler ──────────────────────────────────────────
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -892,13 +864,9 @@ export function Composer({
     [onTriggerChange, setPickerIndex, isMultiMode, autoResizeHeight]
   );
 
-  // ── Attachment management ────────────────────────────────────────
-
   const handleRemoveAttachment = useCallback((id: string) => {
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   }, []);
-
-  // ── Queue helpers ────────────────────────────────────────────────
 
   /** Send immediately (bypass queue) — used by "send now" button on queued items */
   const handleSendNow = useCallback(
@@ -929,8 +897,6 @@ export function Composer({
       setCommunicationMode,
     ]
   );
-
-  // ── Send ─────────────────────────────────────────────────────────
 
   const handleSend = useCallback(() => {
     const trimmed = text.trim();
@@ -977,8 +943,6 @@ export function Composer({
     communicationMode,
     setCommunicationMode,
   ]);
-
-  // ── Keyboard navigation (history + picker) ───────────────────────
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1067,8 +1031,6 @@ export function Composer({
     },
     [handleSend, text, autoResizeHeight, triggerState.active, pickerKeyDownRef]
   );
-
-  // ── Render ───────────────────────────────────────────────────────
 
   const placeholder = disabled
     ? "Connect to an agent first\u2026"

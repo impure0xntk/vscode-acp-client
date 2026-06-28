@@ -8,8 +8,6 @@ import type {
 // Re-export types needed by stage modules
 export type { ContextAttachment, ToolCall, SessionCompressionInfo };
 
-// ── Raw / classified / filtered (internal pipeline stages) ─────────────────
-
 /** Raw message — alias for ChatMessage from the store */
 export type RawMessage = ChatMessage;
 
@@ -35,8 +33,6 @@ export interface ClassifiedMessage extends RawMessage {
   /** ACP stopReason from session/prompt response — signals end of turn */
   stopReason?: string;
 }
-
-// ── Resolved tool call / attachment (display helpers) ──────────────────────
 
 export interface ResolvedToolCall {
   id: string;
@@ -64,14 +60,10 @@ export interface ResolvedAttachment {
   detail: string;
 }
 
-// ── RenderContext — carried from annotate → Message for markdown rendering ──
-
 export interface RenderContext {
   /** Candidate paths extracted from inline code during annotation */
   filePaths: Set<string>;
 }
-
-// ── PipelineItem — final pipeline output (union) ────────────────────────────
 
 /** File edit summary entry — one file written via ACP fs/write_text_file in the turn */
 export interface FileEditEntry {
@@ -158,8 +150,6 @@ export interface CustomSystemDisplayItem {
   timestamp: number | undefined;
 }
 
-// ── IntermediateStep — step-based grouping for banner ───────────────────────
-
 /**
  * A single intermediate step within an agent response group.
  *
@@ -192,8 +182,6 @@ export type PipelineItem =
   | ModeChangeDisplayItem
   | ErrorNoticeDisplayItem
   | CustomSystemDisplayItem;
-
-// ── Pipeline context & config ──────────────────────────────────────────────
 
 export interface PipelineContext {
   sessionId: string;

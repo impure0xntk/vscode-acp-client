@@ -1,9 +1,3 @@
-// ============================================================================
-// SupervisorManager — lead/worker task decomposition
-//
-// refs: docs/mesh-orchestrator-integration-design.md Section 4
-// ============================================================================
-
 import type { SessionOrchestrator } from "../../application/session/orchestrator";
 import type { SendTarget } from "../models/mesh";
 import type { TaskBoardStore } from "./task-board-store";
@@ -13,19 +7,11 @@ import { getLogger } from "../../platform/backends";
 
 const log = getLogger("mesh.supervisor");
 
-// ----------------------------------------------------------------------------
-// Dependencies
-// ----------------------------------------------------------------------------
-
 export interface SupervisorManagerDeps {
   sessionOrchestrator: SessionOrchestrator;
   taskBoardStore: TaskBoardStore;
   fileLockManager?: FileLockManager;
 }
-
-// ----------------------------------------------------------------------------
-// Configuration
-// ----------------------------------------------------------------------------
 
 export interface SupervisorConfig {
   leadTarget: SendTarget;
@@ -40,10 +26,6 @@ export interface SupervisorConfig {
   /** Files to lock before worker execution (releases on completion) */
   lockFiles?: string[];
 }
-
-// ----------------------------------------------------------------------------
-// Result types
-// ----------------------------------------------------------------------------
 
 export interface WorkerAssignment {
   workerTarget: SendTarget;
@@ -61,10 +43,6 @@ export interface SupervisorResult {
   /** Parent task ID if taskBoardPath was provided */
   parentTaskId?: string;
 }
-
-// ----------------------------------------------------------------------------
-// SupervisorManager
-// ----------------------------------------------------------------------------
 
 export class SupervisorManager {
   private sessionOrchestrator: SessionOrchestrator;
@@ -84,12 +62,6 @@ export class SupervisorManager {
    * 3. Distribute sub-tasks to worker agents in parallel
    * 4. Retry failed assignments up to maxRetries
    * 5. Return assignments for tracking
-   *
-   * Features:
-   * - TaskBoard sync when taskBoardPath is set
-   * - File locking when lockFiles + fileLockManager are set
-   * - Automatic retry on worker failure
-   * - Lead output decomposition via v2 markers
    */
   async supervise(
     config: SupervisorConfig,
@@ -110,7 +82,6 @@ export class SupervisorManager {
       maxRetries,
     });
 
-    // Phase 2: Parse lead output for v2 markers to extract sub-tasks
     if (leadOutput) {
       this.decomposeFromLeadOutput(
         assignments,
@@ -120,7 +91,6 @@ export class SupervisorManager {
       log.debug("lead output decomposed", { messageCount: assignments.length });
     }
 
-    // Create parent task if taskBoardPath is provided
     let parentTaskId: string | undefined;
     if (config.taskBoardPath) {
       if (!this.taskBoardStore.load(config.taskBoardPath)) {
@@ -129,7 +99,6 @@ export class SupervisorManager {
       parentTaskId = this.createTaskBoardEntries(config, assignments);
     }
 
-    // Acquire file locks if specified
     if (config.lockFiles && this.fileLockManager) {
       log.debug("acquiring file locks", { fileCount: config.lockFiles.length });
       for (const filePath of config.lockFiles) {
@@ -144,7 +113,6 @@ export class SupervisorManager {
       }
     }
 
-    // Send task to lead agent first
     log.debug("sending task to lead agent", {
       agentId: config.leadTarget.agentId,
       sessionId: config.leadTarget.sessionId,
@@ -177,10 +145,8 @@ export class SupervisorManager {
       };
     }
 
-    // Phase 3: Distribute to workers with retry support
     await this.executeWorkers(config, assignments, maxRetries);
 
-    // Update parent task status
     if (config.taskBoardPath && parentTaskId) {
       this.updateParentTaskStatus(
         config.taskBoardPath,
@@ -189,7 +155,6 @@ export class SupervisorManager {
       );
     }
 
-    // Release file locks
     this.releaseLocks(config);
 
     const completedCount = assignments.filter(
@@ -204,10 +169,6 @@ export class SupervisorManager {
     });
     return { assignments, completedCount, failedCount, parentTaskId };
   }
-
-  // -----------------------------------------------------------------------
-  // Lead output decomposition (v2 markers)
-  // -----------------------------------------------------------------------
 
   /**
    * Parse lead agent output for v2 task_delegate markers and update
@@ -253,10 +214,6 @@ export class SupervisorManager {
       }
     }
   }
-
-  // -----------------------------------------------------------------------
-  // Task board helpers
-  // -----------------------------------------------------------------------
 
   private createTaskBoardEntries(
     config: SupervisorConfig,
@@ -326,10 +283,6 @@ export class SupervisorManager {
     });
   }
 
-  // -----------------------------------------------------------------------
-  // Worker execution with retry
-  // -----------------------------------------------------------------------
-
   private async executeWorkers(
     config: SupervisorConfig,
     assignments: WorkerAssignment[],
@@ -397,10 +350,6 @@ export class SupervisorManager {
       }
     }
   }
-
-  // -----------------------------------------------------------------------
-  // File lock cleanup
-  // -----------------------------------------------------------------------
 
   private releaseLocks(config: SupervisorConfig): void {
     if (!config.lockFiles || !this.fileLockManager) return;

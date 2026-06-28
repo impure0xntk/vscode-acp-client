@@ -6,37 +6,26 @@ import {
 } from "react";
 import type { SuggestionItem, TriggerType } from "../types";
 
-// ── Trigger characters ─────────────────────────────────────────────
-
 const TRIGGER_CHARS: TriggerType[] = ["/", "#", "@"];
 
-// ── Character classification (no regex) ────────────────────────────
-
-/** Check if code point is ASCII word character [a-zA-Z0-9_] */
 function isWordChar(code: number): boolean {
   return (
-    (code >= 48 && code <= 57) || // 0-9
-    (code >= 65 && code <= 90) || // A-Z
-    (code >= 97 && code <= 122) || // a-z
-    code === 95 // _
+    (code >= 48 && code <= 57) ||
+    (code >= 65 && code <= 90) ||
+    (code >= 97 && code <= 122) ||
+    code === 95
   );
 }
 
-/** Check if code point is whitespace (space, newline, tab) */
 function isWhitespace(code: number): boolean {
   return code === 32 || code === 10 || code === 13 || code === 9;
 }
 
-/**
- * Split `s` by whitespace without regex.
- * Returns tokens and the whitespace that follows each token.
- */
 function splitByWhitespace(s: string): string[] {
   const tokens: string[] = [];
   let i = 0;
   const len = s.length;
   while (i < len) {
-    // skip leading whitespace
     while (i < len && isWhitespace(s.charCodeAt(i))) i++;
     if (i >= len) break;
     const start = i;
@@ -52,8 +41,6 @@ function trimLeft(s: string): string {
   while (i < s.length && isWhitespace(s.charCodeAt(i))) i++;
   return s.slice(i);
 }
-
-// ── Types ──────────────────────────────────────────────────────────
 
 export interface TriggerState {
   active: boolean;
@@ -114,8 +101,6 @@ export interface UseTriggerPickerReturn {
   ) => void;
 }
 
-// ── Hook ───────────────────────────────────────────────────────────
-
 export function useTriggerPicker(
   options: UseTriggerPickerOptions
 ): UseTriggerPickerReturn {
@@ -130,15 +115,11 @@ export function useTriggerPicker(
     ((e: ReactKeyboardEvent<HTMLTextAreaElement>) => void) | null
   >(null);
 
-  // ── Consumed length ──────────────────────────────────────────────
-
   const getConsumedLength = useCallback((ts: ConsumedLengthInput): number => {
     if (ts.trigger === "/") return 1 + ts.query.length;
-    // @ without subTrigger (session picker) → 1 + query
-    // @ with subTrigger (e.g. @team:) → 1 + subTrigger.length + 1 + query
     if (ts.trigger === "@") {
       if (ts.subTrigger) {
-        const base = 1 + ts.subTrigger.length + 1; // @ + subTrigger + ":"
+        const base = 1 + ts.subTrigger.length + 1;
         return ts.query.length > 0 ? base + ts.query.length : base;
       }
       return 1 + ts.query.length;
@@ -149,8 +130,6 @@ export function useTriggerPicker(
     }
     return 1 + ts.query.length;
   }, []);
-
-  // ── Trigger detection (no regex) ─────────────────────────────────
 
   const detectTrigger = useCallback(
     (value: string, caretPos: number): TriggerState => {
@@ -181,7 +160,6 @@ export function useTriggerPicker(
         const afterTrigger = beforeCaret.slice(idx + 1);
         const afterTriggerCodePoints = afterTrigger.length;
 
-        // Check if afterTrigger contains whitespace (space=32, newline=10/13, tab=9)
         let hasWhitespace = false;
         for (let i = 0; i < afterTriggerCodePoints; i++) {
           if (isWhitespace(afterTrigger.charCodeAt(i))) {
@@ -201,11 +179,9 @@ export function useTriggerPicker(
         }
 
         if (ch === "@") {
-          // PrecededBy word char → not a trigger (e.g. "user@host")
           if (idx > 0 && isWordChar(beforeCaret.charCodeAt(idx - 1))) continue;
           if (hasWhitespace) continue;
 
-          // Check for @team: prefix — team picker
           const teamPrefix = "team:";
           if (afterTrigger.toLowerCase().startsWith(teamPrefix)) {
             const teamQuery = afterTrigger.slice(teamPrefix.length);
@@ -227,7 +203,6 @@ export function useTriggerPicker(
           };
         }
 
-        // ch === "#"
         const tokens = splitByWhitespace(afterTrigger);
 
         if (tokens.length === 0) {
@@ -296,8 +271,6 @@ export function useTriggerPicker(
     []
   );
 
-  // ── Handler: text change ─────────────────────────────────────────
-
   const handleChange = useCallback(
     (value: string, caretPos: number): TriggerState => {
       const newTrigger = detectTrigger(value, caretPos);
@@ -307,13 +280,10 @@ export function useTriggerPicker(
     [detectTrigger]
   );
 
-  // ── Handler: suggestion selected ─────────────────────────────────
-
   const handleSelect = useCallback(
     async (input: SelectInput): Promise<SelectOutput> => {
       suppressTriggerRef.current = true;
 
-      // Subcommand expansion from bare "#"
       if (
         input.triggerState.subTrigger === undefined &&
         (input.item.kind === "file" || input.item.kind === "symbol")
@@ -369,14 +339,12 @@ export function useTriggerPicker(
 
       const result = await resolveItem(input);
 
-      // Multi-@ mode: keep picker open after selecting a session
       if (input.triggerState.multiMode && input.item.kind === "session") {
         dismissedRef.current = false;
         setPickerIndex(0);
-        // Keep trigger active but reset query for next @ input
         const keepOpenState: TriggerState = {
           ...input.triggerState,
-          active: false, // temporarily suppress to allow next @ detection
+          active: false,
           query: "",
         };
         setTriggerState(keepOpenState);
@@ -392,8 +360,6 @@ export function useTriggerPicker(
     [getConsumedLength, resolveItem]
   );
 
-  // ── Handler: close picker (Escape) ──────────────────────────────
-
   const handleClose = useCallback(() => {
     dismissedRef.current = true;
     suppressTriggerRef.current = true;
@@ -401,16 +367,12 @@ export function useTriggerPicker(
     setPickerIndex(0);
   }, []);
 
-  // ── Handler: reset (send, etc.) ─────────────────────────────────
-
   const reset = useCallback(() => {
     dismissedRef.current = false;
     suppressTriggerRef.current = false;
     setTriggerState(NO_TRIGGER);
     setPickerIndex(0);
   }, []);
-
-  // ── Keyboard handler registration (for ContextPicker) ────────────
 
   const registerKeyHandler = useCallback(
     (

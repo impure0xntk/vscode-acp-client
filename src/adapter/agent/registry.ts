@@ -4,10 +4,6 @@ import type { Memento } from "../../platform/context";
 
 export type { AgentConfig };
 
-// ============================================================================
-// Preset types (mirrors acp.presets configuration schema)
-// ============================================================================
-
 export interface PresetSessionEntry {
   agent: string;
   workspace?: string;
@@ -22,10 +18,6 @@ export interface PresetConfig {
   sessions: PresetSessionEntry[];
 }
 
-// ============================================================================
-// Agent Registry
-// ============================================================================
-
 const CUSTOM_AGENTS_KEY = "acp.customAgents";
 
 export class AgentRegistry {
@@ -38,10 +30,6 @@ export class AgentRegistry {
     this.settingsAgents = this.loadFromSettings(platform);
     this.customAgents = this.loadCustomAgents();
   }
-
-  // ========================================================================
-  // Public API
-  // ========================================================================
 
   getAgents(): AgentConfig[] {
     const merged = new Map<string, AgentConfig>();
@@ -114,8 +102,6 @@ export class AgentRegistry {
     const preset = configs[defaultName];
     if (!preset || !Array.isArray(preset.sessions)) return undefined;
 
-    // VS Code returns plain objects from getConfiguration; cast each session
-    // entry to the expected shape via unknown first to satisfy TypeScript.
     return {
       label: preset.label ?? defaultName,
       layout: preset.layout,
@@ -132,10 +118,6 @@ export class AgentRegistry {
       }),
     };
   }
-
-  // ========================================================================
-  // Private
-  // ========================================================================
 
   private loadCustomAgents(): AgentConfig[] {
     const stored = this.globalState.get<AgentConfig[]>(CUSTOM_AGENTS_KEY);

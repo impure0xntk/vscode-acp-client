@@ -1,7 +1,4 @@
 import React, { useCallback, useMemo } from "react";
-import { getLogger } from "../../../lib/logger";
-
-const log = getLogger("webview.SessionOverviewPanel");
 import type {
   SessionOverviewState,
   SessionOverviewFilter,
@@ -69,18 +66,11 @@ export function SessionOverviewPanel({
   const selectedIds = state.selectedSessionIds ?? [];
   const selectionMode = state.selectionMode ?? false;
 
-  // Subscribe to activeSessionKey (primitive — stable identity).
   const storeActiveKey = useSessionStore((s) => s.activeSessionKey);
 
-  // Subscribe only to the structural primitives that feed selectOverviewItems.
-  // Do NOT subscribe to sessionInfoMap — live fields are now handled by each
-  // SessionOverviewCard individually via useSessionInfo(sessionKey).
   const tabOrder = useSessionStore((s) => s.tabOrder);
   const tabTitles = useSessionStore((s) => s.tabTitles);
 
-  // Build overview items from tabOrder + tabTitles (structural only).
-  // Live status/elapsedMs come from each card's own subscription.
-  // We also read lastTurnOutcome here for filtering purposes.
   const overviewItems = useMemo(() => {
     const sessionInfoMap = useSessionStore.getState().sessionInfoMap;
     const keys = tabOrder;
@@ -88,7 +78,6 @@ export function SessionOverviewPanel({
       const [agentId, sessionId] = key.split(":");
       const title = tabTitles[key] ?? sessionId;
       const info: SessionInfoDTO | undefined = sessionInfoMap[key];
-      // Minimal item — live fields will be filled by SessionOverviewCard.
       return {
         sessionId,
         agentId,
@@ -109,19 +98,14 @@ export function SessionOverviewPanel({
     });
   }, [tabOrder, tabTitles]);
 
-  // Filter sessions by session state or turn outcome.
-  // "running" matches session status. "completed"/"error"/"cancelled" match lastTurnOutcome.
   const filteredSessions = useMemo(() => {
     if (state.filter === "all") return overviewItems;
     if (state.filter === "running") {
       return overviewItems.filter((s) => s.status === "running");
     }
-    // Turn outcome filters
     return overviewItems.filter((s) => s.lastTurnOutcome === state.filter);
   }, [overviewItems, state.filter]);
 
-  // Build unread count map from scrollStateStore + messageStore.
-  // Recomputes only when the set of filtered session keys changes.
   const filteredKeys = useMemo(
     () => filteredSessions.map((s) => `${s.agentId}:${s.sessionId}`).join(","),
     [filteredSessions]
@@ -159,13 +143,10 @@ export function SessionOverviewPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredKeys]);
 
-  // Count selected sessions (any status can be closed)
   const selectedCount = selectedIds.length;
 
-  // ── Logging wrappers ────────────────────────────────────────────────
   const handleFocus = useCallback(
     (sessionId: string, agentId: string) => {
-      log.info("overview focus", { sessionId, agentId });
       onFocus(sessionId, agentId);
     },
     [onFocus]
@@ -173,7 +154,6 @@ export function SessionOverviewPanel({
 
   const handleCancel = useCallback(
     (sessionId: string, agentId: string) => {
-      log.info("overview cancel", { sessionId, agentId });
       onCancel(sessionId, agentId);
     },
     [onCancel]
@@ -181,7 +161,6 @@ export function SessionOverviewPanel({
 
   const handleClose = useCallback(
     (sessionId: string, agentId: string) => {
-      log.info("overview close", { sessionId, agentId });
       onClose(sessionId, agentId);
     },
     [onClose]
@@ -189,43 +168,34 @@ export function SessionOverviewPanel({
 
   const handleToggleSelect = useCallback(
     (sessionId: string) => {
-      log.debug("overview toggle select", { sessionId, selectionMode });
       onToggleSelect(sessionId);
     },
-    [onToggleSelect, selectionMode]
+    [onToggleSelect]
   );
 
   const handleLongPress = useCallback(
     (sessionId: string) => {
-      log.info("overview long press → enter selection mode", { sessionId });
       onLongPress(sessionId);
     },
     [onLongPress]
   );
 
   const handleCloseSelected = useCallback(() => {
-    log.info("overview close selected", {
-      count: selectedCount,
-      sessionIds: selectedIds,
-    });
     onCloseSelected();
-  }, [onCloseSelected, selectedCount, selectedIds]);
+  }, [onCloseSelected]);
 
   const handleExitSelectionMode = useCallback(() => {
-    log.info("overview exit selection mode");
     onExitSelectionMode();
   }, [onExitSelectionMode]);
 
   const handleFilterChange = useCallback(
     (f: SessionOverviewFilter) => {
-      log.debug("overview filter change", { from: state.filter, to: f });
       onFilterChange(f);
     },
-    [onFilterChange, state.filter]
+    [onFilterChange]
   );
 
   const handleNewSession = useCallback(() => {
-    log.info("overview new session");
     onNewSession?.();
   }, [onNewSession]);
 
@@ -238,7 +208,6 @@ export function SessionOverviewPanel({
         onNewSession={handleNewSession}
       />
 
-      {/* Batch operations bar — visible whenever selection mode is active */}
       {selectionMode && (
         <div className="flex items-center justify-between px-1.5 py-[3px] border-b border-border shrink-0 bg-[color-mix(in_srgb,var(--bg-input)_40%,transparent)] gap-1.5">
           <span className="text-[10px] text-fg-secondary">
@@ -326,7 +295,6 @@ function fmt(n: number): string {
   return String(n);
 }
 
-/** Wrapper component that adds resize handle */
 export function ResizableSessionOverviewPanel(
   props: Props & {
     onResizeEnd: (width: number) => void;

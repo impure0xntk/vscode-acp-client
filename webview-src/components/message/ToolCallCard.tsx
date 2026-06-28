@@ -7,7 +7,6 @@ import { Icon, iconForToolKind } from "../../lib/icons";
 import { getLogger } from "../../lib/logger";
 
 const log = getLogger("webview.ToolCallCard");
-// ── Shared helpers ─────────────────────────────────────────────────────────
 
 export function formatDuration(ms: number): string {
   if (ms >= 1000) return `${(ms / 1000).toFixed(1)}s`;
@@ -21,8 +20,6 @@ function tryFormatJson(raw: string): string {
     return raw;
   }
 }
-
-// ── Location types ───────────────────────────────────────────────────────
 
 interface ToolCallLocation {
   path: string;
@@ -72,8 +69,6 @@ function fileIcon(ext: string): string {
   }
 }
 
-// ── Chevron ─────────────────────────────────────────────────────────────────
-
 function Chevron({ open }: { open: boolean }): React.ReactElement {
   return (
     <span
@@ -84,8 +79,6 @@ function Chevron({ open }: { open: boolean }): React.ReactElement {
     </span>
   );
 }
-
-// ── DiffView ────────────────────────────────────────────────────────────────
 
 interface RenderedDiffLine {
   type: "|" | "+" | "-" | "@@";
@@ -191,8 +184,6 @@ export function DiffView({
     </div>
   );
 }
-
-// ── ToolCallCard ───────────────────────────────────────────────────────────
 
 export interface ToolCallCardProps {
   id: string;

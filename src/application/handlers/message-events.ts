@@ -1,7 +1,3 @@
-// ============================================================================
-// Message Event Handlers — orchestrator message / notification → UI updates
-// ============================================================================
-
 import type { SessionOrchestrator } from "../orchestrator";
 import type { ChatPanel } from "../../infrastructure/vscode/vscode-ui/chatPanel";
 import type { ChatPresenter } from "../../infrastructure/vscode/vscode-ui/presenter";
@@ -13,18 +9,10 @@ import type { MeshOrchestrator } from "../../domain/services/mesh-orchestrator";
 
 const log = getLogger("handlers.message");
 
-// ============================================================================
-// Session context compression payload
-// ============================================================================
-
 export interface SessionCompressionInfo {
   contextWindowMax: number;
   usedTokens: number;
 }
-
-// ============================================================================
-// Dependencies
-// ============================================================================
 
 export interface MessageEventDeps {
   orchestrator: SessionOrchestrator;
@@ -38,10 +26,6 @@ export interface MessageEventDeps {
   meshOrchestrator: MeshOrchestrator;
 }
 
-// ============================================================================
-// Wire message / notification events
-// ============================================================================
-
 export function wireMessageEvents(deps: MessageEventDeps): void {
   const {
     orchestrator,
@@ -53,10 +37,7 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
     meshOrchestrator,
   } = deps;
 
-  // -----------------------------------------------------------------------
-  // Session commands updated (slash commands)
   // Only push for the active session to prevent cross-tab leakage
-  // -----------------------------------------------------------------------
   orchestrator.on(
     "sessionCommandsUpdated",
     ({
@@ -84,11 +65,6 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
     }
   );
 
-  // -----------------------------------------------------------------------
-  // Session message (batched) — emitted by ProtocolHandler.flushPendingAgentText
-  // after turn completion. Delivers the full agent response as a single
-  // ChatMessage, reducing extension-host ↔ webview message frequency.
-  // -----------------------------------------------------------------------
   orchestrator.on(
     "sessionMessage",
     (event: { agentId: string; sessionId: string; message: import("../../domain/models/chat").ChatMessage }) => {
@@ -111,11 +87,6 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
     }
   );
 
-  // -----------------------------------------------------------------------
-  // Session stream start — signal turn start to webview.
-  // With batched delivery, this signals the start of a new turn so the
-  // webview can prepare for a single message append (not per-chunk).
-  // -----------------------------------------------------------------------
   orchestrator.on(
     "sessionStreamStart",
     (event: { agentId: string; sessionId: string }) => {
@@ -127,12 +98,6 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
     }
   );
 
-  // -----------------------------------------------------------------------
-  // Session stream chunk — forward buffered thought text to webview.
-  // ProtocolHandler.flushThoughts() emits this when agent_message_chunk
-  // arrives or when the turn ends. The webview creates a new agent message
-  // so it appears as an intermediate step in the pipeline.
-  // -----------------------------------------------------------------------
   orchestrator.on(
     "sessionStreamChunk",
     (event: { agentId: string; sessionId: string; chunk: string }) => {
@@ -144,9 +109,6 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
     }
   );
 
-  // -----------------------------------------------------------------------
-  // Session update (raw SDK notification)
-  // -----------------------------------------------------------------------
   orchestrator.on(
     "sessionUpdate",
     (event: {
@@ -160,12 +122,11 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
       const activeSessionId = orchestrator.getActiveSessionId(agentId);
       const isActive = sessionId === activeSessionId;
 
-      // Forward raw SDK notification only for the active session.
       // Skip agent_thought_chunk — these are buffered in ProtocolHandler
       // and flushed as a single chunk to avoid overwhelming the webview.
       // Skip agent_message_chunk — text is buffered in ProtocolHandler
       // and flushed as a single ChatMessage via sessionMessage event
-      // on turn completion (batched delivery to reduce webview overhead).
+      // on turn completion.
       if (
         isActive &&
         update.sessionUpdate !== "agent_thought_chunk" &&
@@ -190,7 +151,6 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
       });
       updateContext();
 
-      // Push updated sessionInfo only for the active session
       if (
         isActive &&
         (update.sessionUpdate === "current_mode_update" ||
@@ -208,9 +168,6 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
     }
   );
 
-  // -----------------------------------------------------------------------
-  // Context compression detected (from orchestrator)
-  // -----------------------------------------------------------------------
   orchestrator.on(
     "sessionContextCompressed",
     (event: {
@@ -233,14 +190,11 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
     }
   );
 
-  // -----------------------------------------------------------------------
-  // File write event — agent wrote a file via ACP fs/write_text_file.
   // Forward to webview for ALL sessions (not just the active one) so the
   // pipeline can aggregate edits per-session for the file edit summary.
   // Unlike sessionUpdate (text/thought/tool-call), file writes are per-
   // session data needed on any tab.  Dropping non-active writes caused
   // the file edit summary to silently disappear.
-  // -----------------------------------------------------------------------
   orchestrator.on(
     "fileWrite",
     (event: FileWriteEvent) => {

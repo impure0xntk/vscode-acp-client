@@ -2,10 +2,7 @@ import { useCallback } from "react";
 import { useUiStateStore } from "../store/uiStateStore";
 import type { SessionOverviewFilter } from "../types";
 
-// ── Overview hooks ──────────────────────────────────────────────────────────
-
 export function useOverview() {
-  // Read from uiStateStore — overview chrome state lives here, not in sessionStore.
   const s = useUiStateStore.getState();
   const visible = s.overviewVisible;
   const width = s.overviewWidth;

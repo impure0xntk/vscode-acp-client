@@ -1,9 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
 
-// ============================================================================
-// Types
-// ============================================================================
-
 interface AgentInfo {
   agentId: string;
   state:
@@ -22,19 +18,11 @@ interface AgentConnectPanelProps {
   onClose: () => void;
 }
 
-// ============================================================================
-// VS Code API
-// ============================================================================
-
 declare function acquireVsCodeApi(): {
   postMessage(msg: unknown): void;
   getState(): unknown;
   setState(state: unknown): void;
 };
-
-// ============================================================================
-// Helpers
-// ============================================================================
 
 function getStatusIcon(state: AgentInfo["state"]): string {
   switch (state) {
@@ -78,10 +66,6 @@ function canDisconnect(state: AgentInfo["state"]): boolean {
   return state === "connected" || state === "busy" || state === "connecting";
 }
 
-// ============================================================================
-// Component
-// ============================================================================
-
 export default function AgentConnectPanel({ onClose }: AgentConnectPanelProps) {
   const vscode = acquireVsCodeApi();
 
@@ -92,9 +76,6 @@ export default function AgentConnectPanel({ onClose }: AgentConnectPanelProps) {
   const [newCommand, setNewCommand] = useState("");
   const [newArgs, setNewArgs] = useState("");
 
-  // ------------------------------------------------------------------
-  // Receive messages from the extension host
-  // ------------------------------------------------------------------
   useEffect(() => {
     const handler = (event: MessageEvent) => {
       const msg = event.data;
@@ -115,9 +96,6 @@ export default function AgentConnectPanel({ onClose }: AgentConnectPanelProps) {
     return () => window.removeEventListener("message", handler);
   }, [vscode]);
 
-  // ------------------------------------------------------------------
-  // Actions
-  // ------------------------------------------------------------------
   const handleConnect = useCallback(
     (agentId: string) => {
       vscode.postMessage({ type: "connectAgent", agentId });
@@ -159,9 +137,6 @@ export default function AgentConnectPanel({ onClose }: AgentConnectPanelProps) {
     [vscode]
   );
 
-  // ------------------------------------------------------------------
-  // Render
-  // ------------------------------------------------------------------
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-bg-primary text-fg-primary text-xs">
       {/* Header */}

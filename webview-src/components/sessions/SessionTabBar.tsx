@@ -15,9 +15,7 @@ import { UnreadBadge } from "../primitives/UnreadBadge";
 import { IconClose, IconPin, IconPinFilled } from "../../lib/icons";
 import { useSessionInfo } from "../../hooks/useSessionInfo";
 
-// ============================================================================
-// SessionTabBarProps
-// ============================================================================
+
 
 export interface SessionTabBarProps {
   tabs: SessionTabState[];
@@ -31,9 +29,7 @@ export interface SessionTabBarProps {
   onTogglePin?: (key: string) => void;
 }
 
-// ============================================================================
-// Unified Session Bar
-// ============================================================================
+
 
 interface UnifiedTabProps {
   tab: SessionTabState;
@@ -212,9 +208,7 @@ const UnifiedTab = React.memo(function UnifiedTab({
   );
 });
 
-// ============================================================================
-// SessionTabBar
-// ============================================================================
+
 
 export const SessionTabBar = React.memo(function SessionTabBar({
   tabs,

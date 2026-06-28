@@ -3,8 +3,6 @@ import type { AgentInfo, SessionInfoDTO } from "../../../store/sessionStore";
 import { Icon } from "../../../lib/icons";
 import { fmtCaps, fmtDuration, fmtTimestamp } from "./formatting";
 
-// ── Row ─────────────────────────────────────────────────────────────────────
-
 export function Row({
   label,
   value,
@@ -21,8 +19,6 @@ export function Row({
     </div>
   );
 }
-
-// ── AgentSection ────────────────────────────────────────────────────────────
 
 export function AgentSection({
   info,
@@ -55,8 +51,6 @@ export function AgentSection({
     </section>
   );
 }
-
-// ── MetricsSection ──────────────────────────────────────────────────────────
 
 export function MetricsSection({
   tokenUsage,
@@ -95,8 +89,6 @@ export function MetricsSection({
     </section>
   );
 }
-
-// ── TurnSection ─────────────────────────────────────────────────────────────
 
 export function TurnSection({
   outcome,
@@ -158,11 +150,9 @@ export function TurnSection({
   );
 }
 
-// ── SectionDetailsPanel ─────────────────────────────────────────────────────
 // Compact variant for Unified section header expansion.  Shows the same
 // information as the Classic SessionFooter DetailsPanel but without the
 // section/turn breakdown that is already visible as chips.
-
 export function SectionDetailsPanel({
   info,
   messageCount,
@@ -230,8 +220,6 @@ export function SectionDetailsPanel({
     </div>
   );
 }
-
-// ── SessionIdRow ────────────────────────────────────────────────────────────
 
 export function SessionIdRow({
   sessionId,

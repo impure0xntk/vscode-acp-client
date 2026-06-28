@@ -1,7 +1,5 @@
 import React from "react";
 
-// ── Shared helpers ─────────────────────────────────────────────────────────
-
 export function getFileExtension(path: string): string {
   const parts = path.split("/");
   const filename = parts[parts.length - 1] ?? path;
@@ -33,8 +31,6 @@ const EXT_ICON: Record<string, string> = {
 export function fileIcon(ext: string): string {
   return EXT_ICON[ext] ?? "•";
 }
-
-// ── Component ──────────────────────────────────────────────────────────────
 
 export interface FileIconProps {
   path: string;

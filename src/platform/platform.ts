@@ -9,7 +9,6 @@ import type { OrchestrationStateAPI } from "./orchestration";
 import type { TerminalAPI } from "./terminal";
 import type { UIAPI } from "./ui";
 
-/** Unified Platform API */
 export interface PlatformAPI {
   readonly ui: UIAPI;
   readonly fs: FileSystemAPI;
@@ -18,12 +17,8 @@ export interface PlatformAPI {
   readonly terminal: TerminalAPI;
   readonly orchestration: OrchestrationStateAPI;
   logStorage: LogStorageAPI;
-
-  // ── Lifecycle ──
   initialize(): Promise<void>;
   dispose(): Promise<void>;
-
-  // ── Platform info ──
   readonly platform: "vscode" | "node" | "electron" | "web";
   readonly version: string;
 }

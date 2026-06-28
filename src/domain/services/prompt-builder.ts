@@ -1,15 +1,8 @@
-// ============================================================================
-// PromptBuilder — Mesh Protocol prompt injection service
-//
 // Generates system prompt extensions and user prompt envelopes that teach
 // agents how to emit [ACP_MESH_MESSAGE] markers for P2P communication.
-//
+
 // refs: docs/mesh-prompt-injection-design.md Section 3, 4, 5
 // ============================================================================
-
-// ----------------------------------------------------------------------------
-// Types
-// ----------------------------------------------------------------------------
 
 export type MeshAgentRole = "planner" | "worker" | "lead" | "reviewer";
 
@@ -29,10 +22,6 @@ export interface InboundMessage {
   id: string;
   payload: Record<string, unknown>;
 }
-
-// ----------------------------------------------------------------------------
-// System Prompt — common protocol section
-// ----------------------------------------------------------------------------
 
 /**
  * Generate the common Mesh Protocol system prompt section.
@@ -80,10 +69,6 @@ The orchestrator will extract these markers from your output and route them to t
 \`\`\`
 `;
 }
-
-// ----------------------------------------------------------------------------
-// Role-specific system prompt sections
-// ----------------------------------------------------------------------------
 
 export function buildPlannerSystemPrompt(): string {
   return `
@@ -220,7 +205,7 @@ subtasks, and your subtask descriptions will be forwarded to worker agents.
   "to": "orchestrator",
   "mode": "supervisor",
   "payload": {
-    "parentTaskId": "<task ID>",
+    "parentTaskId": "<task ID)",
     "subtasks": [
       { "index": 0, "description": "<subtask 1>", "complexity": "low" },
       { "index": 1, "description": "<subtask 2>", "complexity": "high" }
@@ -272,10 +257,6 @@ You are responsible for **reviewing outputs** from other agents and providing fe
 
 `;
 }
-
-// ----------------------------------------------------------------------------
-// User Prompt envelope helpers
-// ----------------------------------------------------------------------------
 
 function buildProtocolHeader(
   agentId: string,
@@ -359,13 +340,9 @@ export function buildUserPromptEnvelope(params: {
   return parts.join("\n\n");
 }
 
-// ----------------------------------------------------------------------------
-// Reinjection prompt (after context compression)
-// ----------------------------------------------------------------------------
-
 /**
  * Build a short reinjection prompt to re-inject Mesh Protocol instructions
- * after context compression. ~500 tokens, condensed version.
+ * after context compression.
  */
 export function buildReinjectionPrompt(
   config: MeshProtocolConfig,
@@ -400,10 +377,6 @@ ${roleReminder}
 
   return prompt;
 }
-
-// ----------------------------------------------------------------------------
-// Reprompt (when agent failed to emit a marker)
-// ----------------------------------------------------------------------------
 
 /**
  * Build a reprompt message when the agent did not emit the expected marker.
@@ -444,10 +417,6 @@ ${originalTask}
 
 Please include the marker at the END of your response.`;
 }
-
-// ----------------------------------------------------------------------------
-// PromptBuilder class
-// ----------------------------------------------------------------------------
 
 export class PromptBuilder {
   private config: MeshProtocolConfig;

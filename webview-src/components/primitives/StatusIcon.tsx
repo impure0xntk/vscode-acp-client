@@ -10,10 +10,6 @@ import {
   IconInput,
 } from "../../lib/icons";
 
-// ============================================================================
-// Unified status icon system — SVG-based
-// ============================================================================
-
 /** Session runtime state — no terminal values */
 export type SessionStatus = "idle" | "running" | "cancelling";
 /** Turn outcome — set after a turn completes */

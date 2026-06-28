@@ -1,15 +1,5 @@
-// ============================================================================
-// Chat Presenter — transforms orchestration state into webview messages.
-// TabData only carries UI-specific state (unread, dirty); everything else
-// is derived from SessionInfo on the extension side.
-// ============================================================================
-
 import type { SessionStatusInfo } from "../../../application/session/orchestrator";
 import type { AgentInfo } from "../../../application/session/orchestrator";
-
-// ============================================================================
-// Tab data sent to webview — UI-only fields
-// ============================================================================
 
 export interface TabData {
   sessionId: string;
@@ -68,10 +58,6 @@ export interface SetTabsMessage {
   sessionInfoMap: Record<string, SessionInfoDTO>;
 }
 
-// ============================================================================
-// Presenter
-// ============================================================================
-
 export class ChatPresenter {
   private tabs: Map<string, TabData> = new Map();
   private agents: Map<string, AgentTabInfo> = new Map();
@@ -82,10 +68,6 @@ export class ChatPresenter {
   private agentInfoMap: Record<string, unknown> = {};
   private sessionInfoMap: Record<string, SessionInfoDTO> = {};
 
-  // -----------------------------------------------------------------------
-  // Configuration
-  // -----------------------------------------------------------------------
-
   setWorkspace(
     root: string | null,
     folders: Array<{ name: string; path: string }>
@@ -93,10 +75,6 @@ export class ChatPresenter {
     this.workspaceRoot = root;
     this.workspaceFolders = folders;
   }
-
-  // -----------------------------------------------------------------------
-  // Agent updates
-  // -----------------------------------------------------------------------
 
   upsertAgent(
     agentId: string,
@@ -120,10 +98,6 @@ export class ChatPresenter {
     this.agentInfoMap[agentId] = info;
   }
 
-  // -----------------------------------------------------------------------
-  // Session updates — only UI-specific fields
-  // -----------------------------------------------------------------------
-
   upsertSession(
     session: SessionStatusInfo,
     agentId: string,
@@ -139,7 +113,6 @@ export class ChatPresenter {
     };
     this.tabs.set(key, tab);
 
-    // Store SessionInfoDTO for webview derivation
     this.sessionInfoMap[key] = {
       sessionId: session.sessionId,
       agentId,
@@ -186,10 +159,6 @@ export class ChatPresenter {
     if (!tab) return;
     tab.isDirty = true;
   }
-
-  // -----------------------------------------------------------------------
-  // Build messages
-  // -----------------------------------------------------------------------
 
   buildSetTabsMessage(): SetTabsMessage {
     const activeSessionKey =
@@ -279,10 +248,6 @@ export class ChatPresenter {
   } {
     return { type: "session/commands", agentId, sessionId, commands };
   }
-
-  // -----------------------------------------------------------------------
-  // Reset
-  // -----------------------------------------------------------------------
 
   clear(): void {
     this.tabs.clear();

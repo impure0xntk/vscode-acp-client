@@ -6,10 +6,6 @@ import type { AppSessionInfo, SessionStatus } from "./types";
 import type { ChatMessage, TokenUsage } from "../../domain/models/chat";
 import { SCHEMA_SQL } from "./schema";
 
-// ============================================================================
-// Log Entry types
-// ============================================================================
-
 export interface LogEntry {
   id?: number;
   source: string;
@@ -35,10 +31,6 @@ export interface LogExportResult {
   logs: LogEntry[];
 }
 
-// ============================================================================
-// Configuration
-// ============================================================================
-
 const DEFAULT_MAX_AGE_DAYS = 90;
 const DEFAULT_MAX_SESSIONS = 1000;
 const DEFAULT_MAX_MESSAGES_PER_SESSION = 10000;
@@ -55,10 +47,6 @@ const DEFAULT_CONFIG: HistoryConfig = {
   maxMessagesPerSession: DEFAULT_MAX_MESSAGES_PER_SESSION,
 };
 
-// ============================================================================
-// DB path helper
-// ============================================================================
-
 function getDbPath(storageUri?: string): string {
   if (storageUri) {
     const baseDir = storageUri;
@@ -73,10 +61,6 @@ function getDbPath(storageUri?: string): string {
   }
   return path.join(baseDir, "session_history.db");
 }
-
-// ============================================================================
-// Public DTOs
-// ============================================================================
 
 export interface PersistentSessionEntry {
   sessionId: string;
@@ -103,10 +87,6 @@ export interface SearchResult {
   session: PersistentSessionEntry;
   matchedMessages: ChatMessage[];
 }
-
-// ============================================================================
-// Row types (mirrors schema columns)
-// ============================================================================
 
 interface SessionRow {
   session_id: string;
@@ -138,10 +118,6 @@ interface MessageRow {
   session_cwd: string | null;
 }
 
-// ============================================================================
-// Persistent History Store
-// ============================================================================
-
 export class PersistentHistoryStore {
   private db: Database | null = null;
   private config: HistoryConfig;
@@ -155,10 +131,6 @@ export class PersistentHistoryStore {
     this.config = { ...DEFAULT_CONFIG, ...config };
   }
 
-  // ========================================================================
-  // Lifecycle
-  // ========================================================================
-
   async initialize(storageUri?: string): Promise<void> {
     const SQL = await initSqlJs();
     this.dbPath = getDbPath(storageUri);
@@ -167,10 +139,8 @@ export class PersistentHistoryStore {
       try {
         const buffer = fs.readFileSync(this.dbPath);
         this.db = new SQL.Database(buffer);
-        // Verify the DB is usable by running a simple query
         this.db.exec("SELECT 1");
       } catch {
-        // Database is corrupted — back up and start fresh
         const backupPath = `${this.dbPath}.corrupted.${Date.now()}`;
         fs.renameSync(this.dbPath, backupPath);
         this.db = new SQL.Database();
@@ -198,10 +168,6 @@ export class PersistentHistoryStore {
     const buffer = Buffer.from(data);
     fs.writeFileSync(this.dbPath, buffer);
   }
-
-  // ========================================================================
-  // Session CRUD
-  // ========================================================================
 
   saveSession(session: AppSessionInfo): void {
     this.writeQueue.set(session.sessionId, session);
@@ -237,14 +203,12 @@ export class PersistentHistoryStore {
     const workspaceName = this.extractWorkspaceName(info.cwd);
     const now = new Date().toISOString();
 
-    // Check if session exists
     const existing = this.db.exec(
       "SELECT session_id FROM sessions WHERE session_id = ?",
       [info.sessionId]
     );
 
     if (existing.length > 0 && existing[0].values.length > 0) {
-      // Update
       this.db.run(
         `UPDATE sessions SET
           title = ?, status = ?, message_count = ?,
@@ -263,7 +227,6 @@ export class PersistentHistoryStore {
         ]
       );
     } else {
-      // Insert
       this.db.run(
         `INSERT INTO sessions (
           session_id, agent_id, title, cwd, model, mode, status,
@@ -294,7 +257,6 @@ export class PersistentHistoryStore {
     if (!this.db || msgs.length === 0) return;
 
     for (const msg of msgs) {
-      // Skip if already exists
       const existing = this.db.exec("SELECT id FROM messages WHERE id = ?", [
         msg.id,
       ]);
@@ -371,10 +333,6 @@ export class PersistentHistoryStore {
     return this.parseRows<SessionRow>(result[0]).map((r) => this.rowToEntry(r));
   }
 
-  // ========================================================================
-  // Message Retrieval
-  // ========================================================================
-
   getSessionMessages(sessionId: string): SessionMessages {
     if (!this.db)
       return { messages: [], tokenUsage: { input: 0, output: 0, total: 0 } };
@@ -393,10 +351,6 @@ export class PersistentHistoryStore {
       tokenUsage: session?.tokenUsage ?? { input: 0, output: 0, total: 0 },
     };
   }
-
-  // ========================================================================
-  // Search
-  // ========================================================================
 
   searchSessions(query: string): PersistentSessionEntry[] {
     if (!this.db) return [];
@@ -421,10 +375,6 @@ export class PersistentHistoryStore {
       this.rowToMessage(m)
     );
   }
-
-  // ========================================================================
-  // Deletion & Cleanup
-  // ========================================================================
 
   async deleteSession(sessionId: string): Promise<void> {
     if (!this.db) return;
@@ -457,7 +407,6 @@ export class PersistentHistoryStore {
       Date.now() - maxAgeDays * 24 * 60 * 60 * 1000
     ).toISOString();
 
-    // Get count before deletion
     const before = this.db.exec(
       "SELECT COUNT(*) as cnt FROM sessions WHERE is_archived = 0 AND created_at < ?",
       [cutoff]
@@ -499,10 +448,6 @@ export class PersistentHistoryStore {
     return ids.length;
   }
 
-  // ========================================================================
-  // Log Entry CRUD
-  // ========================================================================
-
   saveLogEntry(entry: Omit<LogEntry, "id">): void {
     if (!this.db) return;
     this.db.run(
@@ -522,7 +467,6 @@ export class PersistentHistoryStore {
         entry.timestamp,
       ]
     );
-    // Persist periodically — callers should batch or debounce
     this.persist();
   }
 
@@ -586,10 +530,6 @@ export class PersistentHistoryStore {
     this.persist();
     return count;
   }
-
-  // ========================================================================
-  // Log Entry Deletion
-  // ========================================================================
 
   clearLogs(options: {
     olderThan?: number | null;
@@ -660,10 +600,6 @@ export class PersistentHistoryStore {
     return (result[0]?.values[0]?.[0] as number) ?? 0;
   }
 
-  // ========================================================================
-  // Statistics
-  // ========================================================================
-
   getStats(): {
     totalSessions: number;
     totalMessages: number;
@@ -686,10 +622,6 @@ export class PersistentHistoryStore {
       oldestSession: (oldest[0]?.values[0]?.[0] as string) ?? null,
     };
   }
-
-  // ========================================================================
-  // Row Mappers
-  // ========================================================================
 
   private parseRow<T>(result: { columns: string[]; values: any[][] }): T {
     const row: any = {};

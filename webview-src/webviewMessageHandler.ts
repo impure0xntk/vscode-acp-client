@@ -34,19 +34,12 @@ const log = getLogger("webview.messageHandler");
 // - if mismatched → stale echo from a previous switch, discard
 let pendingSwitchGuard: string | null = null;
 
-// ── rAF-based stream chunk batching ────────────────────────────────────────
-// Coalesce rapid session/stream messages into a single Zustand update per
-// frame.  The extension host already micro-batches via ProtocolHandler's
-// 50ms timer, but multiple postMessage round-trips can still arrive in one
-// frame.  This prevents a store update + pipeline re-render per chunk.
-
 interface StreamBatch {
   chunks: string[];
   rafId: number | null;
 }
 
 const streamBatchMap = new Map<string, StreamBatch>();
-const STREAM_BATCH_RAF_MS = 16; // ~1 frame at 60fps
 
 function scheduleStreamFlush(msgKey: string, agentId: string, sessionId: string, chunk: string): void {
   let batch = streamBatchMap.get(msgKey);
@@ -79,20 +72,15 @@ function scheduleStreamFlush(msgKey: string, agentId: string, sessionId: string,
   }
 }
 
-/**
- * Call this right before sending a switchSession message to the extension.
- * The guard key is stored and checked in handleSessionSwitch.
- */
 export function setPendingSwitch(agentId: string, sessionId: string): void {
   pendingSwitchGuard = sessionKeyOf(agentId, sessionId);
 }
 
-// ── Message handler types ───────────────────────────────────────────────────
+
 
 interface SetTabsMessage {
   type: "setTabs";
   tabs: SessionTabState[];
-  /** Authoritative active session key ("agentId:sessionId") from the extension. */
   activeSessionKey: string | null;
   workspaceRoot?: string;
   agents?: ConnectedAgentInfo[];
@@ -290,7 +278,7 @@ interface SessionOverviewStateMessage {
   payload: SessionOverviewState;
 }
 
-// ── Mesh Orchestrator messages ──────────────────────────────────────────────
+
 
 interface MeshStatusMessage {
   type: "mesh:status";
@@ -364,7 +352,7 @@ interface MeshTeamUpdatedMessage {
   team: import("./types").MeshTeamEntry;
 }
 
-// ── Session pin/unpin messages ─────────────────────────────────────────────
+
 
 interface SessionTitleMessage {
   type: "session/title";
@@ -391,7 +379,7 @@ interface PathsResolvedMessage {
   paths: string[];
 }
 
-// ── Plan update message ─────────────────────────────────────────────────────
+
 
 interface PlanUpdateMessage {
   type: "plan.update";
@@ -410,7 +398,7 @@ interface PlanCancelledMessage {
   planId: string;
 }
 
-// ── Agent status message ────────────────────────────────────────────────────
+
 
 interface AgentStatusMessage {
   type: "agent.status";
@@ -424,29 +412,16 @@ interface ComposerFocusMessage {
   type: "composer:focus";
 }
 
-/**
- * ACP fs/write_text_file event forwarded from the extension host.
- * Contains the file path and content so the webview can count lines
- * written per turn for the file edit summary.
- */
 interface SessionFileWriteMessage {
   type: "session/webviewFileWrite";
   agentId: string;
   sessionId: string;
   path: string;
   content: string;
-  /** Original content before this write (null if file didn't exist) */
   originalContent?: string | null;
-  /** SHA-256 hash of the content after writing */
   contentHash?: string;
 }
 
-/**
- * Raw SDK session/update notification forwarded from the extension host.
- * The webview extracts tool_call / tool_call_update events and injects
- * them into the message store as tool-call chat messages so that the
- * existing pipeline (merge → annotate → ToolBatchSummary) renders them.
- */
 interface SessionNotificationMessage {
   type: "session/notification";
   agentId: string;
@@ -524,7 +499,7 @@ type WebviewMessage =
   | SessionNotificationMessage
   | SessionFileWriteMessage;
 
-// ── Handler functions ───────────────────────────────────────────────────────
+
 
 function handleSetTabs(data: SetTabsMessage): void {
   log.info("handleSetTabs", {
@@ -539,9 +514,6 @@ function handleSetTabs(data: SetTabsMessage): void {
 
   const newKeys = data.tabs.map((t) => sessionKeyOf(t.agentId, t.sessionId));
 
-  // Determine the authoritative active session key.
-  // The extension sends the correct activeSessionKey in the setTabs message.
-  // Only use a local fallback when the extension does not provide one (legacy).
   const storeBefore = useSessionStore.getState();
   const existingKey = storeBefore.activeSessionKey;
   const authoritativeKey =
@@ -560,9 +532,6 @@ function handleSetTabs(data: SetTabsMessage): void {
     sessionInfoMap: data.sessionInfoMap,
   });
 
-  // Set the authoritative active session key only when it differs.
-  // This prevents overwriting user-initiated tab switches that happened
-  // since the last setTabs message was sent.
   const storeAfter = useSessionStore.getState();
   if (storeAfter.activeSessionKey !== authoritativeKey) {
     log.info("handleSetTabs: applying authoritative activeSessionKey", {
@@ -576,8 +545,6 @@ function handleSetTabs(data: SetTabsMessage): void {
 
 function handleSessionMessage(data: SessionMessage): void {
   const msgKey = sessionKeyOf(data.agentId, data.sessionId);
-  // Deserialize attachmentsJson into attachments array so the pipeline
-  // and <Message /> component can render attachment chips.
   const msg = data.message;
   const attachments =
     msg.attachments ??
@@ -587,11 +554,6 @@ function handleSessionMessage(data: SessionMessage): void {
         ) as import("./types").ContextAttachment[])
       : undefined);
 
-  // Deduplicate tool calls: the extension-host buffered flush
-  // (flushPendingToolCalls) delivers tool messages that may already
-  // have been delivered in real-time via session/notification →
-  // handleSessionNotification. Remove any toolCall whose id already
-  // exists in a tool message in the store to prevent duplicate cards.
   if (msg.role === "tool" && msg.toolCalls && msg.toolCalls.length > 0) {
     const store = useMessageStore.getState();
     const existingMsgs = store.perSession[msgKey];
@@ -606,7 +568,6 @@ function handleSessionMessage(data: SessionMessage): void {
       }
       const dedupedTCs = msg.toolCalls.filter((tc) => !existingTcIds.has(tc.id));
       if (dedupedTCs.length === 0) {
-        // All tool calls already exist — skip this message entirely
         log.debug("handleSessionMessage: skipping duplicate tool message", {
           msgKey,
           msgId: msg.id,
@@ -614,7 +575,6 @@ function handleSessionMessage(data: SessionMessage): void {
         return;
       }
       if (dedupedTCs.length < msg.toolCalls.length) {
-        // Some tool calls are duplicates — replace with deduped list
         log.debug("handleSessionMessage: deduplicating tool calls", {
           msgKey,
           before: msg.toolCalls.length,
@@ -633,16 +593,7 @@ function handleSessionMessage(data: SessionMessage): void {
 
 function handleSessionStreamStart(data: SessionStreamStart): void {
   const msgKey = sessionKeyOf(data.agentId, data.sessionId);
-  // Set streaming flag immediately so the blinking cursor appears from
-  // the very first stream chunk.  Without this, the first session (where
-  // no prior agent message exists for appendStreamChunks to append to)
-  // never gets streaming=true because appendStreamChunks only sets it when
-  // shouldAppend is true (i.e. a prior agent message exists).
   useMessageStore.getState().setStreaming(msgKey, true);
-  // Stamp the current file-write sequence counter onto the last agent
-  // message so grouping.ts can partition writes per step.
-  // writeSeq = N means N writes had been recorded when this step began,
-  // so writes with seq >= N belong to this step.
   const writeSeq = useFileWriteStore.getState().currentSeq();
   const lastAgentMsg = useMessageStore.getState().getLastAgentMessage(msgKey);
   log.info("handleSessionStreamStart", {
@@ -653,7 +604,6 @@ function handleSessionStreamStart(data: SessionStreamStart): void {
     lastAgentMsgWriteSeq: lastAgentMsg?.writeSeq,
   });
   useMessageStore.getState().updateLastAgentMessage(msgKey, { writeSeq });
-  // Also flush any pending stream batch so the first text appears immediately
   const batch = streamBatchMap.get(msgKey);
   if (batch && batch.chunks.length > 0) {
     if (batch.rafId != null) {
@@ -669,15 +619,11 @@ function handleSessionStreamStart(data: SessionStreamStart): void {
 
 function handleSessionStream(data: SessionStream): void {
   const msgKey = sessionKeyOf(data.agentId, data.sessionId);
-  // Schedule via rAF to coalesce multiple chunks arriving in the same frame
-  // into a single Zustand update.  This prevents one store update + pipeline
-  // re-render per chunk when the extension host delivers batched text.
   scheduleStreamFlush(msgKey, data.agentId, data.sessionId, data.chunk);
 }
 
 function handleSessionStreamEnd(data: SessionStreamEnd): void {
   const msgKey = sessionKeyOf(data.agentId, data.sessionId);
-  // Flush any pending stream batch before clearing streaming flag
   const batch = streamBatchMap.get(msgKey);
   if (batch && batch.chunks.length > 0) {
     if (batch.rafId != null) {
@@ -690,7 +636,6 @@ function handleSessionStreamEnd(data: SessionStreamEnd): void {
     useMessageStore.getState().appendStreamChunks(msgKey, data.agentId, data.sessionId, accumulated);
   }
   useMessageStore.getState().setStreaming(msgKey, false);
-  // Sync sessionInfoMap status so Overview/Tab indicators return to idle
   const existing = useSessionStore.getState().sessionInfoMap[msgKey];
   if (existing && existing.status === "running") {
     useSessionStore.getState().setSessionInfo(data.agentId, data.sessionId, {
@@ -712,15 +657,12 @@ function handleSessionSwitch(data: SessionSwitch): void {
     model: data.model,
   });
 
-  // No-op if already active (prevents redundant re-renders / race loops).
   if (currentKey === key) {
     log.debug("handleSessionSwitch: already active, skipping", { key });
     pendingSwitchGuard = null;
     return;
   }
 
-  // Guard: if the webview has since switched to a different session,
-  // this is a stale echo from the extension — discard it.
   if (pendingSwitchGuard !== null && pendingSwitchGuard !== key) {
     log.info("handleSessionSwitch: stale echo discarded", {
       expected: pendingSwitchGuard,
@@ -729,16 +671,10 @@ function handleSessionSwitch(data: SessionSwitch): void {
     return;
   }
 
-  // Clear the guard after processing a matching response.
   pendingSwitchGuard = null;
 
   const sessionStore = useSessionStore.getState();
 
-  // Ensure the tab exists in tabOrder — if the extension activates a
-  // session before bulkSetTabs delivers the full tab list (race between
-  // session/switch and setTabs messages), addTab creates the tab so the
-  // UI can render it. Without this, activeSessionKey is set but no tab
-  // exists, resulting in a blank panel with no messages.
   if (!sessionStore.tabOrder.includes(key)) {
     sessionStore.addTab(
       data.agentId,
@@ -747,12 +683,6 @@ function handleSessionSwitch(data: SessionSwitch): void {
     );
   }
 
-  // Only set activeSessionKey if it differs from the current key.
-  // The webview already updated activeSessionKey in switchTab() before
-  // sending the postMessage. Calling setActiveSession here would trigger
-  // a redundant re-render and, in race conditions with other extension-
-  // initiated session/switch messages (e.g. from sessionCreated or
-  // setActiveSession), can cause the UI to switch to an unintended session.
   if (currentKey !== key) {
     sessionStore.setActiveSession(key);
   }
@@ -1066,7 +996,7 @@ function handleSessionOverviewPosition(
   useUiStateStore.getState().setOverviewPosition(data.payload.position);
 }
 
-// ── Mesh Orchestrator handlers ──────────────────────────────────────────────
+
 
 function handleMeshStatus(data: MeshStatusMessage): void {
   useMeshStore.getState().setAgentStatuses(data.agents);
@@ -1113,7 +1043,7 @@ function handlePathsResolved(data: PathsResolvedMessage): void {
     .addResolvedPaths(data.sessionKey, data.paths);
 }
 
-// ── Session pin/unpin handlers ─────────────────────────────────────────────
+
 
 function handleSessionTitle(data: SessionTitleMessage): void {
   const key = sessionKeyOf(data.agentId, data.sessionId);
@@ -1143,7 +1073,7 @@ function handleSessionUnpinned(data: SessionUnpinnedNotification): void {
   useSessionStore.getState().unpinSession(key);
 }
 
-// ── Plan update handler ─────────────────────────────────────────────────────
+
 
 function handlePlanUpdate(data: PlanUpdateMessage): void {
   log.info("plan.update", {
@@ -1172,7 +1102,7 @@ function handlePlanCancelled(data: PlanCancelledMessage): void {
   store.cancelPlan();
 }
 
-// ── Agent status handler ────────────────────────────────────────────────────
+
 
 function handleAgentStatus(data: AgentStatusMessage): void {
   log.debug("agent.status", { agentId: data.agentId, status: data.status });
@@ -1190,7 +1120,7 @@ function handleAgentStatus(data: AgentStatusMessage): void {
   });
 }
 
-// ── Session notification handler ────────────────────────────────────────────
+
 
 /**
  * Normalize raw SDK toolCallStatus → webview ToolCall.status
@@ -1365,7 +1295,7 @@ function handleSessionNotification(data: SessionNotificationMessage): void {
   }
 }
 
-// ── Setup function ──────────────────────────────────────────────────────────
+
 
 /**
  * Configures the webview message handler.

@@ -1,9 +1,3 @@
-// ============================================================================
-// TaskBoardStore — JSON-file backed shared task board
-//
-// refs: docs/p2p-mesh-design.md Section 4.1
-// ============================================================================
-
 import type {
   TaskBoard,
   TaskEntry,
@@ -15,17 +9,8 @@ import { getLogger } from "../../platform/backends";
 
 const log = getLogger("mesh.taskboard");
 
-// ----------------------------------------------------------------------------
-// TaskBoardStore
-// ----------------------------------------------------------------------------
-
 export class TaskBoardStore {
-  // In-memory cache: path → TaskBoard
   private cache: Map<string, TaskBoard> = new Map();
-
-  // -----------------------------------------------------------------------
-  // Lifecycle
-  // -----------------------------------------------------------------------
 
   create(path: string): TaskBoard {
     const now = new Date();
@@ -53,10 +38,6 @@ export class TaskBoardStore {
       board.updatedAt = new Date();
     }
   }
-
-  // -----------------------------------------------------------------------
-  // Task CRUD
-  // -----------------------------------------------------------------------
 
   addTask(
     path: string,
@@ -111,20 +92,12 @@ export class TaskBoardStore {
     return this.cache.get(path)?.tasks ?? [];
   }
 
-  // -----------------------------------------------------------------------
-  // File lock mirror (authoritative lock lives in FileLockManager;
-  // this is a read-only mirror for the task board JSON)
-  // -----------------------------------------------------------------------
-
+  // authoritative lock lives in FileLockManager; this is a read-only mirror
   setFileLocks(path: string, locks: FileLockEntry[]): void {
     const board = this.getBoard(path);
     board.fileLocks = locks;
     board.updatedAt = new Date();
   }
-
-  // -----------------------------------------------------------------------
-  // Message log
-  // -----------------------------------------------------------------------
 
   appendMessageLog(path: string, entry: MessageLogEntry): void {
     const board = this.getBoard(path);
@@ -135,10 +108,6 @@ export class TaskBoardStore {
   getMessageLog(path: string): MessageLogEntry[] {
     return this.cache.get(path)?.messageLog ?? [];
   }
-
-  // -----------------------------------------------------------------------
-  // Dependency helpers
-  // -----------------------------------------------------------------------
 
   /** Return task IDs that have unresolved dependencies */
   getUnresolvedDependencies(path: string, taskId: string): string[] {
@@ -189,19 +158,11 @@ export class TaskBoardStore {
     return cycles;
   }
 
-  // -----------------------------------------------------------------------
-  // Internal
-  // -----------------------------------------------------------------------
-
   private getBoard(path: string): TaskBoard {
     const board = this.cache.get(path);
     if (!board) throw new Error(`TaskBoard not found: ${path}`);
     return board;
   }
-
-  // -----------------------------------------------------------------------
-  // Teardown
-  // -----------------------------------------------------------------------
 
   dispose(): void {
     this.cache.clear();

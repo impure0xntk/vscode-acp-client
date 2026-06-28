@@ -1,7 +1,3 @@
-// ============================================================================
-// Session Manager — CRUD and lifecycle for sessions
-// ============================================================================
-
 import { EventEmitter } from "events";
 import type { Session, SessionStatus, SessionContext } from "../models/session";
 import type {
@@ -11,25 +7,15 @@ import type {
 } from "../models/orchestration";
 import { StateManager } from "./state-manager";
 
-// ============================================================================
-// Session Manager
-// ============================================================================
-
 export class SessionManager extends EventEmitter {
   private stateManager: StateManager;
-  // agentId → Map<sessionId, Session>
   private sessions: Map<string, Map<string, Session>> = new Map();
-  // agentId → active sessionId
   private activeSessions: Map<string, string> = new Map();
 
   constructor(stateManager: StateManager) {
     super();
     this.stateManager = stateManager;
   }
-
-  // ========================================================================
-  // CRUD
-  // ========================================================================
 
   createSession(
     agentId: string,
@@ -118,11 +104,6 @@ export class SessionManager extends EventEmitter {
     this.emit("sessionClosed", { agentId, sessionId });
   }
 
-  // ========================================================================
-  // Pinned Sessions
-  // ========================================================================
-
-  // agentId → Set<sessionId>
   private pinnedSessions: Map<string, Set<string>> = new Map();
 
   pinSession(agentId: string, sessionId: string): void {
@@ -151,10 +132,6 @@ export class SessionManager extends EventEmitter {
     return this.pinnedSessions.get(agentId)?.has(sessionId) ?? false;
   }
 
-  // ========================================================================
-  // Active Session (per-agent)
-  // ========================================================================
-
   getActiveSessionId(agentId: string): string | undefined {
     return this.activeSessions.get(agentId);
   }
@@ -167,10 +144,6 @@ export class SessionManager extends EventEmitter {
     this.activeSessions.set(agentId, sessionId);
     this.emit("sessionActiveChanged", { agentId, sessionId });
   }
-
-  // ========================================================================
-  // Listing
-  // ========================================================================
 
   getSessionsForAgent(agentId: string): Session[] {
     const agentSessions = this.sessions.get(agentId);
@@ -186,10 +159,6 @@ export class SessionManager extends EventEmitter {
     return result;
   }
 
-  // ========================================================================
-  // Child Session Helpers
-  // ========================================================================
-
   getChildSessions(parentSessionId: string): Session[] {
     const result: Session[] = [];
     for (const [, agentSessions] of this.sessions) {
@@ -202,20 +171,12 @@ export class SessionManager extends EventEmitter {
     return result;
   }
 
-  // ========================================================================
-  // Event Helpers (typed subscription)
-  // ========================================================================
-
   onSessionEvent(
     type: OrchestrationEventType,
     listener: EventListener
   ): Unsubscribe {
     return this.stateManager.subscribe(type, listener);
   }
-
-  // ========================================================================
-  // Cleanup
-  // ========================================================================
 
   dispose(): void {
     this.sessions.clear();

@@ -1,8 +1,6 @@
 import type { ClassifiedMessage, MergeConfig } from "../types";
 import type { ToolCall } from "../../types";
 
-// ── ToolMergeStrategy ──────────────────────────────────────────────────────
-
 /**
  * Merging strategy that always promotes tool messages to "agent" role.
  *
@@ -72,8 +70,6 @@ export class ToolMergeStrategy {
     return result;
   }
 
-  // ── Private ───────────────────────────────────────────────────────────
-
   private promoteAndPush(result: ClassifiedMessage[], msg: ClassifiedMessage): void {
     result.push({
       ...msg,
@@ -104,8 +100,6 @@ export class ToolMergeStrategy {
   }
 }
 
-// ── Functional API (backward compatible) ───────────────────────────────────
-
 /**
  * Functional wrapper around ToolMergeStrategy.
  * Maintains backward compatibility with the existing pipeline.
@@ -116,8 +110,6 @@ export function mergeToolBatches(
 ): ClassifiedMessage[] {
   return new ToolMergeStrategy().merge(messages, config);
 }
-
-// ── Utility: deduplicate tool calls by id (used by annotate) ───────────────
 
 /**
  * Deduplicate tool calls by id, preserving latest status.

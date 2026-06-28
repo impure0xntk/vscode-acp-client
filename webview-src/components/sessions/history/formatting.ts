@@ -1,7 +1,5 @@
 import type { ChatMessage } from "./DetailModal";
 
-// ── Types ──────────────────────────────────────────────────────────────────
-
 export interface PersistentSessionEntry {
   sessionId: string;
   agentId: string;
@@ -19,8 +17,6 @@ export interface PersistentSessionEntry {
   contextWindowMax: number | null;
   isArchived: boolean;
 }
-
-// ── groupByDate ─────────────────────────────────────────────────────────────
 
 export function groupByDate(
   entries: PersistentSessionEntry[]
@@ -52,8 +48,6 @@ export function groupByDate(
   return groups;
 }
 
-// ── exportAsJson ────────────────────────────────────────────────────────────
-
 export function exportAsJson(
   sessions: PersistentSessionEntry[],
   messages: Map<string, ChatMessage[]>
@@ -72,8 +66,6 @@ export function exportAsJson(
   a.click();
   URL.revokeObjectURL(url);
 }
-
-// ── exportAsMarkdown ────────────────────────────────────────────────────────
 
 export function exportAsMarkdown(
   sessions: PersistentSessionEntry[],

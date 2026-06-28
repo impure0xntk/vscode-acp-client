@@ -11,8 +11,6 @@ import type { IntermediateStep, PipelineItem } from "../../pipeline";
 
 const COLLAPSE_ANIMATION_DURATION = 150;
 
-// ── Props ──────────────────────────────────────────────────────────────────
-
 export interface IntermediateStepsBannerProps {
   steps: IntermediateStep[];
   defaultCollapsed?: boolean;
@@ -24,8 +22,6 @@ export interface IntermediateStepsBannerProps {
   onExpandSettled?: () => void;
   onAttachDiff?: (attachment: import("../../types").ContextAttachment) => void;
 }
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
 
 function totalDurationMs(steps: IntermediateStep[]): number {
   let minTs: number | undefined;
@@ -78,8 +74,6 @@ function buildSummary(steps: IntermediateStep[]): string {
     .map(([label, count]) => `${count > 1 ? `${count}× ` : ""}${label}`)
     .join(", ");
 }
-
-// ── Component ──────────────────────────────────────────────────────────────
 
 export function IntermediateStepsBanner({
   steps,

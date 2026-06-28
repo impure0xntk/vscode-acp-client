@@ -1,16 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useScrollStateStore } from "../store/scrollStateStore";
 
-/**
- * Scroll controller hook — provides imperative scroll helpers.
- *
- * Handles:
- * - scroll-to-message (for links)
- * - force scroll-to-bottom (on send)
- * - scroll-to-first-unread (on badge click)
- * - session-switch scroll restore (via sessionKey change)
- * - auto-scroll on new messages when isAtBottom is true
- */
 export function useScrollController(
   sessionKey: string | null,
   containerRef: React.RefObject<HTMLDivElement | null>,
@@ -20,11 +10,7 @@ export function useScrollController(
 ) {
   const key = sessionKey ?? "__nosession__";
 
-  // ── Scroll restore on session key change ──────────────────────────────
-  // ChatContainer is remounted on key change (key={activeKey} in ChatArea),
-  // so this effect runs on every session switch.
   useEffect(() => {
-    // Double rAF: wait for React paint + layout
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         const el = containerRef.current;
@@ -40,7 +26,6 @@ export function useScrollController(
     });
   }, [key, containerRef]);
 
-  // ── Auto-scroll when isAtBottom changes to true ──────────────────────
   const prevIsAtBottom = useRef(isAtBottom);
   useEffect(() => {
     if (isAtBottom && !prevIsAtBottom.current) {
@@ -52,18 +37,12 @@ export function useScrollController(
     prevIsAtBottom.current = isAtBottom;
   }, [isAtBottom, containerRef]);
 
-  // ── Auto-scroll on new messages when already at bottom ──────────────
-  // Read isAtBottom from the store at the moment new messages arrive,
-  // rather than relying on the prop (which may be stale within the same
-  // render cycle).  This fixes the race where streaming messages arrive
-  // before the scroll handler has a chance to update isAtBottom.
   const prevMessageCount = useRef(messageCount ?? 0);
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const count = messageCount ?? 0;
     if (count > prevMessageCount.current) {
-      // Read fresh value from store instead of using potentially stale prop
       const currentKey = sessionKey ?? "__nosession__";
       const freshIsAtBottom =
         useScrollStateStore.getState().perSession[currentKey]?.isAtBottom ??
@@ -75,7 +54,6 @@ export function useScrollController(
     prevMessageCount.current = count;
   }, [messageCount, sessionKey, containerRef]);
 
-  // ── Scroll-to-message (for message links) ───────────────────────────
   const scrollToMessage = useCallback(
     (messageId: string) => {
       const el = containerRef.current;
@@ -90,10 +68,7 @@ export function useScrollController(
     [containerRef]
   );
 
-  // ── Force scroll to bottom (on send) ────────────────────────────────
   const forceScrollToBottom = useCallback(() => {
-    // Double rAF: wait for React to re-render with the new message
-    // before scrolling, otherwise scrollHeight is stale.
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         const el = containerRef.current;
@@ -104,7 +79,6 @@ export function useScrollController(
     });
   }, [containerRef]);
 
-  // ── Scroll to first unread or bottom (on badge click) ───────────────
   const scrollToUnread = useCallback(
     (firstUnreadId: string) => {
       const el = containerRef.current;
@@ -121,7 +95,6 @@ export function useScrollController(
     [containerRef]
   );
 
-  // ── Scroll-to-bottom on badge click ─────────────────────────────────
   const handleScrollToBottom = useCallback(() => {
     const el = containerRef.current;
     if (el) {

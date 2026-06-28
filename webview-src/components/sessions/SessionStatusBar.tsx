@@ -4,8 +4,6 @@ import { elapsedColorValue } from "../../shared/elapsedColor";
 import { useSessionInfo } from "../../hooks/useSessionInfo";
 import type { QueuedPrompt } from "../../types";
 
-// ── Props ──────────────────────────────────────────────────────────
-
 export interface SessionStatusBarProps {
   /** Session key (${agentId}:${sessionId}) for context-aware streaming state */
   sessionKey: string | null;
@@ -22,8 +20,6 @@ export interface SessionStatusBarProps {
   /** Cancel a queued prompt by ID */
   onCancelQueue: (promptId: string) => void;
 }
-
-// ── Status badge (from QueuedPromptList) ───────────────────────────
 
 function StatusBadge({ status }: { status: QueuedPrompt["status"] }) {
   const label =
@@ -48,8 +44,6 @@ function StatusBadge({ status }: { status: QueuedPrompt["status"] }) {
   );
 }
 
-// ── Component ──────────────────────────────────────────────────────
-
 export const SessionStatusBar = React.memo(function SessionStatusBar({
   sessionKey,
   active = false,
@@ -65,7 +59,6 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
   const isCancelling = sessionInfo?.status === "cancelling";
   const effectiveActive = active || (sessionKey ? storedActive : false);
 
-  // Determine the action label
   const effectiveAction = isCancelling
     ? "Cancelling…"
     : effectiveActive
@@ -201,16 +194,12 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
   );
 });
 
-// ── Helpers ────────────────────────────────────────────────────────
-
 function formatElapsed(sec: number): string {
   if (sec < 60) return `${Math.floor(sec)}s`;
   const m = Math.floor(sec / 60);
   const s = Math.floor(sec % 60);
   return `${m}m ${s}s`;
 }
-
-// ── Exported pure logic for testing ────────────────────────────────
 
 export type StreamingPhase = "idle" | "sending" | "waiting" | "cancelling";
 

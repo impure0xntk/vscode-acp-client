@@ -4,9 +4,7 @@ interface UseResizeHandleOptions {
   initialWidth: number;
   minWidth: number;
   maxWidth: number;
-  /** Persist width on change (debounced) */
   onResizeEnd?: (width: number) => void;
-  /** Position of the panel relative to the handle. "right" = panel is to the right of the handle (default). "left" = panel is to the left. */
   position?: "left" | "right";
 }
 
@@ -37,9 +35,6 @@ export function useResizeHandle({
     if (!isResizing) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      // Dragging left (negative delta) → shrink, dragging right (positive delta) → grow
-      // Panel is right-anchored: resize handle is on the LEFT edge of the panel
-      // so dragging left means the handle moves further left → panel grows
       const deltaX = e.clientX - startXRef.current;
       const newWidth = Math.min(
         maxWidth,

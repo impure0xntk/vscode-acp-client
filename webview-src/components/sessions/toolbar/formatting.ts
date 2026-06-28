@@ -1,7 +1,5 @@
 import type { ToolbarMeta, ContextColor } from "../../../types";
 
-// ── Formatting helpers ──────────────────────────────────────────────────────
-
 export function fmt(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}m`;
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
@@ -39,8 +37,6 @@ export function contextColor(ratio: number): ContextColor {
   if (ratio >= 0.7) return "warning";
   return "normal";
 }
-
-// ── Statusline helpers ──────────────────────────────────────────────────────
 
 export interface StatuslineInfo {
   hostname?: string;

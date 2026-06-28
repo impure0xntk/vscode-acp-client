@@ -1,7 +1,3 @@
-// ============================================================================
-// SQL schema definitions for sql.js (WASM SQLite)
-// ============================================================================
-
 export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS sessions (
   session_id TEXT PRIMARY KEY,

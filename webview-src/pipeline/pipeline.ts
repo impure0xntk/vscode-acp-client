@@ -349,27 +349,18 @@ export class MessagePipeline {
     return this.cache;
   }
 
-  // ── Private ───────────────────────────────────────────────────────────
-
   private runStages(
     messages: RawMessage[],
     ctx: PipelineContext,
     initialGroupKey: string = ""
   ): PipelineItem[] {
-    // 1. Classify
     const classified: ClassifiedMessage[] = messages.map((msg) =>
       classifyMessage(msg)
     );
-
-    // 2. Filter
     const filtered = filterMessages(classified, this.config.filter);
-
-    // 3. Merge
     const merged = this.config.merge.enabled
       ? new ToolMergeStrategy().merge(filtered, this.config.merge)
       : filtered;
-
-    // 4. Annotate — returns PipelineItem[], carrying over groupKey context
     return annotateMessages(merged, this.config.annotate, initialGroupKey);
   }
 }

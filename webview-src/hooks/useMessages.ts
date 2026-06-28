@@ -35,7 +35,6 @@ export function useMessages(sessionKey: string | null): MessagesSnapshot {
     snapshot: EMPTY_SNAPSHOT,
   });
 
-  // Reset cache when sessionKey changes
   const cache = cacheRef.current;
   if (cache.key !== sessionKey) {
     cache.key = sessionKey;

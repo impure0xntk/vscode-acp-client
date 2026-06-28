@@ -1,7 +1,5 @@
 import React from "react";
 
-// ── Session Overview ─────────────────────────────────────────────────────────
-
 export interface SessionProgress {
   elapsedMs: number;
   tokenUsage: {
@@ -163,8 +161,6 @@ export interface ContextAttachment {
   content: string;
 }
 
-// ── Triggered autocomplete ──────────────────────────────────────────
-
 /**
  * Trigger characters that open the suggestion panel.
  * # is the primary trigger; queries are disambiguated by prefix:
@@ -253,8 +249,6 @@ export interface FullState {
   tokenUsage: TokenUsage;
 }
 
-// ── Queued Prompt ───────────────────────────────────────────────────
-
 export type QueuedPromptStatus = "pending" | "sending" | "sent" | "cancelled";
 
 export interface QueuedPrompt {
@@ -274,8 +268,6 @@ export interface ToolCallInfo {
   kind: string;
   durationMs?: number;
 }
-
-// ── Toolbar / Chip ──────────────────────────────────────────────────
 
 export type ContextColor = "normal" | "warning" | "critical";
 
@@ -297,8 +289,6 @@ export interface ToolbarMeta {
   barPct?: number;
   turnStatus?: "completed" | "error" | "cancelled" | "running" | null;
 }
-
-// ── Mesh Orchestrator types ──────────────────────────────────────────
 
 export type MeshMessageType =
   | "task_request"
@@ -396,8 +386,6 @@ export interface MeshRecentMessage {
   timestamp: string;
   summary: string;
 }
-
-// ── Plan Viewer ──────────────────────────────────────────────────────────────
 
 export type PlanStatus =
   | "draft"

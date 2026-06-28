@@ -30,7 +30,6 @@ export function useChatHandlers(deps: ChatHandlerDeps) {
       agentId?: string,
       sessionId?: string
     ) => {
-      // If agentId/sessionId are provided (from @mention), use them; otherwise fall back to active
       const resolvedAgentId = agentId ?? activeAgentId ?? undefined;
       const resolvedSessionId = sessionId ?? activeSessionId ?? undefined;
       sendMessage(text, attachments, resolvedAgentId, resolvedSessionId);

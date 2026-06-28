@@ -1,7 +1,3 @@
-// ============================================================================
-// Mappers — convert extension-side types to webview DTOs
-// ============================================================================
-
 import type { SessionInfoDTO, SessionState, TurnOutcome } from "./sessionStore";
 
 /**

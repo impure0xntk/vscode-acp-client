@@ -1,11 +1,7 @@
-// ============================================================================
-// PromptContext builder — converts ContextAttachmentDTO[] to ACP ContentBlock[]
-//
 // Single source of truth for attachment → ContentBlock conversion.
 // Used by wireChatPanelEvents, MeshOrchestrator, FanoutExecutor, PipelineExecutor,
 // and SupervisorManager to avoid duplicating the mapping logic and importing
 // @agentclientprotocol/sdk types into the domain layer.
-// ============================================================================
 
 import type { ContentBlock } from "@agentclientprotocol/sdk";
 import type { ContextAttachmentDTO } from "../../domain/models/chat";

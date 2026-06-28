@@ -5,12 +5,7 @@ import {
   AgentConnectionState,
 } from "../../application/orchestrator";
 
-// Re-export for consumers that need only status types
 export type { AgentStatus, SessionStatusInfo, AgentConnectionState };
-
-// ============================================================================
-// Event Types
-// ============================================================================
 
 export interface AgentStatusEvents {
   agentStatusChanged: (agentId: string, status: AgentStatus) => void;
@@ -21,20 +16,12 @@ export interface AgentStatusEvents {
   ) => void;
 }
 
-// ============================================================================
-// Agent Status Tracker
-// ============================================================================
-
 export class AgentStatusTracker extends EventEmitter {
   private statuses: Map<string, AgentStatus> = new Map();
 
   constructor() {
     super();
   }
-
-  // -----------------------------------------------------------------------
-  // Agent Status
-  // -----------------------------------------------------------------------
 
   updateAgentStatus(agentId: string, update: Partial<AgentStatus>): void {
     const current = this.statuses.get(agentId);
@@ -71,7 +58,6 @@ export class AgentStatusTracker extends EventEmitter {
       lastActivity: new Date(),
     };
 
-    // Update isActive flag on sessions
     updated.sessions = updated.sessions.map((s) => ({
       ...s,
       isActive: s.sessionId === sessionId,
@@ -85,10 +71,6 @@ export class AgentStatusTracker extends EventEmitter {
     this.statuses.delete(agentId);
   }
 
-  // -----------------------------------------------------------------------
-  // Session Status
-  // -----------------------------------------------------------------------
-
   updateSessionStatus(
     agentId: string,
     sessionId: string,
@@ -101,7 +83,6 @@ export class AgentStatusTracker extends EventEmitter {
       s.sessionId === sessionId ? { ...s, ...update } : s
     );
 
-    // If session not found, add it
     if (!sessions.some((s) => s.sessionId === sessionId)) {
       sessions.push({
         sessionId,
@@ -128,10 +109,6 @@ export class AgentStatusTracker extends EventEmitter {
       this.emit("sessionStatusChanged", agentId, sessionId, sessionInfo);
     }
   }
-
-  // -----------------------------------------------------------------------
-  // Cleanup
-  // -----------------------------------------------------------------------
 
   dispose(): void {
     this.statuses.clear();

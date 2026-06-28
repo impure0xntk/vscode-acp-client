@@ -1,15 +1,3 @@
-// ============================================================================
-// FanoutExecutor — parallel message delivery to multiple agents
-//
-// refs: docs/mesh-orchestrator-integration-design.md Section 4
-//
-// Design notes:
-//   - No dependency on @agentclientprotocol/sdk. All ACP ContentBlock
-//     conversion happens in the caller (MeshOrchestrator).
-//   - Depends only on SessionOrchestrator (prompt + pushUserMessage).
-//   - Pure parallel sender: fire-and-forget per target, no response waiting.
-// ============================================================================
-
 import type { SessionOrchestrator } from "../../application/session/orchestrator";
 import type { PromptContext } from "../../application/session/orchestrator";
 import type { SendTarget, MultiSendResult } from "../models/mesh";
@@ -18,10 +6,6 @@ import type { ContextAttachmentDTO } from "../../domain/models/chat";
 import { getLogger } from "../../platform/backends";
 
 const log = getLogger("mesh.fanout");
-
-// ----------------------------------------------------------------------------
-// Dependencies
-// ----------------------------------------------------------------------------
 
 export type PushUserMessageFn = (
   agentId: string,
@@ -35,10 +19,6 @@ export interface FanoutExecutorDeps {
   pushUserMessage: PushUserMessageFn;
 }
 
-// ----------------------------------------------------------------------------
-// Input — what the caller provides per fanout request
-// ----------------------------------------------------------------------------
-
 export interface FanoutRequest {
   text: string;
   /** Pre-built ACP context blocks (attachments already converted) */
@@ -47,19 +27,11 @@ export interface FanoutRequest {
   attachments?: ContextAttachmentDTO[];
 }
 
-// ----------------------------------------------------------------------------
-// Result types
-// ----------------------------------------------------------------------------
-
 export interface FanoutResult {
   target: SendTarget;
   status: "sent" | "failed";
   error?: string;
 }
-
-// ----------------------------------------------------------------------------
-// FanoutExecutor
-// ----------------------------------------------------------------------------
 
 export class FanoutExecutor {
   private sessionOrchestrator: SessionOrchestrator;

@@ -8,19 +8,14 @@ import { getLogger } from "../../lib/logger";
 
 const log = getLogger("webview.SessionTab");
 
-// ============================================================================
-// SessionTab — compact horizontal tab for the tab bar
-// ============================================================================
-//
 // Subscribes to its own session info via useSessionInfo(sessionKey).
 // Only re-renders when this specific session's fields change — not when
 // other sessions update.  elapsedMs is computed locally from lastResponseAt
 // with a 1-second tick so the spinner color updates in real time.
 //
-// ═══ Responsibility split ═══
+// Responsibility split:
 //   SessionTabs (parent) owns: drag/drop, hover timers, popup, unread computation
 //   SessionTab (this)   owns:  status subscription, elapsedMs tick, click, close, layout
-// ============================================================================
 
 interface SessionTabProps {
   tab: SessionTabState;

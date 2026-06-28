@@ -50,7 +50,6 @@ export type {
   ClearLogsResult,
 } from "./logStorage";
 
-// ── Logging ──────────────────────────────────────────────────────────────
 export {
   getLogger,
   initLoggerFactory,

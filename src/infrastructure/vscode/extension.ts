@@ -52,10 +52,6 @@ import { promisify } from "util";
 import * as os from "os";
 import type { ClearLogsOptions } from "../../platform/logStorage";
 
-// ============================================================================
-// Global State
-// ============================================================================
-
 let extensionContext: vscode.ExtensionContext;
 let platform: PlatformAPI;
 let orchestrator: SessionOrchestrator;
@@ -67,10 +63,6 @@ let chatPanel: ChatPanel | null = null;
 let meshOrchestrator: MeshOrchestrator | null = null;
 let supervisorOrchestrator: SupervisorOrchestrator | null = null;
 const presenter = new ChatPresenter();
-
-// ============================================================================
-// Adaptor wrappers (Platform API → plain-function signatures for wireChatPanelEvents / registerSessionCommands)
-// ============================================================================
 
 function resolveFile(
   filePath: string,
@@ -111,15 +103,9 @@ function resolveSymbolByName(name: string): Promise<ContextAttachmentDTO> {
   ) as Promise<ContextAttachmentDTO>;
 }
 
-// ============================================================================
-// Helpers
-// ============================================================================
-
 function getChatPanel(): ChatPanel | null {
   return chatPanel;
 }
-
-// ── Statusline helpers ────────────────────────────────────────────────────
 
 const execAsync = promisify(exec);
 
@@ -137,11 +123,9 @@ async function getStatuslineInfo(workspaceRoot: string): Promise<{
       cwd: workspaceRoot,
     });
     const remote = stdout.trim();
-    // Extract repo name from URL: "org/repo.git" or "org/repo"
     const match = remote.match(/[:/]([^/]+?)(\.git)?$/);
     if (match) repoName = match[1];
   } catch {
-    // No remote, use directory name
   }
 
   let branch = "";
@@ -151,7 +135,6 @@ async function getStatuslineInfo(workspaceRoot: string): Promise<{
     });
     branch = stdout.trim();
   } catch {
-    // Detached HEAD — try short SHA
     try {
       const { stdout } = await execAsync("git rev-parse --short HEAD", {
         cwd: workspaceRoot,
@@ -169,7 +152,6 @@ async function getStatuslineInfo(workspaceRoot: string): Promise<{
     });
     tag = stdout.trim();
   } catch {
-    // No exact tag match — omit
   }
 
   return { hostname, repoName, branch, tag };
@@ -186,14 +168,12 @@ async function sendStatuslineInfo(): Promise<void> {
 
 function setChatPanel(panel: ChatPanel): void {
   chatPanel = panel;
-  // Wire extension logger so webview log messages appear in OutputChannel
   chatPanel.logger = {
     debug: (msg) => log.debug(msg),
     info: (msg) => log.info(msg),
     warn: (msg) => log.warn(msg),
     error: (msg) => log.error(msg),
   };
-  // Send statusline info when chat panel is first created
   void sendStatuslineInfo();
 }
 
@@ -223,7 +203,6 @@ function sendOverviewPosition(): void {
 
 function sendTabsToChatPanel(): void {
   if (!chatPanel) return;
-
   presenter.setWorkspace(
     vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null,
     (vscode.workspace.workspaceFolders ?? []).map((f) => ({
@@ -232,7 +211,6 @@ function sendTabsToChatPanel(): void {
     }))
   );
 
-  // Collect valid session keys from orchestrator
   const validKeys = new Set<string>();
   for (const agentStatus of orchestrator.getAllAgents()) {
     const config = registry.getAgent(agentStatus.agentId);
@@ -264,7 +242,6 @@ function sendTabsToChatPanel(): void {
     }
   }
 
-  // Remove sessions from presenter that no longer exist in orchestrator
   const currentMsg = presenter.buildSetTabsMessage();
   for (const tab of currentMsg.tabs) {
     if (!validKeys.has(`${tab.agentId}:${tab.sessionId}`)) {
@@ -283,15 +260,12 @@ function sendTabsToChatPanel(): void {
   if (activeSessionId && activeAgentId) {
     presenter.setActiveSession(activeAgentId, activeSessionId);
   } else if (!activeSessionId && allTabs.length === 1) {
-    // Only update the presenter tracking — do NOT call
-    // orchestrator.setActiveSession() which would emit sessionActiveChanged
-    // and force-focus the session, stealing focus from the user.
+    // Do NOT call orchestrator.setActiveSession() — would steal focus from user
     presenter.setActiveSession(allTabs[0].agentId, allTabs[0].sessionId);
   }
 
   chatPanel.postMessage(presenter.buildSetTabsMessage());
 
-  // Push session overview in sync with tabs — same timing, same session set
   const overview = orchestrator.getSessionOverview();
   chatPanel.postMessage({
     type: "sessionOverview:state",
@@ -363,10 +337,6 @@ async function pickConnectedAgent(
   return pick?.agentId;
 }
 
-// ============================================================================
-// Activation / Deactivation
-// ============================================================================
-
 export async function activate(
   context: vscode.ExtensionContext
 ): Promise<void> {
@@ -381,8 +351,7 @@ export async function activate(
   registry = new AgentRegistry(platform);
   orchestrator = new SessionOrchestrator({ ui: platform.ui, fs: platform.fs });
 
-  // MeshOrchestrator: wraps SessionOrchestrator for P2P/multi-agent routing
-  const messageBus = new MessageBus();
+    const messageBus = new MessageBus();
   const fileLockManager = new FileLockManager();
   const taskBoardStore = new TaskBoardStore();
   meshOrchestrator = new MeshOrchestrator({
@@ -395,7 +364,6 @@ export async function activate(
     },
   });
 
-  // SupervisorOrchestrator: plan lifecycle + execution engine
   supervisorOrchestrator = new SupervisorOrchestrator({
     meshOrchestrator: meshOrchestrator!,
     sessionOrchestrator: orchestrator,
@@ -423,7 +391,6 @@ export async function activate(
   orchestrator.setHistoryStore(persistentHistory);
   orchestrator.setSessionHistoryStore(historyStore);
 
-  // Wire log entry sink for webview logs
   const logSink = new LogEntrySinkImpl();
   logSink.setStore(persistentHistory);
   ChatPanel.setLogSink(logSink);
@@ -433,14 +400,12 @@ export async function activate(
 
   wireOrchestratorEvents(meshOrchestrator);
 
-  // Send statusline info when workspace folders change
   context.subscriptions.push(
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
       void sendStatuslineInfo();
     })
   );
 
-  // Listen for sessionOverviewPosition configuration changes
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("acp.sessionOverviewPosition")) {
@@ -449,7 +414,6 @@ export async function activate(
     })
   );
 
-  // Apply preset if configured (takes priority over individual autoConnect)
   const preset = registry.loadPreset(platform);
   if (preset) {
     log.info("applying preset", {
@@ -458,7 +422,6 @@ export async function activate(
     });
     await applyPreset(preset);
   } else {
-    // Fall back to per-agent autoConnect
     const autoConnectAgents = registry.getAutoConnectAgents();
     log.info("auto-connect agents", { count: autoConnectAgents.length });
     for (const agent of autoConnectAgents) {
@@ -479,10 +442,6 @@ export function deactivate(): void {
   void platform?.dispose();
   log.info("extension deactivated");
 }
-
-// ============================================================================
-// Orchestrator Events → UI updates (delegated to handlers/)
-// ============================================================================
 
 function wireOrchestratorEvents(meshOrch: MeshOrchestrator): void {
   wireSessionEvents({
@@ -505,17 +464,14 @@ function wireOrchestratorEvents(meshOrch: MeshOrchestrator): void {
     meshOrchestrator: meshOrch,
   });
 
-  // Wire MeshOrchestrator extracted message callback → plan.update / agent.status
   meshOrch.onExtractedMessage = (msg) => {
     if (!chatPanel) return;
     switch (msg.type) {
       case "plan_proposal": {
-        // Forward plan proposal to SupervisorOrchestrator for parsing
         if (supervisorOrchestrator) {
           const agentId = msg.agentId;
           const activeSessionId =
             orchestrator.getActiveSessionId(agentId) ?? "";
-          // Wrap the P2PMessage into a v2 marker envelope for parsePlanFromOutput
           const envelope = {
             version: "2.0",
             type: msg.type,
@@ -571,7 +527,6 @@ function wireOrchestratorEvents(meshOrch: MeshOrchestrator): void {
         break;
       }
       case "task_response": {
-        // Forward task_response to SupervisorOrchestrator
         if (supervisorOrchestrator) {
           supervisorOrchestrator.handleTaskResponse(msg);
         }
@@ -606,7 +561,6 @@ function wireOrchestratorEvents(meshOrch: MeshOrchestrator): void {
     }
   };
 
-  // Session Overview: push updates to webview on debounced orchestrator event
   orchestrator.on("sessionOverview:update", (overview) => {
     if (!chatPanel) return;
     chatPanel.postMessage({
@@ -615,7 +569,6 @@ function wireOrchestratorEvents(meshOrch: MeshOrchestrator): void {
     });
   });
 
-  // Prompt queue: forward queue events to webview
   orchestrator.on("promptQueued", ({ agentId, sessionId, entry }) => {
     if (!chatPanel) return;
     chatPanel.postMessage({
@@ -645,15 +598,12 @@ function wireOrchestratorEvents(meshOrch: MeshOrchestrator): void {
     });
   });
 
-  // Session title changed: forward to webview
   orchestrator.on("sessionTitleChanged", ({ agentId, sessionId, title }) => {
     if (!chatPanel) return;
     chatPanel.postMessage({ type: "session/title", agentId, sessionId, title });
-    // Refresh tabs so the new title propagates to the tab bar
     sendTabsToChatPanel();
   });
 
-  // Session pin/unpin: forward to webview
   orchestrator.on("sessionPinned", ({ agentId, sessionId }) => {
     if (!chatPanel) return;
     chatPanel.postMessage({ type: "session.pinned", agentId, sessionId });
@@ -664,7 +614,6 @@ function wireOrchestratorEvents(meshOrch: MeshOrchestrator): void {
     chatPanel.postMessage({ type: "session.unpinned", agentId, sessionId });
   });
 
-  // Context compression: trigger Mesh Protocol reinjection
   orchestrator.on(
     "sessionContextCompressed",
     ({ agentId, sessionId, contextWindowMax, usedBefore, usedAfter }) => {
@@ -678,13 +627,8 @@ function wireOrchestratorEvents(meshOrch: MeshOrchestrator): void {
     }
   );
 
-  // Send overview position setting to webview
   void sendOverviewPosition();
 }
-
-// ============================================================================
-// Command Registration
-// ============================================================================
 
 function registerCommands(context: vscode.ExtensionContext): void {
   const connectDisposables = registerConnectCommands(
@@ -787,9 +731,7 @@ function registerCommands(context: vscode.ExtensionContext): void {
     "acp.toggleSessionOverview",
     () => {
       if (!chatPanel) return;
-      // Toggle handled by webview message; just trigger the command
       chatPanel.postMessage({ type: "sessionOverview:toggle" });
-      // Push current overview state so the panel shows fresh data on open
       const overview = orchestrator.getSessionOverview();
       chatPanel.postMessage({
         type: "sessionOverview:state",
@@ -801,7 +743,6 @@ function registerCommands(context: vscode.ExtensionContext): void {
   const startTeamCmd = vscode.commands.registerCommand(
     "acp.startTeam",
     async () => {
-      // Open the chat panel first so the user can interact with the webview
       ensureChatPanel(
         getChatPanel,
         setChatPanel,
@@ -810,8 +751,6 @@ function registerCommands(context: vscode.ExtensionContext): void {
         wireChatPanelEventsLocal,
         orchestrator
       );
-      // The actual team creation is driven by the webview (TeamCreateDialog)
-      // This command is a shortcut to open the panel; the webview sends mesh:startTeam
     }
   );
 
@@ -829,16 +768,9 @@ function registerCommands(context: vscode.ExtensionContext): void {
   }
 }
 
-// ============================================================================
-// cmdConnect — connect + optional auto-open chat
-// ============================================================================
 
-// ============================================================================
-// Preset Application
-// ============================================================================
 
 async function applyPreset(preset: PresetConfig): Promise<void> {
-  // Determine the target panel mode
   const panelMode =
     preset.layout === "grid" || preset.layout === "split"
       ? "unified"
@@ -846,13 +778,11 @@ async function applyPreset(preset: PresetConfig): Promise<void> {
           .getConfiguration("acp")
           .get<string>("defaultChatPanel", "unified");
 
-  // Collect all workspace folders for relative path resolution
   const wsFolders = (vscode.workspace.workspaceFolders ?? []).map(
     (f) => f.uri.fsPath
   );
   const fallbackWs = wsFolders[0] ?? process.cwd();
 
-  // Track connected agent IDs and their session info
   const connectedSessions: Array<{
     agentId: string;
     sessionId: string;
@@ -866,7 +796,6 @@ async function applyPreset(preset: PresetConfig): Promise<void> {
       continue;
     }
 
-    // Skip if already connected (multiple sessions for same agent)
     try {
       await orchestrator.connectAgent(agentConfig.id, agentConfig);
     } catch (err) {
@@ -877,7 +806,6 @@ async function applyPreset(preset: PresetConfig): Promise<void> {
       continue;
     }
 
-    // Resolve workspace path
     let ws: string;
     if (entry.workspace) {
       const p = entry.workspace;
@@ -889,7 +817,6 @@ async function applyPreset(preset: PresetConfig): Promise<void> {
     try {
       const sessionId = await orchestrator.createSession(agentConfig.id, ws);
 
-      // Apply session title
       const title = entry.sessionName;
       if (title) {
         const info = orchestrator.getSessionInfo(agentConfig.id, sessionId);
@@ -922,7 +849,6 @@ async function applyPreset(preset: PresetConfig): Promise<void> {
     return;
   }
 
-  // Open the unified chat panel
   ensureChatPanel(
     getChatPanel,
     setChatPanel,
@@ -932,7 +858,6 @@ async function applyPreset(preset: PresetConfig): Promise<void> {
     orchestrator
   );
 
-  // Apply layout settings to webview if preset specifies them
   const panel = getChatPanel();
   if (panel) {
     if (preset.layout) {

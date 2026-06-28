@@ -101,12 +101,9 @@ export function ToolBatchSummary({
 
   const appearClass = isNew ? "animate-tool-batch-appear" : "";
 
-  // All-error batches auto-expand so failures are immediately visible,
-  // matching the mixed-errors behaviour.
   const [expanded, setExpanded] = useState(() => hasOnlyErrors);
   const [allExpanded, setAllExpanded] = useState(() => true);
 
-  // ── Single call: render directly, no wrapper ──
   if (calls.length === 1) {
     return (
       <div
@@ -117,7 +114,6 @@ export function ToolBatchSummary({
     );
   }
 
-  // ── All-same-status: single collapsible via chevron ──
   if (!hasErrors || hasOnlyErrors) {
     return (
       <div
@@ -184,13 +180,11 @@ export function ToolBatchSummary({
     );
   }
 
-  // ── Mixed (errors + ok): top-level chevron collapses everything ──
-
   return (
     <div
       className={`${allExpanded ? " overflow-visible" : ""} ${appearClass} mt-[2px] rounded overflow-hidden text-[10px] text-fg-primary bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]`}
     >
-      {/* Top-level chevron toggles entire batch */}
+
       <button
         className="flex items-center gap-[3px] px-1.25 w-fit max-w-full border-none bg-transparent text-fg-primary font-[var(--font-ui)] text-[10px] cursor-pointer text-left transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]"
         onClick={() => setAllExpanded(!allExpanded)}
@@ -236,10 +230,10 @@ export function ToolBatchSummary({
       <div className={`grid transition-[grid-template-rows] duration-200 ease-out${allExpanded ? " grid-rows-[1fr]" : " grid-rows-[0fr]"}`}>
         <div className="overflow-hidden">
           <div className="px-2 pb-0.5 pt-px flex flex-col gap-[1px] bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)] animate-tool-batch-expand">
-            {/* Errors — always expanded, no nested chevron */}
+
             <ErrorsGroup errors={errors} depth={depth + 1} />
 
-            {/* Ok sub-group — recursive ToolBatchSummary for uniform rendering */}
+
             {ok.length > 0 && (
               <ToolBatchSummary calls={ok} depth={depth + 1} />
             )}

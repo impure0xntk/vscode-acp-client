@@ -1,8 +1,5 @@
 import type { Memento } from "../../platform/context";
 
-/**
- * Serializable token usage snapshot.
- */
 export interface HistoryTokenUsage {
   input: number;
   output: number;
@@ -140,10 +137,6 @@ export class SessionHistoryStore {
   dispose(): void {
     // Memento-backed store has no resources to release
   }
-
-  /* ------------------------------------------------------------------ */
-  /*  Private persistence helpers                                        */
-  /* ------------------------------------------------------------------ */
 
   private load(): HistoryEntry[] {
     return this.globalState.get<HistoryEntry[]>(STORAGE_KEY) ?? [];

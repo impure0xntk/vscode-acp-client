@@ -1,8 +1,3 @@
-// src/domain/services/log-entry-sink.ts
-//
-// Sink that receives log records and persists them to the database.
-// Decoupled from the logger pipeline — attached via setLogEntrySink().
-
 import type { LogRecord } from "../../platform/backends/types";
 import type { PersistentHistoryStore } from "../../application/session/persistentHistory";
 
@@ -29,7 +24,6 @@ export class LogEntrySinkImpl {
     const agentId = typeof ctx.agentId === "string" ? ctx.agentId : null;
     const traceId = typeof ctx.traceId === "string" ? ctx.traceId : null;
 
-    // Serialize remaining context (strip extracted fields)
     const { sessionId: _s, agentId: _a, traceId: _t, ...rest } = ctx;
     const contextJson =
       Object.keys(rest).length > 0 ? JSON.stringify(rest) : null;

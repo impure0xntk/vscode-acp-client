@@ -1,35 +1,16 @@
-// ============================================================================
-// MessageBus — in-process pub/sub for P2P agent communication
-//
-// refs: docs/p2p-mesh-design.md Section 5.1
-// ============================================================================
-
 import type { P2PMessage } from "../models/mesh";
 import { getLogger } from "../../platform/backends";
 
 const log = getLogger("message-bus");
 
-// ----------------------------------------------------------------------------
-// Types
-// ----------------------------------------------------------------------------
-
 export type MessageHandler = (message: P2PMessage) => Promise<void>;
 export type Unsubscribe = () => void;
 
-// ----------------------------------------------------------------------------
-// MessageBus
-// ----------------------------------------------------------------------------
-
 export class MessageBus {
-  // agentId → Set<handler>
   private subscribers: Map<string, Set<MessageHandler>> = new Map();
   // queued messages for offline agents: agentId → P2PMessage[]
   private queues: Map<string, P2PMessage[]> = new Map();
   private log: MessageLogEntry[] = [];
-
-  // -----------------------------------------------------------------------
-  // Subscription
-  // -----------------------------------------------------------------------
 
   subscribe(agentId: string, handler: MessageHandler): Unsubscribe {
     let set = this.subscribers.get(agentId);
@@ -39,17 +20,12 @@ export class MessageBus {
     }
     set.add(handler);
 
-    // Drain queued messages on subscribe
     this.drainQueue(agentId, handler);
 
     return () => {
       this.subscribers.get(agentId)?.delete(handler);
     };
   }
-
-  // -----------------------------------------------------------------------
-  // Send
-  // -----------------------------------------------------------------------
 
   async send(message: P2PMessage): Promise<void> {
     log.debug("send", {
@@ -59,7 +35,6 @@ export class MessageBus {
     });
     this.pushLog(message);
 
-    // Broadcast
     if (message.to === "broadcast") {
       for (const [agentId, handlers] of this.subscribers) {
         if (agentId === message.from) continue;
@@ -68,7 +43,6 @@ export class MessageBus {
       return;
     }
 
-    // Directed
     const handlers = this.subscribers.get(message.to);
     if (handlers && handlers.size > 0) {
       await this.dispatchToSet(handlers, message);
@@ -109,10 +83,6 @@ export class MessageBus {
     return this.log.slice(this.log.length - limit);
   }
 
-  // -----------------------------------------------------------------------
-  // Queue management
-  // -----------------------------------------------------------------------
-
   private async queue(message: P2PMessage): Promise<void> {
     const q = this.queues.get(message.to) ?? [];
     q.push(message);
@@ -137,10 +107,6 @@ export class MessageBus {
     this.queues.delete(agentId);
   }
 
-  // -----------------------------------------------------------------------
-  // Log
-  // -----------------------------------------------------------------------
-
   getLog(): ReadonlyArray<MessageLogEntry> {
     return this.log;
   }
@@ -160,10 +126,6 @@ export class MessageBus {
     this.log = [];
   }
 
-  // -----------------------------------------------------------------------
-  // Internal dispatch
-  // -----------------------------------------------------------------------
-
   private async dispatchToSet(
     handlers: Set<MessageHandler>,
     message: P2PMessage
@@ -181,20 +143,12 @@ export class MessageBus {
     }
   }
 
-  // -----------------------------------------------------------------------
-  // Teardown
-  // -----------------------------------------------------------------------
-
   dispose(): void {
     this.subscribers.clear();
     this.queues.clear();
     this.log = [];
   }
 }
-
-// ----------------------------------------------------------------------------
-// Internal log entry (kept private; exposed via getLog())
-// ----------------------------------------------------------------------------
 
 interface MessageLogEntry {
   messageId: string;
@@ -204,10 +158,6 @@ interface MessageLogEntry {
   timestamp: Date;
   summary: string;
 }
-
-// ----------------------------------------------------------------------------
-// Helpers
-// ----------------------------------------------------------------------------
 
 function summarize(msg: P2PMessage): string {
   switch (msg.type) {

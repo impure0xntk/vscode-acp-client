@@ -1,7 +1,3 @@
-// ============================================================================
-// Session Event Handlers — orchestrator session lifecycle → UI updates
-// ============================================================================
-
 import * as vscode from "vscode";
 import * as path from "path";
 import type { SessionOrchestrator } from "../orchestrator";
@@ -18,10 +14,6 @@ import { getLogger } from "../../platform/backends";
 
 const log = getLogger("handlers.session");
 
-// ============================================================================
-// Dependencies bag (passed from extension.ts)
-// ============================================================================
-
 export interface SessionEventDeps {
   orchestrator: SessionOrchestrator;
   /** Lazily resolve ChatPanel — it is null when handlers are wired at activation */
@@ -37,10 +29,6 @@ export interface SessionHistoryUpdate {
   addEntry(entry: HistoryEntry): Promise<void> | void;
 }
 
-// ============================================================================
-// Wire all session-related orchestrator events
-// ============================================================================
-
 export function wireSessionEvents(deps: SessionEventDeps): void {
   const {
     orchestrator,
@@ -51,9 +39,6 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
     sendTabs,
   } = deps;
 
-  // -----------------------------------------------------------------------
-  // Agent connected
-  // -----------------------------------------------------------------------
   orchestrator.on("agentConnected", (agentId: string) => {
     statusTracker.updateAgentStatus(agentId, { state: "idle" });
     updateContext();
@@ -65,18 +50,12 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
     }
   });
 
-  // -----------------------------------------------------------------------
-  // Agent disconnected
-  // -----------------------------------------------------------------------
   orchestrator.on("agentDisconnected", (agentId: string) => {
     statusTracker.removeAgent(agentId);
     updateContext();
     sendTabs();
   });
 
-  // -----------------------------------------------------------------------
-  // Session created
-  // -----------------------------------------------------------------------
   orchestrator.on(
     "sessionCreated",
     ({
@@ -97,7 +76,6 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
         tokenUsage: { input: 0, output: 0, total: 0 },
       });
       statusTracker.setActiveSession(agentId, sessionId);
-      // Push full SessionInfo to webview
       const info = orchestrator.getSessionInfo(agentId, sessionId);
       if (info) {
         getChatPanel()?.pushSessionInfo(agentId, sessionId, info);
@@ -105,7 +83,6 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
       sendTabs();
       updateContext();
 
-      // Push session overview so newly created sessions appear immediately
       const cp = getChatPanel();
       if (cp) {
         const overview = orchestrator.getSessionOverview();
@@ -115,7 +92,6 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
         });
       }
 
-      // Warn if the session cwd is outside the current workspace
       if (cwd) {
         const wsFolders = vscode.workspace.workspaceFolders ?? [];
         if (wsFolders.length > 0) {
@@ -133,8 +109,6 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
     }
   );
 
-  // -----------------------------------------------------------------------
-  // Session active changed
   // NOTE: Do NOT call sendTabs() here. sendTabs() triggers handleSetTabs in
   // the webview which calls setActiveSession(), which emits
   // sessionActiveChanged again — creating an infinite loop:
@@ -148,7 +122,6 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
   // already calls emitOverviewUpdate() which is debounced (100ms). Calling
   // getSessionOverview() synchronously here blocks the extension host and
   // duplicates the work — the debounced emission covers the overview update.
-  // -----------------------------------------------------------------------
   orchestrator.on(
     "sessionActiveChanged",
     ({ agentId, sessionId }: { agentId: string; sessionId: string }) => {
@@ -161,13 +134,8 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
     }
   );
 
-  // -----------------------------------------------------------------------
-  // Session turn active changed — push updated SessionInfo so UI derives state
   // Push for ALL sessions (not just active) so multi-@ and background turns
   // are reflected in tabs, overview, and streaming status.
-  // Uses a debounced overview update to prevent flooding the webview with
-  // rapid state changes during a turn.
-  // -----------------------------------------------------------------------
   let turnActiveOverviewTimer: ReturnType<typeof setTimeout> | null = null;
   orchestrator.on(
     "sessionTurnActiveChanged",
@@ -194,7 +162,6 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
       // messages from appearing in the chat UI.
       cp?.pushStreamEnd(agentId, sessionId);
 
-      // Notify webview of turn completion with stopReason
       if (stopReason) {
         cp?.postMessage({
           type: "session/turnEnded",
@@ -220,14 +187,11 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
     }
   );
 
-  // -----------------------------------------------------------------------
-  // Session message — core data flow: agent response → webview
   // Push messages for ALL sessions — the fanout executor routes to the
   // correct (agentId, sessionId) pair, so no cross-tab leakage is possible.
   // The active-session guard was removed because pushUserMessage fires
   // *before* orchestrator.prompt() updates activeSessions, causing every
   // message to be dropped during the race window.
-  // -----------------------------------------------------------------------
   orchestrator.on(
     "sessionMessage",
     ({
@@ -258,16 +222,12 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
         contentLen: message.content?.length,
       });
       cp.pushMessage(agentId, sessionId, message, info?.cwd);
-      // Push updated SessionInfo so UI derives new state (messageCount, tokenUsage, etc.)
       if (info) {
         cp.pushSessionInfo(agentId, sessionId, info);
       }
     }
   );
 
-  // -----------------------------------------------------------------------
-  // Session closed
-  // -----------------------------------------------------------------------
   orchestrator.on(
     "sessionClosed",
     ({ agentId, sessionId }: { agentId: string; sessionId: string }) => {
@@ -285,11 +245,9 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
         };
         void historyStore.addEntry(entry);
       }
-      // Remove the session from the presenter so it doesn't appear in the next sendTabs()
       deps.presenter.removeSession(agentId, sessionId);
       sendTabs();
 
-      // Push updated overview after session removal
       const cpClosed = getChatPanel();
       if (cpClosed) {
         const overview = orchestrator.getSessionOverview();
@@ -301,14 +259,11 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
     }
   );
 
-  // -----------------------------------------------------------------------
-  // Session completed (background-only notification)
   // NOTE: Do NOT call sendTabs() here. sendTabs() re-registers all sessions
   // in the presenter and rebuilds tabOrder in the webview, which causes
   // unpinned sessions to reappear in the multi-session view and overview.
   // The session status change is already reflected by pushSessionInfo +
   // the debounced sessionOverview:update emission from the orchestrator.
-  // -----------------------------------------------------------------------
   orchestrator.on(
     "sessionCompleted",
     ({
@@ -334,12 +289,10 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
           )
         );
       }
-      // Push updated sessionInfo so UI derives new status from model
       const info = orchestrator.getSessionInfo(agentId, sessionId);
       if (info) {
         cp?.pushSessionInfo(agentId, sessionId, info);
       }
-      // Push updated overview after session completion
       if (cp) {
         const overview = orchestrator.getSessionOverview();
         cp.postMessage({

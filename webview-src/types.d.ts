@@ -1,7 +1,3 @@
-// ============================================================================
-// Queued Prompt — message buffered while a turn is active
-// ============================================================================
-
 export type QueuedPromptStatus = "pending" | "sending" | "sent" | "cancelled";
 
 export interface QueuedPrompt {
@@ -121,10 +117,6 @@ export interface ToolCallInfo {
   kind: string;
   durationMs?: number;
 }
-
-// ============================================================================
-// Session Overview Panel types
-// ============================================================================
 
 /** Session overview panel state */
 export interface SessionOverviewState {

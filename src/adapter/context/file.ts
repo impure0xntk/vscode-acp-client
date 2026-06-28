@@ -14,9 +14,6 @@ export async function searchFiles(
   const wsRoot = fs.workspaceRoot ?? "";
   const base = cwd ?? wsRoot;
 
-  // Build a glob that matches the query as a substring of the basename.
-  // "Composer" → "**/*Composer*" so it matches src/components/Composer.tsx
-  // User-supplied globs with * or { are passed through as-is.
   const raw =
     query.includes("*") || query.includes("{") ? query : `**/*${query}*`;
 
@@ -25,12 +22,9 @@ export async function searchFiles(
 
   let uris: PlatformUri[];
 
-  // When cwd is provided and fs supports findFilesInDirectory, use it
-  // to search in any directory (including outside the workspace).
   if (cwd && fs.findFilesInDirectory) {
     uris = await fs.findFilesInDirectory(cwd, raw, exclude, MAX_CANDIDATES);
   } else {
-    // Fallback: use workspace-relative pattern (original behavior).
     let pattern: string;
     if (cwd && cwd !== wsRoot) {
       const relCwd = fs.relativePath(wsRoot, cwd);

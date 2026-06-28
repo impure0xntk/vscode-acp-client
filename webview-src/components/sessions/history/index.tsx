@@ -7,27 +7,19 @@ import { CompareBar } from "./CompareView";
 import { groupByDate, exportAsJson, exportAsMarkdown } from "./formatting";
 import type { ChatMessage } from "./DetailModal";
 
-// ── Re-export types for backward compat ────────────────────────────────────
-
 export type { PersistentSessionEntry } from "./SessionList";
 export type { ChatMessage } from "./DetailModal";
-
-// ── Props ──────────────────────────────────────────────────────────────────
 
 interface SessionHistoryPanelProps {
   onRestore: (sessionId: string, agentId: string) => void;
   onClose: () => void;
 }
 
-// ── VS Code API ────────────────────────────────────────────────────────────
-
 declare function acquireVsCodeApi(): {
   postMessage(msg: unknown): void;
   getState(): unknown;
   setState(state: unknown): void;
-};
-
-// ── SessionHistoryPanel ─────────────────────────────────────────────────────
+}
 
 const PAGE_SIZE = 50;
 
@@ -124,7 +116,7 @@ export function SessionHistoryPanel({
     return () => window.removeEventListener("message", handler);
   }, [vscode]);
 
-  // Debounced search
+
   useEffect(() => {
     const timer = setTimeout(() => {
       if (query.trim()) {
@@ -137,7 +129,7 @@ export function SessionHistoryPanel({
     return () => clearTimeout(timer);
   }, [query, vscode]);
 
-  // Filter sessions by agent and archive status
+
   const filtered = useMemo(() => {
     let result = sessions;
     if (selectedAgent !== "all") {
@@ -149,7 +141,6 @@ export function SessionHistoryPanel({
     return result;
   }, [sessions, selectedAgent, showArchived]);
 
-  // Sort
   const sorted = useMemo(() => {
     const sortedCopy = [...filtered];
     sortedCopy.sort((a, b) => {
@@ -174,12 +165,12 @@ export function SessionHistoryPanel({
     return sortedCopy;
   }, [filtered, sortField, sortDir]);
 
-  // Paginate
-  const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
   const paged = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE;
     return sorted.slice(start, start + PAGE_SIZE);
   }, [sorted, page]);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
 
   const grouped = useMemo(() => groupByDate(paged), [paged]);
 

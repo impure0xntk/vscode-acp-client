@@ -54,10 +54,6 @@ import type { PersistentHistoryStore } from "../../application/session/persisten
 import type { LogEntrySink } from "../backends/log-entry-sink-backend";
 import { LogEntrySinkImpl } from "../../domain/services/log-entry-sink";
 
-// ---------------------------------------------------------------------------
-// VSCode LogStorage API
-// ---------------------------------------------------------------------------
-
 class VscodeLogStorageAPI implements LogStorageAPI {
   private store: PersistentHistoryStore | null = null;
 
@@ -88,10 +84,6 @@ class VscodeLogStorageAPI implements LogStorageAPI {
   }
 }
 
-// ---------------------------------------------------------------------------
-// VSCode Platform
-// ---------------------------------------------------------------------------
-
 export class VscodePlatform implements PlatformAPI {
   readonly platform = "vscode" as const;
   readonly version: string;
@@ -114,7 +106,6 @@ export class VscodePlatform implements PlatformAPI {
     this.ctx = options.context;
     this.version = vscode.version;
 
-    // ── Initialize logging ────────────────────────────────────────────
     const logChannel = vscode.window.createOutputChannel("ACP Client");
     const logLevel: LogLevelValue = 1; // default: debug for VS Code
     const baseBackend = new VsCodeOutputBackend(logChannel, logLevel);
@@ -133,24 +124,19 @@ export class VscodePlatform implements PlatformAPI {
 
   setLogStore(store: PersistentHistoryStore): void {
     (this.logStorage as VscodeLogStorageAPI).setStore(store);
-    // Wire the log entry sink to the persistent store
     const sink = new LogEntrySinkImpl();
     sink.setStore(store);
     this.sinkBackend?.setSink(sink);
   }
 
   async initialize(): Promise<void> {
-    // VSCode-specific initialization is done in activate; nothing to do here
+    // VS Code-specific initialization is done in activate; nothing to do here
   }
 
   async dispose(): Promise<void> {
     // Resource cleanup is done in deactivate
   }
 }
-
-// ---------------------------------------------------------------------------
-// VSCode UI API
-// ---------------------------------------------------------------------------
 
 export class VscodeUIAPI implements UIAPI {
   async showMessage(
@@ -349,10 +335,6 @@ export class VscodeUIAPI implements UIAPI {
   }
 }
 
-// ---------------------------------------------------------------------------
-// VSCode FileSystem API
-// ---------------------------------------------------------------------------
-
 class VscodeFileSystemAPI implements FileSystemAPI {
   async readFile(path: string): Promise<string> {
     const uri = vscode.Uri.file(path);
@@ -481,10 +463,6 @@ class VscodeFileSystemAPI implements FileSystemAPI {
     return path.resolve(base, relative);
   }
 }
-
-// ---------------------------------------------------------------------------
-// VSCode Editor API
-// ---------------------------------------------------------------------------
 
 class VscodeEditorAPI implements EditorAPI {
   async openDocument(uri: PlatformUri): Promise<PlatformUri> {
@@ -623,7 +601,6 @@ class VscodeEditorAPI implements EditorAPI {
     newContent: string,
     path: string
   ): DiffResult {
-    // Compute a simple line-based diff without using the diff package
     const oldLines = oldContent.split("\n");
     const newLines = newContent.split("\n");
     const hunks: DiffResult["hunks"] = [];
@@ -723,10 +700,6 @@ class VscodeEditorAPI implements EditorAPI {
   }
 }
 
-// ---------------------------------------------------------------------------
-// VSCode ExtensionContext API
-// ---------------------------------------------------------------------------
-
 class VscodeContextAPI implements ExtensionContextAPI {
   constructor(private ctx: vscode.ExtensionContext) {}
 
@@ -766,10 +739,6 @@ class VscodeContextAPI implements ExtensionContextAPI {
   }
 }
 
-// ---------------------------------------------------------------------------
-// VSCode Terminal API
-// ---------------------------------------------------------------------------
-
 class VscodeTerminalAPI implements TerminalAPI {
   createTerminal(options: {
     name?: string;
@@ -785,17 +754,13 @@ class VscodeTerminalAPI implements TerminalAPI {
       id: options.name ?? "",
       show: () => vscodeTerminal.show(),
       sendText: (text: string) => vscodeTerminal.sendText(text),
-      getOutput: async () => "", // VSCode API does not support direct terminal output retrieval
+      getOutput: async () => "", // VS Code API does not support direct terminal output retrieval
       waitForExit: async () => 0, // Not supported
       kill: () => vscodeTerminal.dispose(),
       dispose: () => vscodeTerminal.dispose(),
     };
   }
 }
-
-// ---------------------------------------------------------------------------
-// VSCode OrchestrationState API
-// ---------------------------------------------------------------------------
 
 class VscodeOrchestrationStateAPI implements OrchestrationStateAPI {
   private context: vscode.ExtensionContext;
@@ -857,10 +822,6 @@ class VscodeOrchestrationStateAPI implements OrchestrationStateAPI {
     return entries.slice(-max);
   }
 }
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 export function toPlatformUri(uri: vscode.Uri): PlatformUri {
   const base = {

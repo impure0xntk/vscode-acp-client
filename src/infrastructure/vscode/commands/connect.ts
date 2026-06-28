@@ -20,7 +20,6 @@ export function ensureChatPanel(
   if (!getChatPanel()) {
     const panel = ChatPanel.reveal(extensionUri);
     setChatPanel(panel);
-    // Wire up the session commands callback before other event wiring
     panel._onGetSessionCommands = (agentId: string, sessionId: string) => {
       type WithCommands = {
         getSessionCommands: (agentId: string, sessionId: string) => unknown[];
@@ -67,7 +66,6 @@ export function registerConnectCommands(
 ): vscode.Disposable[] {
   const extensionUri = context.extensionUri;
 
-  // acp.openChat command
   const openChatCmd = vscode.commands.registerCommand("acp.openChat", () => {
     ensureChatPanel(
       getChatPanel,
@@ -77,13 +75,11 @@ export function registerConnectCommands(
       wireChatPanelEvents,
       orchestrator
     );
-    // Focus the Composer textarea in the webview after panel is visible
     setTimeout(() => {
       getChatPanel()?.focusComposer();
     }, 300);
   });
 
-  // acp.connect command
   const connectCmd = vscode.commands.registerCommand(
     "acp.connect",
     async (agentConfig?: AgentConfig | string) => {
@@ -98,7 +94,6 @@ export function registerConnectCommands(
         config = agentConfig;
       }
 
-      // Skip if already connected
       if (orchestrator.getConnection(config.id)) {
         ensureChatPanel(
           getChatPanel,
@@ -153,7 +148,6 @@ export function registerConnectCommands(
     }
   );
 
-  // acp.disconnect command
   const disconnectCmd = vscode.commands.registerCommand(
     "acp.disconnect",
     async () => {
@@ -175,7 +169,6 @@ export function registerConnectCommands(
     }
   );
 
-  // acp.openUnifiedChat command — opens the same chat panel (unified view is webview-side)
   const openUnifiedChatCmd = vscode.commands.registerCommand(
     "acp.openUnifiedChat",
     () => {

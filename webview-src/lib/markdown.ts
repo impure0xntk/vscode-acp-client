@@ -8,18 +8,10 @@ import { IconFile } from "./icons";
 
 const FILE_ICON_SVG = `<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="inline-code-link-icon" xmlns="http://www.w3.org/2000/svg"><path d="M3 1.5h6l3.5 3.5v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-12a1 1 0 0 1 1-1z" /><path d="M9.5 1.5V4a1 1 0 0 0 1 1h3.5" /></svg>`;
 
-// ---------------------------------------------------------------------------
-// Render context — passed to the code_inline renderer via markdown-it `env`.
-// ---------------------------------------------------------------------------
-
 export interface RenderContext {
   /** File paths confirmed to exist by the extension host */
   filePaths?: Set<string>;
 }
-
-// ---------------------------------------------------------------------------
-// Language label map — maps hljs language keys to human-readable labels
-// ---------------------------------------------------------------------------
 
 const LANG_LABELS: Record<string, string> = {
   javascript: "JavaScript",
@@ -77,7 +69,6 @@ function getLangLabel(lang: string): string {
   if (!lang) return "";
   const lower = lang.toLowerCase();
   if (LANG_LABELS[lower]) return LANG_LABELS[lower];
-  // Fallback: capitalise first letter
   return lang.charAt(0).toUpperCase() + lang.slice(1);
 }
 
@@ -91,10 +82,9 @@ function codeBlockTemplate(
   const labelHtml = hasLabel
     ? `<span class="code-block-lang">${escapedLabel}</span>`
     : "";
-  // Only render the header bar when there's a language label or we want the
-  // copy button to remain accessible.  When there is no label we still show
-  // the header so the copy button is available, but we mark it with a CSS
-  // class so the header can be visually hidden while keeping the button.
+  // When there is no label we still show the header so the copy button
+  // remains accessible, but mark it with a CSS class so it can be visually
+  // hidden while keeping the button.
   const headerHtml = hasLabel
     ? `<div class="code-block-header">${labelHtml}` +
       `<button class="code-block-copy" type="button" aria-label="Copy code" data-action="copy">` +
@@ -123,10 +113,6 @@ function codeBlockTemplate(
   );
 }
 
-// ---------------------------------------------------------------------------
-// Markdown-it instance with custom code block renderer
-// ---------------------------------------------------------------------------
-
 const md = new MarkdownIt({
   html: true,
   linkify: true,
@@ -152,14 +138,14 @@ const md = new MarkdownIt({
   },
 });
 
-// Override code_block renderer: use the same wrapper as fence (no language label)
+// code_block uses the same wrapper as fence but without a language label
 md.renderer.rules.code_block = (tokens, idx) => {
   const token = tokens[idx];
   const codeHtml = md.utils.escapeHtml(token.content);
   return codeBlockTemplate("", "", codeHtml);
 };
 
-// Override code_inline renderer: only links paths confirmed to exist
+// Only link inline code paths that are confirmed to exist by the extension host
 const defaultCodeInline = md.renderer.rules.code_inline;
 md.renderer.rules.code_inline = (tokens, idx, options, env, self) => {
   const token = tokens[idx];

@@ -20,15 +20,11 @@ import {
   sessionColorGroup,
 } from "../sessions/overview/SessionOverviewCardBase";
 
-// ── Props ──────────────────────────────────────────────────────────
-
 export interface MeshPanelProps {
   onClose?: () => void;
   onOpenTeamCreate?: () => void;
   onPlanTeam?: (teamId: string) => void;
 }
-
-// ── Agent Tree Item ─────────────────────────────────────────────────
 
 function AgentStatusRow({
   agent,
@@ -106,8 +102,6 @@ function AgentStatusRow({
     </div>
   );
 }
-
-// ── Add Member Dialog ───────────────────────────────────────────────
 
 interface AddMemberDialogProps {
   team: MeshTeamEntry;
@@ -229,8 +223,6 @@ function AddMemberDialog({
   );
 }
 
-// ── Team Session Card ───────────────────────────────────────────────
-
 function TeamSessionCard({
   agentId,
   sessionId,
@@ -318,8 +310,6 @@ function TeamSessionCard({
     </div>
   );
 }
-
-// ── Team Row ────────────────────────────────────────────────────────
 
 interface TeamRowProps {
   team: MeshTeamEntry;
@@ -473,8 +463,6 @@ function TeamRow({
   );
 }
 
-// ── Task Board ──────────────────────────────────────────────────────
-
 function TaskBoard({ tasks }: { tasks: MeshTaskEntry[] }): React.ReactElement {
   const statusIcon = (status: MeshTaskEntry["status"]): string => {
     switch (status) {
@@ -546,8 +534,6 @@ function TaskBoard({ tasks }: { tasks: MeshTaskEntry[] }): React.ReactElement {
   );
 }
 
-// ── Recent Messages ─────────────────────────────────────────────────
-
 function RecentMessages({
   messages,
 }: {
@@ -580,8 +566,6 @@ function RecentMessages({
     </div>
   );
 }
-
-// ── MeshPanel ───────────────────────────────────────────────────────
 
 export function MeshPanel({
   onClose,

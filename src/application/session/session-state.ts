@@ -1,18 +1,3 @@
-// ============================================================================
-// SessionState — in-memory session state container
-//
-// Responsibilities:
-//   - Store per-agent session maps (agentId → Map<sessionId, AppSessionInfo>)
-//   - Track active session per agent
-//   - Track pinned sessions
-//   - Streaming text buffer and message ref
-//   - Tool call buffering (grouped by kind)
-//   - Prompt queue (per-session)
-//   - PromptBuilder registry (Mesh Protocol)
-//   - Last inbound message tracking (Mesh Protocol)
-//   - Context compression tracking
-// ============================================================================
-
 import type { AppSessionInfo, QueuedPrompt } from "./types";
 import type { ToolCall } from "../../domain/models/chat";
 import type { PromptBuilder } from "../../domain/services/prompt-builder";
@@ -20,10 +5,6 @@ import type { InboundMessage, MeshProtocolConfig } from "../../domain/services/p
 import { getLogger } from "../../platform/backends";
 
 const log = getLogger("session-state");
-
-// ============================================================================
-// SessionState
-// ============================================================================
 
 export function sessionKey(agentId: string, sessionId: string): string {
   return `${agentId}:${sessionId}`;
@@ -55,10 +36,6 @@ export class SessionState {
   private lastInboundMessages: Map<string, InboundMessage> = new Map();
   // Reinjection throttle: agentId → timestamp
   private lastReinjectionAt: Map<string, number> = new Map();
-
-  // ========================================================================
-  // Session Maps
-  // ========================================================================
 
   getAgentSessions(agentId: string): Map<string, AppSessionInfo> | undefined {
     return this.sessions.get(agentId);
@@ -93,7 +70,6 @@ export class SessionState {
     this.promptBuilders.delete(agentId);
     this.lastInboundMessages.delete(agentId);
     this.lastReinjectionAt.delete(agentId);
-    // Clear all queues for this agent
     for (const [key] of this.promptQueue) {
       if (key.startsWith(`${agentId}:`)) {
         this.promptQueue.delete(key);
@@ -133,10 +109,6 @@ export class SessionState {
     return undefined;
   }
 
-  // ========================================================================
-  // Active Session
-  // ========================================================================
-
   getActiveSessionId(agentId: string): string | undefined {
     return this.activeSessions.get(agentId);
   }
@@ -154,10 +126,6 @@ export class SessionState {
     if (!sessionId) return undefined;
     return this.sessions.get(agentId)?.get(sessionId);
   }
-
-  // ========================================================================
-  // Pinned Sessions
-  // ========================================================================
 
   pinSession(agentId: string, sessionId: string): void {
     let pinned = this.pinnedSessions.get(agentId);
@@ -182,10 +150,6 @@ export class SessionState {
   isSessionPinned(agentId: string, sessionId: string): boolean {
     return this.pinnedSessions.get(agentId)?.has(sessionId) ?? false;
   }
-
-  // ========================================================================
-  // Streaming Buffer
-  // ========================================================================
 
   getStreamText(sessionKey: string): string | undefined {
     return this.streamTextBuffer.get(sessionKey);
@@ -218,10 +182,6 @@ export class SessionState {
     this.streamMsgRef.delete(sessionKey);
   }
 
-  // ========================================================================
-  // Tool Call Buffering
-  // ========================================================================
-
   getPendingToolCalls(sessionKey: string): Map<string, ToolCall[]> | undefined {
     return this.pendingToolCalls.get(sessionKey);
   }
@@ -233,10 +193,6 @@ export class SessionState {
   clearPendingToolCalls(sessionKey: string): void {
     this.pendingToolCalls.delete(sessionKey);
   }
-
-  // ========================================================================
-  // Prompt Queue
-  // ========================================================================
 
   getQueue(sessionKey: string): QueuedPrompt[] {
     return this.promptQueue.get(sessionKey) ?? [];
@@ -268,10 +224,6 @@ export class SessionState {
     return true;
   }
 
-  // ========================================================================
-  // PromptBuilder (Mesh Protocol)
-  // ========================================================================
-
   getPromptBuilder(agentId: string): PromptBuilder | undefined {
     return this.promptBuilders.get(agentId);
   }
@@ -279,10 +231,6 @@ export class SessionState {
   setPromptBuilder(agentId: string, builder: PromptBuilder): void {
     this.promptBuilders.set(agentId, builder);
   }
-
-  // ========================================================================
-  // Last Inbound Message (Mesh Protocol)
-  // ========================================================================
 
   getLastInboundMessage(agentId: string): InboundMessage | undefined {
     return this.lastInboundMessages.get(agentId);
@@ -299,10 +247,6 @@ export class SessionState {
   setLastReinjectionAt(agentId: string, ts: number): void {
     this.lastReinjectionAt.set(agentId, ts);
   }
-
-  // ========================================================================
-  // Cleanup
-  // ========================================================================
 
   dispose(): void {
     this.sessions.clear();

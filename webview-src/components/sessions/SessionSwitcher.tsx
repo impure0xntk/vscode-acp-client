@@ -10,9 +10,7 @@ import { useMessageStore } from "../../store/messageStore";
 import { StatusIcon } from "../primitives/StatusIcon";
 import type { StatusIconType } from "../primitives/StatusIcon";
 
-// ============================================================================
-// Props
-// ============================================================================
+
 
 interface SessionSwitcherProps {
   tabs: SessionTabState[];
@@ -20,9 +18,7 @@ interface SessionSwitcherProps {
   onSelect: (sessionId: string, agentId: string) => void;
 }
 
-// ============================================================================
-// SessionSwitcher Component
-// ============================================================================
+
 
 export function SessionSwitcher({
   tabs,

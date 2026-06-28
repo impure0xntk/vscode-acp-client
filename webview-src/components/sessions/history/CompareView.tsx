@@ -1,7 +1,5 @@
 import React from "react";
 
-// ── Types ──────────────────────────────────────────────────────────────────
-
 export interface PersistentSessionEntry {
   sessionId: string;
   agentId: string;
@@ -19,8 +17,6 @@ export interface PersistentSessionEntry {
   isArchived: boolean;
 }
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
 function contextUsagePct(usage: number, max: number | null): number {
   if (!max || max <= 0) return 0;
   return Math.min(100, Math.round((usage / max) * 100));
@@ -31,8 +27,6 @@ function formatTokens(n: number): string {
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
   return String(n);
 }
-
-// ── Compare View ────────────────────────────────────────────────────────────
 
 export function CompareBar({
   sessions,

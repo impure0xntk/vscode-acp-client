@@ -1,27 +1,13 @@
-// ============================================================================
-// SessionOverview — overview computation and debounced emit
-//
-// Responsibilities:
-//   - Compute session overview (all sessions, with progress, token usage, etc.)
-//   - Debounced overview update emission
-//   - Extract recent responses from message history
-// ============================================================================
-
 import type { AppSessionInfo } from "./types";
 import type { SessionStatus, TurnOutcome } from "../../domain/models/session";
 import type { AgentConnection } from "./agent-connection";
 import type { SessionState } from "./session-state";
 import type { ChatMessage } from "../../domain/models/chat";
 
-// Use the overview's own return type as the canonical shape
 type OverviewEntry = SessionOverview["sessions"][number];
 import { getLogger } from "../../platform/backends";
 
 const log = getLogger("session-overview");
-
-// ============================================================================
-// SessionOverview
-// ============================================================================
 
 export interface SessionOverview {
   sessions: Array<{
@@ -69,10 +55,6 @@ export class SessionOverview {
   constructor(deps: SessionOverviewDeps) {
     this.deps = deps;
   }
-
-  // ========================================================================
-  // Compute Overview
-  // ========================================================================
 
   compute(): { sessions: OverviewEntry[]; lastUpdated: string } {
     const sessions: OverviewEntry[] = [];
@@ -130,10 +112,6 @@ export class SessionOverview {
     return { sessions, lastUpdated: new Date().toISOString() };
   }
 
-  // ========================================================================
-  // Debounced Emit
-  // ========================================================================
-
   emitDebounced(): void {
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
@@ -150,10 +128,6 @@ export class SessionOverview {
       this.debounceTimer = null;
     }
   }
-
-  // ========================================================================
-  // Helpers
-  // ========================================================================
 
   private extractRecentResponses(
     messages: ChatMessage[],

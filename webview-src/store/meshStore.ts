@@ -9,8 +9,6 @@ import type {
   SelectedTeam,
 } from "../types";
 
-// ── Store shape ──────────────────────────────────────────────────────────────
-
 export interface MeshState {
   agentStatuses: MeshAgentStatus[];
   teams: MeshTeamEntry[];
@@ -18,9 +16,7 @@ export interface MeshState {
   recentMessages: MeshRecentMessage[];
   sendTargets: SendTarget[];
   meshPanelVisible: boolean;
-  /** Active mesh communication mode — set by /mesh command, cleared on send */
   communicationMode: CommunicationMode | null;
-  /** Selected team for @team: picker — set when user picks a team, cleared on send */
   selectedTeam: SelectedTeam | null;
 
   setAgentStatuses: (statuses: MeshAgentStatus[]) => void;

@@ -11,9 +11,6 @@ export interface GitAPI {
   }>;
 }
 
-/**
- * Resolve a file path to a ContextAttachment.
- */
 export async function resolveFile(
   fs: FileSystemAPI,
   filePath: string,
@@ -37,9 +34,6 @@ export async function resolveFile(
   };
 }
 
-/**
- * Resolve the current editor selection to a ContextAttachment.
- */
 export async function resolveSelection(
   editor: EditorAPI
 ): Promise<ContextAttachment | null> {
@@ -63,9 +57,6 @@ export async function resolveSelection(
   };
 }
 
-/**
- * Resolve the symbol at the cursor to a ContextAttachment.
- */
 export async function resolveSymbol(
   editor: EditorAPI
 ): Promise<ContextAttachment | null> {
@@ -95,9 +86,6 @@ export async function resolveSymbol(
   };
 }
 
-/**
- * Resolve the current Git diff to a ContextAttachment.
- */
 export async function resolveDiff(
   editor: EditorAPI
 ): Promise<ContextAttachment | null> {

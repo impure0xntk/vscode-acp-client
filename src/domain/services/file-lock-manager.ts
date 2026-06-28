@@ -1,31 +1,15 @@
-// ============================================================================
-// FileLockManager — optimistic file-level locking for concurrent agents
-//
-// refs: docs/p2p-mesh-design.md Section 4.2
-// ============================================================================
-
 import type { FileLockEntry } from "../models/mesh";
 import { getLogger } from "../../platform/backends";
 
 const log = getLogger("mesh.filelock");
 
-// ----------------------------------------------------------------------------
-// FileLockManager
-// ----------------------------------------------------------------------------
-
 export class FileLockManager {
-  // filePath → FileLockEntry
   private locks: Map<string, FileLockEntry> = new Map();
   private readonly defaultTTL: number;
 
   constructor(defaultTTLMs = 300_000) {
-    // 5 min default
     this.defaultTTL = defaultTTLMs;
   }
-
-  // -----------------------------------------------------------------------
-  // Acquire
-  // -----------------------------------------------------------------------
 
   async acquire(
     filePath: string,
@@ -36,14 +20,12 @@ export class FileLockManager {
     const existing = this.locks.get(filePath);
 
     if (existing) {
-      // Same agent can re-acquire (idempotent)
       if (existing.lockedBy === agentId) {
         existing.expiresAt = new Date(Date.now() + (ttlMs ?? this.defaultTTL));
         log.debug("lock refreshed", { filePath, agentId });
         return true;
       }
 
-      // Expired → steal
       if (existing.expiresAt && existing.expiresAt < new Date()) {
         log.debug("lock expired, stealing", {
           filePath,
@@ -73,10 +55,6 @@ export class FileLockManager {
     return true;
   }
 
-  // -----------------------------------------------------------------------
-  // Release
-  // -----------------------------------------------------------------------
-
   async release(filePath: string, agentId: string): Promise<boolean> {
     const existing = this.locks.get(filePath);
     if (existing && existing.lockedBy === agentId) {
@@ -100,10 +78,6 @@ export class FileLockManager {
     }
     return released;
   }
-
-  // -----------------------------------------------------------------------
-  // Query
-  // -----------------------------------------------------------------------
 
   getLock(filePath: string): FileLockEntry | undefined {
     const entry = this.locks.get(filePath);
@@ -129,7 +103,6 @@ export class FileLockManager {
   }
 
   getAllLocks(): FileLockEntry[] {
-    // Purge expired first
     const now = new Date();
     for (const [path, entry] of this.locks) {
       if (entry.expiresAt && entry.expiresAt < now) {
@@ -138,10 +111,6 @@ export class FileLockManager {
     }
     return Array.from(this.locks.values());
   }
-
-  // -----------------------------------------------------------------------
-  // Teardown
-  // -----------------------------------------------------------------------
 
   dispose(): void {
     this.locks.clear();

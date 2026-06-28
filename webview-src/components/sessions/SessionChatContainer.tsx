@@ -27,11 +27,9 @@ import {
   splitLatestSteps,
 } from "../../pipeline/stages/grouping";
 
-// ── Constants ───────────────────────────────────────────────────────────────
-
 const SCROLL_BOTTOM_THRESHOLD = 100;
 
-// ── Sticky User Message Types ──────────────────────────────────────────────
+
 
 interface StickyUserMessage {
   key: string;
@@ -39,8 +37,6 @@ interface StickyUserMessage {
   timestamp: number | undefined;
   attachments: ChatDisplayItem["attachments"];
 }
-
-// ── Sticky User Message Helpers ─────────────────────────────────────────────
 
 function findStickyUserMessage(
   containerEl: HTMLDivElement,
@@ -101,8 +97,6 @@ import type {
   AgentResponseGroup,
 } from "../../pipeline/stages/grouping";
 
-// ── Props ───────────────────────────────────────────────────────────────────
-
 export interface SessionChatContainerProps {
   sessionKey: string | null;
   sessionId?: string;
@@ -135,8 +129,6 @@ export interface SessionChatContainerProps {
   onAttachDiff?: (attachment: import("../../types").ContextAttachment) => void;
 }
 
-// ── Component ──────────────────────────────────────────────────────────────
-
 export const SessionChatContainer = memo(function SessionChatContainer({
   sessionKey,
   sessionId,
@@ -166,7 +158,6 @@ export const SessionChatContainer = memo(function SessionChatContainer({
 
   const items = useMessagePipeline(rawMessages, sessionId ?? "", agentId ?? "");
 
-  // ── Track new messages for appear animation ─────────────────────
   const prevItemKeysRef = useRef(new Set<string>());
   const [newKeys, setNewKeys] = useState<Set<string>>(new Set());
   const isFirstRenderRef = useRef(true);
@@ -193,16 +184,13 @@ export const SessionChatContainer = memo(function SessionChatContainer({
     isFirstRenderRef.current = true;
   }, [sessionKey]);
 
-  // ── Count of new items for CSS stagger ──────────────────────────
   const newCount = newKeys.size;
 
-  // ── Group ─────────────────────────────────
   const { groups, latestGroup, trailing } = useMemo(
     () => new IntermediateStepGrouper(items).compute(),
     [items]
   );
 
-  // ── Per-group collapse state ─────────────────────────────────────────
   const collapsedMap = useIntermediateStepsCollapseMap(sessionKey ?? null);
   const toggleIntermediateSteps = useToggleIntermediateSteps();
 
@@ -260,7 +248,6 @@ export const SessionChatContainer = memo(function SessionChatContainer({
       items.length
     );
 
-  // ── Expose imperative refs ─────────────────────────────────────────
   useEffect(() => {
     if (scrollToMessageRef) scrollToMessageRef.current = scrollToMessage;
   }, [scrollToMessageRef, scrollToMessage]);
@@ -274,7 +261,6 @@ export const SessionChatContainer = memo(function SessionChatContainer({
     if (scrollToUnreadRef) scrollToUnreadRef.current = scrollToUnread;
   }, [scrollToUnreadRef, scrollToUnread]);
 
-  // ── Save scroll position on unmount ───────────────────────────────
   useEffect(() => {
     const el = containerRef.current;
     return () => {
@@ -290,7 +276,6 @@ export const SessionChatContainer = memo(function SessionChatContainer({
     };
   }, []);
 
-  // ── Scroll handler with read-up-to tracking ────────────────────────
   const onScrollRef = useRef(onScroll);
   onScrollRef.current = onScroll;
 
@@ -337,11 +322,6 @@ export const SessionChatContainer = memo(function SessionChatContainer({
     recomputeScrollState();
   }, [recomputeScrollState]);
 
-  // ── MutationObserver: recompute when intermediate steps toggle ────
-  // Expanding / collapsing an IntermediateStepsBanner changes the
-  // container's scrollHeight without firing a scroll event.  Without
-  // this observer the stored isAtBottom / readUpTo become stale,
-  // causing the scroll-to-bottom button and unread badge to misbehave.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -360,7 +340,6 @@ export const SessionChatContainer = memo(function SessionChatContainer({
     return () => observer.disconnect();
   }, [recomputeScrollState]);
 
-  // ── Auto-advance readUpTo when at bottom ──────────────────────────
   const msgCountRef = useRef(0);
   useEffect(() => {
     if (!sessionKey || !isAtBottom) return;
@@ -373,7 +352,6 @@ export const SessionChatContainer = memo(function SessionChatContainer({
     store.setReadUpTo(sessionKey, newestId);
   }, [sessionKey, isAtBottom, unreadCount]);
 
-  // ── Scroll to bottom handler ──────────────────────────────────────
   const handleScrollToBottom = useCallback(() => {
     const wrapper = wrapperRef.current?.querySelector(
       "[data-messages-scroll-container]"
@@ -385,13 +363,11 @@ export const SessionChatContainer = memo(function SessionChatContainer({
     }
   }, [forceScrollToBottomRef]);
 
-  // ── Sticky user message state ──────────────────────────────────────
   const [stickyUserMessage, setStickyUserMessage] =
     useState<StickyUserMessage | null>(null);
   const stickyUserMessageRef = useRef<StickyUserMessage | null>(null);
   stickyUserMessageRef.current = stickyUserMessage;
 
-  // ── Sticky scroll detection ────────────────────────────────────────
   const updateStickyUserMessage = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -435,7 +411,6 @@ export const SessionChatContainer = memo(function SessionChatContainer({
     }
   }, [stickyUserMessage]);
 
-  // ── Render ──────────────────────────────────────────────────────────
   const isEmpty = items.length === 0;
   const showScrollButton = !isAtBottom;
   const showStickyBar = stickyUserMessage !== null && !isEmpty;

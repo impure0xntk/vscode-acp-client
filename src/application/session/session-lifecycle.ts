@@ -1,17 +1,3 @@
-// ============================================================================
-// SessionLifecycle — CRUD, fork, restore, rename, pin sessions
-//
-// Responsibilities:
-//   - Create sessions (session/new via ACP)
-//   - Close sessions (session/close via ACP)
-//   - Fork sessions (copy messages + replay)
-//   - Restore sessions (native session/load or bridge replay)
-//   - Rename sessions
-//   - Pin/unpin sessions
-//   - Replay messages (re-send user+agent messages via session/prompt)
-//   - ChatMessage → ContentBlock conversion for replay
-// ============================================================================
-
 import type { ContentBlock } from "@agentclientprotocol/sdk";
 import type { ChatMessage } from "../../domain/models/chat";
 import type { AppSessionInfo, QueuedPrompt } from "./types";
@@ -26,10 +12,6 @@ import { abbreviatePath } from "../../shared/util/path";
 import { getLogger } from "../../platform/backends";
 
 const log = getLogger("session-lifecycle");
-
-// ============================================================================
-// Timeout helper
-// ============================================================================
 
 function withTimeout<T>(
   promise: Promise<T>,
@@ -47,10 +29,6 @@ function withTimeout<T>(
   });
 }
 
-// ============================================================================
-// SessionLifecycle
-// ============================================================================
-
 export interface SessionLifecycleDeps {
   agentConnection: AgentConnection;
   sessionState: SessionState;
@@ -67,10 +45,6 @@ export class SessionLifecycle {
   constructor(deps: SessionLifecycleDeps) {
     this.deps = deps;
   }
-
-  // ========================================================================
-  // Create
-  // ========================================================================
 
   async createSession(agentId: string, cwd?: string): Promise<string> {
     const connection = this.deps.agentConnection.getConnection(agentId);
@@ -118,10 +92,6 @@ export class SessionLifecycle {
     return sessionId;
   }
 
-  // ========================================================================
-  // Close
-  // ========================================================================
-
   async closeSession(agentId: string, sessionId: string): Promise<void> {
     const connection = this.deps.agentConnection.getConnection(agentId);
 
@@ -155,10 +125,6 @@ export class SessionLifecycle {
     }
   }
 
-  // ========================================================================
-  // Rename
-  // ========================================================================
-
   renameSession(agentId: string, sessionId: string, title: string): void {
     const sessionInfo = this.deps.sessionState.getSessionInfo(agentId, sessionId);
     if (!sessionInfo) {
@@ -172,10 +138,6 @@ export class SessionLifecycle {
     this.syncHistoryStore(agentId, sessionId, sessionInfo);
     log.info("session renamed", { agentId, sessionId, title: trimmed });
   }
-
-  // ========================================================================
-  // Fork
-  // ========================================================================
 
   async forkSession(agentId: string, sourceSessionId: string): Promise<import("./types").RestoreResult> {
     const sourceInfo = this.deps.sessionState.getSessionInfo(agentId, sourceSessionId);
@@ -205,10 +167,6 @@ export class SessionLifecycle {
     return { sessionId: newSessionId, nativeRestore: false, replayedMessageCount: replayed };
   }
 
-  // ========================================================================
-  // Restore
-  // ========================================================================
-
   async restoreSession(
     agentId: string,
     sourceSessionId: string,
@@ -219,7 +177,6 @@ export class SessionLifecycle {
     const sourceInfo = this.deps.sessionState.getSessionInfo(agentId, sourceSessionId);
     const effectiveCwd = cwd ?? sourceInfo?.cwd ?? process.cwd();
 
-    // Strategy 1: Native session/load
     if (agentInfo?.capabilities?.loadSession) {
       const connection = this.deps.agentConnection.getConnection(agentId);
       if (!connection) throw new Error(`Agent ${agentId} is not connected`);
@@ -260,7 +217,6 @@ export class SessionLifecycle {
       return { sessionId: sourceSessionId, nativeRestore: true, replayedMessageCount: 0 };
     }
 
-    // Strategy 2: Bridge replay
     const newSessionId = await this.createSession(agentId, effectiveCwd);
     const newInfo = this.deps.sessionState.getSessionInfo(agentId, newSessionId);
     if (newInfo) {
@@ -275,10 +231,6 @@ export class SessionLifecycle {
 
     return { sessionId: newSessionId, nativeRestore: false, replayedMessageCount: replayed };
   }
-
-  // ========================================================================
-  // Replay
-  // ========================================================================
 
   private async replayMessages(agentId: string, sessionId: string, messages: ChatMessage[]): Promise<number> {
     const replayable = messages.filter((m) => m.role === "user" || m.role === "agent");
@@ -310,10 +262,6 @@ export class SessionLifecycle {
     this.deps.emit("sessionReplayComplete", { agentId, sessionId, replayed });
     return replayed;
   }
-
-  // ========================================================================
-  // ChatMessage → ContentBlock
-  // ========================================================================
 
   /** Convert a stored ChatMessage into ACP ContentBlock[] — used by replay and tests */
   chatMessageToContentBlocks(msg: ChatMessage): ContentBlock[] {
@@ -348,10 +296,6 @@ export class SessionLifecycle {
 
     return blocks;
   }
-
-  // ========================================================================
-  // Persistence
-  // ========================================================================
 
   private persistSession(sessionId: string, agentId: string): void {
     const info = this.deps.sessionState.getSessionInfo(agentId, sessionId);

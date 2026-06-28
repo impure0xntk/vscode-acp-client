@@ -1,16 +1,13 @@
 import { create } from "zustand";
 import type { SessionOverviewFilter, SessionOverviewState } from "../types";
 
-// ── Store shape ──────────────────────────────────────────────────────────────
 // NOTE: Scroll state (isAtBottom, unreadCount, etc.) is NOT stored here.
 // It is derived locally in ChatArea from raw DOM scroll events to avoid
 // Zustand → useSyncExternalStore → infinite re-render loops.
 
 interface UiStateStore {
-  // Panel mode: "unified" | "supervisor"
   panelMode: "unified" | "supervisor";
 
-  // Overview panel chrome
   overviewVisible: boolean;
   overviewWidth: number;
   overviewPosition: "right" | "left";
@@ -19,11 +16,7 @@ interface UiStateStore {
   overviewSelectedSessionIds: string[];
   overviewSelectionMode: boolean;
 
-  // ── Panel mode ─────────────────────────────────────────────────────────
-
   setPanelMode: (mode: "unified" | "supervisor") => void;
-
-  // ── Overview chrome actions ────────────────────────────────────────────
 
   setOverviewVisible: (v: boolean) => void;
   setOverviewWidth: (w: number) => void;
@@ -34,8 +27,6 @@ interface UiStateStore {
   toggleOverviewSelected: (sessionId: string) => void;
   setOverviewSelectionMode: (enabled: boolean) => void;
   toggleOverviewSelection: (sessionId: string) => void;
-
-  // ── Bulk actions ───────────────────────────────────────────────────────
 
   setOverviewState: (state: Partial<SessionOverviewState>) => void;
 }

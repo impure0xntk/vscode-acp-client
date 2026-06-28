@@ -2,12 +2,9 @@ import { useSyncExternalStore, useCallback, useRef } from "react";
 import { useScrollStateStore } from "../store/scrollStateStore";
 import { useMessageStore } from "../store/messageStore";
 
-// ── Cache for referential stability ─────────────────────────────────────────
-
 interface UnreadCache {
   count: number;
   firstId: string | null;
-  /** Last inputs used to compute the result. */
   readUpToId: string | null;
   msgCount: number;
 }
@@ -27,13 +24,8 @@ function computeUnread(
   msgCount: number
 ): { count: number; firstId: string | null } {
   if (!readUpToId || msgCount === 0) return { count: 0, firstId: null };
-  // We need the message ID array to find the index, but to avoid subscribing
-  // to the full message list we use messageCount from the store.
-  // The actual firstUnreadId is resolved lazily in the component.
   return { count: msgCount, firstId: null };
 }
-
-// ── Hook ────────────────────────────────────────────────────────────────────
 
 /**
  * Return the unread message count for a session.

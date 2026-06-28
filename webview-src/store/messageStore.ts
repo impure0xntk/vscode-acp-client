@@ -5,8 +5,6 @@ import { useFileWriteStore } from "./fileWriteStore";
 
 const log = getLogger("webview.store.message");
 
-// ── Per-session message state ──────────────────────────────────────────────
-
 export interface MessageState {
   /** sessionKey → messages */
   perSession: Record<string, ChatMessage[]>;
@@ -114,7 +112,6 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>((set
 
       let newMessages: ChatMessage[];
       if (shouldMergeIntoLast) {
-        // Same-agent in-progress stream: append in-place.
         // Preserve existing writeSeq (set by handleSessionStreamStart).
         const merged = chunks.join("");
         const updatedLast: ChatMessage = {

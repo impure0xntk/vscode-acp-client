@@ -1,9 +1,3 @@
-// ============================================================================
-// SupervisorOrchestrator — plan lifecycle, execution engine, and webview sync
-//
-// refs: docs/supervisor-planner-design.md Section 6
-// ============================================================================
-
 import type {
   Plan,
   PlanStep,
@@ -26,10 +20,6 @@ import {
 } from "../../shared/util/mesh-marker-parser";
 
 const log = getLogger("supervisor");
-
-// ----------------------------------------------------------------------------
-// Webview message types (plan.*)
-// ----------------------------------------------------------------------------
 
 interface PlanApproveMessage {
   type: "plan.approve";
@@ -82,10 +72,6 @@ type PlanWebviewMessage =
   | PlanCancelMessage
   | PlanReplanMessage;
 
-// ----------------------------------------------------------------------------
-// Outbound webview messages
-// ----------------------------------------------------------------------------
-
 export interface PlanUpdateMessage {
   type: "plan.update";
   plan: Plan;
@@ -108,15 +94,7 @@ export type PlanOutboundMessage =
   | PlanStepUpdateMessage
   | PlanExecutionResultMessage;
 
-// ----------------------------------------------------------------------------
-// Webview message union (for postMessage typing)
-// ----------------------------------------------------------------------------
-
 export type WebviewMessage = PlanOutboundMessage;
-
-// ----------------------------------------------------------------------------
-// Dependencies
-// ----------------------------------------------------------------------------
 
 export interface SupervisorOrchestratorDeps {
   meshOrchestrator: MeshOrchestrator;
@@ -124,10 +102,6 @@ export interface SupervisorOrchestratorDeps {
   taskBoardStore: TaskBoardStore;
   postMessage: (msg: WebviewMessage) => void;
 }
-
-// ----------------------------------------------------------------------------
-// SupervisorOrchestrator
-// ----------------------------------------------------------------------------
 
 export class SupervisorOrchestrator {
   private meshOrchestrator: MeshOrchestrator;
@@ -178,7 +152,6 @@ export class SupervisorOrchestrator {
     this.plans.set(planId, plan);
     log.info("plan created", { planId, teamId, plannerAgentId });
 
-    // Send the planning request to the planner agent
     const plannerTarget: SendTarget = {
       agentId: plannerAgentId,
       sessionId: plannerSessionId,
@@ -189,7 +162,7 @@ export class SupervisorOrchestrator {
       await this.meshOrchestrator.supervise(
         teamId,
         plannerTarget,
-        [], // no workers — planner only
+        [],
         userRequest,
         false
       );
@@ -232,7 +205,6 @@ export class SupervisorOrchestrator {
 
       if (!payload?.steps || payload.steps.length === 0) continue;
 
-      // Find existing draft plan for this planner, or create new
       let plan = this.findDraftPlan(plannerAgentId, plannerSessionId);
       const now = new Date().toISOString();
 
@@ -250,7 +222,6 @@ export class SupervisorOrchestrator {
         };
       }
 
-      // Map steps
       plan.steps = payload.steps.map((s, idx) => ({
         id: s.id ?? crypto.randomUUID(),
         index: idx,
@@ -295,7 +266,6 @@ export class SupervisorOrchestrator {
       workerCount: workerTargets.length,
     });
 
-    // Create a synthetic plan for tracking
     const planId = crypto.randomUUID();
     const now = new Date().toISOString();
     const plan: Plan = {
@@ -320,14 +290,13 @@ export class SupervisorOrchestrator {
     this.plans.set(planId, plan);
     this.syncPlanToWebview(plan);
 
-    // Use MeshOrchestrator.supervise() to send to lead → workers
     try {
       await this.meshOrchestrator.supervise(
         teamId,
         leadTarget,
         workerTargets,
         task,
-        false // don't wait for all — fire and forget
+        false
       );
 
       plan.status = "completed";
@@ -363,7 +332,6 @@ export class SupervisorOrchestrator {
     log.info("plan approved", { planId });
     this.syncPlanToWebview(plan);
 
-    // Begin execution
     await this.executePlan(planId);
   }
 
@@ -390,7 +358,6 @@ export class SupervisorOrchestrator {
 
     const running = this.runningTasks.get(planId);
     if (running) {
-      // Cancel all active sessions for this plan
       for (const taskId of running) {
         for (const step of plan.steps) {
           if (step.taskId === taskId && step.assignedTo) {
@@ -400,7 +367,6 @@ export class SupervisorOrchestrator {
                 step.assignedTo.sessionId
               );
             } catch {
-              // Best-effort cancel
             }
           }
         }
@@ -411,7 +377,6 @@ export class SupervisorOrchestrator {
     plan.status = "cancelled";
     plan.updatedAt = new Date().toISOString();
 
-    // Update task board
     this.cancelTaskBoardEntries(plan);
 
     log.info("plan cancelled", { planId });
@@ -444,32 +409,26 @@ export class SupervisorOrchestrator {
       stepCount: plan.steps.length,
     });
 
-    // Register running tasks set
     this.runningTasks.set(planId, new Set());
 
-    // Build task board entries
     this.createTaskBoardEntries(plan);
 
-    // Build dependency graph and get execution batches
     const batches = this.buildExecutionBatches(plan.steps);
 
     const stepResults: PlanExecutionResult["stepResults"] = [];
     let overallStatus: PlanExecutionResult["status"] = "success";
 
     for (const batch of batches) {
-      // Execute batch in parallel
       const batchResults = await Promise.all(
         batch.map((step) => this.executeStep(plan, step))
       );
 
       stepResults.push(...batchResults);
 
-      // Check for failures
       const failed = batchResults.filter((r) => r.status === "failed");
       if (failed.length > 0) {
         overallStatus = "partial";
 
-        // Attempt replan for the first failure
         const firstFail = failed[0];
         const failStep = plan.steps.find((s) => s.id === firstFail.stepId);
         if (failStep) {
@@ -486,7 +445,6 @@ export class SupervisorOrchestrator {
               firstFail.error ?? "Unknown error"
             );
             if (newPlan && newPlan.status === "pending") {
-              // Wait for user approval of new plan
               this.syncPlanToWebview(newPlan);
               overallStatus = "partial";
               return this.buildResult(planId, overallStatus, stepResults);
@@ -496,7 +454,6 @@ export class SupervisorOrchestrator {
           }
         }
 
-        // If replan didn't produce a new approved plan, mark remaining as skipped
         for (const remainingStep of plan.steps) {
           if (remainingStep.status === "pending") {
             remainingStep.status = "skipped";
@@ -509,7 +466,6 @@ export class SupervisorOrchestrator {
       }
     }
 
-    // Determine final status
     const allCompleted = plan.steps.every((s) => s.status === "completed");
     const anyFailed = plan.steps.some((s) => s.status === "failed");
     plan.status = allCompleted
@@ -526,10 +482,8 @@ export class SupervisorOrchestrator {
       overallStatus = "failed";
     }
 
-    // Update task board
     this.updateTaskBoardParentStatus(plan);
 
-    // Clean up running tasks
     this.runningTasks.delete(planId);
 
     const result = this.buildResult(planId, overallStatus, stepResults);
@@ -564,10 +518,8 @@ export class SupervisorOrchestrator {
       startedAt: step.startedAt,
     });
 
-    // Update task board
     this.updateTaskBoardStepStatus(plan, step, "in_progress");
 
-    // If no assigned agent, try to find one from the team
     if (!step.assignedTo) {
       const team = this.meshOrchestrator.getTeam(plan.teamId);
       if (team && team.members.length > 0) {
@@ -604,7 +556,6 @@ export class SupervisorOrchestrator {
     if (running) running.add(taskId);
 
     try {
-      // Build task request message
       const taskMessage: P2PMessage = {
         id: taskId,
         type: "task_request",
@@ -623,7 +574,6 @@ export class SupervisorOrchestrator {
         } as P2PMessageMetadata,
       };
 
-      // Send via sessionOrchestrator (direct prompt with marker)
       const { serializeToMarker } =
         await import("../../shared/util/mesh-marker-parser.js");
       const markerText = serializeToMarker(taskMessage, "2");
@@ -634,8 +584,7 @@ export class SupervisorOrchestrator {
         markerText
       );
 
-      // For now, mark as completed after successful send.
-      // In a full implementation, we'd wait for the task_response marker.
+      // TODO: wait for task_response marker before marking completed
       step.status = "completed";
       step.completedAt = new Date().toISOString();
 
@@ -751,7 +700,6 @@ export class SupervisorOrchestrator {
     const failedStep = plan.steps.find((s) => s.id === failedStepId);
     if (!failedStep) return null;
 
-    // Ask the planner to revise the plan
     const replanRequest = `Step "${failedStep.description}" failed: ${reason}. Please revise the plan from this step onward.`;
 
     try {
@@ -768,7 +716,6 @@ export class SupervisorOrchestrator {
       );
 
       // The planner's response will come through parsePlanFromOutput
-      // For now, create a new plan with remaining steps
       const now = new Date().toISOString();
       const remainingSteps = plan.steps
         .filter(
@@ -846,7 +793,6 @@ export class SupervisorOrchestrator {
       const afterIdx = plan.steps.findIndex((s) => s.id === afterStepId);
       if (afterIdx >= 0) {
         plan.steps.splice(afterIdx + 1, 0, newStep);
-        // Re-index
         plan.steps.forEach((s, i) => (s.index = i));
       } else {
         plan.steps.push(newStep);
@@ -906,7 +852,6 @@ export class SupervisorOrchestrator {
       if (visited.has(step.id)) return;
       visited.add(step.id);
 
-      // Determine the earliest batch this step can go into
       let targetBatch = batchIndex;
       for (const depId of step.dependsOn ?? []) {
         const dep = stepMap.get(depId);
@@ -914,7 +859,6 @@ export class SupervisorOrchestrator {
           visit(dep, batchIndex + 1);
           targetBatch = Math.max(targetBatch, batchIndex + 1);
         } else if (dep) {
-          // Find which batch the dep is in
           for (let i = 0; i < batches.length; i++) {
             if (batches[i].some((s) => s.id === depId)) {
               targetBatch = Math.max(targetBatch, i + 1);
@@ -952,7 +896,6 @@ export class SupervisorOrchestrator {
       this.taskBoardStore.create(path);
     }
 
-    // Parent task
     const parent = this.taskBoardStore.addTask(path, {
       id: plan.id,
       title: plan.metadata.userRequest.substring(0, 50),
@@ -963,7 +906,6 @@ export class SupervisorOrchestrator {
       subtasks: [],
     });
 
-    // Sub-tasks for each step
     for (const step of plan.steps) {
       const subTask = this.taskBoardStore.addTask(path, {
         id: step.id,

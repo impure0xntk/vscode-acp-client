@@ -7,12 +7,7 @@ import type {
 } from "../../domain/models/session";
 import type { StopReason } from "@agentclientprotocol/sdk";
 
-// Re-export domain types so downstream consumers import from one place
 export type { SessionInfo, SessionStatus, TurnOutcome, TokenUsage };
-
-// ============================================================================
-// Queued Prompt — message buffered while a turn is active
-// ============================================================================
 
 export type QueuedPromptStatus = "pending" | "sending" | "sent" | "cancelled";
 
@@ -27,24 +22,17 @@ export interface QueuedPrompt {
   status: QueuedPromptStatus;
 }
 
-// ============================================================================
-// App Session Info — application-layer extension of domain SessionInfo
-//
-// domain/SessionInfo is the canonical pure state type (no messages, no
-// application-only bookkeeping).  This interface adds fields that only the
-// application layer needs (message history, compression tracking).
-// ============================================================================
-
+/**
+ * domain/SessionInfo is the canonical pure state type (no messages, no
+ * application-only bookkeeping).  This interface adds fields that only the
+ * application layer needs (message history, compression tracking).
+ */
 export interface AppSessionInfo extends SessionInfo {
   /** Previous context usage (tokens) — used for compression detection */
   _prevContextUsed?: number;
   /** Messages in the session — used for fork/replay operations */
   messages: ChatMessage[];
 }
-
-// ============================================================================
-// Agent Config
-// ============================================================================
 
 export interface AutoConnectEntry {
   workspace?: string;
@@ -71,10 +59,6 @@ export interface AgentConfig {
   };
 }
 
-// ============================================================================
-// Agent Info (from InitializeResponse)
-// ============================================================================
-
 export interface AgentInfo {
   name: string;
   title?: string;
@@ -97,10 +81,6 @@ export interface AgentInfo {
     };
   };
 }
-
-// ============================================================================
-// Agent Status
-// ============================================================================
 
 export type AgentConnectionState =
   | "connecting"
@@ -135,19 +115,11 @@ export interface AgentStatus {
   lastActivity: Date;
 }
 
-// ============================================================================
-// Restore Result
-// ============================================================================
-
 export interface RestoreResult {
   sessionId: string;
   nativeRestore: boolean;
   replayedMessageCount: number;
 }
-
-// ============================================================================
-// Session Completed Event
-// ============================================================================
 
 export interface SessionCompletedEvent {
   agentId: string;
@@ -155,9 +127,5 @@ export interface SessionCompletedEvent {
   title: string;
   stopReason: StopReason;
 }
-
-// ============================================================================
-// Prompt Context
-// ============================================================================
 
 export type PromptContext = ContentBlock[];

@@ -11,10 +11,6 @@ import type { LogEntrySink } from "../../../platform/backends/log-entry-sink-bac
 import { LogLevelValue } from "../../../platform/backends/types";
 import { BatchedPathResolver } from "../../../extension/pathResolver";
 
-// ============================================================================
-// Snapshot sent to webview on session switch
-// ============================================================================
-
 export interface SessionSnapshot {
   agentId: string;
   sessionId: string;
@@ -25,10 +21,6 @@ export interface SessionSnapshot {
 function sessionKey(agentId: string, sessionId: string): string {
   return `${agentId}:${sessionId}`;
 }
-
-// ---------------------------------------------------------------------------
-// Inline file-path extraction (no I/O — candidates validated by BatchedPathResolver)
-// ---------------------------------------------------------------------------
 
 const LOOKS_LIKE_PATH_RE =
   /^(\.{0,2}\/|~\/|\/|[A-Za-z]:\\)[\w./~$-]+(?:\.[a-zA-Z0-9]+)?$|^[\w./-]+\/[\w./-]+$/;
@@ -125,7 +117,6 @@ export class ChatPanel {
       ChatPanel.instance.panel.reveal();
       return ChatPanel.instance;
     }
-    // Instance exists but panel was disposed — create a fresh instance
     const ui = new VscodeUIAPI();
     ChatPanel.instance = new ChatPanel(ui, extensionUri);
     return ChatPanel.instance;
@@ -159,7 +150,6 @@ export class ChatPanel {
   }
 
   private createPanel(): void {
-    // Build HTML first (before panel creation so we can pass it in)
     const html = this.buildHtmlForCreation();
     this.panel = this.ui.createWebviewPanel({
       viewId: ChatPanel.viewId,
@@ -169,7 +159,6 @@ export class ChatPanel {
       retainContextWhenHidden: true,
     });
 
-    // Now that panel exists, update HTML with proper webview URIs
     this.updatePanelHtml();
 
     this.panel.webview.onDidReceiveMessage((data) => {
@@ -185,7 +174,6 @@ export class ChatPanel {
   }
 
   private buildHtmlForCreation(): string {
-    // Minimal HTML — will be replaced by updatePanelHtml() immediately after
     return `<!DOCTYPE html><html><body><div id="root"></div></body></html>`;
   }
 
@@ -271,8 +259,6 @@ export class ChatPanel {
     message: ChatMessage,
     _cwd?: string
   ): void {
-    // Attach path candidates for session restore (resource_link blocks).
-    // Existence is validated asynchronously by BatchedPathResolver separately.
     const candidates = extractCandidatePaths(message.content);
     const enriched =
       candidates.length > 0
@@ -481,7 +467,6 @@ export class ChatPanel {
         break;
       // fetchFiles, resolveFile, resolveSelection, resolveDiff, fetchSymbols, resolveSymbol
       // are handled via onDidReceiveMessage in wireChatPanelEvents().
-      // They must not be intercepted here — intentionally no case for them.
       case "openNewSessionPicker":
         void this.ui.executeCommand("acp.newSession");
         break;
@@ -542,7 +527,6 @@ export class ChatPanel {
         this.logger?.info(line);
     }
 
-    // Persist webview log to DB via sink
     if (ChatPanel.logSink) {
       const levelMap: Record<string, LogLevelValue> = {
         trace: 0,
@@ -561,9 +545,7 @@ export class ChatPanel {
     }
   }
 
-  dispose(): void {
-    // No streaming buffer to flush — batched delivery via pushMessage.
-  }
+  dispose(): void {}
 
   postMessage(message: unknown): void {
     void this.panel?.webview.postMessage(message);

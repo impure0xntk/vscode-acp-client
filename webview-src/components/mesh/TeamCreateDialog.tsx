@@ -5,13 +5,9 @@ import type { SessionStoreState } from "../../store/sessionStore";
 import { getVsCodeApi } from "../../lib/vscodeApi";
 import { Icon } from "../../lib/icons";
 
-// ── Props ──────────────────────────────────────────────────────────
-
 export interface TeamCreateDialogProps {
   onClose: () => void;
 }
-
-// ── Option types ────────────────────────────────────────────────────
 
 interface AgentOption {
   kind: "agent";
@@ -33,8 +29,6 @@ interface SessionOption {
   color?: string;
   status: string;
 }
-
-// ── Component ───────────────────────────────────────────────────────
 
 export function TeamCreateDialog({
   onClose,
@@ -58,8 +52,6 @@ export function TeamCreateDialog({
   >([]);
   const [error, setError] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
-
-  // ── Build agent tree with nested sessions from sessionInfoMap ─────
 
   const agentOptions = useMemo((): AgentOption[] => {
     return connectedAgents.map((agent) => {
@@ -86,8 +78,6 @@ export function TeamCreateDialog({
       };
     });
   }, [connectedAgents, sessionInfoMap, tabTitles]);
-
-  // ── Handlers ──────────────────────────────────────────────────────
 
   const memberKey = (agentId: string, sessionId: string) =>
     `${agentId}:${sessionId}`;
@@ -161,8 +151,6 @@ export function TeamCreateDialog({
     [onClose]
   );
 
-  // ── Render: Lead picker ───────────────────────────────────────────
-
   function renderLeadPicker() {
     const totalSessions = agentOptions.reduce(
       (sum, a) => sum + a.sessions.length,
@@ -226,8 +214,6 @@ export function TeamCreateDialog({
       </div>
     );
   }
-
-  // ── Render: Member picker ─────────────────────────────────────────
 
   function renderMemberPicker() {
     const totalSessions = agentOptions.reduce(
@@ -308,8 +294,6 @@ export function TeamCreateDialog({
       </div>
     );
   }
-
-  // ── Render ────────────────────────────────────────────────────────
 
   return (
     <div

@@ -1,9 +1,5 @@
 import type { UIAPI } from "../../../platform/ui";
 
-// ============================================================================
-// Output Channel Manager — per-agent output channels
-// ============================================================================
-
 export class OutputChannelManager {
   private ui: UIAPI;
   private channels = new Map<

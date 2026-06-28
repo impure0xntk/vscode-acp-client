@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Icon } from "../../lib/icons";
 
-// ── Types ──────────────────────────────────────────────────────────
-
 export type MeshMode = "fanout" | "supervisor" | "pipeline" | "status" | "task";
 
 interface MeshModeCommand {
@@ -45,8 +43,6 @@ const MESH_MODES: MeshModeCommand[] = [
   },
 ];
 
-// ── Props ──────────────────────────────────────────────────────────
-
 export interface ModePickerProps {
   query: string;
   onSelect: (mode: MeshMode) => void;
@@ -55,8 +51,6 @@ export interface ModePickerProps {
   onSelectedIndexChange: (index: number) => void;
   registerKeyHandler: (handler: ((e: KeyboardEvent) => void) | null) => void;
 }
-
-// ── Component ───────────────────────────────────────────────────────
 
 export function ModePicker({
   query,

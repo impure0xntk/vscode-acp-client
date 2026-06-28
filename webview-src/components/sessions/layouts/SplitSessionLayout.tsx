@@ -12,8 +12,6 @@ import type { ChatMessage } from "../../../types";
 import type { TurnOutcome } from "../../primitives/StatusIcon";
 import type { SessionHeaderProps } from "../SessionView";
 
-// ── SessionSectionInner ────────────────────────────────────────────────────
-
 interface SessionSectionInnerProps {
   sessionKey: string;
   isFocus: boolean;

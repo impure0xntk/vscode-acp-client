@@ -2,10 +2,6 @@ import React, { useEffect } from "react";
 import { Icon } from "../../lib/icons";
 import type { TurnOutcome } from "../primitives/StatusIcon";
 
-// ============================================================================
-// Props
-// ============================================================================
-
 interface CompletionNotificationProps {
   agentId: string;
   sessionId: string;
@@ -15,10 +11,6 @@ interface CompletionNotificationProps {
   onDismiss: () => void;
   onSwitchTab: (sessionId: string, agentId: string) => void;
 }
-
-// ============================================================================
-// CompletionNotification Component
-// ============================================================================
 
 const OUTCOME_ICON: Record<TurnOutcome, string> = {
   completed: "pass-filled",

@@ -15,8 +15,6 @@ import type {
 import type { TurnOutcome } from "../primitives/StatusIcon";
 import { SplitSessionLayout } from "./layouts/SplitSessionLayout";
 
-// ── Color palette (WCAG AA compliant on dark bg #1e1e1e) ──────────────────
-
 const AGENT_COLOR_PALETTE = [
   "hsl(210, 70%, 60%)", // blue
   "hsl(270, 55%, 60%)", // purple
@@ -40,15 +38,11 @@ export function getSessionColor(sessionKey: string): string {
   return AGENT_COLOR_PALETTE[hashKey(sessionKey) % AGENT_COLOR_PALETTE.length];
 }
 
-// ── Empty scroll state ─────────────────────────────────────────────────────
-
 const EMPTY_SCROLL: SessionScrollState = {
   scrollTop: 0,
   readUpToMessageId: null,
   isAtBottom: true,
 };
-
-// ── SessionHeaderProps / SessionFooterProps (for custom renderers) ─────────
 
 export interface SessionHeaderProps {
   sessionKey: string;
@@ -75,8 +69,6 @@ export interface SessionFooterProps {
   model?: string;
   mode?: string;
 }
-
-// ── SessionViewProps ────────────────────────────────────────────────────────
 
 export interface SessionViewProps {
   sessionKey: string | null;
@@ -108,8 +100,6 @@ export interface SessionViewProps {
   onAttachDiff?: (attachment: ContextAttachment) => void;
 }
 
-// ── Stable scroll-state selector ───────────────────────────────────────────
-
 function useActiveScrollState(activeKey: string | null) {
   const subscribe = useCallbackReact(
     (onStoreChange: () => void) => {
@@ -130,8 +120,6 @@ function useActiveScrollState(activeKey: string | null) {
 
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }
-
-// ── Pure unread derivation ─────────────────────────────────────────────────
 
 function deriveUnread(
   readUpToId: string | null,
@@ -155,8 +143,6 @@ function deriveUnread(
     firstUnreadId: messages[idx + 1].id,
   };
 }
-
-// ── SessionView (main component) ───────────────────────────────────────────
 
 export const SessionView = React.memo(function SessionView({
   sessionKey,
