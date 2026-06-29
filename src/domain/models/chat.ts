@@ -63,6 +63,7 @@ export interface ContextAttachmentDTO {
 // ============================================================================
 
 export interface ChatMessage {
+  /** ACP SDK messageId (agent msg) or sessionId-timestamp (user msg). */
   id: string;
   role: "user" | "agent" | "system" | "tool";
   content: string;

@@ -219,6 +219,7 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
         sessionId,
         role: message.role,
         msgId: message.id,
+        acpMessageId: message.id,
         contentLen: message.content?.length,
       });
       cp.pushMessage(agentId, sessionId, message, info?.cwd);

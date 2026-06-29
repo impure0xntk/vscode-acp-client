@@ -102,9 +102,7 @@ export class MeshOrchestrator {
       this.registerAgent(member.agentId, team.id);
     }
 
-    const teamStartMessageId = crypto.randomUUID();
     log.info("team started", {
-      messageId: teamStartMessageId,
       teamId: team.id,
       name: team.name,
       leadAgentId: team.lead.agentId,
@@ -118,13 +116,11 @@ export class MeshOrchestrator {
   async stopTeam(teamId: string): Promise<void> {
     const team = this.teams.get(teamId);
     if (!team) {
-      log.warn("stopTeam: team not found", { messageId: crypto.randomUUID(), teamId });
+      log.warn("stopTeam: team not found", { teamId });
       return;
     }
 
-    const teamStopMessageId = crypto.randomUUID();
     log.info("stopping team", {
-      messageId: teamStopMessageId,
       teamId,
       name: team.name,
     });
@@ -139,7 +135,7 @@ export class MeshOrchestrator {
     }
 
     team.status = "completed";
-    log.info("team stopped", { teamId, messageId: teamStopMessageId });
+    log.info("team stopped", { teamId, messageId: crypto.randomUUID() });
   }
 
   getTeam(teamId: string): MeshTeam | undefined {
@@ -164,7 +160,6 @@ export class MeshOrchestrator {
     this.registerAgent(ref.agentId, teamId);
 
     log.info("member added to team", {
-      messageId: crypto.randomUUID(),
       teamId,
       agentId: ref.agentId,
       sessionId: ref.sessionId,
@@ -199,7 +194,6 @@ export class MeshOrchestrator {
     }
 
     log.info("member removed from team", {
-      messageId: crypto.randomUUID(),
       teamId,
       agentId: ref.agentId,
       sessionId: ref.sessionId,
@@ -216,7 +210,7 @@ export class MeshOrchestrator {
       await this.forwardToAgent(agentId, message);
     });
     this.agentSubscriptions.set(agentId, unsub);
-    log.debug("agent registered", { messageId: crypto.randomUUID(), agentId, teamId });
+    log.debug("agent registered", { agentId, teamId });
   }
 
   // -----------------------------------------------------------------------
@@ -268,7 +262,6 @@ export class MeshOrchestrator {
 
     if (messages.length > 0) {
       log.debug("P2P messages extracted from agent output", {
-        messageId: crypto.randomUUID(),
         agentId,
         count: messages.length,
       });
@@ -346,7 +339,7 @@ export class MeshOrchestrator {
   // -----------------------------------------------------------------------
 
   async handleAgentDisconnect(agentId: string): Promise<void> {
-    log.warn("agent disconnected", { messageId: crypto.randomUUID(), agentId });
+    log.warn("agent disconnected", { agentId });
 
     for (const [, team] of this.teams) {
       if (!team.members.some((m) => m.agentId === agentId)) continue;
@@ -365,7 +358,7 @@ export class MeshOrchestrator {
       }
 
       await this.messageBus.send({
-        id: crypto.randomUUID(),
+        id: `${agentId}-disconnect-${Date.now()}`,
         type: "status_update",
         from: "orchestrator",
         to: team.lead.agentId,
@@ -387,7 +380,7 @@ export class MeshOrchestrator {
       this.agentSubscriptions.delete(agentId);
     }
 
-    log.info("agent disconnect handled", { messageId: crypto.randomUUID(), agentId });
+    log.info("agent disconnect handled", { agentId });
   }
 
   createError(
@@ -417,7 +410,7 @@ export class MeshOrchestrator {
     _timeoutSec?: number
   ): Promise<void> {
     const message: P2PMessage = {
-      id: crypto.randomUUID(),
+      id: `${fromAgentId}-handoff-${Date.now()}`,
       type: "task_request",
       from: fromAgentId,
       to: toAgentId,
@@ -440,7 +433,7 @@ export class MeshOrchestrator {
     priority: "low" | "normal" | "high" | "urgent" = "normal"
   ): Promise<void> {
     const message: P2PMessage = {
-      id: crypto.randomUUID(),
+      id: `${fromAgentId}-send-${Date.now()}`,
       type: "question",
       from: fromAgentId,
       to: toAgentId,
@@ -466,12 +459,10 @@ export class MeshOrchestrator {
     text: string,
     attachments?: ContextAttachmentDTO[]
   ): Promise<MultiSendResult> {
-    const meshSendMessageId = crypto.randomUUID();
     const targetDesc = targets
       .map((t) => `${t.agentId}:${t.sessionId}`)
       .join(", ");
     log.info("mesh:send", {
-      messageId: meshSendMessageId,
       targetCount: targets.length,
       targets: targetDesc,
     });
@@ -502,14 +493,12 @@ export class MeshOrchestrator {
 
     if (targets.length === 0) {
       log.warn("fanout: no active sessions found", {
-        messageId: crypto.randomUUID(),
         requestedAgentIds: agentIds,
       });
       return { results: [] };
     }
 
     log.info("fanout", {
-      messageId: crypto.randomUUID(),
       agentCount: agentIds.length,
       resolvedTargetCount: targets.length,
     });
@@ -528,7 +517,7 @@ export class MeshOrchestrator {
     success: boolean;
     steps: Array<{ target: SendTarget; status: string; error?: string }>;
   }> {
-    log.info("pipelineSend", { messageId: crypto.randomUUID(), targetCount: targets.length });
+    log.info("pipelineSend", { targetCount: targets.length });
     const context = this.buildContext(attachments);
     return this.pipelineExecutor.execute(targets, { text, context });
   }

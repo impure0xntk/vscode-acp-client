@@ -109,6 +109,7 @@ export type MessagePayload =
 // ----------------------------------------------------------------------------
 
 export interface P2PMessage {
+  /** ACP SDK messageId (agent-originated) or sessionId-timestamp (orchestrator-originated). */
   id: string;
   type: P2PMessageType;
   from: string;
@@ -299,6 +300,7 @@ export type MeshPayload = MessagePayload | UserMessagePayload;
 // ----------------------------------------------------------------------------
 
 export interface MeshMessage {
+  /** ACP SDK messageId (agent-originated) or sessionId-timestamp (orchestrator-originated). */
   id: string;
   type: P2PMessageType;
   from: string; // agentId or "user"

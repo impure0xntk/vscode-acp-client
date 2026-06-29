@@ -128,6 +128,9 @@ export class PromptExecution {
       this.deps.sessionState.clearStreamMsgRef(sKey);
 
       log.info("turn completed", { agentId, sessionId, messageId: turnMessageId, tokens: sessionInfo.tokenUsage, stopReason });
+
+      // Reset step tracking for next turn
+      this.deps.protocolHandler.resetStepTracking(agentId, sessionId);
     } catch (e) {
       sessionInfo.lastTurnOutcome = "error";
       sessionInfo.isStreaming = false;

@@ -50,10 +50,12 @@ export class ProtocolHandler {
   private deps: ProtocolHandlerDeps;
   // sessionKey → AvailableCommand[]
   private sessionCommands: Map<string, AvailableCommand[]> = new Map();
-  // sessionKey → buffered thought text (flushed on turn end or message chunk)
-  private pendingThoughts: Map<string, string> = new Map();
+  // sessionKey → buffered thought text + ACP messageId (flushed on turn end or message chunk)
+  private pendingThoughts: Map<string, { text: string; messageId?: string | null }> = new Map();
   // sessionKey → micro-batch for agent_message_chunk text
   private pendingTextBatch: Map<string, TextBatch> = new Map();
+  // sessionKey → last seen ACP messageId (for step boundary detection)
+  private lastSeenMessageId: Map<string, string | null> = new Map();
   constructor(deps: ProtocolHandlerDeps) {
     this.deps = deps;
   }
@@ -84,7 +86,7 @@ export class ProtocolHandler {
       this.deps.emit("sessionStreamStart", { agentId, sessionId });
     }
 
-    log.debug("flushTextBatch", { agentId, sessionId, messageId: batchMessageId, chunkLen: text.length });
+    log.trace("flushTextBatch", { agentId, sessionId, messageId: batchMessageId, chunkLen: text.length });
     this.deps.emit("sessionStreamChunk", { agentId, sessionId, chunk: text, messageId: batchMessageId });
     sessionInfo.lastResponseAt = new Date().toISOString();
   }
@@ -100,7 +102,7 @@ export class ProtocolHandler {
       sessionInfo.isStreaming = true;
       this.deps.emit("sessionStreamStart", { agentId, sessionId });
     }
-    log.debug("emitImmediateChunk", { agentId, sessionId, messageId, chunkLen: text.length });
+    log.trace("emitImmediateChunk", { agentId, sessionId, messageId, chunkLen: text.length });
     this.deps.emit("sessionStreamChunk", { agentId, sessionId, chunk: text, messageId });
     sessionInfo.lastResponseAt = new Date().toISOString();
   }
@@ -150,10 +152,18 @@ export class ProtocolHandler {
         }
         {
           const sKey = sessionKey(agentId, sessionId);
-          const existing = this.pendingThoughts.get(sKey) ?? "";
-          const u = update as { content?: { text?: string } };
+          const u = update as { content?: { text?: string }; messageId?: string | null };
           const delta = u.content?.text ?? "";
-          this.pendingThoughts.set(sKey, existing + delta);
+          const existing = this.pendingThoughts.get(sKey);
+          if (existing) {
+            existing.text += delta;
+            // Persist messageId if not yet set on this thought batch
+            if (existing.messageId == null && u.messageId != null) {
+              existing.messageId = u.messageId;
+            }
+          } else {
+            this.pendingThoughts.set(sKey, { text: delta, messageId: u.messageId ?? null });
+          }
         }
         break;
       case "tool_call":
@@ -208,8 +218,8 @@ export class ProtocolHandler {
 
   private flushThoughts(agentId: string, sessionId: string, silent = false): void {
     const sKey = sessionKey(agentId, sessionId);
-    const buffered = this.pendingThoughts.get(sKey);
-    if (!buffered || buffered.length === 0) {
+    const entry = this.pendingThoughts.get(sKey);
+    if (!entry || entry.text.length === 0) {
       this.pendingThoughts.delete(sKey);
       return;
     }
@@ -225,15 +235,17 @@ export class ProtocolHandler {
       this.deps.emit("sessionStreamStart", { agentId, sessionId });
     }
 
+    const buffered = entry.text;
     const existing = this.deps.sessionState.getStreamMsgRef(sKey);
     if (existing) {
       this.deps.sessionState.appendStreamText(sKey, buffered);
     } else {
-      const msgId = `stream-${sessionId}-${crypto.randomUUID()}`;
+      // Use ACP messageId when available; fall back to random UUID.
+      const msgId = entry.messageId ?? `stream-${sessionId}-${crypto.randomUUID()}`;
       this.deps.sessionState.setStreamMsgRef(sKey, { agentId, sessionId, msgId });
       this.deps.sessionState.setStreamText(sKey, buffered);
     }
-    this.deps.emit("sessionStreamChunk", { agentId, sessionId, chunk: buffered });
+    this.deps.emit("sessionStreamChunk", { agentId, sessionId, chunk: buffered, messageId: entry.messageId ?? undefined });
     sessionInfo.lastResponseAt = new Date().toISOString();
   }
 
@@ -256,6 +268,14 @@ export class ProtocolHandler {
     // messageId belong to the same message and must be merged.
     const messageId = (u.messageId as string | null) ?? null;
 
+    // Step boundary detection: log when messageId changes (= new agent step)
+    const sKey = sessionKey(agentId, sessionId);
+    const prevMessageId = this.lastSeenMessageId.get(sKey) ?? null;
+    if (messageId !== null && messageId !== prevMessageId) {
+      log.info("agent_message step", { agentId, sessionId, messageId, prevMessageId });
+      this.lastSeenMessageId.set(sKey, messageId);
+    }
+
     if (!sessionInfo.isStreaming) {
       sessionInfo.isStreaming = true;
       this.deps.emit("sessionStreamStart", { agentId, sessionId });
@@ -264,7 +284,6 @@ export class ProtocolHandler {
     this.flushThoughts(agentId, sessionId);
 
     if (text) {
-      const sKey = sessionKey(agentId, sessionId);
       const existing = this.pendingTextBatch.get(sKey);
       if (existing) {
         existing.text += text;
@@ -301,6 +320,8 @@ export class ProtocolHandler {
     }
 
     const u = update as Record<string, unknown>;
+    const tcMessageId = (u.messageId as string | null) ?? null;
+    const sKey = sessionKey(agentId, sessionId);
     const tcLocations = (u.locations as Array<{ path: string; line?: number }> | undefined)?.map((loc) => ({
       path: loc.path,
       line: loc.line ?? undefined,
@@ -325,11 +346,17 @@ export class ProtocolHandler {
       diffContent: tcDiff,
     };
 
+    // Step boundary: log messageId transition from agent message → tool call
+    const prevMsgId = this.lastSeenMessageId.get(sKey) ?? null;
+    if (tcMessageId !== null && tcMessageId !== prevMsgId) {
+      log.info("tool_call step", { agentId, sessionId, messageId: tcMessageId, prevMessageId: prevMsgId, toolCallId: newCall.id, kind: newCall.kind });
+    }
+
     log.info("tool_call", {
       agentId,
       sessionId,
       toolCallId: newCall.id,
-      messageId: (u.messageId as string | null) ?? undefined,
+      messageId: tcMessageId ?? undefined,
       title: newCall.title,
       kind: newCall.kind,
       status: newCall.status,
@@ -337,6 +364,11 @@ export class ProtocolHandler {
       hasLocations: (tcLocations?.length ?? 0) > 0,
       hasDiff: tcDiff !== undefined,
     });
+
+    // Track tool_call messageId as step boundary
+    if (tcMessageId !== null) {
+      this.lastSeenMessageId.set(sKey, tcMessageId);
+    }
 
     this.deps.promptExecution.bufferToolCall(agentId, sessionId, newCall);
   }
@@ -384,6 +416,7 @@ export class ProtocolHandler {
             toolCallId: tc.id,
             messageId: (u.messageId as string | null) ?? undefined,
             status: tc.status,
+            isStepBoundary: (u.messageId as string | null) != null && (u.messageId as string) !== this.lastSeenMessageId.get(sKey),
             outputSummary,
             hasDiff: tcDiff !== undefined,
           });
@@ -521,6 +554,17 @@ export class ProtocolHandler {
   flushAllBatches(agentId: string, sessionId: string): void {
     this.flushTextBatch(agentId, sessionId);
     this.flushThoughts(agentId, sessionId);
+  }
+
+  /** Get the last seen ACP messageId for a session (for step boundary logging). */
+  getLastSeenMessageId(agentId: string, sessionId: string): string | null | undefined {
+    return this.lastSeenMessageId.get(sessionKey(agentId, sessionId));
+  }
+
+  /** Reset step boundary tracking for a session (called on turn end). */
+  resetStepTracking(agentId: string, sessionId: string): void {
+    const sKey = sessionKey(agentId, sessionId);
+    this.lastSeenMessageId.delete(sKey);
   }
 }
 

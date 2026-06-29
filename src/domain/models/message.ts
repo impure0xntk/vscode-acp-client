@@ -26,6 +26,7 @@ export interface MessageMetadata {
 }
 
 export interface Message {
+  /** ACP SDK messageId (agent msg) or sessionId-timestamp (user msg). */
   id: string;
   sessionId: string;
   role: MessageRole;
