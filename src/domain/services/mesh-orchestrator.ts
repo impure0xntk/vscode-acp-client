@@ -102,7 +102,9 @@ export class MeshOrchestrator {
       this.registerAgent(member.agentId, team.id);
     }
 
+    const teamStartMessageId = crypto.randomUUID();
     log.info("team started", {
+      messageId: teamStartMessageId,
       teamId: team.id,
       name: team.name,
       leadAgentId: team.lead.agentId,
@@ -116,11 +118,16 @@ export class MeshOrchestrator {
   async stopTeam(teamId: string): Promise<void> {
     const team = this.teams.get(teamId);
     if (!team) {
-      log.warn("stopTeam: team not found", { teamId });
+      log.warn("stopTeam: team not found", { messageId: crypto.randomUUID(), teamId });
       return;
     }
 
-    log.info("stopping team", { teamId, name: team.name });
+    const teamStopMessageId = crypto.randomUUID();
+    log.info("stopping team", {
+      messageId: teamStopMessageId,
+      teamId,
+      name: team.name,
+    });
 
     for (const member of team.members) {
       await this.fileLockManager.releaseAll(member.agentId);
@@ -132,7 +139,7 @@ export class MeshOrchestrator {
     }
 
     team.status = "completed";
-    log.info("team stopped", { teamId });
+    log.info("team stopped", { teamId, messageId: teamStopMessageId });
   }
 
   getTeam(teamId: string): MeshTeam | undefined {
@@ -157,6 +164,7 @@ export class MeshOrchestrator {
     this.registerAgent(ref.agentId, teamId);
 
     log.info("member added to team", {
+      messageId: crypto.randomUUID(),
       teamId,
       agentId: ref.agentId,
       sessionId: ref.sessionId,
@@ -191,6 +199,7 @@ export class MeshOrchestrator {
     }
 
     log.info("member removed from team", {
+      messageId: crypto.randomUUID(),
       teamId,
       agentId: ref.agentId,
       sessionId: ref.sessionId,
@@ -207,7 +216,7 @@ export class MeshOrchestrator {
       await this.forwardToAgent(agentId, message);
     });
     this.agentSubscriptions.set(agentId, unsub);
-    log.debug("agent registered", { agentId, teamId });
+    log.debug("agent registered", { messageId: crypto.randomUUID(), agentId, teamId });
   }
 
   // -----------------------------------------------------------------------
@@ -221,7 +230,7 @@ export class MeshOrchestrator {
     const sessionId =
       this.sessionOrchestrator.getActiveSessionId(targetAgentId);
     if (!sessionId) {
-      log.debug("forwardToAgent: no active session", { targetAgentId });
+      log.debug("forwardToAgent: no active session", { messageId: message.id, targetAgentId });
       return;
     }
 
@@ -236,6 +245,7 @@ export class MeshOrchestrator {
       log.error(
         "failed to forward P2P message to agent",
         {
+          messageId: message.id,
           targetAgentId,
           sessionId,
         },
@@ -258,6 +268,7 @@ export class MeshOrchestrator {
 
     if (messages.length > 0) {
       log.debug("P2P messages extracted from agent output", {
+        messageId: crypto.randomUUID(),
         agentId,
         count: messages.length,
       });
@@ -335,7 +346,7 @@ export class MeshOrchestrator {
   // -----------------------------------------------------------------------
 
   async handleAgentDisconnect(agentId: string): Promise<void> {
-    log.warn("agent disconnected", { agentId });
+    log.warn("agent disconnected", { messageId: crypto.randomUUID(), agentId });
 
     for (const [, team] of this.teams) {
       if (!team.members.some((m) => m.agentId === agentId)) continue;
@@ -376,7 +387,7 @@ export class MeshOrchestrator {
       this.agentSubscriptions.delete(agentId);
     }
 
-    log.info("agent disconnect handled", { agentId });
+    log.info("agent disconnect handled", { messageId: crypto.randomUUID(), agentId });
   }
 
   createError(
@@ -405,7 +416,6 @@ export class MeshOrchestrator {
     context?: string,
     _timeoutSec?: number
   ): Promise<void> {
-    log.info("handoff", { from: fromAgentId, to: toAgentId });
     const message: P2PMessage = {
       id: crypto.randomUUID(),
       type: "task_request",
@@ -419,6 +429,7 @@ export class MeshOrchestrator {
         priority: "normal",
       },
     };
+    log.info("handoff", { messageId: message.id, from: fromAgentId, to: toAgentId });
     await this.messageBus.send(message);
   }
 
@@ -428,7 +439,6 @@ export class MeshOrchestrator {
     content: string,
     priority: "low" | "normal" | "high" | "urgent" = "normal"
   ): Promise<void> {
-    log.info("sendMessage", { from: fromAgentId, to: toAgentId, priority });
     const message: P2PMessage = {
       id: crypto.randomUUID(),
       type: "question",
@@ -438,6 +448,7 @@ export class MeshOrchestrator {
       payload: { question: content },
       metadata: { priority },
     };
+    log.info("sendMessage", { messageId: message.id, from: fromAgentId, to: toAgentId, priority });
     await this.messageBus.send(message);
   }
 
@@ -455,10 +466,12 @@ export class MeshOrchestrator {
     text: string,
     attachments?: ContextAttachmentDTO[]
   ): Promise<MultiSendResult> {
+    const meshSendMessageId = crypto.randomUUID();
     const targetDesc = targets
       .map((t) => `${t.agentId}:${t.sessionId}`)
       .join(", ");
     log.info("mesh:send", {
+      messageId: meshSendMessageId,
       targetCount: targets.length,
       targets: targetDesc,
     });
@@ -489,12 +502,14 @@ export class MeshOrchestrator {
 
     if (targets.length === 0) {
       log.warn("fanout: no active sessions found", {
+        messageId: crypto.randomUUID(),
         requestedAgentIds: agentIds,
       });
       return { results: [] };
     }
 
     log.info("fanout", {
+      messageId: crypto.randomUUID(),
       agentCount: agentIds.length,
       resolvedTargetCount: targets.length,
     });
@@ -513,7 +528,7 @@ export class MeshOrchestrator {
     success: boolean;
     steps: Array<{ target: SendTarget; status: string; error?: string }>;
   }> {
-    log.info("pipelineSend", { targetCount: targets.length });
+    log.info("pipelineSend", { messageId: crypto.randomUUID(), targetCount: targets.length });
     const context = this.buildContext(attachments);
     return this.pipelineExecutor.execute(targets, { text, context });
   }
@@ -537,6 +552,7 @@ export class MeshOrchestrator {
     if (!team) throw new Error(`Team ${teamId} not found`);
 
     log.info("supervise", {
+      messageId: crypto.randomUUID(),
       teamId,
       leadAgentId: leadTarget.agentId,
       leadSessionId: leadTarget.sessionId,

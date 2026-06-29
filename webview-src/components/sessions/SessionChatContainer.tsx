@@ -616,6 +616,20 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                       )}
                     </>
                   )}
+                  {/* Passthrough items — compression, mode_change, etc. that
+                      arrived after this group's turn and before the next user
+                      message. Rendered after finalResponse to preserve order. */}
+                  {group.passthrough.map((item, idx) => (
+                    <DisplayItemView
+                      key={item.key}
+                      item={item}
+                      idx={idx}
+                      items={group.passthrough}
+                      sessionId={sessionId}
+                      agentId={agentId}
+                      isNew={newKeys.has(item.key)}
+                    />
+                  ))}
                 </React.Fragment>
               );
             })}
@@ -710,6 +724,23 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                 isNew={newKeys.has(item.key)}
               />
             ))}
+
+            {/* Latest group passthrough — compression, mode_change, etc. that
+                arrived after the latest turn but before a new user message.
+                Rendered at the end to preserve chronological order. */}
+            {latestGroup?.passthrough && latestGroup.passthrough.length > 0 && (
+              latestGroup.passthrough.map((item, idx) => (
+                <DisplayItemView
+                  key={item.key}
+                  item={item}
+                  idx={idx}
+                  items={latestGroup.passthrough}
+                  sessionId={sessionId}
+                  agentId={agentId}
+                  isNew={newKeys.has(item.key)}
+                />
+              ))
+            )}
 
             {isStreaming && (
               <div className="py-1">

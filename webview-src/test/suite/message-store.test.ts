@@ -521,7 +521,7 @@ describe("messageStore", () => {
       assert.strictEqual(state.perSession["session-1"][1].content, " new segment");
     });
 
-    it("appendStreamChunks creates new messages after boundary", () => {
+    it("appendStreamChunks creates new joined message after boundary", () => {
       const msg = makeMessage({
         role: "agent",
         agentId: "agent-1",
@@ -533,7 +533,9 @@ describe("messageStore", () => {
         .getState()
         .appendStreamChunks("session-1", "agent-1", "sess-A", ["chunk1", "chunk2"]);
       const state = useMessageStore.getState();
-      assert.strictEqual(state.perSession["session-1"].length, 3);
+      // Chunks are joined into a single new ChatMessage, not one per chunk
+      assert.strictEqual(state.perSession["session-1"].length, 2);
+      assert.strictEqual(state.perSession["session-1"][1].content, "chunk1chunk2");
     });
 
     it("boundary is created by tool_call completion then blocks next text", () => {

@@ -1,5 +1,6 @@
 import type { Message, MessageRole } from "../models/message";
 import { StateManager } from "./state-manager";
+import { getLogger } from "../../platform/backends";
 
 export interface RoutingResult {
   handled: boolean;
@@ -29,6 +30,13 @@ export class MessageRouterService {
       { sessionId: message.sessionId, messageId: message.id }
     );
     this.stateManager.applyEvent(event);
+
+    getLogger("message-router").debug("route", {
+      sessionId: message.sessionId,
+      messageId: message.id,
+      role: message.role,
+      handled,
+    });
 
     return { handled, sessionId: message.sessionId, message };
   }

@@ -172,21 +172,19 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>((set
         // 4. No merge target — create a new ChatMessage.
         const writeSeq = useFileWriteStore.getState().currentSeq();
         const id = messageId ?? crypto.randomUUID();
-        newMessages = existing;
-        for (const chunk of chunks) {
-          newMessages = [
-            ...newMessages,
-            {
-              id,
-              role: "agent",
-              content: chunk,
-              timestamp: Date.now(),
-              agentId,
-              sessionId,
-              writeSeq,
-            },
-          ];
-        }
+        const merged = chunks.join("");
+        newMessages = [
+          ...existing,
+          {
+            id,
+            role: "agent",
+            content: merged,
+            timestamp: Date.now(),
+            agentId,
+            sessionId,
+            writeSeq,
+          },
+        ];
       }
 
       return {

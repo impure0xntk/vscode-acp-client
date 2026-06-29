@@ -82,9 +82,12 @@ export class PromptExecution {
       finalText = builder.buildUserPrompt({ text, mode: "direct", inboundMessage: lastInbound });
     }
 
+    const turnMessageId = crypto.randomUUID();
+    sessionInfo.lastTurnMessageId = turnMessageId;
     log.info("sending prompt", {
       agentId,
       sessionId,
+      messageId: turnMessageId,
       textLen: finalText.length,
       contextBlocks: context?.length ?? 0,
       meshInjected: builder !== undefined && text.length > 0,
@@ -124,11 +127,11 @@ export class PromptExecution {
       this.deps.sessionState.clearStreamText(sKey);
       this.deps.sessionState.clearStreamMsgRef(sKey);
 
-      log.info("turn completed", { agentId, sessionId, tokens: sessionInfo.tokenUsage, stopReason });
+      log.info("turn completed", { agentId, sessionId, messageId: turnMessageId, tokens: sessionInfo.tokenUsage, stopReason });
     } catch (e) {
       sessionInfo.lastTurnOutcome = "error";
       sessionInfo.isStreaming = false;
-      log.warn("turn error", { agentId, sessionId, error: e instanceof Error ? e.message : String(e) });
+      log.warn("turn error", { agentId, sessionId, messageId: turnMessageId, error: e instanceof Error ? e.message : String(e) });
       throw e;
     } finally {
       sessionInfo.status = "idle";
@@ -240,7 +243,8 @@ export class PromptExecution {
     const reinjectionText = builder.buildReinjection(lastInbound);
     if (!reinjectionText) return;
 
-    log.info("scheduling reinjection after context compression", { agentId, sessionId });
+    const sessionInfo = this.deps.sessionState.getSessionInfo(agentId, sessionId);
+    log.info("scheduling reinjection after context compression", { agentId, sessionId, messageId: sessionInfo?.lastTurnMessageId });
 
     const entry: QueuedPrompt = {
       id: crypto.randomUUID(),

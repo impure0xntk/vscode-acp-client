@@ -24,6 +24,13 @@ export interface AgentResponseGroup {
   currentStep: IntermediateStep | null;
   /** All file edits in this turn, merged across steps — shown below final response */
   turnFileEditSummary?: FileEditEntry[];
+  /**
+   * Non-chat/non-tool items that appear between the previous user message
+   * and this group's user message (compression, mode_change, error_notice,
+   * custom). These are rendered before the user message to preserve
+   * chronological order without being dropped by splitIntoSteps.
+   */
+  passthrough: PipelineItem[];
 }
 
 export interface GroupedItems {
@@ -722,6 +729,7 @@ export function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
         }
       : null),
     turnFileEditSummary: latestTurnSummary,
+    passthrough: [],
   };
 
   const groups: AgentResponseGroup[] = [];
@@ -757,12 +765,25 @@ export function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
       useFileWriteStore.getState().getWritesForSession(turnSession.agentId, turnSession.sessionId)
     ) ?? undefined;
 
+    // Non-agent/tool items between two user messages: compression, mode_change,
+    // error_notice, custom. These were splitIntoSteps input but silently dropped
+    // because splitIntoSteps only emits IntermediateStep for chat-agent/tool items.
+    // Collect them as passthrough so they render between groups.
+    const passthrough = finalIdx >= 0
+      ? groupItems.filter(
+          (item) =>
+            item.key !== final!.item.key &&
+            !turnAgentChats.find((ac) => ac.key === item.key)
+        )
+      : groupItems.filter((item) => !isAgentOrTool(item));
+
     groups.push({
       userItem: items[startIdx],
       steps,
       finalResponse: final,
       currentStep: null,
       turnFileEditSummary: turnSummary,
+      passthrough,
     });
   }
 

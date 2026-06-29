@@ -29,6 +29,7 @@ export class MessageBus {
 
   async send(message: P2PMessage): Promise<void> {
     log.debug("send", {
+      messageId: message.id,
       from: message.from,
       to: message.to,
       type: message.type,
@@ -47,7 +48,7 @@ export class MessageBus {
     if (handlers && handlers.size > 0) {
       await this.dispatchToSet(handlers, message);
     } else {
-      log.debug("no subscriber, queuing", { to: message.to });
+      log.debug("no subscriber, queuing", { messageId: message.id, to: message.to });
       await this.queue(message);
     }
   }
@@ -136,7 +137,7 @@ export class MessageBus {
       } catch (e) {
         log.error(
           "handler error",
-          { to: message.to, type: message.type },
+          { messageId: message.id, to: message.to, type: message.type },
           e as Error
         );
       }

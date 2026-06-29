@@ -236,7 +236,9 @@ export class SessionLifecycle {
     const replayable = messages.filter((m) => m.role === "user" || m.role === "agent");
     if (replayable.length === 0) return 0;
 
-    this.deps.emit("sessionReplayStart", { agentId, sessionId, total: replayable.length });
+    const replayId = crypto.randomUUID();
+    log.info("replay started", { agentId, sessionId, replayId, total: replayable.length });
+    this.deps.emit("sessionReplayStart", { agentId, sessionId, replayId, total: replayable.length });
 
     let replayed = 0;
     for (const msg of replayable) {
@@ -248,7 +250,7 @@ export class SessionLifecycle {
           `replay message ${msg.id}`
         );
         replayed++;
-        this.deps.emit("sessionReplayProgress", { agentId, sessionId, index: replayed, total: replayable.length });
+        this.deps.emit("sessionReplayProgress", { agentId, sessionId, replayId, index: replayed, total: replayable.length });
       } catch (e) {
         log.warn("replay message failed", {
           agentId,
@@ -259,7 +261,8 @@ export class SessionLifecycle {
       }
     }
 
-    this.deps.emit("sessionReplayComplete", { agentId, sessionId, replayed });
+    this.deps.emit("sessionReplayComplete", { agentId, sessionId, replayId, replayed });
+    log.info("replay completed", { agentId, sessionId, replayId, replayed, total: replayable.length });
     return replayed;
   }
 

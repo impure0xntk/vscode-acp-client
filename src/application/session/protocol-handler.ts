@@ -69,6 +69,7 @@ export class ProtocolHandler {
     }
 
     const text = batch.text;
+    const batchMessageId = batch.messageId ?? undefined;
     if (!text) {
       this.pendingTextBatch.delete(sKey);
       return;
@@ -83,7 +84,8 @@ export class ProtocolHandler {
       this.deps.emit("sessionStreamStart", { agentId, sessionId });
     }
 
-    this.deps.emit("sessionStreamChunk", { agentId, sessionId, chunk: text, messageId: batch.messageId ?? undefined });
+    log.debug("flushTextBatch", { agentId, sessionId, messageId: batchMessageId, chunkLen: text.length });
+    this.deps.emit("sessionStreamChunk", { agentId, sessionId, chunk: text, messageId: batchMessageId });
     sessionInfo.lastResponseAt = new Date().toISOString();
   }
 
@@ -98,6 +100,7 @@ export class ProtocolHandler {
       sessionInfo.isStreaming = true;
       this.deps.emit("sessionStreamStart", { agentId, sessionId });
     }
+    log.debug("emitImmediateChunk", { agentId, sessionId, messageId, chunkLen: text.length });
     this.deps.emit("sessionStreamChunk", { agentId, sessionId, chunk: text, messageId });
     sessionInfo.lastResponseAt = new Date().toISOString();
   }
@@ -326,6 +329,7 @@ export class ProtocolHandler {
       agentId,
       sessionId,
       toolCallId: newCall.id,
+      messageId: (u.messageId as string | null) ?? undefined,
       title: newCall.title,
       kind: newCall.kind,
       status: newCall.status,
@@ -378,6 +382,7 @@ export class ProtocolHandler {
             agentId,
             sessionId,
             toolCallId: tc.id,
+            messageId: (u.messageId as string | null) ?? undefined,
             status: tc.status,
             outputSummary,
             hasDiff: tcDiff !== undefined,

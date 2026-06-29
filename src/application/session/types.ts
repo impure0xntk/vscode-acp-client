@@ -32,6 +32,8 @@ export interface AppSessionInfo extends SessionInfo {
   _prevContextUsed?: number;
   /** Messages in the session — used for fork/replay operations */
   messages: ChatMessage[];
+  /** Last turn's messageId — used for log correlation across turn lifecycle */
+  lastTurnMessageId?: string;
 }
 
 export interface AutoConnectEntry {

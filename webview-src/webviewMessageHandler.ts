@@ -657,9 +657,10 @@ function handleSessionStreamStart(data: SessionStreamStart): void {
       batch.rafId = null;
     }
     const accumulated = batch.chunks;
+    const batchMessageId = batch.messageId;
     streamBatchMap.delete(msgKey);
     batch.chunks = [];
-    useMessageStore.getState().appendStreamChunks(msgKey, data.agentId, data.sessionId, accumulated);
+    useMessageStore.getState().appendStreamChunks(msgKey, data.agentId, data.sessionId, accumulated, batchMessageId);
   }
 }
 

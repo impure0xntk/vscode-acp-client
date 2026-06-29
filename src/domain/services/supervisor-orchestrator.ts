@@ -150,7 +150,8 @@ export class SupervisorOrchestrator {
     };
 
     this.plans.set(planId, plan);
-    log.info("plan created", { planId, teamId, plannerAgentId });
+    const stepMessageId = crypto.randomUUID();
+    log.info("plan created", { planId, stepMessageId, teamId, plannerAgentId });
 
     const plannerTarget: SendTarget = {
       agentId: plannerAgentId,
@@ -167,7 +168,7 @@ export class SupervisorOrchestrator {
         false
       );
     } catch (e) {
-      log.error("planner request failed", { planId }, e as Error);
+      log.error("planner request failed", { planId, stepMessageId }, e as Error);
       plan.status = "failed";
       plan.updatedAt = new Date().toISOString();
       this.syncPlanToWebview(plan);
@@ -260,10 +261,12 @@ export class SupervisorOrchestrator {
     workerTargets: SendTarget[],
     task: string
   ): Promise<void> {
+    const executionMessageId = crypto.randomUUID();
     log.info("executePlanFromUserRequest", {
       teamId,
       leadAgentId: leadTarget.agentId,
       workerCount: workerTargets.length,
+      messageId: executionMessageId,
     });
 
     const planId = crypto.randomUUID();
@@ -305,7 +308,7 @@ export class SupervisorOrchestrator {
       plan.steps[0].status = "completed";
       plan.steps[0].completedAt = plan.completedAt;
     } catch (e) {
-      log.error("executePlanFromUserRequest failed", { planId, teamId }, e as Error);
+      log.error("executePlanFromUserRequest failed", { planId, teamId, messageId: executionMessageId }, e as Error);
       plan.status = "failed";
       plan.updatedAt = new Date().toISOString();
       plan.steps[0].status = "failed";
@@ -329,7 +332,7 @@ export class SupervisorOrchestrator {
     plan.approvedAt = now;
     plan.updatedAt = now;
 
-    log.info("plan approved", { planId });
+    log.info("plan approved", { planId, messageId: crypto.randomUUID() });
     this.syncPlanToWebview(plan);
 
     await this.executePlan(planId);
@@ -345,7 +348,7 @@ export class SupervisorOrchestrator {
     plan.status = "rejected";
     plan.updatedAt = new Date().toISOString();
 
-    log.info("plan rejected", { planId });
+    log.info("plan rejected", { planId, messageId: crypto.randomUUID() });
     this.syncPlanToWebview(plan);
   }
 
@@ -379,7 +382,7 @@ export class SupervisorOrchestrator {
 
     this.cancelTaskBoardEntries(plan);
 
-    log.info("plan cancelled", { planId });
+    log.info("plan cancelled", { planId, messageId: crypto.randomUUID() });
     this.syncPlanToWebview(plan);
   }
 
@@ -404,9 +407,11 @@ export class SupervisorOrchestrator {
     plan.updatedAt = new Date().toISOString();
     this.syncPlanToWebview(plan);
 
+    const executionMessageId = crypto.randomUUID();
     log.info("plan execution started", {
       planId,
       stepCount: plan.steps.length,
+      messageId: executionMessageId,
     });
 
     this.runningTasks.set(planId, new Set());
@@ -434,6 +439,7 @@ export class SupervisorOrchestrator {
         if (failStep) {
           log.warn("step failed, attempting replan", {
             planId,
+            messageId: executionMessageId,
             stepId: failStep.id,
             error: firstFail.error,
           });
@@ -450,7 +456,7 @@ export class SupervisorOrchestrator {
               return this.buildResult(planId, overallStatus, stepResults);
             }
           } catch (e) {
-            log.error("replan failed", { planId }, e as Error);
+            log.error("replan failed", { planId, stepId: failStep.id }, e as Error);
           }
         }
 
@@ -490,6 +496,7 @@ export class SupervisorOrchestrator {
 
     log.info("plan execution completed", {
       planId,
+      messageId: executionMessageId,
       status: plan.status,
       completedCount: stepResults.filter((r) => r.status === "completed")
         .length,
@@ -511,8 +518,10 @@ export class SupervisorOrchestrator {
     step: PlanStep
   ): Promise<PlanExecutionResult["stepResults"][number]> {
     const startedAt = Date.now();
+    const stepMessageId = crypto.randomUUID();
     step.status = "in_progress";
     step.startedAt = new Date().toISOString();
+    log.info("step started", { planId: plan.id, stepId: step.id, messageId: stepMessageId });
     this.syncStepToWebview(plan.id, step.id, {
       status: "in_progress",
       startedAt: step.startedAt,
@@ -590,6 +599,7 @@ export class SupervisorOrchestrator {
 
       if (running) running.delete(taskId);
 
+      log.info("step completed", { planId: plan.id, stepId: step.id, messageId: stepMessageId, durationMs: Date.now() - startedAt });
       this.syncStepToWebview(plan.id, step.id, {
         status: "completed",
         completedAt: step.completedAt,
@@ -610,6 +620,7 @@ export class SupervisorOrchestrator {
 
       if (running) running.delete(taskId);
 
+      log.warn("step failed", { planId: plan.id, stepId: step.id, messageId: stepMessageId, error: step.error, durationMs: Date.now() - startedAt });
       this.syncStepToWebview(plan.id, step.id, {
         status: "failed",
         error: step.error,
@@ -695,7 +706,7 @@ export class SupervisorOrchestrator {
     const plan = this.plans.get(planId);
     if (!plan) throw new Error(`Plan ${planId} not found`);
 
-    log.info("replan initiated", { planId, failedStepId, reason });
+    log.info("replan initiated", { planId, failedStepId, reason, messageId: crypto.randomUUID() });
 
     const failedStep = plan.steps.find((s) => s.id === failedStepId);
     if (!failedStep) return null;
@@ -755,7 +766,7 @@ export class SupervisorOrchestrator {
 
       return newPlan;
     } catch (e) {
-      log.error("replan failed", { planId }, e as Error);
+      log.error("replan failed", { planId, failedStepId }, e as Error);
       return null;
     }
   }
