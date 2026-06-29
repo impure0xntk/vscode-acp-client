@@ -217,6 +217,7 @@ function toPipelineItem(
           timestamp: ts,
           agentId: msg.agentId,
           sessionId: msg.sessionId,
+          messageId: msg.id,
           resolvedToolCalls: resolveToolCalls(msg),
           attachments: resolveAttachments(msg, _config),
           renderContext,
@@ -271,16 +272,23 @@ export function annotateMessages(
 
     // After tool execution completes, the next agent message is a new
     // logical step — it must show its header.  We detect this boundary
-    // when the immediately preceding item carries resolvedToolCalls
-    // (merged from tool messages) and the current message is an agent.
+    // when:
+    // 1. The immediately preceding item carries resolvedToolCalls
+    //    (merged from tool messages) and the current message is an agent.
+    // 2. The preceding agent message has __stepBoundary (set by
+    //    closeCurrentAgentMessage when a new tool_call arrives).
+    // 3. The current agent message itself has __stepBoundary.
+    const prevItem = items.length > 0 ? items[items.length - 1] : null;
+    const prevHadToolCalls =
+      prevItem != null &&
+      prevItem.type === "chat" &&
+      (prevItem as ChatDisplayItem).resolvedToolCalls != null &&
+      (prevItem as ChatDisplayItem).resolvedToolCalls!.length > 0;
     const isToolCallBoundary =
       msg.role === "agent" &&
       (previousItemHadToolCalls ||
-        (items.length > 0 &&
-          items[items.length - 1].type === "chat" &&
-          (items[items.length - 1] as ChatDisplayItem).resolvedToolCalls &&
-          (items[items.length - 1] as ChatDisplayItem).resolvedToolCalls!
-            .length > 0));
+        prevHadToolCalls ||
+        msg.__stepBoundary === true);
     if (isToolCallBoundary) {
       prevGroupKey = "";
     }

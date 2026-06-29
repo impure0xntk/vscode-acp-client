@@ -87,6 +87,12 @@ export interface ChatDisplayItem {
   agentId?: string;
   /** Session identifier — used to scope file write lookups per session */
   sessionId?: string;
+  /**
+   * ACP SDK messageId — identifies the logical message this item belongs to.
+   * Used by splitIntoSteps to detect whether a new agent message belongs to
+   * the same step (same messageId) or starts a new step (different messageId).
+   */
+  messageId?: string;
   /** Resolved tool calls carried over from merge stage */
   resolvedToolCalls?: ResolvedToolCall[];
   /** Resolved context attachments */

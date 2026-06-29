@@ -177,6 +177,7 @@ export function IntermediateStepsBanner({
               step={step}
               sessionId={sessionId}
               agentId={agentId}
+              forceHeader={true}
               onAttachDiff={onAttachDiff}
             />
           ))}

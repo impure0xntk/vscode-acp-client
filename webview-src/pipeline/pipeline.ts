@@ -126,6 +126,10 @@ export class MessagePipeline {
           );
           if (reannotated.length > 0) {
             this.cache[this.cache.length - 1] = reannotated[0];
+            // Return a new array reference so React re-renders.
+            // Without this, the tool calls absorbed into the last cached
+            // item are invisible because React sees the same array ref.
+            return [...this.cache];
           }
         }
       }
@@ -271,6 +275,8 @@ export class MessagePipeline {
           );
           if (reannotated.length > 0) {
             this.cache[this.cache.length - 1] = reannotated[0];
+            // Return a new array reference so React re-renders.
+            return [...this.cache];
           }
         }
       }

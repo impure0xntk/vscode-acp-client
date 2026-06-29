@@ -306,6 +306,27 @@ describe("messageStore", () => {
       );
     });
 
+    it("skips __stepBoundary when no unboundary agent exists", () => {
+      // When the only agent message has __stepBoundary, updateLastAgentMessage
+      // skips it (since it's an intermediate step, not the final response).
+      const msgs = [
+        makeMessage({ role: "user", content: "q" }),
+        makeMessage({ role: "agent", content: "intermediate", __stepBoundary: true }),
+        makeMessage({ role: "tool", content: "tool result" }),
+      ];
+      useMessageStore.getState().setMessages("session-1", msgs);
+      useMessageStore.getState().updateLastAgentMessage("session-1", {
+        stopReason: "cancelled",
+      });
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.perSession["session-1"].length, 3);
+      // The agent with __stepBoundary is skipped, so no message gets stopReason
+      assert.strictEqual(
+        state.perSession["session-1"][1].stopReason,
+        undefined
+      );
+    });
+
     it("updates the last tool message when no agent message exists", () => {
       const msgs = [
         makeMessage({ role: "user", content: "q" }),
@@ -423,6 +444,273 @@ describe("messageStore", () => {
       const state = useMessageStore.getState();
       assert.strictEqual(state.perSession["session-1"][0].content, "A");
       assert.strictEqual(state.perSession["session-2"][0].content, "b");
+    });
+  });
+
+  // ── closeCurrentAgentMessage ─────────────────────────────────────
+
+  describe("closeCurrentAgentMessage", () => {
+    it("marks the last in-progress agent message as step boundary", () => {
+      const msgs = [
+        makeMessage({ role: "agent", content: "first text", id: "m1" }),
+        makeMessage({ role: "tool", content: "", id: "m2" }),
+        makeMessage({ role: "agent", content: "second text", id: "m3" }),
+      ];
+      useMessageStore.getState().setMessages("session-1", msgs);
+      useMessageStore.getState().closeCurrentAgentMessage("session-1");
+      const state = useMessageStore.getState();
+      // m3 is the last in-progress agent → gets __stepBoundary
+      assert.strictEqual(state.perSession["session-1"][2].__stepBoundary, true);
+      // m1 is untouched (it is behind a tool message, not the last)
+      assert.strictEqual(state.perSession["session-1"][0].__stepBoundary, undefined);
+    });
+
+    it("does nothing when no in-progress agent message exists", () => {
+      const msgs = [
+        makeMessage({ role: "agent", content: "done", stopReason: "end_turn" }),
+      ];
+      useMessageStore.getState().setMessages("session-1", msgs);
+      useMessageStore.getState().closeCurrentAgentMessage("session-1");
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.perSession["session-1"][0].__stepBoundary, undefined);
+    });
+
+    it("is a no-op for empty session", () => {
+      useMessageStore.getState().closeCurrentAgentMessage("empty-key");
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.perSession["empty-key"], undefined);
+    });
+  });
+
+  // ── __stepBoundary prevents chunk merging ─────────────────────────
+
+  describe("__stepBoundary blocks merge", () => {
+    it("appendStreamChunk creates new message after boundary", () => {
+      const msg = makeMessage({
+        role: "agent",
+        agentId: "agent-1",
+        content: "first segment",
+        __stepBoundary: true,
+      });
+      useMessageStore.getState().setMessages("session-1", [msg]);
+      useMessageStore
+        .getState()
+        .appendStreamChunk("session-1", "agent-1", "sess-A", " new segment");
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.perSession["session-1"].length, 2);
+      assert.strictEqual(state.perSession["session-1"][0].content, "first segment");
+      assert.strictEqual(state.perSession["session-1"][1].content, " new segment");
+    });
+
+    it("appendStreamChunks creates new messages after boundary", () => {
+      const msg = makeMessage({
+        role: "agent",
+        agentId: "agent-1",
+        content: "first segment",
+        __stepBoundary: true,
+      });
+      useMessageStore.getState().setMessages("session-1", [msg]);
+      useMessageStore
+        .getState()
+        .appendStreamChunks("session-1", "agent-1", "sess-A", ["chunk1", "chunk2"]);
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.perSession["session-1"].length, 3);
+    });
+
+    it("boundary is created by tool_call completion then blocks next text", () => {
+      // Simulate: agent text → tool_call → tool completes → new agent text
+      const agentMsg = makeMessage({
+        role: "agent",
+        agentId: "agent-1",
+        content: "analyzing...",
+        id: "agent-1",
+      });
+      const toolMsg = makeMessage({
+        role: "tool",
+        id: "tool-1",
+      });
+      useMessageStore.getState().setMessages("session-1", [agentMsg, toolMsg]);
+
+      // Tool completes → closeCurrentAgentMessage marks agent-1
+      useMessageStore.getState().closeCurrentAgentMessage("session-1");
+
+      // Next text chunk should create a NEW agent message
+      useMessageStore
+        .getState()
+        .appendStreamChunk("session-1", "agent-1", "sess-A", " result");
+
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.perSession["session-1"].length, 3);
+      assert.strictEqual(state.perSession["session-1"][0].__stepBoundary, true);
+      assert.strictEqual(state.perSession["session-1"][0].content, "analyzing...");
+      assert.strictEqual(state.perSession["session-1"][2].content, " result");
+    });
+
+    it("stopReason clears __stepBoundary on the final message", () => {
+      // Set up: intermediate step (with boundary) + final agent message
+      const msgs = [
+        makeMessage({
+          role: "agent",
+          agentId: "agent-1",
+          content: "intermediate",
+          __stepBoundary: true,
+          id: "intermediate",
+        }),
+        makeMessage({
+          role: "agent",
+          agentId: "agent-1",
+          content: "final",
+          id: "final",
+        }),
+      ];
+      useMessageStore.getState().setMessages("session-1", msgs);
+
+      // turnEnded stamps stopReason on the LAST non-boundary agent message
+      useMessageStore.getState().updateLastAgentMessage("session-1", {
+        stopReason: "end_turn",
+        __stepBoundary: false,
+      });
+
+      const state = useMessageStore.getState();
+      // The final message (id=final) gets stopReason + boundary cleared
+      assert.strictEqual(state.perSession["session-1"][1].stopReason, "end_turn");
+      assert.strictEqual(state.perSession["session-1"][1].__stepBoundary, false);
+      // The intermediate message keeps its __stepBoundary
+      assert.strictEqual(state.perSession["session-1"][0].__stepBoundary, true);
+      assert.strictEqual(state.perSession["session-1"][0].stopReason, undefined);
+    });
+
+    it("getLastAgentMessage skips stepBoundary messages", () => {
+      const msgs = [
+        makeMessage({ role: "agent", content: "first", __stepBoundary: true }),
+        makeMessage({ role: "tool", content: "" }),
+        makeMessage({ role: "agent", content: "current", id: "current" }),
+      ];
+      useMessageStore.getState().setMessages("session-1", msgs);
+      const last = useMessageStore.getState().getLastAgentMessage("session-1");
+      assert.ok(last);
+      assert.strictEqual(last!.id, "current");
+    });
+  });
+
+  // ── messageId-based merge ─────────────────────────────────────────
+
+  describe("messageId-based merge", () => {
+    it("appendStreamChunk merges into existing message with same messageId across __stepBoundary", () => {
+      // Simulate: agent text (id=m1) → tool_call → more text with same id=m1
+      const msg = makeMessage({
+        role: "agent",
+        agentId: "agent-1",
+        content: "first part",
+        id: "m1",
+        __stepBoundary: true,
+      });
+      useMessageStore.getState().setMessages("session-1", [msg]);
+
+      // Same messageId → should merge even though __stepBoundary is set
+      useMessageStore
+        .getState()
+        .appendStreamChunk("session-1", "agent-1", "sess-A", " second part", "m1");
+
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.perSession["session-1"].length, 1);
+      assert.strictEqual(
+        state.perSession["session-1"][0].content,
+        "first part second part"
+      );
+    });
+
+    it("appendStreamChunk creates new message when messageId differs", () => {
+      const msg = makeMessage({
+        role: "agent",
+        agentId: "agent-1",
+        content: "first",
+        id: "m1",
+        __stepBoundary: true,
+      });
+      useMessageStore.getState().setMessages("session-1", [msg]);
+
+      // Different messageId → new message
+      useMessageStore
+        .getState()
+        .appendStreamChunk("session-1", "agent-1", "sess-A", "second", "m2");
+
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.perSession["session-1"].length, 2);
+      assert.strictEqual(state.perSession["session-1"][0].content, "first");
+      assert.strictEqual(state.perSession["session-1"][1].content, "second");
+      assert.strictEqual(state.perSession["session-1"][1].id, "m2");
+    });
+
+    it("appendStreamChunks merges all chunks into same messageId target", () => {
+      const msg = makeMessage({
+        role: "agent",
+        agentId: "agent-1",
+        content: "Hello",
+        id: "m1",
+        __stepBoundary: true,
+      });
+      useMessageStore.getState().setMessages("session-1", [msg]);
+
+      useMessageStore
+        .getState()
+        .appendStreamChunks("session-1", "agent-1", "sess-A", [" W", "orld"], "m1");
+
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.perSession["session-1"].length, 1);
+      assert.strictEqual(state.perSession["session-1"][0].content, "Hello World");
+    });
+
+    it("messageId merge skips tool messages in between", () => {
+      // agent(m1) → tool → agent(m1 again, same logical message)
+      const msgs = [
+        makeMessage({ role: "agent", content: "analyzing", id: "m1" }),
+        makeMessage({ role: "tool", content: "result", id: "t1" }),
+      ];
+      useMessageStore.getState().setMessages("session-1", msgs);
+
+      // closeCurrentAgentMessage marks m1 as boundary
+      useMessageStore.getState().closeCurrentAgentMessage("session-1");
+
+      // Same messageId m1 → merge into the first agent message
+      useMessageStore
+        .getState()
+        .appendStreamChunk("session-1", "agent-1", "sess-A", " complete", "m1");
+
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.perSession["session-1"].length, 2);
+      assert.strictEqual(state.perSession["session-1"][0].content, "analyzing complete");
+      assert.strictEqual(state.perSession["session-1"][1].content, "result");
+    });
+
+    it("messageId=null falls back to normal merge logic", () => {
+      const msg = makeMessage({
+        role: "agent",
+        agentId: "agent-1",
+        content: "first",
+        id: "m1",
+      });
+      useMessageStore.getState().setMessages("session-1", [msg]);
+
+      // No messageId → normal merge into last agent
+      useMessageStore
+        .getState()
+        .appendStreamChunk("session-1", "agent-1", "sess-A", " second", null);
+
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.perSession["session-1"].length, 1);
+      assert.strictEqual(state.perSession["session-1"][0].content, "first second");
+    });
+
+    it("new message uses messageId as id when creating from scratch", () => {
+      useMessageStore
+        .getState()
+        .appendStreamChunk("session-1", "agent-1", "sess-A", "Hello", "new-id");
+
+      const state = useMessageStore.getState();
+      assert.strictEqual(state.perSession["session-1"].length, 1);
+      assert.strictEqual(state.perSession["session-1"][0].id, "new-id");
+      assert.strictEqual(state.perSession["session-1"][0].content, "Hello");
     });
   });
 

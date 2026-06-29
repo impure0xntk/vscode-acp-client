@@ -2,101 +2,82 @@ import type { ClassifiedMessage, MergeConfig } from "../types";
 import type { ToolCall } from "../../types";
 
 /**
- * Merging strategy that always promotes tool messages to "agent" role.
+ * Merging strategy that absorbs tool messages into the preceding agent message.
  *
- * Tool messages are NEVER merged into preceding agent messages. Instead,
- * each tool message is promoted to role="agent" and emitted as a separate
- * item BEFORE the following agent message. This ensures that:
- *  1. Tool calls between two agent messages form their own step
- *     (grouped with the following agent message, not the preceding one).
- *  2. Each tool call is rendered as its own ToolCallCard within a
- *     ToolBatchSummary, rather than all calls being absorbed into a
- *     single agent message's resolvedToolCalls.
- *  3. The pipeline correctly produces separate intermediate steps for
- *     sequences like: User → Tool1 → Agent1 → Tool2 → Agent2.
+ * Tool messages are merged (absorbed) into the preceding agent message's
+ * toolCalls array. This implements the desired step boundary semantics:
+ * "once a tool call comes, merge tokens after it until interrupted; after
+ * interruption, subsequent tokens form the next step."
+ *
+ * The step boundary is controlled by __stepBoundary in the message store:
+ * - When a NEW tool_call arrives at the message store, closeCurrentAgentMessage()
+ *   marks the preceding agent message with __stepBoundary=true.
+ * - The merge stage sees __stepBoundary on agent messages and starts a new step.
  *
  * Only "info" classified messages participate in merging.
  * System-kind messages (compression, mode_change, etc.) pass through and
  * reset the merge state — they act as grouping boundaries.
  */
 export class ToolMergeStrategy {
-  /** The last tool message that has not yet been flushed. */
-  private pendingTool: ClassifiedMessage | null = null;
+  /** The last agent message that tool calls should be absorbed into. */
+  private pendingAgent: ClassifiedMessage | null = null;
 
   /**
-   * Merge tool messages — always promote tool messages to "agent" role.
+   * Merge tool messages — absorb tool messages into the preceding agent message.
    */
   merge(messages: ClassifiedMessage[], _config: MergeConfig): ClassifiedMessage[] {
     const result: ClassifiedMessage[] = [];
-    this.pendingTool = null;
+    this.pendingAgent = null;
 
     for (const msg of messages) {
       // Non-info messages pass through and reset merge state (grouping boundary).
       if (msg.systemKind !== "info") {
-        this.flushPending(result, msg);
+        this.flushPending(result);
         result.push(msg);
         continue;
       }
 
       if (msg.role === "tool") {
-        // Flush any existing pending tool first (each tool message is separate).
-        if (this.pendingTool) {
-          this.promoteAndPush(result, this.pendingTool);
+        // Absorb tool calls into the pending agent message (or create a
+        // standalone tool entry if no agent message precedes it).
+        if (this.pendingAgent) {
+          this.absorbToolCalls(this.pendingAgent, msg);
+        } else {
+          // No preceding agent message — emit as a standalone tool entry.
+          result.push(msg);
         }
-        // Inherit agentId from the nearest preceding non-tool message so
-        // that the annotate stage produces the same groupKey as subsequent
-        // agent messages from the same agent.
-        const lastNonTool = this.findLastNonTool(result);
-        const inheritedAgentId = lastNonTool?.agentId ?? msg.agentId;
-        this.pendingTool = { ...msg, agentId: inheritedAgentId };
-      } else if (msg.role === "agent" && this.pendingTool) {
-        // Agent after a pending tool — emit the tool as a separate
-        // promoted-tool item BEFORE the agent message.
-        this.promoteAndPush(result, this.pendingTool);
+      } else if (msg.role === "agent") {
+        this.flushPending(result);
+        // If the preceding agent has __stepBoundary, this agent starts a new step.
+        // We keep them as separate entries — the grouping stage handles step splitting.
         result.push(msg);
-        this.pendingTool = null;
+        // Always set as pending agent for subsequent tool absorption.
+        // __stepBoundary controls whether the NEXT agent message is consecutive,
+        // not whether tool calls are absorbed into this agent.
+        this.pendingAgent = msg;
       } else {
         // Any other message — pass through.
+        this.flushPending(result);
         result.push(msg);
-        this.pendingTool = null;
       }
     }
 
-    // Flush any remaining pending tool
-    if (this.pendingTool) {
-      this.promoteAndPush(result, this.pendingTool);
-    }
-
+    this.flushPending(result);
     return result;
   }
 
-  private promoteAndPush(result: ClassifiedMessage[], msg: ClassifiedMessage): void {
-    result.push({
-      ...msg,
-      role: "agent" as const,
-      originalRole: "tool" as const,
-    });
-  }
-
-  private flushPending(result: ClassifiedMessage[], _next: ClassifiedMessage): void {
-    if (this.pendingTool) {
-      this.promoteAndPush(result, this.pendingTool);
-      this.pendingTool = null;
-    }
-  }
-
   /**
-   * Find the last non-tool message in the result array.
-   * Skips promoted tool messages (role=agent, originalRole=tool) so that
-   * tool calls are always associated with the following agent message,
-   * not a preceding promoted tool.
+   * Absorb tool message's toolCalls into the pending agent message.
    */
-  private findLastNonTool(messages: ClassifiedMessage[]): ClassifiedMessage | null {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const m = messages[i];
-      if (m.role !== "tool" && m.originalRole !== "tool") return m;
-    }
-    return null;
+  private absorbToolCalls(agent: ClassifiedMessage, toolMsg: ClassifiedMessage): void {
+    const existingCalls = agent.toolCalls ?? [];
+    const newCalls = toolMsg.toolCalls ?? [];
+    agent.toolCalls = [...existingCalls, ...newCalls];
+  }
+
+  private flushPending(result: ClassifiedMessage[]): void {
+    // No-op: tool calls are absorbed in-place into the agent message.
+    this.pendingAgent = null;
   }
 }
 
@@ -113,6 +94,8 @@ export function mergeToolBatches(
 
 /**
  * Deduplicate tool calls by id, preserving latest status.
+ * Note: This is no longer called in the merge path (tools are absorbed,
+ * not promoted). Kept for backward compatibility and tests.
  */
 export function deduplicateToolCalls(calls: ToolCall[]): ToolCall[] {
   const seen = new Map<string, ToolCall>();

@@ -275,8 +275,8 @@ export class ChatPanel {
     }
   }
 
-  pushStreamChunk(agentId: string, sessionId: string, chunk: string): void {
-    this.postMessage({ type: "session/stream", agentId, sessionId, chunk });
+  pushStreamChunk(agentId: string, sessionId: string, chunk: string, messageId?: string): void {
+    this.postMessage({ type: "session/stream", agentId, sessionId, chunk, messageId });
   }
 
   pushStreamEnd(agentId: string, sessionId: string): void {

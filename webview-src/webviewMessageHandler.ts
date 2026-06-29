@@ -44,15 +44,19 @@ let pendingSnapshotKey: string | null = null;
 interface StreamBatch {
   chunks: string[];
   rafId: number | null;
+  messageId?: string | null;
 }
 
 const streamBatchMap = new Map<string, StreamBatch>();
 
-function scheduleStreamFlush(msgKey: string, agentId: string, sessionId: string, chunk: string): void {
+function scheduleStreamFlush(msgKey: string, agentId: string, sessionId: string, chunk: string, messageId?: string): void {
   let batch = streamBatchMap.get(msgKey);
   if (!batch) {
-    batch = { chunks: [], rafId: null };
+    batch = { chunks: [], rafId: null, messageId: messageId ?? null };
     streamBatchMap.set(msgKey, batch);
+  } else if (batch.messageId == null && messageId != null) {
+    // Persist messageId for this batch window if not yet set.
+    batch.messageId = messageId;
   }
   batch.chunks.push(chunk);
 
@@ -66,7 +70,7 @@ function scheduleStreamFlush(msgKey: string, agentId: string, sessionId: string,
       b.rafId = null;
 
       // Single Zustand update for all accumulated chunks
-      useMessageStore.getState().appendStreamChunks(msgKey, agentId, sessionId, accumulated);
+      useMessageStore.getState().appendStreamChunks(msgKey, agentId, sessionId, accumulated, b.messageId);
       const store = useSessionStore.getState();
       const existing = store.sessionInfoMap[msgKey];
       if (existing && existing.status === "running") {
@@ -108,6 +112,8 @@ interface SessionStream {
   agentId: string;
   sessionId: string;
   chunk: string;
+  /** ACP SDK messageId — identifies the logical message this chunk belongs to. */
+  messageId?: string;
 }
 
 interface SessionStreamStart {
@@ -629,7 +635,7 @@ function handleSessionStreamStart(data: SessionStreamStart): void {
 
 function handleSessionStream(data: SessionStream): void {
   const msgKey = sessionKeyOf(data.agentId, data.sessionId);
-  scheduleStreamFlush(msgKey, data.agentId, data.sessionId, data.chunk);
+  scheduleStreamFlush(msgKey, data.agentId, data.sessionId, data.chunk, data.messageId);
 }
 
 function handleSessionStreamEnd(data: SessionStreamEnd): void {
@@ -641,9 +647,10 @@ function handleSessionStreamEnd(data: SessionStreamEnd): void {
       batch.rafId = null;
     }
     const accumulated = batch.chunks;
+    const messageId = batch.messageId;
     streamBatchMap.delete(msgKey);
     batch.chunks = [];
-    useMessageStore.getState().appendStreamChunks(msgKey, data.agentId, data.sessionId, accumulated);
+    useMessageStore.getState().appendStreamChunks(msgKey, data.agentId, data.sessionId, accumulated, messageId);
   }
   useMessageStore.getState().setStreaming(msgKey, false);
   const existing = useSessionStore.getState().sessionInfoMap[msgKey];
@@ -788,8 +795,11 @@ function handleSessionTurnEnded(data: SessionTurnEnded): void {
   // Stamp stopReason onto the last agent message in the message store so
   // the pipeline's groupByUserBoundary can use it as the authoritative
   // signal for the final response boundary.
+  // Clear __stepBoundary on the message that receives stopReason — it is
+  // the final response of the turn, not an intermediate step.
   useMessageStore.getState().updateLastAgentMessage(key, {
     stopReason: data.stopReason,
+    __stepBoundary: false,
   });
 
   // Clear the messageStore streaming flag so the blinking cursor in
@@ -1117,10 +1127,18 @@ function handlePlanUpdate(data: PlanUpdateMessage): void {
   sessionStore.setCurrentPlan(data.plan);
   sessionStore.setIsPlanning(false);
 
-  // Replace the planning indicator with a plan summary in the chat
-  const activeKey = sessionStore.activeSessionKey;
-  if (activeKey) {
-    const messages = useMessageStore.getState().perSession[activeKey];
+  // Replace the planning indicator with a plan summary in the chat.
+  // Determine the correct session key: if the plan has a teamId, look up
+  // the team lead's session; otherwise fall back to the active session.
+  let targetKey: string | null = sessionStore.activeSessionKey;
+  if (data.plan.teamId) {
+    const team = useMeshStore.getState().teams.find((t) => t.id === data.plan.teamId);
+    if (team) {
+      targetKey = sessionKeyOf(team.lead.agentId, team.lead.sessionId);
+    }
+  }
+  if (targetKey) {
+    const messages = useMessageStore.getState().perSession[targetKey];
     if (messages) {
       const idx = messages.findIndex(
         (m) => m.planMeta?.planStatus === "draft" && !m.planMeta?.isPlanRequest,
@@ -1135,7 +1153,7 @@ function handlePlanUpdate(data: PlanUpdateMessage): void {
             planStatus: data.plan.status,
           },
         };
-        useMessageStore.getState().updateMessage(activeKey, idx, updated);
+        useMessageStore.getState().updateMessage(targetKey, idx, updated);
       }
     }
   }
@@ -1294,6 +1312,19 @@ function handleSessionNotification(data: SessionNotificationMessage): void {
       }
     }
 
+    // NEW step boundary logic: when a new tool_call arrives, close the
+    // current agent message so subsequent stream chunks form a new step.
+    // This implements "once a tool call comes, merge tokens after it until
+    // interrupted; after interruption, subsequent tokens form the next step".
+    // The tool call itself becomes a separate message that the merge stage
+    // will promote and pair with the preceding agent message as one step.
+    log.debug("handleSessionNotification: tool_call — closing current agent message", {
+      msgKey,
+      tcId,
+      tcKind,
+    });
+    useMessageStore.getState().closeCurrentAgentMessage(msgKey);
+
     // Each tool_call notification creates its own tool message.
     // This ensures that tool calls arriving between different agent messages
     // are kept as separate PipelineItems, so they can be correctly grouped
@@ -1311,11 +1342,13 @@ function handleSessionNotification(data: SessionNotificationMessage): void {
   } else if (su === "tool_call_update") {
     // Update an existing tool call in the message store
     const tcId = update.toolCallId as string;
+    const rawStatus = update.status as string | null;
+    const newStatus = normalizeToolStatus(rawStatus);
     const store = useMessageStore.getState();
     const existingMsgs = store.perSession[msgKey];
     if (!existingMsgs) return;
 
-    log.debug("handleSessionNotification: tool_call_update", { msgKey, tcId });
+    log.debug("handleSessionNotification: tool_call_update", { msgKey, tcId, status: newStatus });
 
     for (let i = existingMsgs.length - 1; i >= 0; i--) {
       const m = existingMsgs[i];
@@ -1349,6 +1382,12 @@ function handleSessionNotification(data: SessionNotificationMessage): void {
         break;
       }
     }
+
+    // Note: we do NOT close the agent message on tool_call_update.
+    // The step boundary is set when a NEW tool_call arrives (above),
+    // not when an existing call completes.  This implements the desired
+    // semantics: "once a tool call comes, merge tokens after it until
+    // interrupted; after interruption, subsequent tokens form the next step".
   }
 }
 
@@ -1471,7 +1510,27 @@ export function setupMessageHandlers(): void {
         break;
       case "mesh:plan": {
         // Append the user's plan request to the chat so it is visible in context
-        const activeKey = useSessionStore.getState().activeSessionKey;
+        const sessionStore = useSessionStore.getState();
+        let activeKey = sessionStore.activeSessionKey;
+
+        // In supervisor mode with a team, switch to the lead agent's session
+        // so the plan request/response is visible in the Supervisor view
+        // (otherwise messages go to the UnifiedMode's active session).
+        if (data.teamId) {
+          const team = useMeshStore.getState().teams.find((t) => t.id === data.teamId);
+          if (team) {
+            const leadKey = sessionKeyOf(team.lead.agentId, team.lead.sessionId);
+            if (activeKey !== leadKey) {
+              log.info("mesh:plan: switching to lead session", { from: activeKey, to: leadKey });
+              sessionStore.setActiveSession(leadKey);
+              activeKey = leadKey;
+            }
+            // Auto-focus the lead session so the chat is visible in Supervisor view
+            sessionStore.setSupervisorViewMode("focus");
+            sessionStore.setSupervisorFocusSession(leadKey);
+          }
+        }
+
         if (activeKey && data.text) {
           const [agentId, sessionId] = activeKey.split(":");
           useMessageStore.getState().appendMessage(activeKey, {

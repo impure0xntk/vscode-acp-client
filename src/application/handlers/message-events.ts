@@ -100,11 +100,11 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
 
   orchestrator.on(
     "sessionStreamChunk",
-    (event: { agentId: string; sessionId: string; chunk: string }) => {
-      const { agentId, sessionId, chunk } = event;
+    (event: { agentId: string; sessionId: string; chunk: string; messageId?: string }) => {
+      const { agentId, sessionId, chunk, messageId } = event;
       const cp = getChatPanel();
       if (cp) {
-        cp.pushStreamChunk(agentId, sessionId, chunk);
+        cp.pushStreamChunk(agentId, sessionId, chunk, messageId);
       }
     }
   );

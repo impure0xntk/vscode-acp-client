@@ -49,6 +49,18 @@ function promotedToolMsg(content: string, overrides: Partial<ChatDisplayItem> = 
   };
 }
 
+function rawToolMsg(content: string, overrides: Partial<ChatDisplayItem> = {}): ChatDisplayItem {
+  return {
+    type: "chat", role: "tool", agentId: "a1", content,
+    key: nextKey("raw-tool"), timestamp: Date.now(), isConsecutive: true,
+    groupKey: "tool:a1", attachments: [], thinking: undefined,
+    resolvedToolCalls: [{
+      id: `tc-${content}`, title: content, kind: "generic", status: "completed",
+      input: undefined, output: undefined, durationMs: undefined, locations: undefined, diffContent: undefined,
+    }], ...overrides,
+  };
+}
+
 function classifiedMsg(
   role: "user" | "agent" | "tool" | "system",
   content: string,
@@ -277,27 +289,33 @@ describe("splitIntoSteps", () => {
     assert.strictEqual(steps[0].toolCalls.length, 2);
   });
 
-  it("pre-agent tool calls attach to next agent step", () => {
+  it("pre-agent tool calls remain as independent pre-agent step", () => {
     const t1 = promotedToolMsg("tool1");
     const a = agentMsg("response");
     const steps = splitIntoSteps([t1, a], null);
-    // Pre-agent tool attaches to the next agent's step
-    assert.strictEqual(steps.length, 1);
-    assert.strictEqual(steps[0].isPreAgent, false);
-    assert.strictEqual(steps[0].agentMessage, a);
+    // Pre-agent tool is its own step (not absorbed into next agent)
+    assert.strictEqual(steps.length, 2);
+    assert.strictEqual(steps[0].isPreAgent, true);
+    assert.strictEqual(steps[0].agentMessage, null);
     assert.strictEqual(steps[0].toolCalls.length, 1);
+    assert.strictEqual(steps[1].isPreAgent, false);
+    assert.strictEqual(steps[1].agentMessage, a);
+    assert.strictEqual(steps[1].toolCalls.length, 0);
   });
 
-  it("pre-agent tools accumulate and attach to next agent", () => {
+  it("pre-agent tools accumulate as single pre-agent step", () => {
     const t1 = promotedToolMsg("tool1");
     const t2 = promotedToolMsg("tool2");
     const a = agentMsg("response");
     const steps = splitIntoSteps([t1, t2, a], null);
-    // Both tools attach to agent's step
-    assert.strictEqual(steps.length, 1);
-    assert.strictEqual(steps[0].isPreAgent, false);
-    assert.strictEqual(steps[0].agentMessage, a);
+    // Both tools form one pre-agent step, agent is separate
+    assert.strictEqual(steps.length, 2);
+    assert.strictEqual(steps[0].isPreAgent, true);
+    assert.strictEqual(steps[0].agentMessage, null);
     assert.strictEqual(steps[0].toolCalls.length, 2);
+    assert.strictEqual(steps[1].isPreAgent, false);
+    assert.strictEqual(steps[1].agentMessage, a);
+    assert.strictEqual(steps[1].toolCalls.length, 0);
   });
 
   it("two agent messages yield two steps", () => {
@@ -319,40 +337,93 @@ describe("splitIntoSteps", () => {
     assert.strictEqual(steps[0].agentMessage, a1);
   });
 
-  it("thinking before agent attaches to agent step", () => {
+  it("thinking before agent becomes independent step (pre-agent thinking)", () => {
     const think = thinkingItem("thinking...");
     const a = agentMsg("response");
     const steps = splitIntoSteps([think, a], null);
-    // Thinking + agent should be in the same step
-    assert.strictEqual(steps.length, 1);
-    assert.strictEqual(steps[0].agentMessage, a);
-    assert.ok(steps[0].toolCalls.length >= 1);
+    // Thinking is pre-agent → its own step; agent is separate
+    assert.strictEqual(steps.length, 2);
+    assert.strictEqual(steps[0].isPreAgent, true);
+    assert.strictEqual(steps[0].agentMessage, null);
+    assert.strictEqual(steps[0].toolCalls.length, 1);
+    assert.strictEqual(steps[1].isPreAgent, false);
+    assert.strictEqual(steps[1].agentMessage, a);
+    assert.strictEqual(steps[1].toolCalls.length, 0);
   });
 
-  it("User → Tool(1) → Agent(msg) → Tool(2) → Tool(3) yields correct steps", () => {
-    const tool1 = promotedToolMsg("tool1");
-    const agent = agentMsg("working", { isConsecutive: false });
-    const tool2 = promotedToolMsg("tool2");
-    const tool3 = promotedToolMsg("tool3");
+  it("pre-agent tools form independent step, not attached to next agent", () => {
+    // tool1 + tool2 before agent → pre-agent step, agent is separate
+    const t1 = promotedToolMsg("tool1");
+    const t2 = promotedToolMsg("tool2");
+    const a = agentMsg("response");
+    const steps = splitIntoSteps([t1, t2, a], null);
+    assert.strictEqual(steps.length, 2);
+    assert.ok(steps[0].isPreAgent);
+    assert.strictEqual(steps[0].agentMessage, null);
+    assert.strictEqual(steps[0].toolCalls.length, 2);
+    assert.ok(!steps[1].isPreAgent);
+    assert.strictEqual(steps[1].agentMessage, a);
+    assert.strictEqual(steps[1].toolCalls.length, 0);
+  });
+
+  it("pre-agent raw tool (role='tool') becomes independent pre-agent step", () => {
+    // Raw tool: role="tool" (not absorbed by merge because no preceding agent).
+    // isPromotedTool now matches role="tool", so splitIntoSteps treats it
+    // the same as a promoted tool (role="agent", originalRole="tool").
+    const rawTool = rawToolMsg("ls output");
+    const agent = agentMsg("done!", { isConsecutive: false });
+    const steps = splitIntoSteps([rawTool, agent], null);
+    assert.strictEqual(steps.length, 2);
+    assert.strictEqual(steps[0].isPreAgent, true);
+    assert.strictEqual(steps[0].agentMessage, null);
+    assert.strictEqual(steps[0].toolCalls.length, 1);
+    assert.strictEqual(steps[0].toolCalls[0].role, "tool");
+    assert.strictEqual(steps[0].toolCalls[0].content, "ls output");
+    assert.strictEqual(steps[1].isPreAgent, false);
+    assert.strictEqual(steps[1].agentMessage, agent);
+    assert.strictEqual(steps[1].toolCalls.length, 0);
+  });
+
+  it("raw tool (role='tool') after agent is absorbed into agent step", () => {
+    const agentMsg1 = agentMsg("thinking", { isConsecutive: false });
+    const rawTool = rawToolMsg("bash output");
+    const steps = splitIntoSteps([agentMsg1, rawTool], null);
+    assert.strictEqual(steps.length, 1);
+    assert.strictEqual(steps[0].agentMessage, agentMsg1);
+    assert.strictEqual(steps[0].toolCalls.length, 1);
+    assert.strictEqual(steps[0].toolCalls[0].role, "tool");
+  });
+
+  it("User → RawTool → Agent: grouping creates pre-agent step for raw tool", () => {
+    const rawTool = rawToolMsg("grep result");
+    const agent = agentMsg("分析結果です", { isConsecutive: false });
     const items: PipelineItem[] = [
-      userMsg("do it"), tool1, agent, tool2, tool3,
+      userMsg("コードを検索して"), rawTool, agent,
     ];
     const { latestGroup } = new IntermediateStepGrouper(items).compute();
     assert.ok(latestGroup);
     // Agent is non-consecutive → selected as final
     assert.ok(latestGroup.finalResponse);
-    assert.strictEqual((latestGroup.finalResponse.item as ChatDisplayItem).content, "working");
-    // tool1 is BEFORE the final agent → intermediate step (pre-agent, since
-    // the final agent is excluded from intermediate items).
-    // tool2 + tool3 are AFTER the final agent → they form the currentStep
-    // (final response + subsequent tool calls), NOT an intermediate step.
+    assert.strictEqual(
+      (latestGroup.finalResponse.item as ChatDisplayItem).content,
+      "分析結果です"
+    );
+    // raw tool is BEFORE the final agent → pre-agent intermediate step
     assert.strictEqual(latestGroup.steps.length, 1);
     assert.ok(latestGroup.steps[0].isPreAgent);
-    assert.strictEqual(latestGroup.steps[0].toolCalls.length, 1); // only tool1
-    // currentStep = agent + tool2 + tool3
-    assert.ok(latestGroup.currentStep);
-    assert.strictEqual(latestGroup.currentStep!.agentMessage, agent);
-    assert.strictEqual(latestGroup.currentStep!.toolCalls.length, 2); // tool2 + tool3
+    assert.strictEqual(latestGroup.steps[0].toolCalls.length, 1);
+    assert.strictEqual(latestGroup.steps[0].toolCalls[0].role, "tool");
+    assert.strictEqual(latestGroup.steps[0].toolCalls[0].content, "grep result");
+  });
+
+  it("raw tool (role='tool') is never selected as final response", () => {
+    // isRealAgentChat requires role="agent" && originalRole !== "tool".
+    // Raw tool has role="tool", so it must not be selected as final.
+    const rawTool = rawToolMsg("orphan tool output");
+    const agent = agentMsg("answer", { isConsecutive: false });
+    const result = selectFinalResponse([rawTool, agent]);
+    assert.ok(result);
+    assert.strictEqual((result.item as ChatDisplayItem).content, "answer");
   });
 
   it("User → Tool(1) → Agent(msg) → Tool(2) → Tool(3) with no final yields correct steps", () => {
@@ -378,19 +449,7 @@ describe("splitIntoSteps", () => {
     assert.strictEqual(latestGroup.currentStep!.toolCalls.length, 2); // tool2 + tool3
   });
 
-  it("pre-agent tools attach to next agent, not separate steps", () => {
-    // tool1 + tool2 before agent → both attach to agent's step
-    const t1 = promotedToolMsg("tool1");
-    const t2 = promotedToolMsg("tool2");
-    const a = agentMsg("response");
-    const steps = splitIntoSteps([t1, t2, a], null);
-    assert.strictEqual(steps.length, 1);
-    assert.ok(!steps[0].isPreAgent);
-    assert.strictEqual(steps[0].agentMessage, a);
-    assert.strictEqual(steps[0].toolCalls.length, 2);
-  });
-
-  it("pre-agent tools attach to next agent (no final)", () => {
+  it("pre-agent tools form independent step (no final)", () => {
     // Same scenario but within IntermediateStepGrouper
     const t1 = promotedToolMsg("tool1");
     const t2 = promotedToolMsg("tool2");
@@ -399,11 +458,11 @@ describe("splitIntoSteps", () => {
     const { latestGroup } = new IntermediateStepGrouper(items).compute();
     assert.ok(latestGroup);
     // Agent a is final — excluded from steps.
-    // t1 + t2 are before the agent → they become a pre-agent step
-    // (the final agent is excluded, so pre-agent tools have no agent to attach to)
+    // t1 + t2 are before the agent → independent pre-agent step
     assert.ok(latestGroup.finalResponse);
     assert.strictEqual(latestGroup.steps.length, 1);
     assert.ok(latestGroup.steps[0].isPreAgent);
+    assert.strictEqual(latestGroup.steps[0].agentMessage, null);
     assert.strictEqual(latestGroup.steps[0].toolCalls.length, 2);
   });
 
@@ -448,6 +507,85 @@ describe("splitIntoSteps", () => {
     assert.strictEqual(peeled, currentStep);
     assert.strictEqual(peeled!.agentMessage, finalAgent);
     assert.strictEqual(peeled!.toolCalls.length, 2);
+  });
+});
+
+// ── splitIntoSteps messageId boundary ────────────────────────────────────────
+
+describe("splitIntoSteps messageId boundary", () => {
+  it("same messageId merges into existing step instead of creating new one", () => {
+    // Agent1(msgX) → Tool1 → Agent1(msgX, same logical message)
+    const a1 = agentMsg("first part", { isConsecutive: false, messageId: "msgX" });
+    const tool1 = promotedToolMsg("tool1");
+    const a2 = agentMsg("second part", { isConsecutive: true, messageId: "msgX" });
+    const steps = splitIntoSteps([a1, tool1, a2], null);
+    // Both agent messages share the same messageId → one step with merged content
+    assert.strictEqual(steps.length, 1);
+    assert.strictEqual(steps[0].agentMessage?.content, "first partsecond part");
+    assert.strictEqual(steps[0].toolCalls.length, 1);
+  });
+
+  it("different messageId creates separate steps", () => {
+    // Agent1(msgX) → Tool1 → Agent2(msgY, different logical message)
+    const a1 = agentMsg("first", { isConsecutive: false, messageId: "msgX" });
+    const tool1 = promotedToolMsg("tool1");
+    const a2 = agentMsg("second", { isConsecutive: true, messageId: "msgY" });
+    const steps = splitIntoSteps([a1, tool1, a2], null);
+    // Different messageIds → two steps
+    assert.strictEqual(steps.length, 2);
+    assert.strictEqual(steps[0].agentMessage?.content, "first");
+    assert.strictEqual(steps[1].agentMessage?.content, "second");
+  });
+
+  it("same messageId in currentAgent merges without flushing", () => {
+    // Two consecutive agent items with same messageId, no tools in between
+    const a1 = agentMsg("part 1", { isConsecutive: false, messageId: "msgA" });
+    const a2 = agentMsg("part 2", { isConsecutive: true, messageId: "msgA" });
+    const steps = splitIntoSteps([a1, a2], null);
+    // Same messageId → merges into current agent, no new step
+    assert.strictEqual(steps.length, 1);
+    assert.strictEqual(steps[0].agentMessage?.content, "part 1part 2");
+  });
+
+  it("different messageId without tools creates two steps", () => {
+    const a1 = agentMsg("first", { isConsecutive: false, messageId: "id1" });
+    const a2 = agentMsg("second", { isConsecutive: true, messageId: "id2" });
+    const steps = splitIntoSteps([a1, a2], null);
+    // Different messageId → new step even without tools
+    assert.strictEqual(steps.length, 2);
+    assert.strictEqual(steps[0].agentMessage?.content, "first");
+    assert.strictEqual(steps[1].agentMessage?.content, "second");
+  });
+
+  it("missing messageId falls back to default behavior", () => {
+    // No messageId → each agent chat creates a new step
+    const a1 = agentMsg("first", { isConsecutive: false });
+    const a2 = agentMsg("second", { isConsecutive: true });
+    const steps = splitIntoSteps([a1, a2], null);
+    assert.strictEqual(steps.length, 2);
+  });
+
+  it("same messageId merges with tools into correct step", () => {
+    // Full scenario: Agent1(msg1) → Tool1 → Agent1(msg1) → Tool2 → Agent2(msg2)
+    const a1 = agentMsg("analyzing", { isConsecutive: false, messageId: "m1" });
+    const t1 = promotedToolMsg("grep");
+    const a2 = agentMsg(" complete", { isConsecutive: true, messageId: "m1" });
+    const t2 = promotedToolMsg("read");
+    const a3 = agentMsg("done", { isConsecutive: false, messageId: "m2" });
+    const steps = splitIntoSteps([a1, t1, a2, t2, a3], null);
+    // Step 1: Agent(m1, "analyzing complete") + Tool1(grep) + Tool2(read)
+    // Step 2: Agent(m2, "done")
+    assert.strictEqual(steps.length, 2);
+    assert.strictEqual(steps[0].agentMessage?.content, "analyzing complete");
+    assert.strictEqual(steps[0].toolCalls.length, 2);
+    assert.strictEqual(steps[1].agentMessage?.content, "done");
+  });
+
+  it("empty messageId is treated as missing (no merge)", () => {
+    const a1 = agentMsg("first", { isConsecutive: false, messageId: "" });
+    const a2 = agentMsg("second", { isConsecutive: true, messageId: "" });
+    const steps = splitIntoSteps([a1, a2], null);
+    assert.strictEqual(steps.length, 2);
   });
 });
 

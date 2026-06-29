@@ -15,7 +15,7 @@ import type {
   TriggerType,
 } from "../../types";
 import type { SlashCommand, SessionTabState } from "../../store/sessionStore";
-import { useSessionStore } from "../../store/sessionStore";
+import { useSessionStore, sessionKeyOf } from "../../store/sessionStore";
 import { useMessageStore } from "../../store/messageStore";
 import { useMeshStore } from "../../store/meshStore";
 import { getVsCodeApi } from "../../lib/vscodeApi";
@@ -942,6 +942,44 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
           textLen: trimmed.length,
           teamId: selectedTeam.id,
         });
+        // Display user message immediately in Supervisor view so it is
+        // visible on the Supervisor side without waiting for the extension
+        // host to echo it back through ACP (which may never happen for
+        // planner agents that only return plan updates).
+        const team = useMeshStore
+          .getState()
+          .teams.find((t) => t.id === selectedTeam.id);
+        if (team) {
+          const leadKey = sessionKeyOf(team.lead.agentId, team.lead.sessionId);
+          const sessionStore = useSessionStore.getState();
+          sessionStore.setActiveSession(leadKey);
+          sessionStore.setSupervisorViewMode("focus");
+          sessionStore.setSupervisorFocusSession(leadKey);
+          const msgStore = useMessageStore.getState();
+          msgStore.appendMessage(leadKey, {
+            id: crypto.randomUUID(),
+            role: "user",
+            content: trimmed,
+            timestamp: Date.now(),
+            agentId: team.lead.agentId,
+            sessionId: team.lead.sessionId,
+            planMeta: { isPlanRequest: true, teamId: selectedTeam.id },
+          });
+          msgStore.appendMessage(leadKey, {
+            id: `plan-indicator-${Date.now()}`,
+            role: "system",
+            content: "Planning...",
+            timestamp: Date.now(),
+            agentId: team.lead.agentId,
+            sessionId: team.lead.sessionId,
+            planMeta: {
+              isPlanRequest: false,
+              planStatus: "draft",
+              teamId: selectedTeam.id,
+            },
+          });
+          sessionStore.setIsPlanning(true, null);
+        }
         getVsCodeApi().postMessage({
           type: "mesh:plan",
           text: trimmed,

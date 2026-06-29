@@ -143,6 +143,14 @@ export interface ChatMessage {
    * Used by grouping.ts to partition file writes per step.
    */
   writeSeq?: number;
+  /**
+   * Internal flag: marks the end of an intermediate step boundary.
+   * Set when a tool_call completes — subsequent stream chunks create a NEW
+   * ChatMessage instead of merging into this one.  This ensures that text
+   * segments separated by tool calls become distinct intermediate steps.
+   * Not serialized; cleared on session reset.
+   */
+  __stepBoundary?: boolean;
   /** Plan metadata — attached to user messages that request a plan */
   planMeta?: {
     /** True if this message is a plan request */

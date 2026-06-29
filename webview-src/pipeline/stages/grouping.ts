@@ -258,11 +258,15 @@ function attachStepFileEditSummaries(
 }
 
 function isPromotedTool(item: PipelineItem): boolean {
-  return (
-    item.type === "chat" &&
-    item.role === "agent" &&
-    (item as ChatDisplayItem).originalRole === "tool"
-  );
+  if (item.type !== "chat") return false;
+  const chat = item as ChatDisplayItem;
+  // Promoted tool: role="agent" with originalRole="tool" (set by merge when
+  // tool is absorbed into a preceding agent message).
+  if (chat.role === "agent" && chat.originalRole === "tool") return true;
+  // Raw tool: role="tool" — emitted as a standalone entry when no preceding
+  // agent message exists to absorb into (e.g., User → ToolCall → Agent).
+  if (chat.role === "tool") return true;
+  return false;
 }
 
 function isRealAgentChat(item: PipelineItem): boolean {
@@ -373,10 +377,19 @@ export function selectFinalResponse(
  *   (they are part of the same agent turn).
  * - The finalResponse is included as a step (not excluded) so that
  *   tool calls following it are correctly attributed to the final step.
+ *
+ * messageId boundary:
+ * - If the current agent message has a messageId and the most recent step's
+ *   agentMessage has the same messageId, the content is appended to that
+ *   step instead of starting a new one.  This handles the streaming case
+ *   where a tool_call interrupts the stream and subsequent chunks of the
+ *   same logical message arrive later.
+ * - If the messageId differs (or either is missing), a new step is created
+ *   as before.
  */
 export function splitIntoSteps(
   items: PipelineItem[],
-  finalResponse: FinalResponse | null
+  _finalResponse: FinalResponse | null
 ): IntermediateStep[] {
   const steps: IntermediateStep[] = [];
   let pendingItems: ChatDisplayItem[] = [];
@@ -415,12 +428,53 @@ export function splitIntoSteps(
         pendingItems = [item as ChatDisplayItem];
       }
     } else if (isRealAgentChat(item)) {
-      flushAgentStep();
-      if (pendingItems.length > 0) {
-        currentTools = [...pendingItems];
-        pendingItems = [];
+      const agentItem = item as ChatDisplayItem;
+      // Check if this agent message has the same messageId as the most
+      // recently flushed step's agentMessage.  If so, append content
+      // instead of starting a new step.
+      const lastStep = steps.length > 0 ? steps[steps.length - 1] : null;
+      const sameAsLastStep =
+        lastStep != null &&
+        !lastStep.isPreAgent &&
+        lastStep.agentMessage != null &&
+        agentItem.messageId != null &&
+        agentItem.messageId === lastStep.agentMessage.messageId;
+
+      if (
+        currentAgent != null &&
+        agentItem.messageId != null &&
+        agentItem.messageId === currentAgent.messageId
+      ) {
+        // Same messageId as in-progress agent → merge into current step
+        const merged: ChatDisplayItem = {
+          ...currentAgent,
+          content: currentAgent.content + agentItem.content,
+        };
+        currentAgent = merged;
+        flushPendingAsPreAgent();
+        continue;
       }
-      currentAgent = item as ChatDisplayItem;
+
+      if (sameAsLastStep && currentAgent == null) {
+        // Same messageId as the most recent step → merge content into
+        // that step and discard pending tools (they were already
+        // absorbed into the step previously).
+        const targetStep = lastStep!;
+        const mergedAgent: ChatDisplayItem = {
+          ...targetStep.agentMessage!,
+          content: targetStep.agentMessage!.content + agentItem.content,
+        };
+        steps[steps.length - 1] = {
+          ...targetStep,
+          agentMessage: mergedAgent,
+        };
+        flushPendingAsPreAgent();
+        continue;
+      }
+
+      flushAgentStep();
+      flushPendingAsPreAgent();
+      currentAgent = agentItem;
     } else if (isPromotedTool(item)) {
       if (currentAgent != null) {
         currentTools.push(item as ChatDisplayItem);

@@ -28,6 +28,8 @@ interface TextBatch {
   text: string;
   timer: ReturnType<typeof setTimeout> | null;
   chunkCount: number;
+  /** ACP SDK messageId for this message — used to merge chunks across tool boundaries. */
+  messageId?: string | null;
 }
 
 const TEXT_BATCH_FLUSH_MS = 150;
@@ -81,7 +83,7 @@ export class ProtocolHandler {
       this.deps.emit("sessionStreamStart", { agentId, sessionId });
     }
 
-    this.deps.emit("sessionStreamChunk", { agentId, sessionId, chunk: text });
+    this.deps.emit("sessionStreamChunk", { agentId, sessionId, chunk: text, messageId: batch.messageId ?? undefined });
     sessionInfo.lastResponseAt = new Date().toISOString();
   }
 
@@ -89,13 +91,14 @@ export class ProtocolHandler {
     agentId: string,
     sessionId: string,
     sessionInfo: AppSessionInfo,
-    text: string
+    text: string,
+    messageId?: string | null
   ): void {
     if (!sessionInfo.isStreaming) {
       sessionInfo.isStreaming = true;
       this.deps.emit("sessionStreamStart", { agentId, sessionId });
     }
-    this.deps.emit("sessionStreamChunk", { agentId, sessionId, chunk: text });
+    this.deps.emit("sessionStreamChunk", { agentId, sessionId, chunk: text, messageId });
     sessionInfo.lastResponseAt = new Date().toISOString();
   }
 
@@ -245,6 +248,10 @@ export class ProtocolHandler {
     const u = update as Record<string, unknown>;
     const content = u.content as Record<string, unknown> | undefined;
     const text = content?.type === "text" ? (content.text as string) : undefined;
+    // ACP SDK messageId — identifies the logical message this chunk belongs to.
+    // When a tool_call interrupts streaming, subsequent chunks with the same
+    // messageId belong to the same message and must be merged.
+    const messageId = (u.messageId as string | null) ?? null;
 
     if (!sessionInfo.isStreaming) {
       sessionInfo.isStreaming = true;
@@ -258,13 +265,17 @@ export class ProtocolHandler {
       const existing = this.pendingTextBatch.get(sKey);
       if (existing) {
         existing.text += text;
+        // Track messageId so flushTextBatch can propagate it.
+        if (messageId != null && existing.messageId == null) {
+          existing.messageId = messageId;
+        }
         existing.chunkCount++;
         if (existing.chunkCount >= TEXT_BATCH_MAX_CHUNKS) {
           this.flushTextBatch(agentId, sessionId);
         }
       } else {
-        this.emitImmediateChunk(agentId, sessionId, sessionInfo, text);
-        const batch: TextBatch = { text: "", timer: null, chunkCount: 0 };
+        this.emitImmediateChunk(agentId, sessionId, sessionInfo, text, messageId);
+        const batch: TextBatch = { text: "", timer: null, chunkCount: 0, messageId };
         batch.timer = setTimeout(() => {
           this.flushTextBatch(agentId, sessionId);
         }, TEXT_BATCH_FLUSH_MS);
