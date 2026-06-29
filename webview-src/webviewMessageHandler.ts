@@ -49,6 +49,29 @@ interface StreamBatch {
 
 const streamBatchMap = new Map<string, StreamBatch>();
 
+function flushBatch(msgKey: string, agentId: string, sessionId: string): void {
+  const batch = streamBatchMap.get(msgKey);
+  if (!batch || batch.chunks.length === 0) return;
+  if (batch.rafId != null) {
+    cancelAnimationFrame(batch.rafId);
+    batch.rafId = null;
+  }
+  const accumulated = batch.chunks;
+  const messageId = batch.messageId;
+  streamBatchMap.delete(msgKey);
+  batch.chunks = [];
+
+  useMessageStore.getState().appendStreamChunks(msgKey, agentId, sessionId, accumulated, messageId);
+  const store = useSessionStore.getState();
+  const existing = store.sessionInfoMap[msgKey];
+  if (existing && existing.status === "running") {
+    store.setSessionInfo(agentId, sessionId, {
+      ...existing,
+      lastResponseAt: new Date().toISOString(),
+    });
+  }
+}
+
 function scheduleStreamFlush(msgKey: string, agentId: string, sessionId: string, chunk: string, messageId?: string): void {
   let batch = streamBatchMap.get(msgKey);
   if (!batch) {
@@ -57,6 +80,14 @@ function scheduleStreamFlush(msgKey: string, agentId: string, sessionId: string,
   } else if (batch.messageId == null && messageId != null) {
     // Persist messageId for this batch window if not yet set.
     batch.messageId = messageId;
+  } else if (messageId != null && batch.messageId != null && messageId !== batch.messageId) {
+    // messageId changed — flush the current batch so chunks are attributed
+    // to the correct agent message.  Without this, all chunks accumulate
+    // under the first messageId and subsequent logical messages are merged
+    // into the first agent message, preventing intermediate steps.
+    flushBatch(msgKey, agentId, sessionId);
+    batch = { chunks: [], rafId: null, messageId };
+    streamBatchMap.set(msgKey, batch);
   }
   batch.chunks.push(chunk);
 
@@ -69,7 +100,6 @@ function scheduleStreamFlush(msgKey: string, agentId: string, sessionId: string,
       b.chunks = [];
       b.rafId = null;
 
-      // Single Zustand update for all accumulated chunks
       useMessageStore.getState().appendStreamChunks(msgKey, agentId, sessionId, accumulated, b.messageId);
       const store = useSessionStore.getState();
       const existing = store.sessionInfoMap[msgKey];

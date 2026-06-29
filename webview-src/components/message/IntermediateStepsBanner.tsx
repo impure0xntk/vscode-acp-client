@@ -8,6 +8,8 @@ import { Icon } from "../../lib/icons";
 import { DisplayItemView } from "./DisplayItemView";
 import { StepView } from "./StepView";
 import type { IntermediateStep, PipelineItem } from "../../pipeline";
+import type { FileEditEntry } from "../../pipeline/types";
+import { useFileEditSummaryMap } from "../../hooks/useFileEditSummaryMap";
 
 const COLLAPSE_ANIMATION_DURATION = 150;
 
@@ -21,6 +23,12 @@ export interface IntermediateStepsBannerProps {
   onToggle?: () => void;
   onExpandSettled?: () => void;
   onAttachDiff?: (attachment: import("../../types").ContextAttachment) => void;
+  /**
+   * External file edit summary map (from useFileEditSummaryMap).
+   * When provided, StepView reads summaries from this map by step index
+   * instead of step.fileEditSummary.
+   */
+  fileEditSummaryMap?: Map<number, FileEditEntry[]>;
 }
 
 function totalDurationMs(steps: IntermediateStep[]): number {
@@ -85,6 +93,7 @@ export function IntermediateStepsBanner({
   onToggle,
   onExpandSettled,
   onAttachDiff,
+  fileEditSummaryMap,
 }: IntermediateStepsBannerProps): React.ReactElement | null {
   const [isCollapsed, setIsCollapsed] = useState(
     autoCollapse ? true : forceExpanded ? false : defaultCollapsed
@@ -171,16 +180,23 @@ export function IntermediateStepsBanner({
         <div
           className={`px-1 pb-1 pt-0.5 flex flex-col gap-[1px] opacity-70${animatingCollapsed ? " animate-intermediate-steps-collapse" : " animate-intermediate-steps-expand"}`}
         >
-          {steps.map((step, idx) => (
-            <StepView
-              key={`step-${idx}`}
-              step={step}
-              sessionId={sessionId}
-              agentId={agentId}
-              forceHeader={true}
-              onAttachDiff={onAttachDiff}
-            />
-          ))}
+          {steps.map((step, idx) => {
+            // Use external fileEditSummaryMap if provided (only when step.fileEditSummary is missing)
+            const externalSummary = fileEditSummaryMap?.get(idx);
+            const stepWithSummary = externalSummary && !step.fileEditSummary
+              ? { ...step, fileEditSummary: externalSummary }
+              : step;
+            return (
+              <StepView
+                key={`step-${idx}`}
+                step={stepWithSummary}
+                sessionId={sessionId}
+                agentId={agentId}
+                forceHeader={true}
+                onAttachDiff={onAttachDiff}
+              />
+            );
+          })}
           <button
             className="flex items-center gap-1.5 w-full px-[2px] py-0.5 border-none bg-transparent text-fg-muted text-[11px] font-[var(--font-ui)] cursor-pointer text-left transition-colors duration-150 hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)] hover:text-fg-secondary focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]"
             onClick={toggle}

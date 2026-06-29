@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect, useMemo, useRef } from "react";
+import React, { memo, useCallback, useState, useEffect, useMemo, useRef } from "react";
 import { createTwoFilesPatch, parsePatch } from "diff";
 import type { FileEditEntry } from "../../pipeline/types";
 import { getVsCodeApi } from "../../lib/vscodeApi";
@@ -145,7 +145,7 @@ function useBatchStaleCheck(
   }, [agentId, sessionId, entries]);
 }
 
-export function FileEditSummary({
+function FileEditSummaryInner({
   entries,
   sessionId,
   agentId,
@@ -227,6 +227,20 @@ export function FileEditSummary({
     </div>
   );
 }
+
+function areFileEditSummaryPropsEqual(
+  prev: FileEditSummaryProps,
+  next: FileEditSummaryProps,
+): boolean {
+  return (
+    prev.entries === next.entries &&
+    prev.sessionId === next.sessionId &&
+    prev.agentId === next.agentId &&
+    prev.onAttachDiff === next.onAttachDiff
+  );
+}
+
+export const FileEditSummary = memo(FileEditSummaryInner, areFileEditSummaryPropsEqual);
 
 interface FileEditRowProps {
   entry: FileEditEntry;
@@ -330,13 +344,14 @@ function FileEditRow({
   );
 
   const canRevert = originalContent != null;
-  // Depend on storedHash (string) instead of originalContent (potentially huge string)
-  // to avoid useMemo recomputation when content reference changes
+  // Depend on storedHash + entry.writtenContent instead of originalContent
+  // (potentially huge string) to avoid useMemo recomputation when content
+  // reference changes.  storedHash uniquely identifies the content version.
   const diffContent = useMemo(
     () => isExpanded
       ? buildUnifiedDiff(originalContent ?? "", entry.path, entry.writtenContent ?? null)
       : "",
-    [isExpanded, originalContent, entry.path, entry.writtenContent, storedHash],
+    [isExpanded, storedHash, entry.path, entry.writtenContent],
   );
   const parsedDiffLines = useMemo(
     () => isExpanded ? parseDiffForRender(diffContent) : null,

@@ -600,7 +600,7 @@ describe("annotateMessages", () => {
     const chatItems = result.filter(r => r.type === "chat");
     assert.strictEqual(chatItems.length, 2);
     if (chatItems[1].type === "chat") {
-      assert.strictEqual(chatItems[1].isFirstOfTurn, false);
+      assert.strictEqual(chatItems[1].isFirstOfTurn, true);
     }
   });
 
@@ -614,9 +614,9 @@ describe("annotateMessages", () => {
     const chatItems = result.filter(r => r.type === "chat");
     assert.strictEqual(chatItems.length, 3);
     if (chatItems[1].type === "chat")
-      assert.strictEqual(chatItems[1].isFirstOfTurn, false);
+      assert.strictEqual(chatItems[1].isFirstOfTurn, true);
     if (chatItems[2].type === "chat")
-      assert.strictEqual(chatItems[2].isFirstOfTurn, true);
+      assert.strictEqual(chatItems[2].isFirstOfTurn, false);
   });
 
   it("resets when role changes (user → agent)", () => {
@@ -628,7 +628,7 @@ describe("annotateMessages", () => {
     const chatItems = result.filter(r => r.type === "chat");
     assert.strictEqual(chatItems.length, 2);
     if (chatItems[1].type === "chat") {
-      assert.strictEqual(chatItems[1].isFirstOfTurn, false);
+      assert.strictEqual(chatItems[1].isFirstOfTurn, true);
     }
   });
 
@@ -641,7 +641,7 @@ describe("annotateMessages", () => {
     const chatItems = result.filter(r => r.type === "chat");
     assert.strictEqual(chatItems.length, 2);
     if (chatItems[0].type === "chat") {
-      assert.strictEqual(chatItems[0].isFirstOfTurn, false);
+      assert.strictEqual(chatItems[0].isFirstOfTurn, true);
     }
     if (chatItems[1].type === "chat") {
       assert.strictEqual(chatItems[1].isFirstOfTurn, false);
@@ -662,10 +662,10 @@ describe("annotateMessages", () => {
     const chatItems = result.filter(r => r.type === "chat");
     assert.strictEqual(chatItems.length, 3);
     if (chatItems[1].type === "chat") {
-      assert.strictEqual(chatItems[1].isFirstOfTurn, false);
+      assert.strictEqual(chatItems[1].isFirstOfTurn, true);
     }
     if (chatItems[2].type === "chat") {
-      assert.strictEqual(chatItems[2].isFirstOfTurn, true);
+      assert.strictEqual(chatItems[2].isFirstOfTurn, false);
     }
   });
 
@@ -680,11 +680,11 @@ describe("annotateMessages", () => {
     const chatItems = result.filter(r => r.type === "chat");
     assert.strictEqual(chatItems.length, 4);
     if (chatItems[1].type === "chat")
-      assert.strictEqual(chatItems[1].isFirstOfTurn, false);
+      assert.strictEqual(chatItems[1].isFirstOfTurn, true);
     if (chatItems[2].type === "chat")
-      assert.strictEqual(chatItems[2].isFirstOfTurn, true);
+      assert.strictEqual(chatItems[2].isFirstOfTurn, false);
     if (chatItems[3].type === "chat")
-      assert.strictEqual(chatItems[3].isFirstOfTurn, true);
+      assert.strictEqual(chatItems[3].isFirstOfTurn, false);
   });
 
   it("resets after system-kind boundary", () => {
@@ -702,9 +702,9 @@ describe("annotateMessages", () => {
     const chatItems = result.filter((r) => r.type === "chat");
     assert.strictEqual(chatItems.length, 2);
     if (chatItems[0].type === "chat")
-      assert.strictEqual(chatItems[0].isFirstOfTurn, false);
+      assert.strictEqual(chatItems[0].isFirstOfTurn, true);
     if (chatItems[1].type === "chat")
-      assert.strictEqual(chatItems[1].isFirstOfTurn, false);
+      assert.strictEqual(chatItems[1].isFirstOfTurn, true);
   });
 
   it("uses initialGroupKey to detect consecutive from previous context", () => {
@@ -759,8 +759,8 @@ describe("MessagePipeline", () => {
     const chatItems = result.filter((r) => r.type === "chat");
     assert.strictEqual(chatItems.length, 3);
     if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false);
-    if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, false);
-    if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, true);
+    if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, true);
+    if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, false);
   });
 
   it("process() resets on role change (user → agent)", () => {
@@ -774,9 +774,11 @@ describe("MessagePipeline", () => {
     const result = pipeline.process(messages, defaultCtx);
     const chatItems = result.filter((r) => r.type === "chat");
     assert.strictEqual(chatItems.length, 4);
-    for (const ci of chatItems) {
-      if (ci.type === "chat") assert.strictEqual(ci.isFirstOfTurn, false);
-    }
+    // user messages: false; agent after user: true; user after agent: false; agent after user: true
+    if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
+    if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, true);  // agent after user
+    if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, false); // user
+    if (chatItems[3].type === "chat") assert.strictEqual(chatItems[3].isFirstOfTurn, true);  // agent after user
   });
 
   it("clear() resets cache", () => {
@@ -810,7 +812,7 @@ describe("MessagePipeline", () => {
     // Since a1 has a visible header (non-consecutive), a2 starts a new group
     // and must also show its header (non-consecutive). This prevents the bug
     // where the first agent message after a user message loses its header.
-    assert.strictEqual(chatItems[2].isFirstOfTurn, false);
+    assert.strictEqual(chatItems[2].isFirstOfTurn, true);
   });
 
   it("processIncremental() shows header when role changes across boundary", () => {
@@ -870,8 +872,8 @@ describe("MessagePipeline", () => {
     const chatItems = result.filter((r) => r.type === "chat");
     assert.strictEqual(chatItems.length, 3);
     if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false);
-    if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, false);
-    if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, true);
+    if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, true);
+    if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, false);
   });
 
   it("handles multi-agent conversation correctly", () => {
@@ -888,11 +890,11 @@ describe("MessagePipeline", () => {
     const chatItems = result.filter((r) => r.type === "chat");
     assert.strictEqual(chatItems.length, 6);
     if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false);
-    if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, false);
-    if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, true);
+    if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, true);
+    if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, false);
     if (chatItems[3].type === "chat") assert.strictEqual(chatItems[3].isFirstOfTurn, false);
-    if (chatItems[4].type === "chat") assert.strictEqual(chatItems[4].isFirstOfTurn, false);
-    if (chatItems[5].type === "chat") assert.strictEqual(chatItems[5].isFirstOfTurn, true);
+    if (chatItems[4].type === "chat") assert.strictEqual(chatItems[4].isFirstOfTurn, true);
+    if (chatItems[5].type === "chat") assert.strictEqual(chatItems[5].isFirstOfTurn, false);
   });
 
   // ── Extended header-omission pattern tests ──────────────────────────────
@@ -914,7 +916,7 @@ describe("MessagePipeline", () => {
       const chatItems = result.filter((r) => r.type === "chat");
       assert.strictEqual(chatItems.length, 2);
       assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
-      assert.strictEqual(chatItems[1].isFirstOfTurn, false); // agent: must show header
+      assert.strictEqual(chatItems[1].isFirstOfTurn, true); // agent: must show header
     });
 
     it("second agent chunk after non-consecutive cached agent shows new header", () => {
@@ -936,9 +938,9 @@ describe("MessagePipeline", () => {
       const chatItems = result.filter((r) => r.type === "chat");
       assert.strictEqual(chatItems.length, 3);
       assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
-      assert.strictEqual(chatItems[1].isFirstOfTurn, false); // agent1 (after user)
+      assert.strictEqual(chatItems[1].isFirstOfTurn, true); // agent1 (after user)
       // agent2: cached agent1 is non-consecutive → new group → shows header
-      assert.strictEqual(chatItems[2].isFirstOfTurn, false);
+      assert.strictEqual(chatItems[2].isFirstOfTurn, true);
       // Both share the same agent scheme but isFirstOfTurn differs
       if (chatItems[1].type === "chat" && chatItems[2].type === "chat") {
         assert.strictEqual(chatItems[1].isFirstOfTurn, true);
@@ -964,9 +966,9 @@ describe("MessagePipeline", () => {
       const chatItems = result.filter((r) => r.type === "chat");
       assert.strictEqual(chatItems.length, 4);
       assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user q1
-      assert.strictEqual(chatItems[1].isFirstOfTurn, false); // agent a1 (after user)
+      assert.strictEqual(chatItems[1].isFirstOfTurn, true); // agent a1 (after user)
       assert.strictEqual(chatItems[2].isFirstOfTurn, false); // user q2 (after agent)
-      assert.strictEqual(chatItems[3].isFirstOfTurn, false); // agent a2 (after user)
+      assert.strictEqual(chatItems[3].isFirstOfTurn, true); // agent a2 (after user)
     });
 
     it("agent streaming across three batches: first shows rest hide header", () => {
@@ -980,7 +982,7 @@ describe("MessagePipeline", () => {
         defaultCtx
       );
       const chat1 = r1.filter((r) => r.type === "chat");
-      assert.strictEqual(chat1[1].isFirstOfTurn, false); // first agent after user
+      assert.strictEqual(chat1[1].isFirstOfTurn, true); // first agent after user
 
       // Second agent chunk: the cached agent is non-first-of-turn (isFirstOfTurn=false),
       // so the new chunk must also be non-consecutive (show header) — this is the
@@ -990,7 +992,7 @@ describe("MessagePipeline", () => {
         defaultCtx
       );
       const chat2 = r2.filter((r) => r.type === "chat");
-      assert.strictEqual(chat2[2].isFirstOfTurn, false); // non-consecutive → new group
+      assert.strictEqual(chat2[2].isFirstOfTurn, true); // non-consecutive → new group
     });
 
     it("system message between turns resets turn state", () => {
@@ -1020,8 +1022,8 @@ describe("MessagePipeline", () => {
       // user, agent(a1), agent(a2) — a2 after system boundary
       assert.strictEqual(chatItems.length, 3);
       assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
-      assert.strictEqual(chatItems[1].isFirstOfTurn, false); // a1 after user
-      assert.strictEqual(chatItems[2].isFirstOfTurn, false); // a2 after system
+      assert.strictEqual(chatItems[1].isFirstOfTurn, true); // a1 after user
+      assert.strictEqual(chatItems[2].isFirstOfTurn, true); // a2 after system
     });
 
     it("does not carry turn state from non-first-of-turn cached agent to new agent (same agentId)", () => {
@@ -1040,7 +1042,7 @@ describe("MessagePipeline", () => {
 
       // Verify the cached agent is non-consecutive
       const cached = pipeline.cached.filter((r) => r.type === "chat");
-      assert.strictEqual(cached[1].isFirstOfTurn, false);
+      assert.strictEqual(cached[1].isFirstOfTurn, true);
 
       // Now add another agent message with the same agentId
       const result = pipeline.processIncremental(
@@ -1049,7 +1051,7 @@ describe("MessagePipeline", () => {
       );
       const chatItems = result.filter((r) => r.type === "chat");
       assert.strictEqual(chatItems.length, 3);
-      assert.strictEqual(chatItems[2].isFirstOfTurn, false); // must show header
+      assert.strictEqual(chatItems[2].isFirstOfTurn, true); // must show header
       // Same agent (claude).
       // The key is isFirstOfTurn=false, which ensures the header is shown.
       if (chatItems[1].type === "chat" && chatItems[2].type === "chat") {
@@ -1071,8 +1073,8 @@ describe("MessagePipeline", () => {
       );
       const chatItems = result.filter((r) => r.type === "chat");
       assert.strictEqual(chatItems.length, 2);
-      assert.strictEqual(chatItems[0].isFirstOfTurn, false); // claude
-      assert.strictEqual(chatItems[1].isFirstOfTurn, false); // codex (different agent)
+      assert.strictEqual(chatItems[0].isFirstOfTurn, true); // claude
+      assert.strictEqual(chatItems[1].isFirstOfTurn, true); // codex (different agent)
       if (chatItems[0].type === "chat" && chatItems[1].type === "chat") {
         assert.strictEqual(chatItems[0].isFirstOfTurn, true)
         assert.strictEqual(chatItems[1].isFirstOfTurn, true);
@@ -1096,7 +1098,7 @@ describe("MessagePipeline", () => {
       );
       const chatItems = result.filter((r) => r.type === "chat");
       assert.strictEqual(chatItems.length, 1);
-      assert.strictEqual(chatItems[0].isFirstOfTurn, false); // fresh start → header
+      assert.strictEqual(chatItems[0].isFirstOfTurn, true); // fresh start → header
     });
 
     it("compression item at cache end does not affect next agent header", () => {
@@ -1131,10 +1133,10 @@ describe("MessagePipeline", () => {
       // user, a1, a2
       assert.strictEqual(chatItems.length, 3);
       assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
-      assert.strictEqual(chatItems[1].isFirstOfTurn, false); // a1 after user
+      assert.strictEqual(chatItems[1].isFirstOfTurn, true); // a1 after user
       // a2: cached last non-chat is compression, last agent a1 is non-consecutive
       // so turn state resets → a2 shows header
-      assert.strictEqual(chatItems[2].isFirstOfTurn, false);
+      assert.strictEqual(chatItems[2].isFirstOfTurn, true);
     });
   });
 
@@ -1847,7 +1849,7 @@ describe("MessagePipeline", () => {
       const result = chatFirstOfTurn(input);
       assert.strictEqual(result.length, 2);
       assert.strictEqual(result[0].isFirstOfTurn, false); // user
-      assert.strictEqual(result[1].isFirstOfTurn, false); // agent after user
+      assert.strictEqual(result[1].isFirstOfTurn, true); // agent after user
     });
 
     it("User → Tool → Agent: tool (standalone) shows header, agent after it shows header", () => {
@@ -1864,7 +1866,7 @@ describe("MessagePipeline", () => {
       // user, tool, agent
       assert.strictEqual(result.length, 3);
       assert.strictEqual(result[0].isFirstOfTurn, false); // user
-      assert.strictEqual(result[1].isFirstOfTurn, false); // tool (standalone, first after user)
+      assert.strictEqual(result[1].isFirstOfTurn, true); // tool (standalone, first after user)
       assert.strictEqual(result[2].isFirstOfTurn, false); // agent (different role from tool)
     });
 
@@ -1879,7 +1881,7 @@ describe("MessagePipeline", () => {
       const result = chatFirstOfTurn(input);
       assert.strictEqual(result.length, 2);
       assert.strictEqual(result[0].isFirstOfTurn, false); // user
-      assert.strictEqual(result[1].isFirstOfTurn, false); // agent after system boundary
+      assert.strictEqual(result[1].isFirstOfTurn, true); // agent after system boundary
     });
 
     it("User → System → Tool → Agent(2): tool standalone, agent(2) shows header", () => {
@@ -1897,7 +1899,7 @@ describe("MessagePipeline", () => {
       // user, tool (standalone), agent (system is not chat)
       assert.strictEqual(result.length, 3);
       assert.strictEqual(result[0].isFirstOfTurn, false); // user
-      assert.strictEqual(result[1].isFirstOfTurn, false); // tool (standalone after system)
+      assert.strictEqual(result[1].isFirstOfTurn, true); // tool (standalone after system)
       assert.strictEqual(result[2].isFirstOfTurn, false); // agent (different role from tool)
     });
 
@@ -1914,8 +1916,8 @@ describe("MessagePipeline", () => {
       const result = chatFirstOfTurn(merged);
       assert.strictEqual(result.length, 3);
       assert.strictEqual(result[0].isFirstOfTurn, false); // user
-      assert.strictEqual(result[1].isFirstOfTurn, false); // agent(1) first agent after user
-      assert.strictEqual(result[2].isFirstOfTurn, false); // agent(2) — __stepBoundary makes this a new turn
+      assert.strictEqual(result[1].isFirstOfTurn, true); // agent(1) first agent after user
+      assert.strictEqual(result[2].isFirstOfTurn, true); // agent(2) — __stepBoundary makes this a new turn
     });
 
     it("User → Agent(1) → Tool → System → Agent(2): system boundary resets", () => {
@@ -1932,8 +1934,8 @@ describe("MessagePipeline", () => {
       const result = chatFirstOfTurn(merged);
       assert.strictEqual(result.length, 3);
       assert.strictEqual(result[0].isFirstOfTurn, false); // user
-      assert.strictEqual(result[1].isFirstOfTurn, false); // agent(1) first agent after user
-      assert.strictEqual(result[2].isFirstOfTurn, false); // agent(2) after system boundary
+      assert.strictEqual(result[1].isFirstOfTurn, true); // agent(1) first agent after user
+      assert.strictEqual(result[2].isFirstOfTurn, true); // agent(2) after system boundary
     });
   });
 
@@ -1949,7 +1951,7 @@ describe("MessagePipeline", () => {
       const chatItems = result.filter((r) => r.type === "chat");
       assert.strictEqual(chatItems.length, 2);
       if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
-      if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, false); // agent after user
+      if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, true); // agent after user
     });
 
     it("User → Tool → Agent: tool (standalone) shows header, agent shows header", () => {
@@ -1964,7 +1966,7 @@ describe("MessagePipeline", () => {
       // user, tool (standalone), agent
       assert.strictEqual(chatItems.length, 3);
       if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
-      if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, false); // tool (standalone)
+      if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, true); // tool (standalone)
       if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, false); // agent (different role)
     });
 
@@ -1979,7 +1981,7 @@ describe("MessagePipeline", () => {
       const chatItems = result.filter((r) => r.type === "chat");
       assert.strictEqual(chatItems.length, 2);
       if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
-      if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, false); // agent after system
+      if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, true); // agent after system
     });
 
     it("User → System → Tool → Agent(2): tool standalone, agent(2) shows header", () => {
@@ -1995,7 +1997,7 @@ describe("MessagePipeline", () => {
       // user, tool (standalone), agent
       assert.strictEqual(chatItems.length, 3);
       if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
-      if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, false); // tool (standalone after system)
+      if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, true); // tool (standalone after system)
       if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, false); // agent (different role)
     });
 
@@ -2012,8 +2014,8 @@ describe("MessagePipeline", () => {
       // user, agent(1) [with tool absorbed], agent(2)
       assert.strictEqual(chatItems.length, 3);
       if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
-      if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, false); // agent(1) first agent after user
-      if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, false); // agent(2) — __stepBoundary
+      if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, true); // agent(1) first agent after user
+      if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, true); // agent(2) — __stepBoundary
     });
 
     it("User → Agent(1) → Tool → System → Agent(2): system boundary resets", () => {
@@ -2030,8 +2032,8 @@ describe("MessagePipeline", () => {
       // user, agent(1) [with tool absorbed], agent(2)
       assert.strictEqual(chatItems.length, 3);
       if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
-      if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, false); // agent(1) first agent after user
-      if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, false); // agent(2) after system boundary
+      if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, true); // agent(1) first agent after user
+      if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, true); // agent(2) after system boundary
     });
   });
 });

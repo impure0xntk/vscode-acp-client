@@ -164,13 +164,14 @@ function toPipelineItem(
         ? buildRenderContext(msg)
         : undefined;
 
-      // First-of-turn: agent message at start or after a turn boundary
-      // (user message, system notice, or __stepBoundary flag).
-      const isAgent = msg.role === "agent";
+      // First-of-turn: true means "this agent/tool message is the first
+      // item of a new turn → show the header".  True when preceded by a
+      // user message, a system notice, or when __stepBoundary is set.
+      const isAgentOrTool = msg.role === "agent" || msg.role === "tool";
       isFirstOfTurn =
-        isAgent &&
+        isAgentOrTool &&
         (msg.__stepBoundary === true ||
-          (prevWasTurnBoundary && msg.role === "agent"));
+          (prevWasTurnBoundary && isAgentOrTool));
 
       // Update turn state for next message.
       if (msg.__stepBoundary === true) {

@@ -35,20 +35,65 @@ export interface GroupedItems {
 }
 
 /**
- * Cache key for diff results. Uses content references so identical content
- * (e.g. same originalContent string object across calls) hits cache.
+ * Cache key for diff results.  Uses hash-based keys so that identical content
+ * across different string instances (e.g. same content in separate turns)
+ * hits the cache.  Short strings (< 256 chars) use value-based keys for
+ * efficiency; long strings use FNV-1a hash to avoid storing huge keys.
  */
 type DiffCacheKey = `${string}__${string}`;
 
+/**
+ * FNV-1a hash — fast, decent distribution for short strings.
+ */
+function fnv1a(str: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(36);
+}
+
 function makeDiffCacheKey(a: string | null, b: string | null): DiffCacheKey {
-  return `${a ?? ""}__${b ?? ""}`;
+  const hash = (s: string | null): string => {
+    if (s == null) return "null";
+    if (s.length < 256) return s;
+    return fnv1a(s);
+  };
+  return `${hash(a)}__${hash(b)}`;
 }
 
 /**
- * Module-level diff cache. Persists across calls within a session lifetime.
- * Keyed by `originalContent__writtenContent` string pair.
+ * Maximum number of entries in the diff cache.
+ * When exceeded, the oldest entry is evicted (LRU).
+ */
+const DIFF_CACHE_MAX_SIZE = 2000;
+
+/**
+ * Module-level diff cache with LRU eviction.
+ * Persists across calls within a session lifetime.
+ * Keyed by hash(originalContent)__hash(writtenContent).
  */
 const diffCache = new Map<DiffCacheKey, { added: number; deleted: number }>();
+
+/**
+ * Set a cache entry with LRU eviction.
+ * Moves the entry to the end (most recently used).
+ */
+function setDiffCache(key: DiffCacheKey, value: { added: number; deleted: number }): void {
+  if (diffCache.has(key)) {
+    // Move to end (MRU)
+    diffCache.delete(key);
+    diffCache.set(key, value);
+    return;
+  }
+  if (diffCache.size >= DIFF_CACHE_MAX_SIZE) {
+    // Evict oldest (first key)
+    const firstKey = diffCache.keys().next().value;
+    if (firstKey != null) diffCache.delete(firstKey);
+  }
+  diffCache.set(key, value);
+}
 
 /**
  * Compute LCS-based line-level diff between original and new content.
@@ -56,7 +101,7 @@ const diffCache = new Map<DiffCacheKey, { added: number; deleted: number }>();
  *
  * Uses a simple LCS (Longest Common Subsequence) algorithm optimized
  * for typical file diffs where lines are mostly preserved.
- * Results are cached by content pair to avoid O(n\*m) recomputation.
+ * Results are cached by content hash pair to avoid O(n\*m) recomputation.
  */
 export function computeLineDiff(
   original: string | null,
@@ -102,15 +147,17 @@ export function computeLineDiff(
     result = { added: n - lcsLength, deleted: m - lcsLength };
   }
 
-  diffCache.set(key, result);
+  setDiffCache(key, result);
   return result;
 }
 
 /**
- * Clear the diff cache. Call when session is cleared or on full reset.
+ * Clear the diff cache.  Kept for backward compatibility but no-op now —
+ * LRU eviction handles memory management.  Only clears on full reset.
  */
 export function clearDiffCache(): void {
-  diffCache.clear();
+  // No-op: LRU eviction manages cache size.  This function is kept for
+  // API compatibility with existing callers (clearPipelineCache).
 }
 
 /**
@@ -119,7 +166,7 @@ export function clearDiffCache(): void {
  * Original content is taken from the first write to each path.
  * Line counts are computed using cached LCS-based diff.
  */
-function buildSummaryFromWrites(writes: FileWriteRecord[]): FileEditEntry[] | undefined {
+export function buildSummaryFromWrites(writes: FileWriteRecord[]): FileEditEntry[] | undefined {
   if (writes.length === 0) return undefined;
 
   const seen = new Map<string, { originalContent: string | null; writtenContent: string | null }>();
@@ -159,6 +206,20 @@ export function extractFileEditSummaryFromStore(
   const store = useFileWriteStore.getState();
   const writes = store.getWritesForSession(agentId, sessionId);
   return buildSummaryFromWrites(writes);
+}
+
+/**
+ * Binary search: find first index where arr[idx].seq >= target.
+ * Assumes arr is sorted by seq ascending.  O(log n).
+ */
+export function lowerBound(arr: FileWriteRecord[], target: number, start: number = 0): number {
+  let lo = start, hi = arr.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (arr[mid].seq < target) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
 }
 
 /**
@@ -215,8 +276,68 @@ function computeWriteSeqBoundaries(steps: IntermediateStep[]): WriteSeqBoundary[
 
 /**
  * Attach per-step file edit summaries to an array of IntermediateSteps.
- * Partitions the session's writes by writeSeq boundaries derived from
- * each step's agent message.
+ * Uses O(W log W + S) algorithm: single sort of writes + linear scan
+ * with lowerBound for partitioning.
+ *
+ * This is the v2 implementation replacing the O(S×W) filter approach.
+ */
+export function attachStepFileEditSummariesV2(
+  steps: IntermediateStep[],
+  agentId: string,
+  sessionId: string
+): void {
+  if (steps.length === 0) return;
+  const store = useFileWriteStore.getState();
+  const allWrites = store.getWritesForSession(agentId, sessionId);
+  if (allWrites.length === 0) {
+    log.debug("attachStepFileEditSummariesV2: no writes for session", { agentId, sessionId });
+    return;
+  }
+
+  const boundaries = computeWriteSeqBoundaries(steps);
+  log.info("attachStepFileEditSummariesV2", {
+    agentId,
+    sessionId,
+    stepCount: steps.length,
+    writeCount: allWrites.length,
+    boundaries: boundaries.map((b) => ({ lo: b.lo, hi: b.hi === Infinity ? "∞" : b.hi })),
+    writeSeqs: allWrites.map((w) => w.seq),
+    stepWriteSeqs: steps.map((s) => s.agentMessage?.writeSeq ?? null),
+  });
+
+  // O(W log W): single sort
+  const sortedWrites = [...allWrites].sort((a, b) => a.seq - b.seq);
+
+  // O(W + S): linear scan
+  let writeIdx = 0;
+  for (let i = 0; i < steps.length; i++) {
+    const { lo, hi } = boundaries[i];
+    writeIdx = lowerBound(sortedWrites, lo, writeIdx);
+
+    const stepWrites: FileWriteRecord[] = [];
+    while (writeIdx < sortedWrites.length && sortedWrites[writeIdx].seq < hi) {
+      stepWrites.push(sortedWrites[writeIdx]);
+      writeIdx++;
+    }
+
+    if (stepWrites.length > 0) {
+      const summary = buildSummaryFromWrites(stepWrites);
+      if (summary) {
+        log.debug("attachStepFileEditSummariesV2: summary attached to step", {
+          stepIndex: i,
+          isPreAgent: steps[i].isPreAgent,
+          files: summary.map((s) => `${s.path} (+${s.lineCount})`),
+        });
+        steps[i] = { ...steps[i], fileEditSummary: summary };
+      }
+    }
+  }
+}
+
+/**
+ * Attach per-step file edit summaries to an array of IntermediateSteps.
+ * Legacy O(S×W) implementation — kept for backward compatibility in tests.
+ * New code should use attachStepFileEditSummariesV2.
  */
 function attachStepFileEditSummaries(
   steps: IntermediateStep[],
@@ -491,7 +612,7 @@ export function splitIntoSteps(
   return steps;
 }
 
-function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
+export function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
   const userIndices: number[] = [];
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
@@ -529,28 +650,22 @@ function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
       : latestAgentChats;
   const latestSteps = splitIntoSteps(latestIntermediateItems, null);
 
-  // Attach per-step file edit summaries.
-  // The finalResponse acts as a virtual step for partitioning: its writeSeq
-  // defines the boundary between intermediate steps and the final step.
+  // Per-step file edit summaries are now computed externally via
+  // useFileEditSummaryMap hook in SessionChatContainer, keeping step
+  // objects immutable for React.memo optimization.
+  // Here we only need to strip any fileEditSummary from steps.
+  const stripFES = (s: IntermediateStep) => {
+    if (!s.fileEditSummary) return s;
+    const { fileEditSummary: _, ...rest } = s;
+    return rest;
+  };
+  const partitionedLatestSteps = latestSteps.map(stripFES);
   const latestSession = sessionOfItems(afterLastUser);
-  const finalStepForPartition: IntermediateStep | null = latestFinal
-    ? {
-        agentMessage: latestFinal.item as ChatDisplayItem,
-        toolCalls: [],
-        isPreAgent: false,
-      }
-    : null;
-  const allStepsForPartition = finalStepForPartition
-    ? [...latestSteps, finalStepForPartition]
-    : latestSteps;
-  attachStepFileEditSummaries(allStepsForPartition, latestSession.agentId, latestSession.sessionId);
 
-  const finalStepSummary = finalStepForPartition
-    ? allStepsForPartition[allStepsForPartition.length - 1].fileEditSummary
-    : undefined;
-  const partitionedLatestSteps = finalStepForPartition
-    ? allStepsForPartition.slice(0, -1)
-    : allStepsForPartition;
+  // Compute final step summary for currentStep (used by SessionChatContainer)
+  const finalStepSummary = buildSummaryFromWrites(
+    useFileWriteStore.getState().getWritesForSession(latestSession.agentId, latestSession.sessionId)
+  ) ?? undefined;
 
   // currentStep with file edits for the final step
   // Only set currentStep when there are items AFTER the final response
@@ -634,7 +749,8 @@ function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
 
     // Attach per-step file edit summaries
     const turnSession = sessionOfItems(groupItems);
-    attachStepFileEditSummaries(steps, turnSession.agentId, turnSession.sessionId);
+    // Per-step file edit summaries moved to useFileEditSummaryMap hook.
+    // Skipped here to keep step objects immutable for React.memo.
 
     // Turn-level file edit summary: ALL writes for this session merged
     const turnSummary = buildSummaryFromWrites(

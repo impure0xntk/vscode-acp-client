@@ -1,7 +1,6 @@
 import { useRef, useMemo, useEffect } from "react";
 import type { PipelineContext, PipelineItem, RawMessage } from "../pipeline";
 import { createDefaultPipeline } from "../pipeline";
-import { useFileWriteStore } from "../store/fileWriteStore";
 import { clearDiffCache } from "../pipeline/stages/grouping";
 
 interface PipelineEntry {
@@ -257,14 +256,9 @@ export function useMessagePipeline(
     [rawMessages]
   );
 
-  // Subscribe to fileWriteStore so the pipeline recomputes when
-  // fs/write_text_file events arrive (which only update fileWriteStore,
-  // not messageStore).  Without this subscription, fileEditSummary
-  // computed inside grouping.ts would never be recalculated after writes
-  // arrive — the pipeline output would be stale.
-  const fileWriteCount = useFileWriteStore(
-    (s) => s.writes[sessionKey]?.length ?? 0
-  );
+  // fileWriteStore の購読を除去 — fileEditSummary は
+  // SessionChatContainer で useFileEditSummaryMap により独立計算される。
+  // これにより file_write 到着時にパイプライン全体を再処理しなくなる。
 
   return useMemo(() => {
     const ctx: PipelineContext = {
@@ -325,5 +319,5 @@ export function useMessagePipeline(
         ? computeContentHash(dedupedMessages)
         : "";
     return result;
-  }, [dedupedMessages, pipeline, sessionId, agentId, processedRawCount, entry, fileWriteCount]);
+  }, [dedupedMessages, pipeline, sessionId, agentId, processedRawCount, entry]);
 }

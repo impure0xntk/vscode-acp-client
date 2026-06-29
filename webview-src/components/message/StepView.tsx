@@ -1,9 +1,9 @@
-import React from "react";
+import React, { memo } from "react";
 import { DisplayItemView } from "./DisplayItemView";
 import { ToolBatchSummary } from "./ToolBatchSummary";
 import { FileEditSummary } from "./FileEditSummary";
 import type { IntermediateStep } from "../../pipeline";
-import type { ChatDisplayItem } from "../../pipeline/types";
+import type { ChatDisplayItem, FileEditEntry } from "../../pipeline/types";
 
 export interface StepViewProps {
   step: IntermediateStep;
@@ -17,6 +17,11 @@ export interface StepViewProps {
   isAgentNew?: boolean;
   /** Callback when user wants to attach a diff to the composer */
   onAttachDiff?: (attachment: import("../../types").ContextAttachment) => void;
+  /**
+   * External file edit summary entries (from useFileEditSummaryMap).
+   * When provided, rendered instead of step.fileEditSummary.
+   */
+  externalFileEditEntries?: FileEditEntry[];
 }
 
 /**
@@ -27,7 +32,7 @@ export interface StepViewProps {
  * - forceHeader: latest step shows header context
  * - isNew/isAgentNew: streaming animation
  */
-export function StepView({
+function StepViewInner({
   step,
   sessionId,
   agentId,
@@ -35,11 +40,14 @@ export function StepView({
   forceHeader = false,
   isAgentNew = true,
   onAttachDiff,
+  externalFileEditEntries,
 }: StepViewProps): React.ReactElement {
   const allToolCalls = step.toolCalls.flatMap(
     (tc) => (tc as ChatDisplayItem).resolvedToolCalls ?? []
   );
   const hasToolCalls = allToolCalls.length > 0;
+  const fileEditEntries = externalFileEditEntries ?? step.fileEditSummary ?? [];
+  const hasFileEdits = fileEditEntries.length > 0;
 
   // Pre-agent step with only tool calls (no agent message) — show header
   if (!step.agentMessage && hasToolCalls) {
@@ -58,8 +66,8 @@ export function StepView({
         <div className="ml-4 mr-1 mb-[2px]">
           <ToolBatchSummary calls={allToolCalls} isNew={isNew} />
         </div>
-        {step.fileEditSummary && step.fileEditSummary.length > 0 && (
-          <FileEditSummary entries={step.fileEditSummary} sessionId={sessionId} agentId={agentId} onAttachDiff={onAttachDiff} />
+        {hasFileEdits && (
+          <FileEditSummary entries={fileEditEntries} sessionId={sessionId} agentId={agentId} onAttachDiff={onAttachDiff} />
         )}
       </div>
     );
@@ -83,9 +91,27 @@ export function StepView({
           <ToolBatchSummary calls={allToolCalls} isNew={isNew} />
         </div>
       )}
-      {step.fileEditSummary && step.fileEditSummary.length > 0 && (
-        <FileEditSummary entries={step.fileEditSummary} sessionId={sessionId} agentId={agentId} onAttachDiff={onAttachDiff} />
+      {hasFileEdits && (
+        <FileEditSummary entries={fileEditEntries} sessionId={sessionId} agentId={agentId} onAttachDiff={onAttachDiff} />
       )}
     </div>
   );
 }
+
+function areStepViewPropsEqual(
+  prev: StepViewProps,
+  next: StepViewProps,
+): boolean {
+  return (
+    prev.step === next.step &&
+    prev.sessionId === next.sessionId &&
+    prev.agentId === next.agentId &&
+    prev.isNew === next.isNew &&
+    prev.forceHeader === next.forceHeader &&
+    prev.isAgentNew === next.isAgentNew &&
+    prev.onAttachDiff === next.onAttachDiff &&
+    prev.externalFileEditEntries === next.externalFileEditEntries
+  );
+}
+
+export const StepView = memo(StepViewInner, areStepViewPropsEqual);

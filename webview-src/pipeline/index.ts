@@ -29,6 +29,8 @@ export {
   selectFinalResponse,
   splitIntoSteps,
   splitLatestSteps,
+  buildSummaryFromWrites,
+  lowerBound,
 } from "./stages/grouping";
 export type {
   FinalResponse,
