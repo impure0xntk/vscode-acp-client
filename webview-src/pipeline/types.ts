@@ -32,6 +32,12 @@ export interface ClassifiedMessage extends RawMessage {
   originalRole?: "user" | "agent" | "system" | "tool";
   /** ACP stopReason from session/prompt response — signals end of turn */
   stopReason?: string;
+  /**
+   * Set by the message store / merge stage when a tool_call interrupts the
+   * stream — signals that the next agent message is a new step and must
+   * show its header.
+   */
+  __stepBoundary?: boolean;
 }
 
 export interface ResolvedToolCall {
@@ -83,7 +89,7 @@ export interface FileEditEntry {
 
 export interface ChatDisplayItem {
   type: "chat";
-  /** Agent identifier — used for grouping consecutive messages from the same agent */
+  /** Agent identifier — used for per-agent grouping */
   agentId?: string;
   /** Session identifier — used to scope file write lookups per session */
   sessionId?: string;
@@ -111,10 +117,8 @@ export interface ChatDisplayItem {
   stopReason?: string;
   /** Thinking content if present */
   thinking: { content: string; isStreaming: boolean } | undefined;
-  /** True when this message is consecutive from the same source — header should be hidden */
-  isConsecutive: boolean;
-  /** Effective source key for grouping (e.g. "agent:claude", "system", "user") */
-  groupKey: string;
+  /** True when this message is the first item of a turn — header should be shown */
+  isFirstOfTurn: boolean;
   /** Extracted path candidates for inline code linking */
   renderContext?: RenderContext;
   /**

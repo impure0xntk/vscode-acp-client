@@ -19,7 +19,7 @@ function nextKey(prefix: string): string {
 function userMsg(content: string, overrides: Partial<ChatDisplayItem> = {}): ChatDisplayItem {
   return {
     type: "chat", role: "user", agentId: "a1", content, key: nextKey("user"),
-    timestamp: Date.now(), isConsecutive: false, groupKey: "user",
+    timestamp: Date.now(), isFirstOfTurn: false,
     attachments: [], thinking: undefined, ...overrides,
   };
 }
@@ -27,7 +27,7 @@ function userMsg(content: string, overrides: Partial<ChatDisplayItem> = {}): Cha
 function agentMsg(content: string, overrides: Partial<ChatDisplayItem> = {}): ChatDisplayItem {
   return {
     type: "chat", role: "agent", agentId: "a1", content, key: nextKey("agent"),
-    timestamp: Date.now(), isConsecutive: false, groupKey: "agent:a1",
+    timestamp: Date.now(), isFirstOfTurn: false,
     attachments: [], thinking: undefined, ...overrides,
   };
 }
@@ -35,7 +35,7 @@ function agentMsg(content: string, overrides: Partial<ChatDisplayItem> = {}): Ch
 function thinkingItem(content: string, overrides: Partial<ChatDisplayItem> = {}): ChatDisplayItem {
   return {
     type: "chat", role: "agent", agentId: "a1", content: "", key: nextKey("think"),
-    timestamp: Date.now(), isConsecutive: true, groupKey: "agent:a1",
+    timestamp: Date.now(), isFirstOfTurn: true,
     attachments: [], thinking: { content, isStreaming: false }, ...overrides,
   };
 }
@@ -91,8 +91,8 @@ describe("groupByUserBoundary", () => {
     const items: PipelineItem[] = [
       userMsg("do something"),
       thinkingItem("let me think"),
-      agentMsg("done!", { isConsecutive: true }),
-      agentMsg("Result: success", { isConsecutive: false }),
+      agentMsg("done!", { isFirstOfTurn: true }),
+      agentMsg("Result: success", { isFirstOfTurn: false }),
     ];
     const result = groupByUserBoundary(items);
     assert.strictEqual(result.groups.length, 0);
@@ -112,9 +112,9 @@ describe("groupByUserBoundary", () => {
     const items: PipelineItem[] = [
       userMsg("first question"),
       thinkingItem("thinking about first"),
-      agentMsg("first answer", { isConsecutive: false }),
+      agentMsg("first answer", { isFirstOfTurn: false }),
       userMsg("second question"),
-      agentMsg("second answer", { isConsecutive: false }),
+      agentMsg("second answer", { isFirstOfTurn: false }),
     ];
     const result = groupByUserBoundary(items);
     assert.strictEqual(result.groups.length, 1);
@@ -138,10 +138,10 @@ describe("groupByUserBoundary", () => {
     const items: PipelineItem[] = [
       userMsg("run tests"),
       thinkingItem("checking tests"),
-      agentMsg("running...", { isConsecutive: true }),
-      agentMsg("tests passed!", { isConsecutive: false }),
+      agentMsg("running...", { isFirstOfTurn: true }),
+      agentMsg("tests passed!", { isFirstOfTurn: false }),
       userMsg("commit changes"),
-      agentMsg("committed", { isConsecutive: false }),
+      agentMsg("committed", { isFirstOfTurn: false }),
     ];
     const result = groupByUserBoundary(items);
     assert.strictEqual(result.groups.length, 1);
@@ -172,7 +172,7 @@ describe("groupByUserBoundary", () => {
     };
     const items: PipelineItem[] = [
       userMsg("hello"),
-      agentMsg("hi!", { isConsecutive: false }),
+      agentMsg("hi!", { isFirstOfTurn: false }),
       compItem,
     ];
     const result = groupByUserBoundary(items);
@@ -187,8 +187,8 @@ describe("groupByUserBoundary", () => {
   it("all consecutive agent msgs → fallback picks last agent as finalResponse", () => {
     const items: PipelineItem[] = [
       userMsg("hello"),
-      agentMsg("a", { isConsecutive: true }),
-      agentMsg("b", { isConsecutive: true }),
+      agentMsg("a", { isFirstOfTurn: true }),
+      agentMsg("b", { isFirstOfTurn: true }),
     ];
     const result = groupByUserBoundary(items);
     assert.ok(result.latestGroup);
@@ -203,8 +203,8 @@ describe("groupByUserBoundary", () => {
 
   it("banner items exclude the final response", () => {
     const think = thinkingItem("thinking...");
-    const toolMsg = agentMsg("using tool...", { isConsecutive: true });
-    const finalResponse = agentMsg("Here's the answer!", { isConsecutive: false });
+    const toolMsg = agentMsg("using tool...", { isFirstOfTurn: true });
+    const finalResponse = agentMsg("Here's the answer!", { isFirstOfTurn: false });
 
     const items: PipelineItem[] = [userMsg("help me"), think, toolMsg, finalResponse];
     const result = groupByUserBoundary(items);
@@ -218,9 +218,9 @@ describe("groupByUserBoundary", () => {
 
   it("three turns: two past groups both have final responses", () => {
     const items: PipelineItem[] = [
-      userMsg("q1"), thinkingItem("t1"), agentMsg("a1", { isConsecutive: false }),
-      userMsg("q2"), thinkingItem("t2"), agentMsg("a2", { isConsecutive: false }),
-      userMsg("q3"), thinkingItem("t3"), agentMsg("a3", { isConsecutive: false }),
+      userMsg("q1"), thinkingItem("t1"), agentMsg("a1", { isFirstOfTurn: false }),
+      userMsg("q2"), thinkingItem("t2"), agentMsg("a2", { isFirstOfTurn: false }),
+      userMsg("q3"), thinkingItem("t3"), agentMsg("a3", { isFirstOfTurn: false }),
     ];
     const result = groupByUserBoundary(items);
     assert.strictEqual(result.groups.length, 2);
@@ -244,9 +244,9 @@ describe("groupByUserBoundary", () => {
   it("final response is the last non-consecutive, rest become intermediate", () => {
     const items: PipelineItem[] = [
       userMsg("cmd"),
-      agentMsg("thinking...", { isConsecutive: false }),
-      agentMsg("still working", { isConsecutive: true }),
-      agentMsg("done!", { isConsecutive: false }),
+      agentMsg("thinking...", { isFirstOfTurn: false }),
+      agentMsg("still working", { isFirstOfTurn: true }),
+      agentMsg("done!", { isFirstOfTurn: false }),
     ];
     const result = groupByUserBoundary(items);
     assert.ok(result.latestGroup);
@@ -263,8 +263,8 @@ describe("groupByUserBoundary", () => {
     const items: PipelineItem[] = [
       userMsg("do something"),
       thinkingItem("thinking..."),
-      agentMsg("step 1", { isConsecutive: true }),
-      agentMsg("step 2", { isConsecutive: true }),
+      agentMsg("step 1", { isFirstOfTurn: true }),
+      agentMsg("step 2", { isFirstOfTurn: true }),
     ];
     const result = groupByUserBoundary(items);
     assert.ok(result.latestGroup);
@@ -276,8 +276,8 @@ describe("groupByUserBoundary", () => {
 
   it("cancel after final response: finalResponse preserved, new turn starts", () => {
     const items: PipelineItem[] = [
-      userMsg("q1"), thinkingItem("t1"), agentMsg("a1", { isConsecutive: false }),
-      userMsg("q2"), thinkingItem("t2"), agentMsg("partial...", { isConsecutive: true }),
+      userMsg("q1"), thinkingItem("t1"), agentMsg("a1", { isFirstOfTurn: false }),
+      userMsg("q2"), thinkingItem("t2"), agentMsg("partial...", { isFirstOfTurn: true }),
     ];
     const result = groupByUserBoundary(items);
     assert.strictEqual(result.groups.length, 1);
@@ -295,12 +295,12 @@ describe("groupByUserBoundary", () => {
   // ── stopReason-based final response selection ────────────────────────
 
   describe("stopReason-based final response selection", () => {
-    it("stopReason marks the final response even when isConsecutive is true", () => {
+    it("stopReason marks the final response even when isFirstOfTurn is true", () => {
       const items: PipelineItem[] = [
         userMsg("hello"),
         thinkingItem("thinking..."),
-        agentMsg("chunk1", { isConsecutive: true }),
-        agentMsg("chunk2", { isConsecutive: true, stopReason: "end_turn" }),
+        agentMsg("chunk1", { isFirstOfTurn: true }),
+        agentMsg("chunk2", { isFirstOfTurn: true, stopReason: "end_turn" }),
       ];
       const result = groupByUserBoundary(items);
       assert.ok(result.latestGroup);
@@ -316,9 +316,9 @@ describe("groupByUserBoundary", () => {
     it("stopReason on middle message selects it as final, rest are intermediate", () => {
       const items: PipelineItem[] = [
         userMsg("q"),
-        agentMsg("first", { isConsecutive: false }),
-        agentMsg("second", { isConsecutive: true, stopReason: "max_tokens" }),
-        agentMsg("third", { isConsecutive: true }),
+        agentMsg("first", { isFirstOfTurn: false }),
+        agentMsg("second", { isFirstOfTurn: true, stopReason: "max_tokens" }),
+        agentMsg("third", { isFirstOfTurn: true }),
       ];
       const result = groupByUserBoundary(items);
       assert.ok(result.latestGroup);
@@ -328,11 +328,11 @@ describe("groupByUserBoundary", () => {
       );
     });
 
-    it("stopReason takes priority over isConsecutive detection", () => {
+    it("stopReason takes priority over isFirstOfTurn detection", () => {
       const items: PipelineItem[] = [
         userMsg("q"),
-        agentMsg("a", { isConsecutive: false }),
-        agentMsg("b", { isConsecutive: false, stopReason: "end_turn" }),
+        agentMsg("a", { isFirstOfTurn: false }),
+        agentMsg("b", { isFirstOfTurn: false, stopReason: "end_turn" }),
       ];
       const result = groupByUserBoundary(items);
       assert.ok(result.latestGroup);
@@ -345,10 +345,10 @@ describe("groupByUserBoundary", () => {
     it("stopReason on past turn final response", () => {
       const items: PipelineItem[] = [
         userMsg("q1"),
-        agentMsg("thinking...", { isConsecutive: true }),
-        agentMsg("answer", { isConsecutive: true, stopReason: "end_turn" }),
+        agentMsg("thinking...", { isFirstOfTurn: true }),
+        agentMsg("answer", { isFirstOfTurn: true, stopReason: "end_turn" }),
         userMsg("q2"),
-        agentMsg("reply", { isConsecutive: false }),
+        agentMsg("reply", { isFirstOfTurn: false }),
       ];
       const result = groupByUserBoundary(items);
       assert.strictEqual(result.groups.length, 1);
@@ -366,7 +366,7 @@ describe("groupByUserBoundary", () => {
       const items: PipelineItem[] = [
         userMsg("do stuff"),
         thinkingItem("thinking..."),
-        agentMsg("partial work", { isConsecutive: true, stopReason: "cancelled" }),
+        agentMsg("partial work", { isFirstOfTurn: true, stopReason: "cancelled" }),
       ];
       const result = groupByUserBoundary(items);
       assert.ok(result.latestGroup);
@@ -379,11 +379,11 @@ describe("groupByUserBoundary", () => {
       );
     });
 
-    it("no stopReason falls back to isConsecutive detection", () => {
+    it("no stopReason falls back to isFirstOfTurn detection", () => {
       const items: PipelineItem[] = [
         userMsg("q"),
-        agentMsg("a", { isConsecutive: true }),
-        agentMsg("b", { isConsecutive: false }),
+        agentMsg("a", { isFirstOfTurn: true }),
+        agentMsg("b", { isFirstOfTurn: false }),
       ];
       const result = groupByUserBoundary(items);
       assert.ok(result.latestGroup);
@@ -396,8 +396,8 @@ describe("groupByUserBoundary", () => {
     it("all consecutive with no stopReason → fallback picks last as finalResponse", () => {
       const items: PipelineItem[] = [
         userMsg("q"),
-        agentMsg("a", { isConsecutive: true }),
-        agentMsg("b", { isConsecutive: true }),
+        agentMsg("a", { isFirstOfTurn: true }),
+        agentMsg("b", { isFirstOfTurn: true }),
       ];
       const result = groupByUserBoundary(items);
       assert.ok(result.latestGroup);
@@ -428,7 +428,7 @@ describe("groupByUserBoundary", () => {
 
       it("2 steps → older=[A], current=B (last peeled out)", () => {
         const A = makeStep(thinkingItem("t1"));
-        const B = makeStep(agentMsg("step", { isConsecutive: true }));
+        const B = makeStep(agentMsg("step", { isFirstOfTurn: true }));
         const { olderSteps, currentStep } = splitLatestSteps([A, B], false);
         assert.strictEqual(olderSteps.length, 1);
         assert.deepStrictEqual(olderSteps, [A]);
@@ -437,8 +437,8 @@ describe("groupByUserBoundary", () => {
 
       it("3 steps → older=[A,B], current=C (last peeled out)", () => {
         const A = makeStep(thinkingItem("t1"));
-        const B = makeStep(agentMsg("step1", { isConsecutive: true }));
-        const C = makeStep(agentMsg("step2", { isConsecutive: true }));
+        const B = makeStep(agentMsg("step1", { isFirstOfTurn: true }));
+        const C = makeStep(agentMsg("step2", { isFirstOfTurn: true }));
         const { olderSteps, currentStep } = splitLatestSteps([A, B, C], false);
         assert.strictEqual(olderSteps.length, 2);
         assert.deepStrictEqual(olderSteps, [A, B]);
@@ -463,7 +463,7 @@ describe("groupByUserBoundary", () => {
 
       it("2 steps → older=[A,B], current=null (all in banner)", () => {
         const A = makeStep(thinkingItem("t1"));
-        const B = makeStep(agentMsg("step", { isConsecutive: true }));
+        const B = makeStep(agentMsg("step", { isFirstOfTurn: true }));
         const { olderSteps, currentStep } = splitLatestSteps([A, B], true);
         assert.strictEqual(olderSteps.length, 2);
         assert.deepStrictEqual(olderSteps, [A, B]);
@@ -475,7 +475,7 @@ describe("groupByUserBoundary", () => {
       it("no final response, 2 steps → last peeled out", () => {
         const items: PipelineItem[] = [
           userMsg("do stuff"), thinkingItem("thinking..."),
-          agentMsg("working...", { isConsecutive: true }),
+          agentMsg("working...", { isFirstOfTurn: true }),
         ];
         const { latestGroup } = groupByUserBoundary(items);
         assert.ok(latestGroup);
@@ -494,8 +494,8 @@ describe("groupByUserBoundary", () => {
       it("final response arrived, 2 steps → all in banner", () => {
         const items: PipelineItem[] = [
           userMsg("do stuff"), thinkingItem("thinking..."),
-          agentMsg("working...", { isConsecutive: true }),
-          agentMsg("done!", { isConsecutive: false }),
+          agentMsg("working...", { isFirstOfTurn: true }),
+          agentMsg("done!", { isFirstOfTurn: false }),
         ];
         const { latestGroup } = groupByUserBoundary(items);
         assert.ok(latestGroup);
@@ -522,9 +522,9 @@ describe("groupByUserBoundary", () => {
       it("final response with stopReason, steps → all in banner", () => {
         const items: PipelineItem[] = [
           userMsg("q"), thinkingItem("t"),
-          agentMsg("s1", { isConsecutive: true }),
-          agentMsg("s2", { isConsecutive: true }),
-          agentMsg("final", { isConsecutive: true, stopReason: "end_turn" }),
+          agentMsg("s1", { isFirstOfTurn: true }),
+          agentMsg("s2", { isFirstOfTurn: true }),
+          agentMsg("final", { isFirstOfTurn: true, stopReason: "end_turn" }),
         ];
         const { latestGroup } = groupByUserBoundary(items);
         assert.ok(latestGroup);
@@ -552,8 +552,8 @@ describe("groupByUserBoundary", () => {
       it("non-consecutive after consecutive: final picked, rest intermediate → split", () => {
         const items: PipelineItem[] = [
           userMsg("do stuff"), thinkingItem("thinking..."),
-          agentMsg("working...", { isConsecutive: true }),
-          agentMsg("done!", { isConsecutive: false }),
+          agentMsg("working...", { isFirstOfTurn: true }),
+          agentMsg("done!", { isFirstOfTurn: false }),
         ];
         const { latestGroup } = groupByUserBoundary(items);
         assert.ok(latestGroup);
@@ -574,8 +574,8 @@ describe("groupByUserBoundary", () => {
 
   it("new user message: previous latest becomes folded past group with final response", () => {
     const items: PipelineItem[] = [
-      userMsg("q1"), thinkingItem("t1"), agentMsg("a1", { isConsecutive: false }),
-      userMsg("q2"), agentMsg("a2", { isConsecutive: false }),
+      userMsg("q1"), thinkingItem("t1"), agentMsg("a1", { isFirstOfTurn: false }),
+      userMsg("q2"), agentMsg("a2", { isFirstOfTurn: false }),
     ];
     const result = groupByUserBoundary(items);
     assert.strictEqual(result.groups.length, 1);

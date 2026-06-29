@@ -197,9 +197,9 @@ describe("computeWriteSeqBoundaries — duplicate writeSeq edge cases", () => {
 
     // Two consecutive (streaming) agent messages, both with writeSeq=0
     const items = [
-      { type: "chat", role: "user", agentId: "a1", sessionId: "s1", content: "edit", key: "u", timestamp: Date.now(), isConsecutive: false, groupKey: "user", attachments: [], thinking: undefined },
-      { type: "chat", role: "agent", agentId: "a1", sessionId: "s1", content: "thinking...", key: "a1", timestamp: Date.now(), isConsecutive: true, groupKey: "agent:a1", attachments: [], thinking: undefined, writeSeq: 0 },
-      { type: "chat", role: "agent", agentId: "a1", sessionId: "s1", content: "done!", key: "a2", timestamp: Date.now(), isConsecutive: true, groupKey: "agent:a1", attachments: [], thinking: undefined, writeSeq: 0 },
+      { type: "chat", role: "user", agentId: "a1", sessionId: "s1", content: "edit", key: "u", timestamp: Date.now(), isFirstOfTurn: false, attachments: [], thinking: undefined },
+      { type: "chat", role: "agent", agentId: "a1", sessionId: "s1", content: "thinking...", key: "a1", timestamp: Date.now(), isFirstOfTurn: true, attachments: [], thinking: undefined, writeSeq: 0 },
+      { type: "chat", role: "agent", agentId: "a1", sessionId: "s1", content: "done!", key: "a2", timestamp: Date.now(), isFirstOfTurn: true, attachments: [], thinking: undefined, writeSeq: 0 },
     ];
 
     const result = new IntermediateStepGrouper(items).compute();

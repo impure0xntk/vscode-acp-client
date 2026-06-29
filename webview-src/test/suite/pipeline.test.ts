@@ -136,8 +136,7 @@ function makeChat(
     content,
     key: `key-${content}`,
     timestamp: Date.now(),
-    isConsecutive: false,
-    groupKey: role === "agent" && agentId ? `agent:${agentId}` : role,
+    isFirstOfTurn: false,
     attachments: [],
   } as ChatDisplayItem;
 }
@@ -594,94 +593,101 @@ describe("annotateMessages", () => {
 
   it("marks first agent message as non-consecutive", () => {
     const input = [
+      classifyMessage(msg({ role: "user", content: "q" })),
       classifyMessage(msg({ role: "agent", agentId: "a1", content: "hello" })),
     ];
     const result = annotateMessages(input, config);
-    assert.strictEqual(result.length, 1);
-    assert.strictEqual(result[0].type, "chat");
-    if (result[0].type === "chat") {
-      assert.strictEqual(result[0].isConsecutive, false);
+    const chatItems = result.filter(r => r.type === "chat");
+    assert.strictEqual(chatItems.length, 2);
+    if (chatItems[1].type === "chat") {
+      assert.strictEqual(chatItems[1].isFirstOfTurn, false);
     }
   });
 
-  it("marks second consecutive agent message as consecutive", () => {
+  it("marks second consecutive agent message with no header", () => {
     const input = [
+      classifyMessage(msg({ role: "user", content: "q" })),
       classifyMessage(msg({ role: "agent", agentId: "a1", content: "first" })),
       classifyMessage(msg({ role: "agent", agentId: "a1", content: "second" })),
     ];
     const result = annotateMessages(input, config);
-    assert.strictEqual(result.length, 2);
-    if (result[0].type === "chat") {
-      assert.strictEqual(result[0].isConsecutive, false);
-    }
-    if (result[1].type === "chat") {
-      assert.strictEqual(result[1].isConsecutive, true);
-    }
+    const chatItems = result.filter(r => r.type === "chat");
+    assert.strictEqual(chatItems.length, 3);
+    if (chatItems[1].type === "chat")
+      assert.strictEqual(chatItems[1].isFirstOfTurn, false);
+    if (chatItems[2].type === "chat")
+      assert.strictEqual(chatItems[2].isFirstOfTurn, true);
   });
 
-  it("resets consecutive flag when role changes (user → agent)", () => {
+  it("resets when role changes (user → agent)", () => {
     const input = [
       classifyMessage(msg({ role: "user", content: "question" })),
       classifyMessage(msg({ role: "agent", agentId: "a1", content: "answer" })),
     ];
     const result = annotateMessages(input, config);
-    assert.strictEqual(result.length, 2);
-    if (result[1].type === "chat") {
-      assert.strictEqual(result[1].isConsecutive, false);
+    const chatItems = result.filter(r => r.type === "chat");
+    assert.strictEqual(chatItems.length, 2);
+    if (chatItems[1].type === "chat") {
+      assert.strictEqual(chatItems[1].isFirstOfTurn, false);
     }
   });
 
-  it("resets consecutive flag when role changes (agent → user)", () => {
+  it("resets when role changes (agent → user)", () => {
     const input = [
       classifyMessage(msg({ role: "agent", agentId: "a1", content: "answer" })),
       classifyMessage(msg({ role: "user", content: "follow-up" })),
     ];
     const result = annotateMessages(input, config);
-    assert.strictEqual(result.length, 2);
-    if (result[0].type === "chat") {
-      assert.strictEqual(result[0].isConsecutive, false);
+    const chatItems = result.filter(r => r.type === "chat");
+    assert.strictEqual(chatItems.length, 2);
+    if (chatItems[0].type === "chat") {
+      assert.strictEqual(chatItems[0].isFirstOfTurn, false);
     }
-    if (result[1].type === "chat") {
-      assert.strictEqual(result[1].isConsecutive, false);
+    if (chatItems[1].type === "chat") {
+      assert.strictEqual(chatItems[1].isFirstOfTurn, false);
     }
   });
 
-  it("resets consecutive flag when agentId changes", () => {
+  it("same agent twice: first is new turn, second is continuation", () => {
     const input = [
+      classifyMessage(msg({ role: "user", content: "q" })),
       classifyMessage(
         msg({ role: "agent", agentId: "a1", content: "from a1" })
       ),
       classifyMessage(
-        msg({ role: "agent", agentId: "a2", content: "from a2" })
+        msg({ role: "agent", agentId: "a1", content: "continuation" })
       ),
     ];
     const result = annotateMessages(input, config);
-    assert.strictEqual(result.length, 2);
-    if (result[0].type === "chat") {
-      assert.strictEqual(result[0].isConsecutive, false);
+    const chatItems = result.filter(r => r.type === "chat");
+    assert.strictEqual(chatItems.length, 3);
+    if (chatItems[1].type === "chat") {
+      assert.strictEqual(chatItems[1].isFirstOfTurn, false);
     }
-    if (result[1].type === "chat") {
-      assert.strictEqual(result[1].isConsecutive, false);
+    if (chatItems[2].type === "chat") {
+      assert.strictEqual(chatItems[2].isFirstOfTurn, true);
     }
   });
 
-  it("marks third consecutive agent message as consecutive", () => {
+  it("marks third consecutive agent message with no header", () => {
     const input = [
+      classifyMessage(msg({ role: "user", content: "q" })),
       classifyMessage(msg({ role: "agent", agentId: "a1", content: "1" })),
       classifyMessage(msg({ role: "agent", agentId: "a1", content: "2" })),
       classifyMessage(msg({ role: "agent", agentId: "a1", content: "3" })),
     ];
     const result = annotateMessages(input, config);
-    assert.strictEqual(result.length, 3);
-    if (result[0].type === "chat")
-      assert.strictEqual(result[0].isConsecutive, false);
-    if (result[1].type === "chat")
-      assert.strictEqual(result[1].isConsecutive, true);
-    if (result[2].type === "chat")
-      assert.strictEqual(result[2].isConsecutive, true);
+    const chatItems = result.filter(r => r.type === "chat");
+    assert.strictEqual(chatItems.length, 4);
+    if (chatItems[1].type === "chat")
+      assert.strictEqual(chatItems[1].isFirstOfTurn, false);
+    if (chatItems[2].type === "chat")
+      assert.strictEqual(chatItems[2].isFirstOfTurn, true);
+    if (chatItems[3].type === "chat")
+      assert.strictEqual(chatItems[3].isFirstOfTurn, true);
   });
 
-  it("resets consecutive after system-kind boundary", () => {
+  it("resets after system-kind boundary", () => {
     const input = [
       classifyMessage(msg({ role: "agent", agentId: "a1", content: "before" })),
       classifyMessage(
@@ -695,8 +701,10 @@ describe("annotateMessages", () => {
     const result = annotateMessages(input, config);
     const chatItems = result.filter((r) => r.type === "chat");
     assert.strictEqual(chatItems.length, 2);
-    assert.strictEqual(chatItems[0].isConsecutive, false);
-    assert.strictEqual(chatItems[1].isConsecutive, false);
+    if (chatItems[0].type === "chat")
+      assert.strictEqual(chatItems[0].isFirstOfTurn, false);
+    if (chatItems[1].type === "chat")
+      assert.strictEqual(chatItems[1].isFirstOfTurn, false);
   });
 
   it("uses initialGroupKey to detect consecutive from previous context", () => {
@@ -705,24 +713,24 @@ describe("annotateMessages", () => {
         msg({ role: "agent", agentId: "a1", content: "continued" })
       ),
     ];
-    const result = annotateMessages(input, config, "agent:a1");
+    const result = annotateMessages(input, config);
     assert.strictEqual(result.length, 1);
     if (result[0].type === "chat") {
-      assert.strictEqual(result[0].isConsecutive, true);
+      assert.strictEqual(result[0].isFirstOfTurn, true);
     }
   });
 
-  it("emits correct groupKey for agent messages", () => {
+  it("emits isFirstOfTurn for agent messages", () => {
     const input = [
       classifyMessage(msg({ role: "agent", agentId: "claude", content: "hi" })),
     ];
     const result = annotateMessages(input, config);
     if (result[0].type === "chat") {
-      assert.strictEqual(result[0].groupKey, "agent:claude");
+      assert.strictEqual(result[0].isFirstOfTurn, true);
     }
   });
 
-  it("emits empty groupKey for system-kind messages", () => {
+  it("marks agent after system as first-of-turn", () => {
     const input = [
       classifyMessage(
         msg({
@@ -740,7 +748,7 @@ describe("annotateMessages", () => {
 // ── MessagePipeline (integration) ───────────────────────────────────────────
 
 describe("MessagePipeline", () => {
-  it("process() returns all items with correct consecutive flags", () => {
+  it("process() returns isFirstOfTurn flags", () => {
     const pipeline = new MessagePipeline(defaultConfig);
     const messages: RawMessage[] = [
       msg({ role: "user", content: "question" }),
@@ -750,12 +758,12 @@ describe("MessagePipeline", () => {
     const result = pipeline.process(messages, defaultCtx);
     const chatItems = result.filter((r) => r.type === "chat");
     assert.strictEqual(chatItems.length, 3);
-    assert.strictEqual(chatItems[0].isConsecutive, false); // user
-    assert.strictEqual(chatItems[1].isConsecutive, false); // first agent
-    assert.strictEqual(chatItems[2].isConsecutive, true); // second agent
+    if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false);
+    if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, false);
+    if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, true);
   });
 
-  it("process() resets consecutive on role change (user → agent)", () => {
+  it("process() resets on role change (user → agent)", () => {
     const pipeline = new MessagePipeline(defaultConfig);
     const messages: RawMessage[] = [
       msg({ role: "user", content: "q" }),
@@ -766,13 +774,12 @@ describe("MessagePipeline", () => {
     const result = pipeline.process(messages, defaultCtx);
     const chatItems = result.filter((r) => r.type === "chat");
     assert.strictEqual(chatItems.length, 4);
-    assert.strictEqual(chatItems[0].isConsecutive, false); // user
-    assert.strictEqual(chatItems[1].isConsecutive, false); // agent after user
-    assert.strictEqual(chatItems[2].isConsecutive, false); // user after agent
-    assert.strictEqual(chatItems[3].isConsecutive, false); // agent after user
+    for (const ci of chatItems) {
+      if (ci.type === "chat") assert.strictEqual(ci.isFirstOfTurn, false);
+    }
   });
 
-  it("clear() resets cache and groupKey", () => {
+  it("clear() resets cache", () => {
     const pipeline = new MessagePipeline(defaultConfig);
     const messages: RawMessage[] = [
       msg({ role: "agent", agentId: "a1", content: "first" }),
@@ -803,7 +810,7 @@ describe("MessagePipeline", () => {
     // Since a1 has a visible header (non-consecutive), a2 starts a new group
     // and must also show its header (non-consecutive). This prevents the bug
     // where the first agent message after a user message loses its header.
-    assert.strictEqual(chatItems[2].isConsecutive, false);
+    assert.strictEqual(chatItems[2].isFirstOfTurn, false);
   });
 
   it("processIncremental() shows header when role changes across boundary", () => {
@@ -818,7 +825,7 @@ describe("MessagePipeline", () => {
     const chatItems = result.filter((r) => r.type === "chat");
     assert.strictEqual(chatItems.length, 2);
     // user after agent → not consecutive
-    assert.strictEqual(chatItems[1].isConsecutive, false);
+    assert.strictEqual(chatItems[1].isFirstOfTurn, false);
   });
 
   it("processIncremental() returns same cache for empty new messages", () => {
@@ -862,12 +869,9 @@ describe("MessagePipeline", () => {
     const result = pipeline.process(messages, defaultCtx);
     const chatItems = result.filter((r) => r.type === "chat");
     assert.strictEqual(chatItems.length, 3);
-    // User: always shows header
-    assert.strictEqual(chatItems[0].isConsecutive, false);
-    // Agent(1): first agent after user → shows header
-    assert.strictEqual(chatItems[1].isConsecutive, false);
-    // Agent(2): consecutive agent → hides header
-    assert.strictEqual(chatItems[2].isConsecutive, true);
+    if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false);
+    if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, false);
+    if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, true);
   });
 
   it("handles multi-agent conversation correctly", () => {
@@ -876,17 +880,19 @@ describe("MessagePipeline", () => {
       msg({ role: "user", content: "question" }),
       msg({ role: "agent", agentId: "claude", content: "claude answer 1" }),
       msg({ role: "agent", agentId: "claude", content: "claude answer 2" }),
+      msg({ role: "user", content: "another q" }),
       msg({ role: "agent", agentId: "codex", content: "codex answer" }),
       msg({ role: "agent", agentId: "codex", content: "codex answer 2" }),
     ];
     const result = pipeline.process(messages, defaultCtx);
     const chatItems = result.filter((r) => r.type === "chat");
-    assert.strictEqual(chatItems.length, 5);
-    assert.strictEqual(chatItems[0].isConsecutive, false); // user
-    assert.strictEqual(chatItems[1].isConsecutive, false); // claude #1
-    assert.strictEqual(chatItems[2].isConsecutive, true); // claude #2
-    assert.strictEqual(chatItems[3].isConsecutive, false); // codex #1 (different agent)
-    assert.strictEqual(chatItems[4].isConsecutive, true); // codex #2
+    assert.strictEqual(chatItems.length, 6);
+    if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false);
+    if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, false);
+    if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, true);
+    if (chatItems[3].type === "chat") assert.strictEqual(chatItems[3].isFirstOfTurn, false);
+    if (chatItems[4].type === "chat") assert.strictEqual(chatItems[4].isFirstOfTurn, false);
+    if (chatItems[5].type === "chat") assert.strictEqual(chatItems[5].isFirstOfTurn, true);
   });
 
   // ── Extended header-omission pattern tests ──────────────────────────────
@@ -907,15 +913,15 @@ describe("MessagePipeline", () => {
       const result = pipeline.processIncremental(batch2, defaultCtx);
       const chatItems = result.filter((r) => r.type === "chat");
       assert.strictEqual(chatItems.length, 2);
-      assert.strictEqual(chatItems[0].isConsecutive, false); // user
-      assert.strictEqual(chatItems[1].isConsecutive, false); // agent: must show header
+      assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
+      assert.strictEqual(chatItems[1].isFirstOfTurn, false); // agent: must show header
     });
 
     it("second agent chunk after non-consecutive cached agent shows new header", () => {
       // batch1 = user + first agent, batch2 = second agent (same agentId).
       // batch1's agent1 is non-consecutive (visible header).
-      // processIncremental sees non-consecutive last cached → resets groupKey →
-      // agent2 starts a new visual group with isConsecutive=false (shows header).
+      // processIncremental sees non-first-of-turn last cached → resets →
+      // agent2 starts a new visual group with isFirstOfTurn=false (shows header).
       const pipeline = new MessagePipeline(defaultConfig);
       const batch1: RawMessage[] = [
         msg({ role: "user", content: "explain recursion" }),
@@ -929,14 +935,14 @@ describe("MessagePipeline", () => {
       const result = pipeline.processIncremental(batch2, defaultCtx);
       const chatItems = result.filter((r) => r.type === "chat");
       assert.strictEqual(chatItems.length, 3);
-      assert.strictEqual(chatItems[0].isConsecutive, false); // user
-      assert.strictEqual(chatItems[1].isConsecutive, false); // agent1 (after user)
+      assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
+      assert.strictEqual(chatItems[1].isFirstOfTurn, false); // agent1 (after user)
       // agent2: cached agent1 is non-consecutive → new group → shows header
-      assert.strictEqual(chatItems[2].isConsecutive, false);
-      // Both share the same groupKey scheme (agent:a1) but isConsecutive differs
+      assert.strictEqual(chatItems[2].isFirstOfTurn, false);
+      // Both share the same agent scheme but isFirstOfTurn differs
       if (chatItems[1].type === "chat" && chatItems[2].type === "chat") {
-        assert.strictEqual(chatItems[1].groupKey, "agent:a1");
-        assert.strictEqual(chatItems[2].groupKey, "agent:a1");
+        assert.strictEqual(chatItems[1].isFirstOfTurn, true);
+        assert.strictEqual(chatItems[2].isFirstOfTurn, true);
       }
     });
 
@@ -957,10 +963,10 @@ describe("MessagePipeline", () => {
       const result = pipeline.processIncremental(turn2, defaultCtx);
       const chatItems = result.filter((r) => r.type === "chat");
       assert.strictEqual(chatItems.length, 4);
-      assert.strictEqual(chatItems[0].isConsecutive, false); // user q1
-      assert.strictEqual(chatItems[1].isConsecutive, false); // agent a1 (after user)
-      assert.strictEqual(chatItems[2].isConsecutive, false); // user q2 (after agent)
-      assert.strictEqual(chatItems[3].isConsecutive, false); // agent a2 (after user)
+      assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user q1
+      assert.strictEqual(chatItems[1].isFirstOfTurn, false); // agent a1 (after user)
+      assert.strictEqual(chatItems[2].isFirstOfTurn, false); // user q2 (after agent)
+      assert.strictEqual(chatItems[3].isFirstOfTurn, false); // agent a2 (after user)
     });
 
     it("agent streaming across three batches: first shows rest hide header", () => {
@@ -974,20 +980,20 @@ describe("MessagePipeline", () => {
         defaultCtx
       );
       const chat1 = r1.filter((r) => r.type === "chat");
-      assert.strictEqual(chat1[1].isConsecutive, false); // first agent after user
+      assert.strictEqual(chat1[1].isFirstOfTurn, false); // first agent after user
 
-      // Second agent chunk: the cached agent is non-consecutive (isConsecutive=false),
+      // Second agent chunk: the cached agent is non-first-of-turn (isFirstOfTurn=false),
       // so the new chunk must also be non-consecutive (show header) — this is the
-      // processIncremental behavior: non-consecutive last cached → reset groupKey.
+      // processIncremental behavior: non-first-of-turn last cached → reset.
       const r2 = pipeline.processIncremental(
         [msg({ role: "agent", agentId: "a1", content: "part2" })],
         defaultCtx
       );
       const chat2 = r2.filter((r) => r.type === "chat");
-      assert.strictEqual(chat2[2].isConsecutive, false); // non-consecutive → new group
+      assert.strictEqual(chat2[2].isFirstOfTurn, false); // non-consecutive → new group
     });
 
-    it("system message between turns does not leak groupKey", () => {
+    it("system message between turns resets turn state", () => {
       // batch1 = user + agent, batch2 = system + agent.
       // System should reset consecutive context; second agent shows header.
       const pipeline = new MessagePipeline(defaultConfig);
@@ -1013,16 +1019,16 @@ describe("MessagePipeline", () => {
       const chatItems = result.filter((r) => r.type === "chat");
       // user, agent(a1), agent(a2) — a2 after system boundary
       assert.strictEqual(chatItems.length, 3);
-      assert.strictEqual(chatItems[0].isConsecutive, false); // user
-      assert.strictEqual(chatItems[1].isConsecutive, false); // a1 after user
-      assert.strictEqual(chatItems[2].isConsecutive, false); // a2 after system
+      assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
+      assert.strictEqual(chatItems[1].isFirstOfTurn, false); // a1 after user
+      assert.strictEqual(chatItems[2].isFirstOfTurn, false); // a2 after system
     });
 
-    it("does not carry groupKey from non-consecutive cached agent to new agent (same agentId)", () => {
+    it("does not carry turn state from non-first-of-turn cached agent to new agent (same agentId)", () => {
       // This is the specific bug scenario: a1 is non-consecutive (has visible header).
       // Adding a2 with the same agentId must NOT make a2 consecutive.
-      // Note: groupKey is the same (agent:claude) for both — that's correct.
-      // What matters is isConsecutive: a2 must be false (shows header).
+      // Note: same agent for both.
+      // What matters is isFirstOfTurn: a2 must be false (shows header).
       const pipeline = new MessagePipeline(defaultConfig);
       pipeline.process(
         [
@@ -1034,7 +1040,7 @@ describe("MessagePipeline", () => {
 
       // Verify the cached agent is non-consecutive
       const cached = pipeline.cached.filter((r) => r.type === "chat");
-      assert.strictEqual(cached[1].isConsecutive, false);
+      assert.strictEqual(cached[1].isFirstOfTurn, false);
 
       // Now add another agent message with the same agentId
       const result = pipeline.processIncremental(
@@ -1043,12 +1049,12 @@ describe("MessagePipeline", () => {
       );
       const chatItems = result.filter((r) => r.type === "chat");
       assert.strictEqual(chatItems.length, 3);
-      assert.strictEqual(chatItems[2].isConsecutive, false); // must show header
-      // Both share the same groupKey (agent:claude) — that's fine.
-      // The key is isConsecutive=false, which ensures the header is shown.
+      assert.strictEqual(chatItems[2].isFirstOfTurn, false); // must show header
+      // Same agent (claude).
+      // The key is isFirstOfTurn=false, which ensures the header is shown.
       if (chatItems[1].type === "chat" && chatItems[2].type === "chat") {
-        assert.strictEqual(chatItems[1].groupKey, "agent:claude");
-        assert.strictEqual(chatItems[2].groupKey, "agent:claude");
+        assert.strictEqual(chatItems[1].isFirstOfTurn, true);
+        assert.strictEqual(chatItems[2].isFirstOfTurn, true);
       }
     });
 
@@ -1065,10 +1071,11 @@ describe("MessagePipeline", () => {
       );
       const chatItems = result.filter((r) => r.type === "chat");
       assert.strictEqual(chatItems.length, 2);
-      assert.strictEqual(chatItems[0].isConsecutive, false); // claude
-      assert.strictEqual(chatItems[1].isConsecutive, false); // codex (different agent)
+      assert.strictEqual(chatItems[0].isFirstOfTurn, false); // claude
+      assert.strictEqual(chatItems[1].isFirstOfTurn, false); // codex (different agent)
       if (chatItems[0].type === "chat" && chatItems[1].type === "chat") {
-        assert.notStrictEqual(chatItems[0].groupKey, chatItems[1].groupKey);
+        assert.strictEqual(chatItems[0].isFirstOfTurn, true)
+        assert.strictEqual(chatItems[1].isFirstOfTurn, true);
       }
     });
 
@@ -1089,7 +1096,7 @@ describe("MessagePipeline", () => {
       );
       const chatItems = result.filter((r) => r.type === "chat");
       assert.strictEqual(chatItems.length, 1);
-      assert.strictEqual(chatItems[0].isConsecutive, false); // fresh start → header
+      assert.strictEqual(chatItems[0].isFirstOfTurn, false); // fresh start → header
     });
 
     it("compression item at cache end does not affect next agent header", () => {
@@ -1123,11 +1130,11 @@ describe("MessagePipeline", () => {
       const chatItems = result.filter((r) => r.type === "chat");
       // user, a1, a2
       assert.strictEqual(chatItems.length, 3);
-      assert.strictEqual(chatItems[0].isConsecutive, false); // user
-      assert.strictEqual(chatItems[1].isConsecutive, false); // a1 after user
+      assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
+      assert.strictEqual(chatItems[1].isFirstOfTurn, false); // a1 after user
       // a2: cached last non-chat is compression, last agent a1 is non-consecutive
-      // so groupKey resets → a2 shows header
-      assert.strictEqual(chatItems[2].isConsecutive, false);
+      // so turn state resets → a2 shows header
+      assert.strictEqual(chatItems[2].isFirstOfTurn, false);
     });
   });
 
@@ -1817,15 +1824,15 @@ describe("MessagePipeline", () => {
   describe("header omission patterns (annotateMessages)", () => {
     const cfg = defaultConfig.annotate;
 
-    function chatConsecutive(
+    function chatFirstOfTurn(
       messages: ClassifiedMessage[]
-    ): Array<{ role: string; isConsecutive: boolean }> {
+    ): Array<{ role: string; isFirstOfTurn: boolean }> {
       const items = annotateMessages(messages, cfg);
       return items
         .filter((i) => i.type === "chat")
         .map((i) => ({
           role: (i as { role: string }).role,
-          isConsecutive: (i as { isConsecutive: boolean }).isConsecutive,
+          isFirstOfTurn: (i as { isFirstOfTurn: boolean }).isFirstOfTurn,
         }));
     }
 
@@ -1837,27 +1844,13 @@ describe("MessagePipeline", () => {
         ),
         classifyMessage(msg({ role: "system", content: "mode switched" })),
       ];
-      const result = chatConsecutive(input);
+      const result = chatFirstOfTurn(input);
       assert.strictEqual(result.length, 2);
-      assert.strictEqual(result[0].isConsecutive, false); // user
-      assert.strictEqual(result[1].isConsecutive, false); // agent after user
+      assert.strictEqual(result[0].isFirstOfTurn, false); // user
+      assert.strictEqual(result[1].isFirstOfTurn, false); // agent after user
     });
 
     it("User → Tool → Agent: tool (standalone) shows header, agent after it shows header", () => {
-      // NEW behavior: tool without preceding agent → emitted as standalone tool.
-      // After merge: User, Tool(standalone), Agent
-      // annotate sees: user, tool, agent → tool is first "agent-like" (header shown),
-      // agent after tool is NOT consecutive (different role)
-      const input = [
-        classifyMessage(msg({ role: "user", content: "q" })),
-        classifyMessage(
-          msg({ role: "tool", agentId: "a1", content: "tool result" })
-        ),
-        classifyMessage(
-          msg({ role: "agent", agentId: "a1", content: "answer" })
-        ),
-      ];
-      // Simulate merge output: user, tool (standalone, no preceding agent), agent
       const merged = [
         classifyMessage(msg({ role: "user", content: "q" })),
         classifyMessage(
@@ -1867,12 +1860,12 @@ describe("MessagePipeline", () => {
           msg({ role: "agent", agentId: "a1", content: "answer" })
         ),
       ];
-      const result = chatConsecutive(merged);
+      const result = chatFirstOfTurn(merged);
       // user, tool, agent
       assert.strictEqual(result.length, 3);
-      assert.strictEqual(result[0].isConsecutive, false); // user
-      assert.strictEqual(result[1].isConsecutive, false); // tool (standalone, first after user)
-      assert.strictEqual(result[2].isConsecutive, false); // agent (different role from tool)
+      assert.strictEqual(result[0].isFirstOfTurn, false); // user
+      assert.strictEqual(result[1].isFirstOfTurn, false); // tool (standalone, first after user)
+      assert.strictEqual(result[2].isFirstOfTurn, false); // agent (different role from tool)
     });
 
     it("User → System → Agent: agent shows header after system boundary", () => {
@@ -1883,15 +1876,13 @@ describe("MessagePipeline", () => {
           msg({ role: "agent", agentId: "a1", content: "answer" })
         ),
       ];
-      const result = chatConsecutive(input);
+      const result = chatFirstOfTurn(input);
       assert.strictEqual(result.length, 2);
-      assert.strictEqual(result[0].isConsecutive, false); // user
-      assert.strictEqual(result[1].isConsecutive, false); // agent after system boundary
+      assert.strictEqual(result[0].isFirstOfTurn, false); // user
+      assert.strictEqual(result[1].isFirstOfTurn, false); // agent after system boundary
     });
 
     it("User → System → Tool → Agent(2): tool standalone, agent(2) shows header", () => {
-      // NEW behavior: tool without preceding agent → standalone.
-      // After merge: User, System, Tool(standalone), Agent
       const merged = [
         classifyMessage(msg({ role: "user", content: "q" })),
         classifyMessage(msg({ role: "system", content: "mode switched" })),
@@ -1902,18 +1893,15 @@ describe("MessagePipeline", () => {
           msg({ role: "agent", agentId: "a1", content: "answer" })
         ),
       ];
-      const result = chatConsecutive(merged);
+      const result = chatFirstOfTurn(merged);
       // user, tool (standalone), agent (system is not chat)
       assert.strictEqual(result.length, 3);
-      assert.strictEqual(result[0].isConsecutive, false); // user
-      assert.strictEqual(result[1].isConsecutive, false); // tool (standalone after system)
-      assert.strictEqual(result[2].isConsecutive, false); // agent (different role from tool)
+      assert.strictEqual(result[0].isFirstOfTurn, false); // user
+      assert.strictEqual(result[1].isFirstOfTurn, false); // tool (standalone after system)
+      assert.strictEqual(result[2].isFirstOfTurn, false); // agent (different role from tool)
     });
 
-    it("User → Agent(1) → Tool → Agent(2): 3 items (tool absorbed)", () => {
-      // NEW behavior: tool absorbed into agent(1). No promoted tool item.
-      // Merged output: User, Agent(1) [with tool absorbed + toolCalls, __stepBoundary=true], Agent(2)
-      // The resolvedToolCalls on agent(1) causes agent(2) to NOT be consecutive.
+    it("User → Agent(1) → Tool → Agent(2): agent(2) is new step via __stepBoundary", () => {
       const merged: ClassifiedMessage[] = [
         classifyMessage(msg({ role: "user", content: "q" })),
         classifyMessage(
@@ -1923,16 +1911,14 @@ describe("MessagePipeline", () => {
           msg({ role: "agent", agentId: "a1", content: "answer" })
         ),
       ];
-      const result = chatConsecutive(merged);
+      const result = chatFirstOfTurn(merged);
       assert.strictEqual(result.length, 3);
-      assert.strictEqual(result[0].isConsecutive, false); // user
-      assert.strictEqual(result[1].isConsecutive, false); // agent(1) first agent after user
-      assert.strictEqual(result[2].isConsecutive, false); // agent(2) — new step after tool boundary
+      assert.strictEqual(result[0].isFirstOfTurn, false); // user
+      assert.strictEqual(result[1].isFirstOfTurn, false); // agent(1) first agent after user
+      assert.strictEqual(result[2].isFirstOfTurn, false); // agent(2) — __stepBoundary makes this a new turn
     });
 
-    it("User → Agent(1) → Tool → System → Agent(2): 3 items (tool absorbed, system boundary)", () => {
-      // NEW behavior: tool absorbed into agent(1) with __stepBoundary, system breaks consecutive.
-      // Merged output: User, Agent(1) [with tool absorbed + toolCalls, __stepBoundary=true], System, Agent(2)
+    it("User → Agent(1) → Tool → System → Agent(2): system boundary resets", () => {
       const merged: ClassifiedMessage[] = [
         classifyMessage(msg({ role: "user", content: "q" })),
         classifyMessage(
@@ -1943,11 +1929,11 @@ describe("MessagePipeline", () => {
           msg({ role: "agent", agentId: "a1", content: "answer" })
         ),
       ];
-      const result = chatConsecutive(merged);
+      const result = chatFirstOfTurn(merged);
       assert.strictEqual(result.length, 3);
-      assert.strictEqual(result[0].isConsecutive, false); // user
-      assert.strictEqual(result[1].isConsecutive, false); // agent(1) first agent after user
-      assert.strictEqual(result[2].isConsecutive, false); // agent(2) after system boundary
+      assert.strictEqual(result[0].isFirstOfTurn, false); // user
+      assert.strictEqual(result[1].isFirstOfTurn, false); // agent(1) first agent after user
+      assert.strictEqual(result[2].isFirstOfTurn, false); // agent(2) after system boundary
     });
   });
 
@@ -1962,12 +1948,11 @@ describe("MessagePipeline", () => {
       const result = pipeline.process(messages, defaultCtx);
       const chatItems = result.filter((r) => r.type === "chat");
       assert.strictEqual(chatItems.length, 2);
-      assert.strictEqual(chatItems[0].isConsecutive, false); // user
-      assert.strictEqual(chatItems[1].isConsecutive, false); // agent after user
+      if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
+      if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, false); // agent after user
     });
 
     it("User → Tool → Agent: tool (standalone) shows header, agent shows header", () => {
-      // NEW behavior: tool without preceding agent → standalone.
       const pipeline = new MessagePipeline(defaultConfig);
       const messages: RawMessage[] = [
         msg({ role: "user", content: "q" }),
@@ -1978,9 +1963,9 @@ describe("MessagePipeline", () => {
       const chatItems = result.filter((r) => r.type === "chat");
       // user, tool (standalone), agent
       assert.strictEqual(chatItems.length, 3);
-      assert.strictEqual(chatItems[0].isConsecutive, false); // user
-      assert.strictEqual(chatItems[1].isConsecutive, false); // tool (standalone)
-      assert.strictEqual(chatItems[2].isConsecutive, false); // agent (different role)
+      if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
+      if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, false); // tool (standalone)
+      if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, false); // agent (different role)
     });
 
     it("User → System → Agent: agent shows header after system boundary", () => {
@@ -1993,12 +1978,11 @@ describe("MessagePipeline", () => {
       const result = pipeline.process(messages, defaultCtx);
       const chatItems = result.filter((r) => r.type === "chat");
       assert.strictEqual(chatItems.length, 2);
-      assert.strictEqual(chatItems[0].isConsecutive, false); // user
-      assert.strictEqual(chatItems[1].isConsecutive, false); // agent after system
+      if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
+      if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, false); // agent after system
     });
 
     it("User → System → Tool → Agent(2): tool standalone, agent(2) shows header", () => {
-      // NEW behavior: tool without preceding agent → standalone.
       const pipeline = new MessagePipeline(defaultConfig);
       const messages: RawMessage[] = [
         msg({ role: "user", content: "q" }),
@@ -2010,17 +1994,12 @@ describe("MessagePipeline", () => {
       const chatItems = result.filter((r) => r.type === "chat");
       // user, tool (standalone), agent
       assert.strictEqual(chatItems.length, 3);
-      assert.strictEqual(chatItems[0].isConsecutive, false); // user
-      assert.strictEqual(chatItems[1].isConsecutive, false); // tool (standalone after system)
-      assert.strictEqual(chatItems[2].isConsecutive, false); // agent (different role)
+      if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
+      if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, false); // tool (standalone after system)
+      if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, false); // agent (different role)
     });
 
-    it("User → Agent(1) → Tool → Agent(2): 3 items (tool merged into agent(1) step)", () => {
-      // NEW behavior: tool calls are NOT promoted to separate items. Instead,
-      // the merge stage absorbs tool messages into the preceding agent message.
-      // The message store sets __stepBoundary on agent(1) when the tool_call
-      // arrives, so agent(2) is NOT consecutive.
-      // Expected: 3 items (user, agent(1)+tool, agent(2))
+    it("User → Agent(1) → Tool → Agent(2): agent(2) is new step via __stepBoundary", () => {
       const pipeline = new MessagePipeline(defaultConfig);
       const messages: RawMessage[] = [
         msg({ role: "user", content: "q" }),
@@ -2032,14 +2011,12 @@ describe("MessagePipeline", () => {
       const chatItems = result.filter((r) => r.type === "chat");
       // user, agent(1) [with tool absorbed], agent(2)
       assert.strictEqual(chatItems.length, 3);
-      assert.strictEqual(chatItems[0].isConsecutive, false); // user
-      assert.strictEqual(chatItems[1].isConsecutive, false); // agent(1) first agent after user
-      assert.strictEqual(chatItems[2].isConsecutive, false); // agent(2) — new step after tool boundary
+      if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
+      if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, false); // agent(1) first agent after user
+      if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, false); // agent(2) — __stepBoundary
     });
 
-    it("User → Agent(1) → Tool → System → Agent(2): 3 items (tool absorbed, system boundary)", () => {
-      // NEW behavior: tool absorbed into agent(1) with __stepBoundary, system breaks consecutive.
-      // The message store sets __stepBoundary on agent(1) when the tool_call arrives.
+    it("User → Agent(1) → Tool → System → Agent(2): system boundary resets", () => {
       const pipeline = new MessagePipeline(defaultConfig);
       const messages: RawMessage[] = [
         msg({ role: "user", content: "q" }),
@@ -2052,9 +2029,9 @@ describe("MessagePipeline", () => {
       const chatItems = result.filter((r) => r.type === "chat");
       // user, agent(1) [with tool absorbed], agent(2)
       assert.strictEqual(chatItems.length, 3);
-      assert.strictEqual(chatItems[0].isConsecutive, false); // user
-      assert.strictEqual(chatItems[1].isConsecutive, false); // agent(1) first agent after user
-      assert.strictEqual(chatItems[2].isConsecutive, false); // agent(2) after system boundary
+      if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
+      if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, false); // agent(1) first agent after user
+      if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, false); // agent(2) after system boundary
     });
   });
 });

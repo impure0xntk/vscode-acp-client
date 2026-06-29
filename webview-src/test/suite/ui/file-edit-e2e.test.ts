@@ -17,7 +17,7 @@ function userMsg(content: string): ChatDisplayItem {
   return {
     type: "chat", role: "user", agentId: "Goose CLI", sessionId: "20260627_82",
     content, key: nextKey("user"), timestamp: Date.now(),
-    isConsecutive: false, groupKey: "user", attachments: [], thinking: undefined,
+    isFirstOfTurn: false, attachments: [], thinking: undefined,
   };
 }
 
@@ -25,7 +25,7 @@ function agentMsg(content: string, writeSeq?: number, stopReason?: string): Chat
   return {
     type: "chat", role: "agent", agentId: "Goose CLI", sessionId: "20260627_82",
     content, key: nextKey("agent"), timestamp: Date.now(),
-    isConsecutive: false, groupKey: "agent:Goose CLI", attachments: [],
+    isFirstOfTurn: false, attachments: [],
     thinking: undefined, writeSeq, stopReason,
   };
 }

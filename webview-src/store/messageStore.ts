@@ -315,12 +315,16 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>((set
       // is always stamped on the text response, not a tool-only message).
       // Also skip messages with __stepBoundary — stopReason belongs on
       // the FINAL agent message of the turn, not on intermediate steps.
+      // Also skip messages with stopReason — they belong to a PREVIOUS turn
+      // and must not be mutated by subsequent turn events (e.g. writeSeq
+      // stamping in handleSessionStreamStart would corrupt the previous
+      // turn's writeSeq, breaking fileEditSummary partitioning).
       // selectFinalResponse in SessionChatContainer uses stopReason as
       // the primary signal for the final response boundary — stamping it
       // on a tool message causes the text response to be hidden.
       // Fall back to the last tool message if no agent message exists.
       for (let i = existing.length - 1; i >= 0; i--) {
-        if (existing[i].role === "agent" && !existing[i].__stepBoundary) {
+        if (existing[i].role === "agent" && !existing[i].__stepBoundary && (existing[i].stopReason == null || existing[i].stopReason === "")) {
           const updated = { ...existing[i], ...update };
           const next = [...existing];
           next[i] = updated;
@@ -349,10 +353,12 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>((set
     const state = useMessageStore.getState();
     const existing: ChatMessage[] | undefined = state.perSession[key];
     if (!existing || existing.length === 0) return null;
-    // Return the last agent message that is NOT a step boundary —
-    // this is the "current" agent message that is still accepting chunks.
+    // Return the last agent message that is NOT a step boundary and has
+    // no stopReason — this is the "current" agent message that is still
+    // accepting chunks.  Messages with stopReason belong to a completed
+    // turn and must not be returned as merge/writeSeq targets.
     for (let i = existing.length - 1; i >= 0; i--) {
-      if (existing[i].role === "agent" && !existing[i].__stepBoundary) return existing[i];
+      if (existing[i].role === "agent" && !existing[i].__stepBoundary && (existing[i].stopReason == null || existing[i].stopReason === "")) return existing[i];
     }
     return null;
   },

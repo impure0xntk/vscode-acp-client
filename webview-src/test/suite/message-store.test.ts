@@ -362,6 +362,25 @@ describe("messageStore", () => {
       assert.strictEqual(state.perSession["session-1"][0].stopReason, undefined);
     });
 
+    it("skips agent messages with stopReason (previous turn final response)", () => {
+      // Simulate: Turn 1 final agent message has stopReason:"end_turn".
+      // When Turn 2 starts (writeSeq stamping), updateLastAgentMessage
+      // must NOT overwrite the previous turn's writeSeq.
+      const msgs = [
+        makeMessage({ role: "user", content: "q1" }),
+        makeMessage({ role: "agent", content: "a1", writeSeq: 0, stopReason: "end_turn", __stepBoundary: false }),
+        makeMessage({ role: "user", content: "q2" }),
+      ];
+      useMessageStore.getState().setMessages("session-1", msgs);
+      useMessageStore.getState().updateLastAgentMessage("session-1", {
+        writeSeq: 5,
+      });
+      const state = useMessageStore.getState();
+      // The Turn 1 agent message (with stopReason) must NOT be modified
+      assert.strictEqual(state.perSession["session-1"][1].writeSeq, 0);
+      // No agent message without stopReason exists — falls back to tool message (none exist) → no-op
+    });
+
     it("preserves existing message properties when updating", () => {
       const msg = makeMessage({
         role: "agent",
@@ -590,6 +609,17 @@ describe("messageStore", () => {
       const last = useMessageStore.getState().getLastAgentMessage("session-1");
       assert.ok(last);
       assert.strictEqual(last!.id, "current");
+    });
+
+    it("getLastAgentMessage skips stopReason messages (previous turn)", () => {
+      const msgs = [
+        makeMessage({ role: "agent", content: "turn1-final", stopReason: "end_turn", id: "t1" }),
+        makeMessage({ role: "user", content: "q2" }),
+      ];
+      useMessageStore.getState().setMessages("session-1", msgs);
+      const last = useMessageStore.getState().getLastAgentMessage("session-1");
+      // Should return null — the only agent message belongs to a completed turn
+      assert.strictEqual(last, null);
     });
   });
 

@@ -1,5 +1,4 @@
 import type {
-  ChatDisplayItem,
   ClassifiedMessage,
   PipelineConfig,
   PipelineContext,
@@ -18,24 +17,15 @@ import { annotateMessages } from "./stages/annotate";
  */
 export class MessagePipeline {
   private cache: PipelineItem[] = [];
-  /** Last groupKey from the most recent annotation pass — preserved across resets */
-  private lastGroupKey: string = "";
 
   constructor(private config: PipelineConfig) {}
 
   /**
    * Process all messages from scratch (first render).
-   * Does NOT carry over lastGroupKey — a full reprocess resets the
-   * consecutive-message context so that the first agent message always
-   * shows its header.
    */
   process(messages: RawMessage[], ctx: PipelineContext): PipelineItem[] {
-    const result = this.runStages(messages, ctx, "");
+    const result = this.runStages(messages, ctx);
     this.cache = result;
-    // Update lastGroupKey from the last cached item
-    const lastItem = result.length > 0 ? result[result.length - 1] : null;
-    this.lastGroupKey =
-      lastItem && lastItem.type === "chat" ? lastItem.groupKey : "";
     return this.cache;
   }
 
@@ -110,19 +100,9 @@ export class MessagePipeline {
         // always returns a new array when new calls are added).
         if (mergedTCs !== originalTCs && mergedTCs != null) {
           // Re-annotate the merged first element and update cache's last item.
-          // Carry over lastGroupKey so that isConsecutive is computed correctly
-          // for the updated cache item.
-          // Use the existing cache item's groupKey as the initial key so that
-          // the reannotated item preserves its consecutive status.
-          const existingGroupKey =
-            this.cache.length > 0 &&
-            this.cache[this.cache.length - 1].type === "chat"
-              ? (this.cache[this.cache.length - 1] as ChatDisplayItem).groupKey
-              : this.lastGroupKey;
           const reannotated = annotateMessages(
             [merged[0]],
-            this.config.annotate,
-            existingGroupKey
+            this.config.annotate
           );
           if (reannotated.length > 0) {
             this.cache[this.cache.length - 1] = reannotated[0];
@@ -140,62 +120,16 @@ export class MessagePipeline {
       mergedNew = filtered;
     }
 
-    // Annotate the merged new items, carrying over group-key context
-    // from the last cached item so isConsecutive is computed correctly
-    // across the cache boundary.
-    const lastCached =
-      this.cache.length > 0 ? this.cache[this.cache.length - 1] : null;
-    // Determine the initial groupKey for annotation.
-    // The key insight: when the last cached item is a non-consecutive chat
-    // message (i.e. it has a visible header), a new message of the same
-    // role starts a new visual group — reset lastGroupKey to "" so the
-    // first new message always shows its header.
-    // Only carry over groupKey when the last cached item is consecutive
-    // (no visible header) AND has the same role — this means the new
-    // message is a continuation of the same visual group.
-    const firstNewRole = mergedNew.length > 0 ? mergedNew[0].role : "";
-    let lastGroupKey = "";
-    if (lastCached && lastCached.type === "chat" && firstNewRole) {
-      if (
-        lastCached.role === firstNewRole &&
-        lastCached.isConsecutive
-      ) {
-        lastGroupKey = lastCached.groupKey;
-      }
-      // else: role changed OR last was non-consecutive → reset to ""
-      // This ensures the first agent message after a user message
-      // (or any non-consecutive boundary) always shows its header.
-    }
-    // Also consider the preserved lastGroupKey when the cache is empty
-    // but we have a valid lastGroupKey from a previous incremental pass.
-    if (!lastCached && this.lastGroupKey) {
-      lastGroupKey = this.lastGroupKey;
-    }
-    // Detect cross-batch tool-call boundary: if the last cached item has
-    // resolvedToolCalls, the first new agent message is a new logical step.
-    const previousItemHadToolCalls =
-      lastCached != null &&
-      lastCached.type === "chat" &&
-      lastCached.resolvedToolCalls != null &&
-      lastCached.resolvedToolCalls.length > 0;
+    // Annotate the merged new items.
+    // Turn-start detection (isFirstOfTurn) is handled entirely within
+    // annotateMessages based on __stepBoundary flags and the preceding
+    // item's role (user/system → next agent/tool shows header).
     const annotated = annotateMessages(
       mergedNew,
-      this.config.annotate,
-      lastGroupKey,
-      previousItemHadToolCalls
+      this.config.annotate
     );
 
     this.cache = [...this.cache, ...annotated];
-    // Update lastGroupKey from the newly appended items.
-    // Only update when the last annotated item is a chat message;
-    // system messages (compression, mode_change, etc.) don't change
-    // the groupKey context for consecutive detection.
-    const lastAnnotated =
-      annotated.length > 0 ? annotated[annotated.length - 1] : null;
-    if (lastAnnotated && lastAnnotated.type === "chat") {
-      this.lastGroupKey = lastAnnotated.groupKey;
-    }
-    // For non-chat items, keep the existing lastGroupKey unchanged
     return this.cache;
   }
 
@@ -261,17 +195,9 @@ export class MessagePipeline {
         const originalTCs = contextPrefix[0].toolCalls;
         const mergedTCs = merged[0].toolCalls;
         if (mergedTCs !== originalTCs && mergedTCs != null) {
-          // Take groupKey from the existing cached item so the
-          // consecutive status is preserved.
-          const existingGroupKey =
-            this.cache.length > 0 &&
-            this.cache[this.cache.length - 1].type === "chat"
-              ? (this.cache[this.cache.length - 1] as ChatDisplayItem).groupKey
-              : this.lastGroupKey;
           const reannotated = annotateMessages(
             [merged[0]],
-            this.config.annotate,
-            existingGroupKey
+            this.config.annotate
           );
           if (reannotated.length > 0) {
             this.cache[this.cache.length - 1] = reannotated[0];
@@ -288,30 +214,10 @@ export class MessagePipeline {
     }
 
     // Annotate the new/changed message.
-    // Carry over groupKey from the preceding item so consecutive
-    // detection is consistent.
-    let initializeGroupKey = "";
-    if (this.cache.length > 0) {
-      const prev = this.cache[this.cache.length - 1];
-      if (prev.type === "chat" && prev.isConsecutive && prev.role === classified.role) {
-        initializeGroupKey = prev.groupKey;
-      }
-    }
-    // If the preceding cached item had toolCalls, the lastRaw's agent
-    // message is a new logical step after tool execution — annotate it
-    // as non-consecutive so it shows its header.
-    const lastCachedItem =
-      this.cache.length > 0 ? this.cache[this.cache.length - 1] : null;
-    const previousItemHadToolCalls =
-      lastCachedItem != null &&
-      lastCachedItem.type === "chat" &&
-      lastCachedItem.resolvedToolCalls != null &&
-      lastCachedItem.resolvedToolCalls.length > 0;
+    // Turn-start detection is handled within annotateMessages.
     const annotated = annotateMessages(
       merged,
-      this.config.annotate,
-      initializeGroupKey,
-      previousItemHadToolCalls
+      this.config.annotate
     );
 
     if (annotated.length > 0) {
@@ -322,24 +228,15 @@ export class MessagePipeline {
       }
     }
 
-    // Update lastGroupKey
-    const lastItem =
-      this.cache.length > 0 ? this.cache[this.cache.length - 1] : null;
-    this.lastGroupKey =
-      lastItem && lastItem.type === "chat" ? lastItem.groupKey : "";
-
     // Return a new array reference so React re-renders
     return [...this.cache];
   }
 
   /**
    * Clear the internal cache (e.g. on session switch).
-   * Resets lastGroupKey so that the first message after a clear
-   * always shows its header.
    */
   clear(): void {
     this.cache = [];
-    this.lastGroupKey = "";
   }
 
   /**
@@ -357,8 +254,7 @@ export class MessagePipeline {
 
   private runStages(
     messages: RawMessage[],
-    ctx: PipelineContext,
-    initialGroupKey: string = ""
+    ctx: PipelineContext
   ): PipelineItem[] {
     const classified: ClassifiedMessage[] = messages.map((msg) =>
       classifyMessage(msg)
@@ -367,6 +263,6 @@ export class MessagePipeline {
     const merged = this.config.merge.enabled
       ? new ToolMergeStrategy().merge(filtered, this.config.merge)
       : filtered;
-    return annotateMessages(merged, this.config.annotate, initialGroupKey);
+    return annotateMessages(merged, this.config.annotate);
   }
 }

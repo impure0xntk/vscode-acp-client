@@ -331,8 +331,8 @@ export class IntermediateStepGrouper {
  *
  * Priority:
  * 1. stopReason — message carrying stopReason is the definitive final response.
- * 2. Last non-consecutive agent chat (not a promoted tool).
- * 3. Fallback — last non-promoted agent chat (even if consecutive).
+ * 2. Last agent chat that is first-of-turn (i.e., starts a new step).
+ * 3. Fallback — last non-promoted agent chat.
  */
 export function selectFinalResponse(
   agentChats: PipelineItem[]
@@ -347,12 +347,11 @@ export function selectFinalResponse(
     return { item: agentChats[stopReasonIdx], index: stopReasonIdx };
   }
 
-  // 2. Last non-consecutive agent chat (not a promoted tool)
-  const isNonConsecutiveAgent = (item: PipelineItem) =>
-    isRealAgentChat(item) && !(item as ChatDisplayItem).isConsecutive;
+  // 2. Last agent chat that is first-of-turn (starts a new step)
   for (let i = agentChats.length - 1; i >= 0; i--) {
-    if (isNonConsecutiveAgent(agentChats[i])) {
-      return { item: agentChats[i], index: i };
+    const item = agentChats[i];
+    if (item.type === "chat" && (item as ChatDisplayItem).isFirstOfTurn) {
+      return { item, index: i };
     }
   }
 

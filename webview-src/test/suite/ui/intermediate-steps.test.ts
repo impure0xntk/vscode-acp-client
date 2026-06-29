@@ -19,7 +19,7 @@ function nextKey(prefix: string): string {
 function userMsg(content: string, overrides: Partial<ChatDisplayItem> = {}): ChatDisplayItem {
   return {
     type: "chat", role: "user", agentId: "a1", content, key: nextKey("user"),
-    timestamp: Date.now(), isConsecutive: false, groupKey: "user",
+    timestamp: Date.now(), isFirstOfTurn: false,
     attachments: [], thinking: undefined, ...overrides,
   };
 }
@@ -27,7 +27,7 @@ function userMsg(content: string, overrides: Partial<ChatDisplayItem> = {}): Cha
 function agentMsg(content: string, overrides: Partial<ChatDisplayItem> = {}): ChatDisplayItem {
   return {
     type: "chat", role: "agent", agentId: "a1", content, key: nextKey("agent"),
-    timestamp: Date.now(), isConsecutive: false, groupKey: "agent:a1",
+    timestamp: Date.now(), isFirstOfTurn: false,
     attachments: [], thinking: undefined, ...overrides,
   };
 }
@@ -35,7 +35,7 @@ function agentMsg(content: string, overrides: Partial<ChatDisplayItem> = {}): Ch
 function thinkingItem(content: string, overrides: Partial<ChatDisplayItem> = {}): ChatDisplayItem {
   return {
     type: "chat", role: "agent", agentId: "a1", content: "", key: nextKey("think"),
-    timestamp: Date.now(), isConsecutive: true, groupKey: "agent:a1",
+    timestamp: Date.now(), isFirstOfTurn: true,
     attachments: [], thinking: { content, isStreaming: false }, ...overrides,
   };
 }
@@ -43,8 +43,8 @@ function thinkingItem(content: string, overrides: Partial<ChatDisplayItem> = {})
 function promotedToolMsg(content: string, overrides: Partial<ChatDisplayItem> = {}): ChatDisplayItem {
   return {
     type: "chat", role: "agent", originalRole: "tool", agentId: "a1", content,
-    key: nextKey("tool"), timestamp: Date.now(), isConsecutive: true,
-    groupKey: "agent:a1", attachments: [], thinking: undefined,
+    key: nextKey("tool"), timestamp: Date.now(), isFirstOfTurn: true,
+    attachments: [], thinking: undefined,
     resolvedToolCalls: [], ...overrides,
   };
 }
@@ -52,8 +52,8 @@ function promotedToolMsg(content: string, overrides: Partial<ChatDisplayItem> = 
 function rawToolMsg(content: string, overrides: Partial<ChatDisplayItem> = {}): ChatDisplayItem {
   return {
     type: "chat", role: "tool", agentId: "a1", content,
-    key: nextKey("raw-tool"), timestamp: Date.now(), isConsecutive: true,
-    groupKey: "tool:a1", attachments: [], thinking: undefined,
+    key: nextKey("raw-tool"), timestamp: Date.now(), isFirstOfTurn: true,
+    attachments: [], thinking: undefined,
     resolvedToolCalls: [{
       id: `tc-${content}`, title: content, kind: "generic", status: "completed",
       input: undefined, output: undefined, durationMs: undefined, locations: undefined, diffContent: undefined,
@@ -110,8 +110,8 @@ describe("IntermediateStepGrouper", () => {
     it("single turn: intermediate folded, final outside", () => {
       const items: PipelineItem[] = [
         userMsg("do it"), thinkingItem("thinking..."),
-        agentMsg("working...", { isConsecutive: true }),
-        agentMsg("done!", { isConsecutive: false }),
+        agentMsg("working...", { isFirstOfTurn: true }),
+        agentMsg("done!", { isFirstOfTurn: false }),
       ];
       const { latestGroup } = new IntermediateStepGrouper(items).compute();
       assert.ok(latestGroup);
@@ -122,8 +122,8 @@ describe("IntermediateStepGrouper", () => {
 
     it("multiple turns: past group folded", () => {
       const items: PipelineItem[] = [
-        userMsg("q1"), thinkingItem("t1"), agentMsg("a1", { isConsecutive: false }),
-        userMsg("q2"), agentMsg("a2", { isConsecutive: false }),
+        userMsg("q1"), thinkingItem("t1"), agentMsg("a1", { isFirstOfTurn: false }),
+        userMsg("q2"), agentMsg("a2", { isFirstOfTurn: false }),
       ];
       const { groups, latestGroup } = new IntermediateStepGrouper(items).compute();
       assert.strictEqual(groups.length, 1);
@@ -139,7 +139,7 @@ describe("IntermediateStepGrouper", () => {
         key: nextKey("comp"), timestamp: Date.now(),
       };
       const { trailing } = new IntermediateStepGrouper([
-        userMsg("hi"), agentMsg("hello", { isConsecutive: false }), compItem,
+        userMsg("hi"), agentMsg("hello", { isFirstOfTurn: false }), compItem,
       ]).compute();
       assert.strictEqual(trailing.length, 1);
       assert.strictEqual(trailing[0], compItem);
@@ -148,8 +148,8 @@ describe("IntermediateStepGrouper", () => {
     it("all consecutive fallback picks last as final", () => {
       const items: PipelineItem[] = [
         userMsg("hi"),
-        agentMsg("a", { isConsecutive: true }),
-        agentMsg("b", { isConsecutive: true }),
+        agentMsg("a", { isFirstOfTurn: true }),
+        agentMsg("b", { isFirstOfTurn: true }),
       ];
       const { latestGroup } = new IntermediateStepGrouper(items).compute();
       assert.ok(latestGroup?.finalResponse);
@@ -159,7 +159,7 @@ describe("IntermediateStepGrouper", () => {
     it("promoted tool messages treated as intermediate not final", () => {
       const items: PipelineItem[] = [
         userMsg("read file"), promotedToolMsg("reading..."),
-        agentMsg("done!", { isConsecutive: false }),
+        agentMsg("done!", { isFirstOfTurn: false }),
       ];
       const { latestGroup } = new IntermediateStepGrouper(items).compute();
       assert.ok(latestGroup);
@@ -216,9 +216,9 @@ describe("IntermediateStepGrouper", () => {
     it("latest group: steps split with last peeled out when no final", () => {
       const items: PipelineItem[] = [
         userMsg("q"), thinkingItem("t"),
-        agentMsg("s1", { isConsecutive: true }),
-        agentMsg("s2", { isConsecutive: true }),
-        agentMsg("done!", { isConsecutive: false }),
+        agentMsg("s1", { isFirstOfTurn: true }),
+        agentMsg("s2", { isFirstOfTurn: true }),
+        agentMsg("done!", { isFirstOfTurn: false }),
       ];
       const { latestGroup } = new IntermediateStepGrouper(items).compute();
       assert.ok(latestGroup);
@@ -235,7 +235,7 @@ describe("IntermediateStepGrouper", () => {
       // Agent is non-consecutive → it IS the final response, all steps go to banner
       const items: PipelineItem[] = [
         userMsg("q"), thinkingItem("t"),
-        agentMsg("s1", { isConsecutive: false }),
+        agentMsg("s1", { isFirstOfTurn: false }),
       ];
       const { latestGroup } = new IntermediateStepGrouper(items).compute();
       assert.ok(latestGroup);
@@ -253,7 +253,7 @@ describe("IntermediateStepGrouper", () => {
       // fallback (not explicit), we treat it as having no real final
       const items: PipelineItem[] = [
         userMsg("q"), thinkingItem("t"),
-        agentMsg("s1", { isConsecutive: true }),
+        agentMsg("s1", { isFirstOfTurn: true }),
       ];
       const { latestGroup } = new IntermediateStepGrouper(items).compute();
       assert.ok(latestGroup);
@@ -319,8 +319,8 @@ describe("splitIntoSteps", () => {
   });
 
   it("two agent messages yield two steps", () => {
-    const a1 = agentMsg("first", { isConsecutive: true });
-    const a2 = agentMsg("second", { isConsecutive: false });
+    const a1 = agentMsg("first", { isFirstOfTurn: true });
+    const a2 = agentMsg("second", { isFirstOfTurn: false });
     const steps = splitIntoSteps([a1, a2], null);
     assert.strictEqual(steps.length, 2);
     assert.strictEqual(steps[0].agentMessage, a1);
@@ -328,8 +328,8 @@ describe("splitIntoSteps", () => {
   });
 
   it("final response is excluded from steps", () => {
-    const a1 = agentMsg("working", { isConsecutive: true });
-    const final = agentMsg("done!", { isConsecutive: false });
+    const a1 = agentMsg("working", { isFirstOfTurn: true });
+    const final = agentMsg("done!", { isFirstOfTurn: false });
     // splitIntoSteps no longer filters internally; caller filters instead.
     // Simulate caller-side filtering: pass only non-final items.
     const steps = splitIntoSteps([a1], null);
@@ -371,7 +371,7 @@ describe("splitIntoSteps", () => {
     // isPromotedTool now matches role="tool", so splitIntoSteps treats it
     // the same as a promoted tool (role="agent", originalRole="tool").
     const rawTool = rawToolMsg("ls output");
-    const agent = agentMsg("done!", { isConsecutive: false });
+    const agent = agentMsg("done!", { isFirstOfTurn: false });
     const steps = splitIntoSteps([rawTool, agent], null);
     assert.strictEqual(steps.length, 2);
     assert.strictEqual(steps[0].isPreAgent, true);
@@ -385,7 +385,7 @@ describe("splitIntoSteps", () => {
   });
 
   it("raw tool (role='tool') after agent is absorbed into agent step", () => {
-    const agentMsg1 = agentMsg("thinking", { isConsecutive: false });
+    const agentMsg1 = agentMsg("thinking", { isFirstOfTurn: false });
     const rawTool = rawToolMsg("bash output");
     const steps = splitIntoSteps([agentMsg1, rawTool], null);
     assert.strictEqual(steps.length, 1);
@@ -396,7 +396,7 @@ describe("splitIntoSteps", () => {
 
   it("User → RawTool → Agent: grouping creates pre-agent step for raw tool", () => {
     const rawTool = rawToolMsg("grep result");
-    const agent = agentMsg("分析結果です", { isConsecutive: false });
+    const agent = agentMsg("分析結果です", { isFirstOfTurn: false });
     const items: PipelineItem[] = [
       userMsg("コードを検索して"), rawTool, agent,
     ];
@@ -420,7 +420,7 @@ describe("splitIntoSteps", () => {
     // isRealAgentChat requires role="agent" && originalRole !== "tool".
     // Raw tool has role="tool", so it must not be selected as final.
     const rawTool = rawToolMsg("orphan tool output");
-    const agent = agentMsg("answer", { isConsecutive: false });
+    const agent = agentMsg("answer", { isFirstOfTurn: false });
     const result = selectFinalResponse([rawTool, agent]);
     assert.ok(result);
     assert.strictEqual((result.item as ChatDisplayItem).content, "answer");
@@ -428,7 +428,7 @@ describe("splitIntoSteps", () => {
 
   it("User → Tool(1) → Agent(msg) → Tool(2) → Tool(3) with no final yields correct steps", () => {
     const tool1 = promotedToolMsg("tool1");
-    const agent = agentMsg("working", { isConsecutive: true });
+    const agent = agentMsg("working", { isFirstOfTurn: true });
     const tool2 = promotedToolMsg("tool2");
     const tool3 = promotedToolMsg("tool3");
     const items: PipelineItem[] = [
@@ -453,7 +453,7 @@ describe("splitIntoSteps", () => {
     // Same scenario but within IntermediateStepGrouper
     const t1 = promotedToolMsg("tool1");
     const t2 = promotedToolMsg("tool2");
-    const a = agentMsg("response", { isConsecutive: false });
+    const a = agentMsg("response", { isFirstOfTurn: false });
     const items: PipelineItem[] = [userMsg("q"), t1, t2, a];
     const { latestGroup } = new IntermediateStepGrouper(items).compute();
     assert.ok(latestGroup);
@@ -469,10 +469,10 @@ describe("splitIntoSteps", () => {
   it("post-final tool calls form currentStep, not intermediate step", () => {
     // The key bug scenario: agent1 → tools → agent2 → more tools
     // agent2 is final, more tools should be in currentStep
-    const agent1 = agentMsg("まず構造...", { isConsecutive: false });
+    const agent1 = agentMsg("まず構造...", { isFirstOfTurn: false });
     const tool1 = promotedToolMsg("read1");
     const tool2 = promotedToolMsg("read2");
-    const agent2 = agentMsg("主要モジュールを分析する", { isConsecutive: false });
+    const agent2 = agentMsg("主要モジュールを分析する", { isFirstOfTurn: false });
     const tool3 = promotedToolMsg("analyze1");
     const tool4 = promotedToolMsg("analyze2");
     const items: PipelineItem[] = [
@@ -498,9 +498,9 @@ describe("splitIntoSteps", () => {
   });
 
   it("splitLatestSteps with currentStep renders it outside banner", () => {
-    const agent1 = agentMsg("step1", { isConsecutive: true });
+    const agent1 = agentMsg("step1", { isFirstOfTurn: true });
     const step1 = makeStep(agent1, [promotedToolMsg("t1")]);
-    const finalAgent = agentMsg("final", { isConsecutive: false });
+    const finalAgent = agentMsg("final", { isFirstOfTurn: false });
     const currentStep = makeStep(finalAgent, [promotedToolMsg("t2"), promotedToolMsg("t3")]);
     const { olderSteps, currentStep: peeled } = splitLatestSteps([step1], true, currentStep);
     assert.strictEqual(olderSteps.length, 1);
@@ -515,9 +515,9 @@ describe("splitIntoSteps", () => {
 describe("splitIntoSteps messageId boundary", () => {
   it("same messageId merges into existing step instead of creating new one", () => {
     // Agent1(msgX) → Tool1 → Agent1(msgX, same logical message)
-    const a1 = agentMsg("first part", { isConsecutive: false, messageId: "msgX" });
+    const a1 = agentMsg("first part", { isFirstOfTurn: false, messageId: "msgX" });
     const tool1 = promotedToolMsg("tool1");
-    const a2 = agentMsg("second part", { isConsecutive: true, messageId: "msgX" });
+    const a2 = agentMsg("second part", { isFirstOfTurn: true, messageId: "msgX" });
     const steps = splitIntoSteps([a1, tool1, a2], null);
     // Both agent messages share the same messageId → one step with merged content
     assert.strictEqual(steps.length, 1);
@@ -527,9 +527,9 @@ describe("splitIntoSteps messageId boundary", () => {
 
   it("different messageId creates separate steps", () => {
     // Agent1(msgX) → Tool1 → Agent2(msgY, different logical message)
-    const a1 = agentMsg("first", { isConsecutive: false, messageId: "msgX" });
+    const a1 = agentMsg("first", { isFirstOfTurn: false, messageId: "msgX" });
     const tool1 = promotedToolMsg("tool1");
-    const a2 = agentMsg("second", { isConsecutive: true, messageId: "msgY" });
+    const a2 = agentMsg("second", { isFirstOfTurn: true, messageId: "msgY" });
     const steps = splitIntoSteps([a1, tool1, a2], null);
     // Different messageIds → two steps
     assert.strictEqual(steps.length, 2);
@@ -539,8 +539,8 @@ describe("splitIntoSteps messageId boundary", () => {
 
   it("same messageId in currentAgent merges without flushing", () => {
     // Two consecutive agent items with same messageId, no tools in between
-    const a1 = agentMsg("part 1", { isConsecutive: false, messageId: "msgA" });
-    const a2 = agentMsg("part 2", { isConsecutive: true, messageId: "msgA" });
+    const a1 = agentMsg("part 1", { isFirstOfTurn: false, messageId: "msgA" });
+    const a2 = agentMsg("part 2", { isFirstOfTurn: true, messageId: "msgA" });
     const steps = splitIntoSteps([a1, a2], null);
     // Same messageId → merges into current agent, no new step
     assert.strictEqual(steps.length, 1);
@@ -548,8 +548,8 @@ describe("splitIntoSteps messageId boundary", () => {
   });
 
   it("different messageId without tools creates two steps", () => {
-    const a1 = agentMsg("first", { isConsecutive: false, messageId: "id1" });
-    const a2 = agentMsg("second", { isConsecutive: true, messageId: "id2" });
+    const a1 = agentMsg("first", { isFirstOfTurn: false, messageId: "id1" });
+    const a2 = agentMsg("second", { isFirstOfTurn: true, messageId: "id2" });
     const steps = splitIntoSteps([a1, a2], null);
     // Different messageId → new step even without tools
     assert.strictEqual(steps.length, 2);
@@ -559,19 +559,19 @@ describe("splitIntoSteps messageId boundary", () => {
 
   it("missing messageId falls back to default behavior", () => {
     // No messageId → each agent chat creates a new step
-    const a1 = agentMsg("first", { isConsecutive: false });
-    const a2 = agentMsg("second", { isConsecutive: true });
+    const a1 = agentMsg("first", { isFirstOfTurn: false });
+    const a2 = agentMsg("second", { isFirstOfTurn: true });
     const steps = splitIntoSteps([a1, a2], null);
     assert.strictEqual(steps.length, 2);
   });
 
   it("same messageId merges with tools into correct step", () => {
     // Full scenario: Agent1(msg1) → Tool1 → Agent1(msg1) → Tool2 → Agent2(msg2)
-    const a1 = agentMsg("analyzing", { isConsecutive: false, messageId: "m1" });
+    const a1 = agentMsg("analyzing", { isFirstOfTurn: false, messageId: "m1" });
     const t1 = promotedToolMsg("grep");
-    const a2 = agentMsg(" complete", { isConsecutive: true, messageId: "m1" });
+    const a2 = agentMsg(" complete", { isFirstOfTurn: true, messageId: "m1" });
     const t2 = promotedToolMsg("read");
-    const a3 = agentMsg("done", { isConsecutive: false, messageId: "m2" });
+    const a3 = agentMsg("done", { isFirstOfTurn: false, messageId: "m2" });
     const steps = splitIntoSteps([a1, t1, a2, t2, a3], null);
     // Step 1: Agent(m1, "analyzing complete") + Tool1(grep) + Tool2(read)
     // Step 2: Agent(m2, "done")
@@ -582,8 +582,8 @@ describe("splitIntoSteps messageId boundary", () => {
   });
 
   it("empty messageId is treated as missing (no merge)", () => {
-    const a1 = agentMsg("first", { isConsecutive: false, messageId: "" });
-    const a2 = agentMsg("second", { isConsecutive: true, messageId: "" });
+    const a1 = agentMsg("first", { isFirstOfTurn: false, messageId: "" });
+    const a2 = agentMsg("second", { isFirstOfTurn: true, messageId: "" });
     const steps = splitIntoSteps([a1, a2], null);
     assert.strictEqual(steps.length, 2);
   });
@@ -598,9 +598,9 @@ describe("selectFinalResponse", () => {
 
   it("stopReason takes priority over everything", () => {
     const items: PipelineItem[] = [
-      agentMsg("first", { isConsecutive: false }),
-      agentMsg("second", { isConsecutive: true, stopReason: "end_turn" }),
-      agentMsg("third", { isConsecutive: true }),
+      agentMsg("first", { isFirstOfTurn: false }),
+      agentMsg("second", { isFirstOfTurn: true, stopReason: "end_turn" }),
+      agentMsg("third", { isFirstOfTurn: true }),
     ];
     const result = selectFinalResponse(items);
     assert.ok(result);
@@ -610,8 +610,8 @@ describe("selectFinalResponse", () => {
 
   it("last non-consecutive without stopReason", () => {
     const items: PipelineItem[] = [
-      agentMsg("a", { isConsecutive: true }), agentMsg("b", { isConsecutive: false }),
-      agentMsg("c", { isConsecutive: true }), agentMsg("d", { isConsecutive: false }),
+      agentMsg("a", { isFirstOfTurn: true }), agentMsg("b", { isFirstOfTurn: false }),
+      agentMsg("c", { isFirstOfTurn: true }), agentMsg("d", { isFirstOfTurn: false }),
     ];
     const result = selectFinalResponse(items);
     assert.ok(result);
@@ -621,8 +621,8 @@ describe("selectFinalResponse", () => {
 
   it("fallback to last non-promoted agent when all consecutive", () => {
     const result = selectFinalResponse([
-      agentMsg("a", { isConsecutive: true }),
-      agentMsg("b", { isConsecutive: true }),
+      agentMsg("a", { isFirstOfTurn: true }),
+      agentMsg("b", { isFirstOfTurn: true }),
     ]);
     assert.ok(result);
     assert.strictEqual((result.item as ChatDisplayItem).content, "b");
@@ -634,7 +634,7 @@ describe("selectFinalResponse", () => {
 
   it("skips promoted tools to find real agent final", () => {
     const result = selectFinalResponse([
-      promotedToolMsg("tool"), agentMsg("answer", { isConsecutive: false }),
+      promotedToolMsg("tool"), agentMsg("answer", { isFirstOfTurn: false }),
     ]);
     assert.ok(result);
     assert.strictEqual((result.item as ChatDisplayItem).content, "answer");
@@ -642,9 +642,9 @@ describe("selectFinalResponse", () => {
 
   it("non-promoted agent after promoted tool is final", () => {
     const result = selectFinalResponse([
-      agentMsg("first", { isConsecutive: true }),
+      agentMsg("first", { isFirstOfTurn: true }),
       promotedToolMsg("tool output"),
-      agentMsg("answer", { isConsecutive: false }),
+      agentMsg("answer", { isFirstOfTurn: false }),
     ]);
     assert.ok(result);
     assert.strictEqual((result.item as ChatDisplayItem).content, "answer");

@@ -13,7 +13,7 @@ function userMsg(content: string, overrides: Partial<ChatDisplayItem> = {}): Cha
   return {
     type: "chat", role: "user", agentId: "a1", sessionId: "s1",
     content, key: nextKey("user"),
-    timestamp: Date.now(), isConsecutive: false, groupKey: "user",
+    timestamp: Date.now(), isFirstOfTurn: false,
     attachments: [], thinking: undefined, ...overrides,
   };
 }
@@ -22,7 +22,7 @@ function agentMsg(content: string, overrides: Partial<ChatDisplayItem> = {}): Ch
   return {
     type: "chat", role: "agent", agentId: "a1", sessionId: "s1",
     content, key: nextKey("agent"),
-    timestamp: Date.now(), isConsecutive: false, groupKey: "agent:a1",
+    timestamp: Date.now(), isFirstOfTurn: false,
     attachments: [], thinking: undefined, ...overrides,
   };
 }
@@ -45,8 +45,8 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
 
     const items: PipelineItem[] = [
       userMsg("multi-step"),
-      agentMsg("step 1", { isConsecutive: false, writeSeq: 0 }),
-      agentMsg("step 2 (final)", { isConsecutive: false, writeSeq: 2, stopReason: "end_turn" }),
+      agentMsg("step 1", { isFirstOfTurn: false, writeSeq: 0 }),
+      agentMsg("step 2 (final)", { isFirstOfTurn: false, writeSeq: 2, stopReason: "end_turn" }),
     ];
     const result = new IntermediateStepGrouper(items).compute();
 
@@ -85,7 +85,7 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
 
     const items: PipelineItem[] = [
       userMsg("edit foo"),
-      agentMsg("done!", { isConsecutive: false, writeSeq: 0, stopReason: "end_turn" }),
+      agentMsg("done!", { isFirstOfTurn: false, writeSeq: 0, stopReason: "end_turn" }),
     ];
     const result = new IntermediateStepGrouper(items).compute();
 
@@ -107,7 +107,7 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
   it("omits fileEditSummary on steps with no writes", () => {
     const items: PipelineItem[] = [
       userMsg("hello"),
-      agentMsg("hi!", { isConsecutive: false, writeSeq: 0, stopReason: "end_turn" }),
+      agentMsg("hi!", { isFirstOfTurn: false, writeSeq: 0, stopReason: "end_turn" }),
     ];
     const result = new IntermediateStepGrouper(items).compute();
 
@@ -125,7 +125,7 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
 
     const items: PipelineItem[] = [
       userMsg("edit"),
-      agentMsg("done!", { isConsecutive: false, writeSeq: 1, stopReason: "end_turn" }),
+      agentMsg("done!", { isFirstOfTurn: false, writeSeq: 1, stopReason: "end_turn" }),
     ];
     const result = new IntermediateStepGrouper(items).compute();
 
@@ -148,9 +148,9 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
 
     const items: PipelineItem[] = [
       userMsg("multi"),
-      agentMsg("step1", { isConsecutive: false, writeSeq: 0 }),
-      agentMsg("step2", { isConsecutive: true, writeSeq: 2 }),
-      agentMsg("final", { isConsecutive: false, writeSeq: 4, stopReason: "end_turn" }),
+      agentMsg("step1", { isFirstOfTurn: false, writeSeq: 0 }),
+      agentMsg("step2", { isFirstOfTurn: true, writeSeq: 2 }),
+      agentMsg("final", { isFirstOfTurn: false, writeSeq: 4, stopReason: "end_turn" }),
     ];
     const result = new IntermediateStepGrouper(items).compute();
 
@@ -190,7 +190,7 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
 
     const items: PipelineItem[] = [
       userMsg("edit"),
-      agentMsg("done!", { isConsecutive: false, writeSeq: 0, stopReason: "end_turn" }),
+      agentMsg("done!", { isFirstOfTurn: false, writeSeq: 0, stopReason: "end_turn" }),
     ];
     const result = new IntermediateStepGrouper(items).compute();
 
@@ -218,8 +218,8 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
 
     const items: PipelineItem[] = [
       userMsg("edit many"),
-      agentMsg("step1", { isConsecutive: false, writeSeq: 0 }),
-      agentMsg("final", { isConsecutive: false, writeSeq: 2, stopReason: "end_turn" }),
+      agentMsg("step1", { isFirstOfTurn: false, writeSeq: 0 }),
+      agentMsg("final", { isFirstOfTurn: false, writeSeq: 2, stopReason: "end_turn" }),
     ];
     const result = new IntermediateStepGrouper(items).compute();
 
@@ -239,8 +239,8 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
 
     const items: PipelineItem[] = [
       userMsg("edit"),
-      agentMsg("step1", { isConsecutive: false, writeSeq: 0 }),
-      agentMsg("final", { isConsecutive: false, writeSeq: 2, stopReason: "end_turn" }),
+      agentMsg("step1", { isFirstOfTurn: false, writeSeq: 0 }),
+      agentMsg("final", { isFirstOfTurn: false, writeSeq: 2, stopReason: "end_turn" }),
     ];
     const result = new IntermediateStepGrouper(items).compute();
 
@@ -259,7 +259,7 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
   it("omits turnFileEditSummary when no writes exist", () => {
     const items: PipelineItem[] = [
       userMsg("hello"),
-      agentMsg("hi!", { isConsecutive: false, writeSeq: 0, stopReason: "end_turn" }),
+      agentMsg("hi!", { isFirstOfTurn: false, writeSeq: 0, stopReason: "end_turn" }),
     ];
     const result = new IntermediateStepGrouper(items).compute();
 
@@ -272,9 +272,9 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
 
     const items: PipelineItem[] = [
       userMsg("q1"),
-      agentMsg("a1", { isConsecutive: false, writeSeq: 0, stopReason: "end_turn" }),
+      agentMsg("a1", { isFirstOfTurn: false, writeSeq: 0, stopReason: "end_turn" }),
       userMsg("q2"),
-      agentMsg("a2", { isConsecutive: false, writeSeq: 1, stopReason: "end_turn" }),
+      agentMsg("a2", { isFirstOfTurn: false, writeSeq: 1, stopReason: "end_turn" }),
     ];
     const result = new IntermediateStepGrouper(items).compute();
 
@@ -299,8 +299,8 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
 
     const items: PipelineItem[] = [
       userMsg("multi"),
-      agentMsg("step1", { isConsecutive: false, writeSeq: 0 }),
-      agentMsg("final", { isConsecutive: false, writeSeq: 2, stopReason: "end_turn" }),
+      agentMsg("step1", { isFirstOfTurn: false, writeSeq: 0 }),
+      agentMsg("final", { isFirstOfTurn: false, writeSeq: 2, stopReason: "end_turn" }),
     ];
     const result = new IntermediateStepGrouper(items).compute();
 
@@ -328,7 +328,7 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
 
     const items: PipelineItem[] = [
       userMsg("order"),
-      agentMsg("f", { isConsecutive: false, writeSeq: 0, stopReason: "end_turn" }),
+      agentMsg("f", { isFirstOfTurn: false, writeSeq: 0, stopReason: "end_turn" }),
     ];
     const result = new IntermediateStepGrouper(items).compute();
 
@@ -345,10 +345,10 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
     const items1: PipelineItem[] = [
       { type: "chat", role: "user", agentId: "a1", sessionId: "s1",
         content: "q1", key: "u1", timestamp: Date.now(),
-        isConsecutive: false, groupKey: "user", attachments: [], thinking: undefined } as ChatDisplayItem,
+        isFirstOfTurn: false, attachments: [], thinking: undefined } as ChatDisplayItem,
       { type: "chat", role: "agent", agentId: "a1", sessionId: "s1",
         content: "a1", key: "a1", timestamp: Date.now(),
-        isConsecutive: false, groupKey: "agent:a1", attachments: [], thinking: undefined,
+        isFirstOfTurn: false, attachments: [], thinking: undefined,
         writeSeq: 0, stopReason: "end_turn" } as ChatDisplayItem,
     ];
     const result1 = new IntermediateStepGrouper(items1).compute();
@@ -360,10 +360,10 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
     const items2: PipelineItem[] = [
       { type: "chat", role: "user", agentId: "a2", sessionId: "s2",
         content: "q2", key: "u2", timestamp: Date.now(),
-        isConsecutive: false, groupKey: "user", attachments: [], thinking: undefined } as ChatDisplayItem,
+        isFirstOfTurn: false, attachments: [], thinking: undefined } as ChatDisplayItem,
       { type: "chat", role: "agent", agentId: "a2", sessionId: "s2",
         content: "a2", key: "a2", timestamp: Date.now(),
-        isConsecutive: false, groupKey: "agent:a2", attachments: [], thinking: undefined,
+        isFirstOfTurn: false, attachments: [], thinking: undefined,
         writeSeq: 1, stopReason: "end_turn" } as ChatDisplayItem,
     ];
     const result2 = new IntermediateStepGrouper(items2).compute();
@@ -380,7 +380,7 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
 
     const items: PipelineItem[] = [
       userMsg("edit"),
-      agentMsg("done!", { isConsecutive: false, writeSeq: 0, stopReason: "end_turn" }),
+      agentMsg("done!", { isFirstOfTurn: false, writeSeq: 0, stopReason: "end_turn" }),
     ];
     const result = new IntermediateStepGrouper(items).compute();
 
@@ -399,7 +399,7 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
     // When there are no writes, finalStepSummary is undefined → no synthetic currentStep
     const items: PipelineItem[] = [
       userMsg("hello"),
-      agentMsg("hi!", { isConsecutive: false, writeSeq: 0, stopReason: "end_turn" }),
+      agentMsg("hi!", { isFirstOfTurn: false, writeSeq: 0, stopReason: "end_turn" }),
     ];
     const result = new IntermediateStepGrouper(items).compute();
 
@@ -415,8 +415,8 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
 
     const items: PipelineItem[] = [
       userMsg("edit"),
-      agentMsg("thinking...", { isConsecutive: true, writeSeq: 0 }),
-      agentMsg("working...", { isConsecutive: true, writeSeq: 0 }),
+      agentMsg("thinking...", { isFirstOfTurn: true, writeSeq: 0 }),
+      agentMsg("working...", { isFirstOfTurn: true, writeSeq: 0 }),
     ];
     const result = new IntermediateStepGrouper(items).compute();
 
@@ -456,8 +456,8 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
 
     const items: PipelineItem[] = [
       userMsg("multi"),
-      agentMsg("intermediate", { isConsecutive: false, writeSeq: 0 }),
-      agentMsg("final", { isConsecutive: false, writeSeq: 2, stopReason: "end_turn" }),
+      agentMsg("intermediate", { isFirstOfTurn: false, writeSeq: 0 }),
+      agentMsg("final", { isFirstOfTurn: false, writeSeq: 2, stopReason: "end_turn" }),
     ];
     const result = new IntermediateStepGrouper(items).compute();
 
@@ -490,8 +490,8 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
 
     const items: PipelineItem[] = [
       userMsg("edit shared"),
-      agentMsg("step1", { isConsecutive: false, writeSeq: 0 }),
-      agentMsg("final", { isConsecutive: false, writeSeq: 2, stopReason: "end_turn" }),
+      agentMsg("step1", { isFirstOfTurn: false, writeSeq: 0 }),
+      agentMsg("final", { isFirstOfTurn: false, writeSeq: 2, stopReason: "end_turn" }),
     ];
     const result = new IntermediateStepGrouper(items).compute();
 
@@ -509,7 +509,7 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
 
     const items: PipelineItem[] = [
       userMsg("edit"),
-      agentMsg("done!", { isConsecutive: false, writeSeq: 0, stopReason: "end_turn" }),
+      agentMsg("done!", { isFirstOfTurn: false, writeSeq: 0, stopReason: "end_turn" }),
     ];
     const result = new IntermediateStepGrouper(items).compute();
 
@@ -530,8 +530,8 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
 
     const items: PipelineItem[] = [
       userMsg("multi"),
-      agentMsg("step1", { isConsecutive: false, writeSeq: 0 }),
-      agentMsg("final", { isConsecutive: false, writeSeq: 2, stopReason: "end_turn" }),
+      agentMsg("step1", { isFirstOfTurn: false, writeSeq: 0 }),
+      agentMsg("final", { isFirstOfTurn: false, writeSeq: 2, stopReason: "end_turn" }),
     ];
     const result = new IntermediateStepGrouper(items).compute();
 
@@ -567,13 +567,13 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
       // Pre-agent tool call (originalRole="tool", promoted to agent)
       { type: "chat", role: "agent", agentId: "a1", sessionId: "s1",
         content: "", key: "tool-1", timestamp: Date.now(),
-        isConsecutive: true, groupKey: "agent:a1", attachments: [],
+        isFirstOfTurn: true, attachments: [],
         thinking: undefined, originalRole: "tool",
         resolvedToolCalls: [{ id: "tc-1", title: "Write", kind: "write",
           status: "completed", input: undefined, output: undefined,
           durationMs: undefined, locations: undefined, diffContent: undefined }],
       } as ChatDisplayItem,
-      agentMsg("done!", { isConsecutive: false, writeSeq: 1, stopReason: "end_turn" }),
+      agentMsg("done!", { isFirstOfTurn: false, writeSeq: 1, stopReason: "end_turn" }),
     ];
     const result = new IntermediateStepGrouper(items).compute();
 
@@ -595,8 +595,8 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
 
     const items: PipelineItem[] = [
       userMsg("edit"),
-      agentMsg("intermediate", { isConsecutive: true, writeSeq: 0 }),
-      agentMsg("final", { isConsecutive: false, writeSeq: 5, stopReason: "end_turn" }),
+      agentMsg("intermediate", { isFirstOfTurn: true, writeSeq: 0 }),
+      agentMsg("final", { isFirstOfTurn: false, writeSeq: 5, stopReason: "end_turn" }),
     ];
     const result = new IntermediateStepGrouper(items).compute();
 
@@ -624,10 +624,10 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
 
     const items: PipelineItem[] = [
       userMsg("multi"),
-      agentMsg("step1", { isConsecutive: false, writeSeq: 0 }),
-      agentMsg("step2", { isConsecutive: true, writeSeq: 1 }),
-      agentMsg("step3", { isConsecutive: true, writeSeq: 2 }),
-      agentMsg("final", { isConsecutive: false, writeSeq: 3, stopReason: "end_turn" }),
+      agentMsg("step1", { isFirstOfTurn: false, writeSeq: 0 }),
+      agentMsg("step2", { isFirstOfTurn: true, writeSeq: 1 }),
+      agentMsg("step3", { isFirstOfTurn: true, writeSeq: 2 }),
+      agentMsg("final", { isFirstOfTurn: false, writeSeq: 3, stopReason: "end_turn" }),
     ];
     const result = new IntermediateStepGrouper(items).compute();
 

@@ -36,7 +36,7 @@ function RenderChat(
     <Message
       key={item.key}
       item={item}
-      isConsecutive={item.isConsecutive}
+      isFirstOfTurn={item.isFirstOfTurn}
       sessionId={sessionId}
       agentId={agentId}
       forceHeader={forceHeader}

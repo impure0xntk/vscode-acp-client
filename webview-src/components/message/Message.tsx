@@ -12,10 +12,11 @@ import type { ChatDisplayItem } from "../../pipeline";
 export interface MessageProps {
   /** Chat-type PipelineItem — only standard chat messages reach this component */
   item: ChatDisplayItem;
-  isConsecutive: boolean;
+  /** True when this message is the first of a turn — header is shown */
+  isFirstOfTurn: boolean;
   sessionId?: string;
   agentId?: string;
-  /** When true, always show the message header regardless of isConsecutive */
+  /** When true, always show the message header regardless of isFirstOfTurn */
   forceHeader?: boolean;
   /** When true, apply appear animation (only for newly added messages) */
   isNew?: boolean;
@@ -136,7 +137,7 @@ function AttachmentChip({
 
 export const Message = React.memo(function Message({
   item,
-  isConsecutive,
+  isFirstOfTurn,
   sessionId,
   agentId,
   forceHeader = false,
@@ -199,7 +200,7 @@ export const Message = React.memo(function Message({
       data-role={role}
       data-message-id={item.key}
     >
-      {(!isConsecutive || forceHeader) && (
+      {(isFirstOfTurn || forceHeader) && (
         <div className={`flex items-center gap-2 text-[11px] text-fg-muted mb-1 px-0.5 ${isUser ? "justify-end" : ""}`}>
           <span className="font-medium text-fg-secondary">
             {isSystem ? "System" : isUser ? "You" : "Agent"}

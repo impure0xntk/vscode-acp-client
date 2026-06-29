@@ -15,21 +15,6 @@ import type {
 import type { ContextAttachment } from "../../types";
 import { extractCandidatePaths } from "../../lib/pathPatterns";
 
-/**
- * Check if the previous chat item has resolved tool calls.
- * Used to detect tool-call boundaries where a subsequent agent message
- * should NOT be treated as consecutive (it's a new step after tool execution).
- */
-function previousHasToolCalls(
-  items: PipelineItem[]
-): boolean {
-  if (items.length === 0) return false;
-  const prev = items[items.length - 1];
-  if (prev.type !== "chat") return false;
-  const tcs = (prev as ChatDisplayItem).resolvedToolCalls;
-  return tcs != null && tcs.length > 0;
-}
-
 function resolveToolCalls(
   msg: ClassifiedMessage
 ): ResolvedToolCall[] | undefined {
@@ -105,94 +90,65 @@ function buildRenderContext(msg: ClassifiedMessage): RenderContext | undefined {
 }
 
 /**
- * Build the group key used to detect consecutive messages from the same source.
- * Messages sharing the same groupKey as their predecessor are marked consecutive
- * (header hidden).
- */
-function groupKeyOf(msg: ClassifiedMessage): string {
-  if (msg.systemKind !== "info") return "";
-  // Note: msg.role may be "agent" for tool messages promoted by merge.
-  // We use msg.role (not originalRole) so that promoted tool messages share
-  // the same "agent:xxx" groupKey as subsequent real agent messages.
-  // The annotateMessages function and SessionChatContainer use originalRole
-  // separately to determine which messages qualify as final responses.
-  switch (msg.role) {
-    case "agent":
-      return `agent:${msg.agentId ?? "unknown"}`;
-    case "tool":
-      return `tool:${msg.agentId ?? "unknown"}`;
-    case "system":
-      return "system";
-    case "user":
-      return "user";
-    default:
-      return msg.role;
-  }
-}
-
-/**
  * Map a classified message to the appropriate PipelineItem variant.
  * Each variant is rendered by a dedicated UI component in ChatContainer.
- * Also computes isConsecutive / groupKey for header omission.
+ * Computes isFirstOfTurn: true only for the first agent/tool message of a turn
+ * (i.e., the item immediately following a user/system message or at the start).
  */
+interface _TurnState {
+  prevWasTurnBoundary: boolean;
+}
+
 function toPipelineItem(
   msg: ClassifiedMessage,
   _config: AnnotateConfig,
-  prevGroupKey: string
-): { item: PipelineItem | null; groupKey: string } {
+  state: _TurnState
+): PipelineItem | null {
   const baseKey = `${msg.role}-${msg.id ?? msg.timestamp ?? "unknown"}`;
   const ts = msg.timestamp;
   const key = `chat-${baseKey}`;
-  const gk = groupKeyOf(msg);
-  const isConsecutive = gk !== "" && gk === prevGroupKey;
+  const prevWasTurnBoundary = state.prevWasTurnBoundary;
+  let isFirstOfTurn = false;
 
   switch (msg.systemKind) {
     case "compression": {
       const info = msg.compressionInfo as SessionCompressionInfo | undefined;
-      if (!info) return { item: null, groupKey: "" };
+      state.prevWasTurnBoundary = true;
+      if (!info) return null;
       return {
-        item: {
-          type: "compression",
-          info,
-          key: `compression-${baseKey}`,
-          timestamp: ts,
-        } satisfies CompressionDisplayItem,
-        groupKey: "",
-      };
+        type: "compression",
+        info,
+        key: `compression-${baseKey}`,
+        timestamp: ts,
+      } satisfies CompressionDisplayItem;
     }
 
     case "mode_change":
+      state.prevWasTurnBoundary = true;
       return {
-        item: {
-          type: "mode_change",
-          content: msg.content,
-          key: `mode-${baseKey}`,
-          timestamp: ts,
-        } satisfies ModeChangeDisplayItem,
-        groupKey: "",
-      };
+        type: "mode_change",
+        content: msg.content,
+        key: `mode-${baseKey}`,
+        timestamp: ts,
+      } satisfies ModeChangeDisplayItem;
 
     case "error_notice":
+      state.prevWasTurnBoundary = true;
       return {
-        item: {
-          type: "error_notice",
-          content: msg.content,
-          key: `error-${baseKey}`,
-          timestamp: ts,
-        } satisfies ErrorNoticeDisplayItem,
-        groupKey: "",
-      };
+        type: "error_notice",
+        content: msg.content,
+        key: `error-${baseKey}`,
+        timestamp: ts,
+      } satisfies ErrorNoticeDisplayItem;
 
     case "custom":
+      state.prevWasTurnBoundary = true;
       return {
-        item: {
-          type: "custom",
-          content: msg.content,
-          key: `custom-${baseKey}`,
-          timestamp: ts,
-        } satisfies CustomSystemDisplayItem,
-        groupKey: "",
-      };
+        type: "custom",
+        content: msg.content,
+        key: `custom-${baseKey}`,
+        timestamp: ts,
+      } satisfies CustomSystemDisplayItem;
 
     case "info":
     default: {
@@ -208,107 +164,82 @@ function toPipelineItem(
         ? buildRenderContext(msg)
         : undefined;
 
+      // First-of-turn: agent message at start or after a turn boundary
+      // (user message, system notice, or __stepBoundary flag).
+      const isAgent = msg.role === "agent";
+      isFirstOfTurn =
+        isAgent &&
+        (msg.__stepBoundary === true ||
+          (prevWasTurnBoundary && msg.role === "agent"));
+
+      // Update turn state for next message.
+      if (msg.__stepBoundary === true) {
+        // __stepBoundary forces the *next* message to also be a turn start.
+        state.prevWasTurnBoundary = true;
+      } else if (msg.role === "user") {
+        state.prevWasTurnBoundary = true;
+      } else if (isFirstOfTurn) {
+        // This agent consumed the boundary; subsequent ones are not.
+        state.prevWasTurnBoundary = false;
+      } else {
+        state.prevWasTurnBoundary = false;
+      }
+
       return {
-        item: {
-          type: "chat",
-          role: msg.role,
-          content: msg.content,
-          key,
-          timestamp: ts,
-          agentId: msg.agentId,
-          sessionId: msg.sessionId,
-          messageId: msg.id,
-          resolvedToolCalls: resolveToolCalls(msg),
-          attachments: resolveAttachments(msg, _config),
-          renderContext,
-          thinking,
-          isConsecutive,
-          groupKey: gk,
-          originalRole: msg.originalRole,
-          stopReason: msg.stopReason,
-        } satisfies ChatDisplayItem,
-        groupKey: gk,
-      };
+        type: "chat",
+        role: msg.role,
+        content: msg.content,
+        key,
+        timestamp: ts,
+        agentId: msg.agentId,
+        sessionId: msg.sessionId,
+        messageId: msg.id,
+        resolvedToolCalls: resolveToolCalls(msg),
+        attachments: resolveAttachments(msg, _config),
+        renderContext,
+        thinking,
+        isFirstOfTurn,
+        originalRole: msg.originalRole,
+        stopReason: msg.stopReason,
+      } satisfies ChatDisplayItem;
     }
   }
 }
 
 /**
  * Annotate classified messages into PipelineItem[].
- * Computes isConsecutive so that <Message /> can hide the header for
- * consecutive messages from the same source.
  *
- * Consecutive detection resets when the role changes (e.g. user → agent),
- * ensuring the first agent message after a user message always shows its
- * header even if the groupKey happens to match a stale previous value.
+ * Turn-start detection (isFirstOfTurn): an agent/tool message is the first of
+ * a new turn when the preceding message is a user message, a system-kind
+ * notice (compression, mode_change, error_notice, custom), or when the
+ * message carries the __stepBoundary flag (set by the message store after a
+ * tool_call interrupts the stream).
  */
 export function annotateMessages(
   messages: ClassifiedMessage[],
-  config: AnnotateConfig,
-  initialGroupKey: string = "",
-  previousItemHadToolCalls = false
+  config: AnnotateConfig
 ): PipelineItem[] {
   const items: PipelineItem[] = [];
-  let prevGroupKey = initialGroupKey;
-  let prevRole = "";
-  let isFirst = true;
   // Track seen keys to resolve collisions defensively.
   // If two messages produce the same key (e.g. duplicate tool messages
   // with the same id after merge promotion), append a counter so React
   // children always have unique keys.
   const seenKeys = new Map<string, number>();
+  // The previous message was a turn boundary (user/system/start → next agent/tool shows header).
+  const state = { prevWasTurnBoundary: true };
 
   for (const msg of messages) {
-    // Use msg.role (not originalRole) for consecutive detection.
-    // Promoted tool messages have role="agent" (same as real agent messages),
-    // so a real agent following a promoted tool is correctly detected as
-    // consecutive (same groupKey "agent:xxx").
-    // originalRole is preserved on the PipelineItem for downstream use
-    // (e.g. groupByUserBoundary uses it to exclude promoted tools from
-    // final response selection).
-    if (!(isFirst && initialGroupKey !== "") && msg.role !== prevRole) {
-      prevGroupKey = "";
-    }
-
-    // After tool execution completes, the next agent message is a new
-    // logical step — it must show its header.  We detect this boundary
-    // when:
-    // 1. The immediately preceding item carries resolvedToolCalls
-    //    (merged from tool messages) and the current message is an agent.
-    // 2. The preceding agent message has __stepBoundary (set by
-    //    closeCurrentAgentMessage when a new tool_call arrives).
-    // 3. The current agent message itself has __stepBoundary.
-    const prevItem = items.length > 0 ? items[items.length - 1] : null;
-    const prevHadToolCalls =
-      prevItem != null &&
-      prevItem.type === "chat" &&
-      (prevItem as ChatDisplayItem).resolvedToolCalls != null &&
-      (prevItem as ChatDisplayItem).resolvedToolCalls!.length > 0;
-    const isToolCallBoundary =
-      msg.role === "agent" &&
-      (previousItemHadToolCalls ||
-        prevHadToolCalls ||
-        msg.__stepBoundary === true);
-    if (isToolCallBoundary) {
-      prevGroupKey = "";
-    }
-
-    isFirst = false;
-    let { item, groupKey } = toPipelineItem(msg, config, prevGroupKey);
+    const item = toPipelineItem(msg, config, state);
     if (item) {
       // Resolve key collisions by appending a counter.
       const baseKey = item.key;
       const count = seenKeys.get(baseKey) ?? 0;
       seenKeys.set(baseKey, count + 1);
       if (count > 0) {
-        item = { ...item, key: `${baseKey}-${count}` };
+        item.key = `${baseKey}-${count}`;
       }
       items.push(item);
     }
-    // Non-info messages (compression, mode_change, etc.) reset the group
-    // so the next info message always shows its header.
-    prevGroupKey = groupKey;
-    prevRole = msg.role;
   }
 
   return items;
