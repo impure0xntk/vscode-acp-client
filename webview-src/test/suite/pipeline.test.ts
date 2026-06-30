@@ -438,7 +438,6 @@ describe("filterMessages", () => {
   });
 });
 
-
 // ── annotateMessages ────────────────────────────────────────────────────────
 
 describe("annotateMessages", () => {
@@ -450,7 +449,7 @@ describe("annotateMessages", () => {
       classifyMessage(msg({ role: "agent", agentId: "a1", content: "hello" })),
     ];
     const result = annotateMessages(input, config);
-    const chatItems = result.filter(r => r.type === "chat");
+    const chatItems = result.filter((r) => r.type === "chat");
     assert.strictEqual(chatItems.length, 2);
     if (chatItems[1].type === "chat") {
       assert.strictEqual(chatItems[1].isFirstOfTurn, true);
@@ -464,7 +463,7 @@ describe("annotateMessages", () => {
       classifyMessage(msg({ role: "agent", agentId: "a1", content: "second" })),
     ];
     const result = annotateMessages(input, config);
-    const chatItems = result.filter(r => r.type === "chat");
+    const chatItems = result.filter((r) => r.type === "chat");
     assert.strictEqual(chatItems.length, 3);
     if (chatItems[1].type === "chat")
       assert.strictEqual(chatItems[1].isFirstOfTurn, true);
@@ -478,7 +477,7 @@ describe("annotateMessages", () => {
       classifyMessage(msg({ role: "agent", agentId: "a1", content: "answer" })),
     ];
     const result = annotateMessages(input, config);
-    const chatItems = result.filter(r => r.type === "chat");
+    const chatItems = result.filter((r) => r.type === "chat");
     assert.strictEqual(chatItems.length, 2);
     if (chatItems[1].type === "chat") {
       assert.strictEqual(chatItems[1].isFirstOfTurn, true);
@@ -491,7 +490,7 @@ describe("annotateMessages", () => {
       classifyMessage(msg({ role: "user", content: "follow-up" })),
     ];
     const result = annotateMessages(input, config);
-    const chatItems = result.filter(r => r.type === "chat");
+    const chatItems = result.filter((r) => r.type === "chat");
     assert.strictEqual(chatItems.length, 2);
     if (chatItems[0].type === "chat") {
       assert.strictEqual(chatItems[0].isFirstOfTurn, true);
@@ -512,7 +511,7 @@ describe("annotateMessages", () => {
       ),
     ];
     const result = annotateMessages(input, config);
-    const chatItems = result.filter(r => r.type === "chat");
+    const chatItems = result.filter((r) => r.type === "chat");
     assert.strictEqual(chatItems.length, 3);
     if (chatItems[1].type === "chat") {
       assert.strictEqual(chatItems[1].isFirstOfTurn, true);
@@ -530,7 +529,7 @@ describe("annotateMessages", () => {
       classifyMessage(msg({ role: "agent", agentId: "a1", content: "3" })),
     ];
     const result = annotateMessages(input, config);
-    const chatItems = result.filter(r => r.type === "chat");
+    const chatItems = result.filter((r) => r.type === "chat");
     assert.strictEqual(chatItems.length, 4);
     if (chatItems[1].type === "chat")
       assert.strictEqual(chatItems[1].isFirstOfTurn, true);
@@ -611,9 +610,12 @@ describe("MessagePipeline", () => {
     const result = pipeline.process(messages, defaultCtx);
     const chatItems = result.filter((r) => r.type === "chat");
     assert.strictEqual(chatItems.length, 3);
-    if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false);
-    if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, true);
-    if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, false);
+    if (chatItems[0].type === "chat")
+      assert.strictEqual(chatItems[0].isFirstOfTurn, false);
+    if (chatItems[1].type === "chat")
+      assert.strictEqual(chatItems[1].isFirstOfTurn, true);
+    if (chatItems[2].type === "chat")
+      assert.strictEqual(chatItems[2].isFirstOfTurn, false);
   });
 
   it("process() resets on role change (user → agent)", () => {
@@ -628,10 +630,14 @@ describe("MessagePipeline", () => {
     const chatItems = result.filter((r) => r.type === "chat");
     assert.strictEqual(chatItems.length, 4);
     // user messages: false; agent after user: true; user after agent: false; agent after user: true
-    if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
-    if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, true);  // agent after user
-    if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, false); // user
-    if (chatItems[3].type === "chat") assert.strictEqual(chatItems[3].isFirstOfTurn, true);  // agent after user
+    if (chatItems[0].type === "chat")
+      assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
+    if (chatItems[1].type === "chat")
+      assert.strictEqual(chatItems[1].isFirstOfTurn, true); // agent after user
+    if (chatItems[2].type === "chat")
+      assert.strictEqual(chatItems[2].isFirstOfTurn, false); // user
+    if (chatItems[3].type === "chat")
+      assert.strictEqual(chatItems[3].isFirstOfTurn, true); // agent after user
   });
 
   it("clear() resets cache", () => {
@@ -699,7 +705,9 @@ describe("MessagePipeline", () => {
     pipeline.process([msg({ role: "agent", content: "a" })], defaultCtx);
     assert.ok(pipeline.cached.length > 0);
 
-    pipeline.updateConfig({ annotate: { resolveAttachments: false, detectInlinePaths: false } });
+    pipeline.updateConfig({
+      annotate: { resolveAttachments: false, detectInlinePaths: false },
+    });
     assert.strictEqual(pipeline.cached.length, 0);
   });
 
@@ -724,9 +732,12 @@ describe("MessagePipeline", () => {
     const result = pipeline.process(messages, defaultCtx);
     const chatItems = result.filter((r) => r.type === "chat");
     assert.strictEqual(chatItems.length, 3);
-    if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false);
-    if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, true);
-    if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, false);
+    if (chatItems[0].type === "chat")
+      assert.strictEqual(chatItems[0].isFirstOfTurn, false);
+    if (chatItems[1].type === "chat")
+      assert.strictEqual(chatItems[1].isFirstOfTurn, true);
+    if (chatItems[2].type === "chat")
+      assert.strictEqual(chatItems[2].isFirstOfTurn, false);
   });
 
   it("handles multi-agent conversation correctly", () => {
@@ -742,12 +753,18 @@ describe("MessagePipeline", () => {
     const result = pipeline.process(messages, defaultCtx);
     const chatItems = result.filter((r) => r.type === "chat");
     assert.strictEqual(chatItems.length, 6);
-    if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false);
-    if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, true);
-    if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, false);
-    if (chatItems[3].type === "chat") assert.strictEqual(chatItems[3].isFirstOfTurn, false);
-    if (chatItems[4].type === "chat") assert.strictEqual(chatItems[4].isFirstOfTurn, true);
-    if (chatItems[5].type === "chat") assert.strictEqual(chatItems[5].isFirstOfTurn, false);
+    if (chatItems[0].type === "chat")
+      assert.strictEqual(chatItems[0].isFirstOfTurn, false);
+    if (chatItems[1].type === "chat")
+      assert.strictEqual(chatItems[1].isFirstOfTurn, true);
+    if (chatItems[2].type === "chat")
+      assert.strictEqual(chatItems[2].isFirstOfTurn, false);
+    if (chatItems[3].type === "chat")
+      assert.strictEqual(chatItems[3].isFirstOfTurn, false);
+    if (chatItems[4].type === "chat")
+      assert.strictEqual(chatItems[4].isFirstOfTurn, true);
+    if (chatItems[5].type === "chat")
+      assert.strictEqual(chatItems[5].isFirstOfTurn, false);
   });
 
   // ── Extended header-omission pattern tests ──────────────────────────────
@@ -929,7 +946,7 @@ describe("MessagePipeline", () => {
       assert.strictEqual(chatItems[0].isFirstOfTurn, true); // claude
       assert.strictEqual(chatItems[1].isFirstOfTurn, true); // codex (different agent)
       if (chatItems[0].type === "chat" && chatItems[1].type === "chat") {
-        assert.strictEqual(chatItems[0].isFirstOfTurn, true)
+        assert.strictEqual(chatItems[0].isFirstOfTurn, true);
         assert.strictEqual(chatItems[1].isFirstOfTurn, true);
       }
     });
@@ -1699,7 +1716,12 @@ describe("MessagePipeline", () => {
           agentId: "a1",
           content: "result",
           toolCalls: [
-            { id: "tc-1", title: "Bash", status: "completed", kind: "bash" } as ToolCall,
+            {
+              id: "tc-1",
+              title: "Bash",
+              status: "completed",
+              kind: "bash",
+            } as ToolCall,
           ],
         }),
       ];
@@ -1728,20 +1750,39 @@ describe("MessagePipeline", () => {
           agentId: "a1",
           content: "results...",
           toolCalls: [
-            { id: "tc-1", title: "Read", status: "completed", kind: "read" } as ToolCall,
-            { id: "tc-2", title: "Grep", status: "completed", kind: "search" } as ToolCall,
-            { id: "tc-3", title: "Edit", status: "completed", kind: "edit" } as ToolCall,
+            {
+              id: "tc-1",
+              title: "Read",
+              status: "completed",
+              kind: "read",
+            } as ToolCall,
+            {
+              id: "tc-2",
+              title: "Grep",
+              status: "completed",
+              kind: "search",
+            } as ToolCall,
+            {
+              id: "tc-3",
+              title: "Edit",
+              status: "completed",
+              kind: "edit",
+            } as ToolCall,
           ],
         }),
       ];
       const result = pipeline.process(messages, defaultCtx);
-      const toolItem = result.filter((r) => r.type === "chat" && r.role === "tool");
+      const toolItem = result.filter(
+        (r) => r.type === "chat" && r.role === "tool"
+      );
       assert.strictEqual(toolItem.length, 1);
       if (toolItem[0].type === "chat") {
         assert.strictEqual(toolItem[0].resolvedToolCalls!.length, 3);
       }
       // Agent item has no tool calls
-      const agentItem = result.filter((r) => r.type === "chat" && r.role === "agent");
+      const agentItem = result.filter(
+        (r) => r.type === "chat" && r.role === "agent"
+      );
       if (agentItem[0].type === "chat") {
         assert.strictEqual(agentItem[0].resolvedToolCalls, undefined);
       }
@@ -1756,7 +1797,12 @@ describe("MessagePipeline", () => {
           agentId: "a1",
           content: "output",
           toolCalls: [
-            { id: "tc-1", title: "Bash", status: "completed", kind: "bash" } as ToolCall,
+            {
+              id: "tc-1",
+              title: "Bash",
+              status: "completed",
+              kind: "bash",
+            } as ToolCall,
           ],
         }),
         msg({ role: "agent", agentId: "a1", content: "done" }),
@@ -1786,7 +1832,12 @@ describe("MessagePipeline", () => {
           agentId: "a1",
           content: "file list",
           toolCalls: [
-            { id: "tc-1", title: "Bash", status: "completed", kind: "bash" } as ToolCall,
+            {
+              id: "tc-1",
+              title: "Bash",
+              status: "completed",
+              kind: "bash",
+            } as ToolCall,
           ],
         }),
         msg({
@@ -1794,10 +1845,20 @@ describe("MessagePipeline", () => {
           agentId: "a1",
           content: "file content",
           toolCalls: [
-            { id: "tc-2", title: "Read", status: "completed", kind: "read" } as ToolCall,
+            {
+              id: "tc-2",
+              title: "Read",
+              status: "completed",
+              kind: "read",
+            } as ToolCall,
           ],
         }),
-        msg({ role: "agent", agentId: "a1", content: "analysis complete", stopReason: "end_turn" }),
+        msg({
+          role: "agent",
+          agentId: "a1",
+          content: "analysis complete",
+          stopReason: "end_turn",
+        }),
       ];
       const result = pipeline.process(messages, defaultCtx);
       const chatItems = result.filter((r) => r.type === "chat");
@@ -1914,7 +1975,12 @@ describe("MessagePipeline", () => {
           msg({ role: "agent", agentId: "a1", content: "thinking" })
         ),
         classifyMessage(
-          msg({ role: "tool", agentId: "a1", content: "tool result", toolCalls: [toolCall("tc-1")] })
+          msg({
+            role: "tool",
+            agentId: "a1",
+            content: "tool result",
+            toolCalls: [toolCall("tc-1")],
+          })
         ),
         classifyMessage(
           msg({ role: "agent", agentId: "a1", content: "answer" })
@@ -1924,7 +1990,7 @@ describe("MessagePipeline", () => {
       assert.strictEqual(result.length, 4);
       assert.strictEqual(result[0].isFirstOfTurn, false); // user
       assert.strictEqual(result[1].isFirstOfTurn, true); // agent(1) first agent after user
-      assert.strictEqual(result[2].isFirstOfTurn, false) // tool (different role from agent but not first-of-turn since prev was agent)
+      assert.strictEqual(result[2].isFirstOfTurn, false); // tool (different role from agent but not first-of-turn since prev was agent)
       assert.strictEqual(result[3].isFirstOfTurn, false); // agent(2) — different role from tool but prev was not user/system
     });
   });
@@ -1940,8 +2006,10 @@ describe("MessagePipeline", () => {
       const result = pipeline.process(messages, defaultCtx);
       const chatItems = result.filter((r) => r.type === "chat");
       assert.strictEqual(chatItems.length, 2);
-      if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
-      if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, true); // agent after user
+      if (chatItems[0].type === "chat")
+        assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
+      if (chatItems[1].type === "chat")
+        assert.strictEqual(chatItems[1].isFirstOfTurn, true); // agent after user
     });
 
     it("User → Tool → Agent: tool (standalone) shows header, agent shows header", () => {
@@ -1955,9 +2023,12 @@ describe("MessagePipeline", () => {
       const chatItems = result.filter((r) => r.type === "chat");
       // user, tool (standalone), agent
       assert.strictEqual(chatItems.length, 3);
-      if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
-      if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, true); // tool (standalone)
-      if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, false); // agent (different role)
+      if (chatItems[0].type === "chat")
+        assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
+      if (chatItems[1].type === "chat")
+        assert.strictEqual(chatItems[1].isFirstOfTurn, true); // tool (standalone)
+      if (chatItems[2].type === "chat")
+        assert.strictEqual(chatItems[2].isFirstOfTurn, false); // agent (different role)
     });
 
     it("User → System → Agent: agent shows header after system boundary", () => {
@@ -1970,8 +2041,10 @@ describe("MessagePipeline", () => {
       const result = pipeline.process(messages, defaultCtx);
       const chatItems = result.filter((r) => r.type === "chat");
       assert.strictEqual(chatItems.length, 2);
-      if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
-      if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, true); // agent after system
+      if (chatItems[0].type === "chat")
+        assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
+      if (chatItems[1].type === "chat")
+        assert.strictEqual(chatItems[1].isFirstOfTurn, true); // agent after system
     });
 
     it("User → System → Tool → Agent(2): tool standalone, agent(2) shows header", () => {
@@ -1986,9 +2059,12 @@ describe("MessagePipeline", () => {
       const chatItems = result.filter((r) => r.type === "chat");
       // user, tool (standalone), agent
       assert.strictEqual(chatItems.length, 3);
-      if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
-      if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, true); // tool (standalone after system)
-      if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, false); // agent (different role)
+      if (chatItems[0].type === "chat")
+        assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
+      if (chatItems[1].type === "chat")
+        assert.strictEqual(chatItems[1].isFirstOfTurn, true); // tool (standalone after system)
+      if (chatItems[2].type === "chat")
+        assert.strictEqual(chatItems[2].isFirstOfTurn, false); // agent (different role)
     });
 
     it("User → Agent(1) → Tool → Agent(2): agent(2) after tool is not first-of-turn", () => {
@@ -1996,17 +2072,26 @@ describe("MessagePipeline", () => {
       const messages: RawMessage[] = [
         msg({ role: "user", content: "q" }),
         msg({ role: "agent", agentId: "a1", content: "thinking" }),
-        msg({ role: "tool", agentId: "a1", content: "tool result", toolCalls: [toolCall("tc-1")] }),
+        msg({
+          role: "tool",
+          agentId: "a1",
+          content: "tool result",
+          toolCalls: [toolCall("tc-1")],
+        }),
         msg({ role: "agent", agentId: "a1", content: "answer" }),
       ];
       const result = pipeline.process(messages, defaultCtx);
       const chatItems = result.filter((r) => r.type === "chat");
       // user, agent(1), tool (standalone), agent(2)
       assert.strictEqual(chatItems.length, 4);
-      if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
-      if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, true); // agent(1) first agent after user
-      if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, false) // tool (after agent)
-      if (chatItems[3].type === "chat") assert.strictEqual(chatItems[3].isFirstOfTurn, false); // agent(2) — after tool
+      if (chatItems[0].type === "chat")
+        assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
+      if (chatItems[1].type === "chat")
+        assert.strictEqual(chatItems[1].isFirstOfTurn, true); // agent(1) first agent after user
+      if (chatItems[2].type === "chat")
+        assert.strictEqual(chatItems[2].isFirstOfTurn, false); // tool (after agent)
+      if (chatItems[3].type === "chat")
+        assert.strictEqual(chatItems[3].isFirstOfTurn, false); // agent(2) — after tool
     });
 
     it("User → Agent(1) → Tool → System → Agent(2): system boundary resets", () => {
@@ -2014,7 +2099,12 @@ describe("MessagePipeline", () => {
       const messages: RawMessage[] = [
         msg({ role: "user", content: "q" }),
         msg({ role: "agent", agentId: "a1", content: "thinking" }),
-        msg({ role: "tool", agentId: "a1", content: "tool result", toolCalls: [toolCall("tc-1")] }),
+        msg({
+          role: "tool",
+          agentId: "a1",
+          content: "tool result",
+          toolCalls: [toolCall("tc-1")],
+        }),
         msg({ role: "system", content: "mode switched" }),
         msg({ role: "agent", agentId: "a1", content: "answer" }),
       ];
@@ -2022,10 +2112,14 @@ describe("MessagePipeline", () => {
       const chatItems = result.filter((r) => r.type === "chat");
       // user, agent(1), tool (standalone), agent(2)
       assert.strictEqual(chatItems.length, 4);
-      if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
-      if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, true); // agent(1) first agent after user
-      if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, false); // tool (after agent)
-      if (chatItems[3].type === "chat") assert.strictEqual(chatItems[3].isFirstOfTurn, true); // agent(2) after system boundary
+      if (chatItems[0].type === "chat")
+        assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
+      if (chatItems[1].type === "chat")
+        assert.strictEqual(chatItems[1].isFirstOfTurn, true); // agent(1) first agent after user
+      if (chatItems[2].type === "chat")
+        assert.strictEqual(chatItems[2].isFirstOfTurn, false); // tool (after agent)
+      if (chatItems[3].type === "chat")
+        assert.strictEqual(chatItems[3].isFirstOfTurn, true); // agent(2) after system boundary
     });
   });
 });

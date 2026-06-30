@@ -72,7 +72,8 @@ export function Chip({
   const turnBorderCls = turnBorderMap[turnKey ?? ""] ?? "";
   const ctxBorderCls = ctxBorderMap[meta.contextColor ?? ""] ?? "";
   const ctxValueCls = ctxValueColorMap[meta.contextColor ?? ""] ?? "";
-  const criticalAnim = meta.contextColor === "critical" ? "animate-context-pulse" : "";
+  const criticalAnim =
+    meta.contextColor === "critical" ? "animate-context-pulse" : "";
 
   return (
     <span
@@ -92,13 +93,23 @@ export function Chip({
         />
       )}
       {turnIconName && !dot && (
-        <Icon name={turnIconName} className="inline-flex items-center text-[10px] leading-none shrink-0 mr-[2px]" size="sm" />
+        <Icon
+          name={turnIconName}
+          className="inline-flex items-center text-[10px] leading-none shrink-0 mr-[2px]"
+          size="sm"
+        />
       )}
       {resolvedModeIcon && (
-        <Icon name={resolvedModeIcon} className="inline-flex items-center text-[10px] leading-none shrink-0 mr-[2px]" size="sm" />
+        <Icon
+          name={resolvedModeIcon}
+          className="inline-flex items-center text-[10px] leading-none shrink-0 mr-[2px]"
+          size="sm"
+        />
       )}
       {meta.icon && !(typeof meta.icon === "string") && (
-        <span className="inline-flex items-center text-[10px] leading-none shrink-0 mr-[2px]">{meta.icon}</span>
+        <span className="inline-flex items-center text-[10px] leading-none shrink-0 mr-[2px]">
+          {meta.icon}
+        </span>
       )}
       {meta.barPct !== undefined ? (
         <span className="inline-flex items-center gap-[4px] min-w-[60px]">

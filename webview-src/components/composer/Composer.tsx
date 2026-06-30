@@ -130,8 +130,7 @@ function buildSessionSuggestions(
   const items: SuggestionItem[] = tabs.map((tab) => {
     const key = `${tab.agentId}:${tab.sessionId}`;
     const info = sessionInfoMap[key];
-    const sessionColor =
-      info?.sessionColor ?? sessionColorForKey(key);
+    const sessionColor = info?.sessionColor ?? sessionColorForKey(key);
 
     const timeStr = relativeTime(info?.lastResponseAt ?? null);
     // Start without preview — will be enriched asynchronously
@@ -243,748 +242,791 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
     const tabs = useSessionStore.getState().getTabs();
     const connectedAgents = useSessionStore((s) => s.connectedAgents);
 
-  const [text, setText] = useState("");
-  const [attachments, setAttachments] = useState<ContextAttachment[]>([]);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const historyRef = useRef<string[]>([]);
-  const historyIdxRef = useRef(-1);
-  const inputBeforeNavRef = useRef("");
+    const [text, setText] = useState("");
+    const [attachments, setAttachments] = useState<ContextAttachment[]>([]);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const historyRef = useRef<string[]>([]);
+    const historyIdxRef = useRef(-1);
+    const inputBeforeNavRef = useRef("");
 
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (detail?.attachment) {
-        setAttachments((prev) => [...prev, detail.attachment]);
-      }
-    };
-    window.addEventListener("acp:attachDiff", handler);
-    return () => window.removeEventListener("acp:attachDiff", handler);
-  }, []);
+    useEffect(() => {
+      const handler = (e: Event) => {
+        const detail = (e as CustomEvent).detail;
+        if (detail?.attachment) {
+          setAttachments((prev) => [...prev, detail.attachment]);
+        }
+      };
+      window.addEventListener("acp:attachDiff", handler);
+      return () => window.removeEventListener("acp:attachDiff", handler);
+    }, []);
 
-  const resetHeight = useCallback(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-    }
-  }, []);
-
-  const autoResizeHeight = useCallback(() => {
-    const textarea = textareaRef.current;
-    if (textarea) {
-      textarea.style.height = "auto";
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`;
-    }
-  }, []);
-
-  const resetPickerImpl = useRef<() => void>(() => {});
-  const resetPicker = useCallback(() => {
-    resetPickerImpl.current();
-  }, []);
-
-  // Expose imperative focus method for parent components (e.g. MeshPanel Plan button)
-  React.useImperativeHandle(ref, () => ({
-    focusTextarea: () => {
+    const resetHeight = useCallback(() => {
       if (textareaRef.current) {
-        textareaRef.current.focus();
+        textareaRef.current.style.height = "auto";
       }
-    },
-  }));
+    }, []);
 
-  const sendTargets = useMeshStore((s) => s.sendTargets);
-  const addSendTarget = useMeshStore((s) => s.addSendTarget);
-  const removeSendTarget = useMeshStore((s) => s.removeSendTarget);
-  const clearSendTargets = useMeshStore((s) => s.clearSendTargets);
+    const autoResizeHeight = useCallback(() => {
+      const textarea = textareaRef.current;
+      if (textarea) {
+        textarea.style.height = "auto";
+        textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`;
+      }
+    }, []);
 
-  const selectedTeam = useMeshStore((s) => s.selectedTeam);
-  const setSelectedTeam = useMeshStore((s) => s.setSelectedTeam);
+    const resetPickerImpl = useRef<() => void>(() => {});
+    const resetPicker = useCallback(() => {
+      resetPickerImpl.current();
+    }, []);
 
-  const communicationMode = useMeshStore((s) => s.communicationMode);
-  const setCommunicationMode = useMeshStore((s) => s.setCommunicationMode);
+    // Expose imperative focus method for parent components (e.g. MeshPanel Plan button)
+    React.useImperativeHandle(ref, () => ({
+      focusTextarea: () => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+        }
+      },
+    }));
 
-  // Track multi-@ mode: true when at least one @ target is selected
-  const isMultiMode = sendTargets.length > 0;
+    const sendTargets = useMeshStore((s) => s.sendTargets);
+    const addSendTarget = useMeshStore((s) => s.addSendTarget);
+    const removeSendTarget = useMeshStore((s) => s.removeSendTarget);
+    const clearSendTargets = useMeshStore((s) => s.clearSendTargets);
 
-  // Compute targets for cancel: when sendTargets are selected (multi-@ mode),
-  // use those; the active session fallback is in AppContainer.cancelTurn
-  const cancelTargets = sendTargets.length > 0 ? sendTargets : undefined;
+    const selectedTeam = useMeshStore((s) => s.selectedTeam);
+    const setSelectedTeam = useMeshStore((s) => s.setSelectedTeam);
 
-  const pinnedSessionKeys = useSessionStore((s) => s.pinnedSessionKeys);
-  const hasPinnedSessions = pinnedSessionKeys.length > 0;
+    const communicationMode = useMeshStore((s) => s.communicationMode);
+    const setCommunicationMode = useMeshStore((s) => s.setCommunicationMode);
 
-  const handleSendToAllPinned = useCallback(() => {
-    const trimmed = text.trim();
-    if ((!trimmed && attachments.length === 0) || disabled) return;
+    // Track multi-@ mode: true when at least one @ target is selected
+    const isMultiMode = sendTargets.length > 0;
 
-    // Build targets from all pinned sessions
-    const sessionInfoMap = useSessionStore.getState().sessionInfoMap;
-    const pinnedTargets: SendTarget[] = pinnedSessionKeys
-      .filter((key) => sessionInfoMap[key]) // only include sessions that exist
-      .map((key) => {
-        const [agentId, sessionId] = key.split(":");
-        const info = sessionInfoMap[key];
-        return {
-          agentId,
-          sessionId,
-          label: info?.sessionId?.slice(0, 8) ?? sessionId,
-          status: (info?.status ?? "idle") as
-            | "idle"
-            | "running"
-            | "completed"
-            | "error"
-            | "cancelled",
-          tokenUsage: info?.tokenUsage,
-          contextWindowMax: info?.contextWindowMax,
-        };
+    // Compute targets for cancel: when sendTargets are selected (multi-@ mode),
+    // use those; the active session fallback is in AppContainer.cancelTurn
+    const cancelTargets = sendTargets.length > 0 ? sendTargets : undefined;
+
+    const pinnedSessionKeys = useSessionStore((s) => s.pinnedSessionKeys);
+    const hasPinnedSessions = pinnedSessionKeys.length > 0;
+
+    const handleSendToAllPinned = useCallback(() => {
+      const trimmed = text.trim();
+      if ((!trimmed && attachments.length === 0) || disabled) return;
+
+      // Build targets from all pinned sessions
+      const sessionInfoMap = useSessionStore.getState().sessionInfoMap;
+      const pinnedTargets: SendTarget[] = pinnedSessionKeys
+        .filter((key) => sessionInfoMap[key]) // only include sessions that exist
+        .map((key) => {
+          const [agentId, sessionId] = key.split(":");
+          const info = sessionInfoMap[key];
+          return {
+            agentId,
+            sessionId,
+            label: info?.sessionId?.slice(0, 8) ?? sessionId,
+            status: (info?.status ?? "idle") as
+              | "idle"
+              | "running"
+              | "completed"
+              | "error"
+              | "cancelled",
+            tokenUsage: info?.tokenUsage,
+            contextWindowMax: info?.contextWindowMax,
+          };
+        });
+
+      if (pinnedTargets.length === 0) return;
+
+      log.info("sendToAllPinned", {
+        textLen: trimmed.length,
+        targetCount: pinnedTargets.length,
       });
+      onSend(trimmed, attachments, pinnedTargets);
 
-    if (pinnedTargets.length === 0) return;
+      resetPicker();
+      setText("");
+      setAttachments([]);
+      resetHeight();
+    }, [
+      text,
+      attachments,
+      disabled,
+      pinnedSessionKeys,
+      onSend,
+      resetHeight,
+      resetPicker,
+    ]);
 
-    log.info("sendToAllPinned", {
-      textLen: trimmed.length,
-      targetCount: pinnedTargets.length,
-    });
-    onSend(trimmed, attachments, pinnedTargets);
-
-    resetPicker();
-    setText("");
-    setAttachments([]);
-    resetHeight();
-  }, [
-    text,
-    attachments,
-    disabled,
-    pinnedSessionKeys,
-    onSend,
-    resetHeight,
-    resetPicker,
-  ]);
-
-  const buildTeamSuggestions = useCallback(
-    (query: string): SuggestionItem[] => {
-      const teams = useMeshStore.getState().teams;
-      const items: SuggestionItem[] = teams.map((team) => ({
-        id: `team:${team.id}`,
-        kind: "team" as const,
-        label: team.name,
-        value: team.id,
-        detail: `${team.members.length} members`,
-        icon: "users",
-      }));
-      if (!query) return items;
-      const q = query.toLowerCase();
-      return items.filter(
-        (t) =>
-          t.label.toLowerCase().includes(q) ||
-          t.value.toLowerCase().includes(q)
-      );
-    },
-    []
-  );
-
-  const fetchSuggestions = useCallback(
-    async (
-      trigger: TriggerType,
-      query: string,
-      subTrigger?: "symbol" | "file" | "switch" | "team"
-    ): Promise<SuggestionItem[]> => {
-      if (trigger === "/") {
-        const agentItems: SuggestionItem[] = availableCommands.map((cmd) => ({
-          id: `agent:${cmd.name}`,
-          kind: "command" as const,
-          label: `/${cmd.name}`,
-          value: `/${cmd.name}`,
-          detail: cmd.description ?? undefined,
-          icon: "zap",
+    const buildTeamSuggestions = useCallback(
+      (query: string): SuggestionItem[] => {
+        const teams = useMeshStore.getState().teams;
+        const items: SuggestionItem[] = teams.map((team) => ({
+          id: `team:${team.id}`,
+          kind: "team" as const,
+          label: team.name,
+          value: team.id,
+          detail: `${team.members.length} members`,
+          icon: "users",
         }));
-        const meshItems: SuggestionItem[] = [
+        if (!query) return items;
+        const q = query.toLowerCase();
+        return items.filter(
+          (t) =>
+            t.label.toLowerCase().includes(q) ||
+            t.value.toLowerCase().includes(q)
+        );
+      },
+      []
+    );
+
+    const fetchSuggestions = useCallback(
+      async (
+        trigger: TriggerType,
+        query: string,
+        subTrigger?: "symbol" | "file" | "switch" | "team"
+      ): Promise<SuggestionItem[]> => {
+        if (trigger === "/") {
+          const agentItems: SuggestionItem[] = availableCommands.map((cmd) => ({
+            id: `agent:${cmd.name}`,
+            kind: "command" as const,
+            label: `/${cmd.name}`,
+            value: `/${cmd.name}`,
+            detail: cmd.description ?? undefined,
+            icon: "zap",
+          }));
+          const meshItems: SuggestionItem[] = [
+            {
+              id: "mesh:plan",
+              kind: "action",
+              label: "/mesh plan",
+              value: "meshPlan",
+              detail: "Request a plan from the Planner",
+              icon: "list-tree",
+            },
+            {
+              id: "mesh:fanout",
+              kind: "action",
+              label: "/mesh fanout",
+              value: "meshFanout",
+              detail: "1:N broadcast — select @targets then send",
+              icon: "git-branch",
+            },
+            {
+              id: "mesh:supervisor",
+              kind: "action",
+              label: "/mesh supervisor",
+              value: "meshSupervisor",
+              detail: "Lead/worker pattern — select lead @target then send",
+              icon: "crown",
+            },
+            {
+              id: "mesh:pipeline",
+              kind: "action",
+              label: "/mesh pipeline",
+              value: "meshPipeline",
+              detail: "Sequential A→B→C — select @targets in order",
+              icon: "arrow-down",
+            },
+            {
+              id: "mesh:status",
+              kind: "action",
+              label: "/mesh status",
+              value: "meshStatus",
+              detail: "Toggle Mesh Panel",
+              icon: "layout-dashboard",
+            },
+            {
+              id: "mesh:cancel",
+              kind: "action",
+              label: "/mesh cancel",
+              value: "meshCancel",
+              detail: "Cancel current plan execution",
+              icon: "circle-slash",
+            },
+          ];
+          const allItems = [...agentItems, ...meshItems];
+          if (query) {
+            const q = query.toLowerCase();
+            return allItems.filter(
+              (c) =>
+                c.label.toLowerCase().includes(q) ||
+                (c.detail ?? "").toLowerCase().includes(q)
+            );
+          }
+          return allItems;
+        }
+
+        if (trigger === "@") {
+          if (subTrigger === "team") {
+            return buildTeamSuggestions(query);
+          }
+          return buildSessionSuggestions(tabs, query);
+        }
+
+        if (subTrigger === "symbol") {
+          return fetchSymbols(query);
+        }
+
+        if (subTrigger === "file") {
+          // When multi-@ targets are selected, fetch files from each target's
+          // cwd in parallel and merge results.  Single-target and no-target
+          // cases use the active session's cwd (or undefined).
+          const sessionInfoMap = useSessionStore.getState().sessionInfoMap;
+          const tabTitles = useSessionStore.getState().tabTitles;
+          const cwds: string[] = [];
+          // Build a map: cwd → set of session title labels for display
+          const cwdSources = new Map<string, Set<string>>();
+          if (sendTargets.length > 0) {
+            for (const t of sendTargets) {
+              const info = sessionInfoMap[`${t.agentId}:${t.sessionId}`];
+              if (info?.cwd) {
+                if (!cwds.includes(info.cwd)) cwds.push(info.cwd);
+                const key = `${t.agentId}:${t.sessionId}`;
+                const title = tabTitles[key] ?? t.label;
+                if (!cwdSources.has(info.cwd))
+                  cwdSources.set(info.cwd, new Set());
+                cwdSources.get(info.cwd)!.add(title);
+              }
+            }
+          } else {
+            // Fallback: active session cwd
+            const activeKey = useSessionStore.getState().activeSessionKey;
+            if (activeKey) {
+              const info = sessionInfoMap[activeKey];
+              if (info?.cwd) {
+                cwds.push(info.cwd);
+                const title = tabTitles[activeKey] ?? info.sessionId;
+                cwdSources.set(info.cwd, new Set([title]));
+              }
+            }
+          }
+
+          // Track how many unique cwds we're fetching from
+          const multiCwd = cwds.length > 1;
+
+          const fileArrays = await Promise.all(
+            cwds.length > 0
+              ? cwds.map((cwd) => fetchFiles(query, cwd))
+              : [fetchFiles(query)]
+          );
+          // Merge and deduplicate by relativePath, collecting all source cwds per file
+          // Key insight: different sessions with the SAME cwd can also share files,
+          // so we track which unique cwds a file appeared in AND collect all session
+          // titles across all matching cwds.
+          const seen = new Map<
+            string,
+            FileCandidate & { sourceCwds: string[] }
+          >();
+          for (let i = 0; i < fileArrays.length; i++) {
+            const cwd = cwds[i];
+            for (const f of fileArrays[i]) {
+              const existing = seen.get(f.relativePath);
+              if (existing) {
+                if (!existing.sourceCwds.includes(cwd))
+                  existing.sourceCwds.push(cwd);
+              } else {
+                seen.set(f.relativePath, { ...f, sourceCwds: [cwd] });
+              }
+            }
+          }
+          const merged = Array.from(seen.values());
+          const fileItems: SuggestionItem[] = merged.map((f) => {
+            // When multiple cwds are involved, collect all session titles from all
+            // matching cwds and show them comma-separated, e.g. "S1, S2 : /tmp/test"
+            let detail = f.relativePath;
+            if (multiCwd) {
+              const titles: string[] = [];
+              for (const cwd of f.sourceCwds) {
+                const srcs = cwdSources.get(cwd);
+                if (srcs) {
+                  for (const t of srcs) titles.push(t);
+                }
+              }
+              if (titles.length > 0) {
+                detail = `${titles.join(", ")} : ${f.relativePath}`;
+              }
+            }
+            return {
+              id: `file:${f.relativePath}`,
+              kind: "file" as const,
+              label: f.name,
+              value: f.absolutePath ?? f.relativePath,
+              detail,
+              icon: "file",
+            };
+          });
+          fileItems.push(
+            {
+              id: "special:selection",
+              kind: "selection",
+              label: "#selection — Attach current selection",
+              value: "__selection__",
+              icon: "selection",
+            },
+            {
+              id: "special:diff",
+              kind: "diff",
+              label: "#diff — Attach working tree diff",
+              value: "__diff__",
+              icon: "diff-single",
+            }
+          );
+          return fileItems;
+        }
+
+        if (subTrigger === "switch") {
+          return buildSessionSuggestions(tabs, query);
+        }
+
+        // subTrigger === undefined → "# " — show subcommand completions
+        const subCommands: SuggestionItem[] = [
           {
-            id: "mesh:plan",
+            id: "action:new",
             kind: "action",
-            label: "/mesh plan",
-            value: "meshPlan",
-            detail: "Request a plan from the Planner",
-            icon: "list-tree",
+            label: "#new",
+            value: "new",
+            detail: "Start a new session",
+            icon: "sparkle",
           },
           {
-            id: "mesh:fanout",
+            id: "action:reset",
             kind: "action",
-            label: "/mesh fanout",
-            value: "meshFanout",
-            detail: "1:N broadcast — select @targets then send",
-            icon: "git-branch",
+            label: "#reset",
+            value: "reset",
+            detail: "Reset current session",
+            icon: "sync",
           },
           {
-            id: "mesh:supervisor",
-            kind: "action",
-            label: "/mesh supervisor",
-            value: "meshSupervisor",
-            detail: "Lead/worker pattern — select lead @target then send",
-            icon: "crown",
+            id: "sub:file",
+            kind: "file",
+            label: "file",
+            value: "file",
+            detail: "Attach a file",
+            icon: "file",
           },
           {
-            id: "mesh:pipeline",
-            kind: "action",
-            label: "/mesh pipeline",
-            value: "meshPipeline",
-            detail: "Sequential A→B→C — select @targets in order",
-            icon: "arrow-down",
+            id: "sub:symbol",
+            kind: "symbol",
+            label: "symbol",
+            value: "symbol",
+            detail: "Attach a symbol",
+            icon: "symbol-class",
           },
           {
-            id: "mesh:status",
-            kind: "action",
-            label: "/mesh status",
-            value: "meshStatus",
-            detail: "Toggle Mesh Panel",
-            icon: "layout-dashboard",
+            id: "sub:selection",
+            kind: "selection",
+            label: "selection",
+            value: "__selection__",
+            detail: "Attach current selection",
+            icon: "selection",
           },
           {
-            id: "mesh:cancel",
+            id: "sub:diff",
+            kind: "diff",
+            label: "diff",
+            value: "__diff__",
+            detail: "Attach working tree diff",
+            icon: "diff-single",
+          },
+          {
+            id: "sub:switch",
             kind: "action",
-            label: "/mesh cancel",
-            value: "meshCancel",
-            detail: "Cancel current plan execution",
-            icon: "circle-slash",
+            label: "switch",
+            value: "switch",
+            detail: "Switch to another session",
+            icon: "arrow-right-left",
+          },
+          {
+            id: "action:rename",
+            kind: "action",
+            label: "rename",
+            value: "rename",
+            detail: "Rename current session",
+            icon: "pencil",
           },
         ];
-        const allItems = [...agentItems, ...meshItems];
         if (query) {
           const q = query.toLowerCase();
-          return allItems.filter(
+          return subCommands.filter(
             (c) =>
               c.label.toLowerCase().includes(q) ||
               (c.detail ?? "").toLowerCase().includes(q)
           );
         }
-        return allItems;
-      }
+        return subCommands;
+      },
+      [fetchFiles, fetchSymbols, tabs, availableCommands]
+    );
 
-      if (trigger === "@") {
-        if (subTrigger === "team") {
-          return buildTeamSuggestions(query);
-        }
-        return buildSessionSuggestions(tabs, query);
-      }
-
-      if (subTrigger === "symbol") {
-        return fetchSymbols(query);
-      }
-
-      if (subTrigger === "file") {
-        // When multi-@ targets are selected, fetch files from each target's
-        // cwd in parallel and merge results.  Single-target and no-target
-        // cases use the active session's cwd (or undefined).
-        const sessionInfoMap = useSessionStore.getState().sessionInfoMap;
-        const tabTitles = useSessionStore.getState().tabTitles;
-        const cwds: string[] = [];
-        // Build a map: cwd → set of session title labels for display
-        const cwdSources = new Map<string, Set<string>>();
-        if (sendTargets.length > 0) {
-          for (const t of sendTargets) {
-            const info = sessionInfoMap[`${t.agentId}:${t.sessionId}`];
-            if (info?.cwd) {
-              if (!cwds.includes(info.cwd)) cwds.push(info.cwd);
-              const key = `${t.agentId}:${t.sessionId}`;
-              const title = tabTitles[key] ?? t.label;
-              if (!cwdSources.has(info.cwd)) cwdSources.set(info.cwd, new Set());
-              cwdSources.get(info.cwd)!.add(title);
-            }
+    const resolveItem = useCallback(
+      async (
+        input: Parameters<typeof handleSelect>[0]
+      ): Promise<SelectOutput> => {
+        const { triggerState, item } = input;
+        let newText = input.text;
+        // Calculate consumed length based on trigger type and subTrigger
+        let consumed: number;
+        if (triggerState.trigger === "/") {
+          consumed = 1 + triggerState.query.length;
+        } else if (triggerState.trigger === "@") {
+          if (triggerState.subTrigger) {
+            // @team:query → @ + subTrigger + ":" + query
+            consumed =
+              1 +
+              triggerState.subTrigger.length +
+              1 +
+              triggerState.query.length;
+          } else {
+            // @query → @ + query
+            consumed = 1 + triggerState.query.length;
           }
+        } else if (triggerState.subTrigger) {
+          // #subTrigger query → # + subTrigger + " " + query
+          consumed =
+            1 +
+            triggerState.subTrigger.length +
+            (triggerState.query.length > 0 ? 1 + triggerState.query.length : 0);
         } else {
-          // Fallback: active session cwd
-          const activeKey = useSessionStore.getState().activeSessionKey;
-          if (activeKey) {
-            const info = sessionInfoMap[activeKey];
-            if (info?.cwd) {
-              cwds.push(info.cwd);
-              const title = tabTitles[activeKey] ?? info.sessionId;
-              cwdSources.set(info.cwd, new Set([title]));
-            }
-          }
-        }
-
-        // Track how many unique cwds we're fetching from
-        const multiCwd = cwds.length > 1;
-
-        const fileArrays = await Promise.all(
-          cwds.length > 0
-            ? cwds.map((cwd) => fetchFiles(query, cwd))
-            : [fetchFiles(query)]
-        );
-        // Merge and deduplicate by relativePath, collecting all source cwds per file
-        // Key insight: different sessions with the SAME cwd can also share files,
-        // so we track which unique cwds a file appeared in AND collect all session
-        // titles across all matching cwds.
-        const seen = new Map<
-          string,
-          FileCandidate & { sourceCwds: string[] }
-        >();
-        for (let i = 0; i < fileArrays.length; i++) {
-          const cwd = cwds[i];
-          for (const f of fileArrays[i]) {
-            const existing = seen.get(f.relativePath);
-            if (existing) {
-              if (!existing.sourceCwds.includes(cwd)) existing.sourceCwds.push(cwd);
-            } else {
-              seen.set(f.relativePath, { ...f, sourceCwds: [cwd] });
-            }
-          }
-        }
-        const merged = Array.from(seen.values());
-        const fileItems: SuggestionItem[] = merged.map((f) => {
-          // When multiple cwds are involved, collect all session titles from all
-          // matching cwds and show them comma-separated, e.g. "S1, S2 : /tmp/test"
-          let detail = f.relativePath;
-          if (multiCwd) {
-            const titles: string[] = [];
-            for (const cwd of f.sourceCwds) {
-              const srcs = cwdSources.get(cwd);
-              if (srcs) {
-                for (const t of srcs) titles.push(t);
-              }
-            }
-            if (titles.length > 0) {
-              detail = `${titles.join(", ")} : ${f.relativePath}`;
-            }
-          }
-          return {
-            id: `file:${f.relativePath}`,
-            kind: "file" as const,
-            label: f.name,
-            value: f.absolutePath ?? f.relativePath,
-            detail,
-            icon: "file",
-          };
-        });
-        fileItems.push(
-          {
-            id: "special:selection",
-            kind: "selection",
-            label: "#selection — Attach current selection",
-            value: "__selection__",
-            icon: "selection",
-          },
-          {
-            id: "special:diff",
-            kind: "diff",
-            label: "#diff — Attach working tree diff",
-            value: "__diff__",
-            icon: "diff-single",
-          }
-        );
-        return fileItems;
-      }
-
-      if (subTrigger === "switch") {
-        return buildSessionSuggestions(tabs, query);
-      }
-
-      // subTrigger === undefined → "# " — show subcommand completions
-      const subCommands: SuggestionItem[] = [
-        {
-          id: "action:new",
-          kind: "action",
-          label: "#new",
-          value: "new",
-          detail: "Start a new session",
-          icon: "sparkle",
-        },
-        {
-          id: "action:reset",
-          kind: "action",
-          label: "#reset",
-          value: "reset",
-          detail: "Reset current session",
-          icon: "sync",
-        },
-        {
-          id: "sub:file",
-          kind: "file",
-          label: "file",
-          value: "file",
-          detail: "Attach a file",
-          icon: "file",
-        },
-        {
-          id: "sub:symbol",
-          kind: "symbol",
-          label: "symbol",
-          value: "symbol",
-          detail: "Attach a symbol",
-          icon: "symbol-class",
-        },
-        {
-          id: "sub:selection",
-          kind: "selection",
-          label: "selection",
-          value: "__selection__",
-          detail: "Attach current selection",
-          icon: "selection",
-        },
-        {
-          id: "sub:diff",
-          kind: "diff",
-          label: "diff",
-          value: "__diff__",
-          detail: "Attach working tree diff",
-          icon: "diff-single",
-        },
-        {
-          id: "sub:switch",
-          kind: "action",
-          label: "switch",
-          value: "switch",
-          detail: "Switch to another session",
-          icon: "arrow-right-left",
-        },
-        {
-          id: "action:rename",
-          kind: "action",
-          label: "rename",
-          value: "rename",
-          detail: "Rename current session",
-          icon: "pencil",
-        },
-      ];
-      if (query) {
-        const q = query.toLowerCase();
-        return subCommands.filter(
-          (c) =>
-            c.label.toLowerCase().includes(q) ||
-            (c.detail ?? "").toLowerCase().includes(q)
-        );
-      }
-      return subCommands;
-    },
-    [fetchFiles, fetchSymbols, tabs, availableCommands]
-  );
-
-  const resolveItem = useCallback(
-    async (
-      input: Parameters<typeof handleSelect>[0]
-    ): Promise<SelectOutput> => {
-      const { triggerState, item } = input;
-      let newText = input.text;
-      // Calculate consumed length based on trigger type and subTrigger
-      let consumed: number;
-      if (triggerState.trigger === "/") {
-        consumed = 1 + triggerState.query.length;
-      } else if (triggerState.trigger === "@") {
-        if (triggerState.subTrigger) {
-          // @team:query → @ + subTrigger + ":" + query
-          consumed = 1 + triggerState.subTrigger.length + 1 + triggerState.query.length;
-        } else {
-          // @query → @ + query
+          // #query → # + query
           consumed = 1 + triggerState.query.length;
         }
-      } else if (triggerState.subTrigger) {
-        // #subTrigger query → # + subTrigger + " " + query
-        consumed =
-          1 +
-          triggerState.subTrigger.length +
-          (triggerState.query.length > 0 ? 1 + triggerState.query.length : 0);
-      } else {
-        // #query → # + query
-        consumed = 1 + triggerState.query.length;
-      }
 
-      const before = newText.slice(0, triggerState.caretOffset);
-      const after = newText.slice(triggerState.caretOffset + consumed);
-      const space = after.startsWith(" ") ? "" : " ";
+        const before = newText.slice(0, triggerState.caretOffset);
+        const after = newText.slice(triggerState.caretOffset + consumed);
+        const space = after.startsWith(" ") ? "" : " ";
 
-      if (item.kind === "file") {
-        try {
-          const attachment = await resolveFile(item.value);
-          setAttachments((prev) => [...prev, attachment]);
-        } catch {
-          /* silently fail */
-        }
-        newText = before + after;
-        setText(newText);
-      } else if (item.kind === "selection") {
-        try {
-          const attachment = await resolveSelection();
-          if (attachment) setAttachments((prev) => [...prev, attachment]);
-        } catch {
-          /* silently fail */
-        }
-        newText = before + after;
-        setText(newText);
-      } else if (item.kind === "diff") {
-        try {
-          const attachment = await resolveDiff();
-          if (attachment) setAttachments((prev) => [...prev, attachment]);
-        } catch {
-          /* silently fail */
-        }
-        newText = before + after;
-        setText(newText);
-      } else if (item.kind === "command") {
-        newText = before + item.value + space + after;
-        setText(newText);
-      } else if (item.kind === "action") {
-        if (item.value === "new") {
-          onNewSession?.();
-        } else if (item.value === "rename") {
-          // Trigger rename for the active session
-          const activeKey = useSessionStore.getState().activeSessionKey;
-          if (activeKey && onRenameSession) {
-            const [agentId, sessionId] = activeKey.split(":");
-            // We need to get the current title and prompt for a new one
-            // For now, send a signal; the actual rename dialog is handled by the parent
-            onRenameSession(agentId, sessionId, "");
+        if (item.kind === "file") {
+          try {
+            const attachment = await resolveFile(item.value);
+            setAttachments((prev) => [...prev, attachment]);
+          } catch {
+            /* silently fail */
           }
-        } else if (item.value === "meshPlan") {
-          // Activate supervisor mode with plan intent; user types request text then Enter
-          setCommunicationMode("supervisor");
-          clearSendTargets();
-          // If a team is already selected, keep it; otherwise user picks via @team:
           newText = before + after;
           setText(newText);
-          // Focus textarea so user can type plan request immediately
-          requestAnimationFrame(() => textareaRef.current?.focus());
-        } else if (item.value === "meshStatus") {
-          getVsCodeApi().postMessage({ type: "mesh:togglePanel" });
-        } else if (item.value === "meshCancel") {
-          const currentPlan = useSessionStore.getState().currentPlan;
-          if (currentPlan) {
-            getVsCodeApi().postMessage({
-              type: "plan.cancel",
-              planId: currentPlan.id,
+        } else if (item.kind === "selection") {
+          try {
+            const attachment = await resolveSelection();
+            if (attachment) setAttachments((prev) => [...prev, attachment]);
+          } catch {
+            /* silently fail */
+          }
+          newText = before + after;
+          setText(newText);
+        } else if (item.kind === "diff") {
+          try {
+            const attachment = await resolveDiff();
+            if (attachment) setAttachments((prev) => [...prev, attachment]);
+          } catch {
+            /* silently fail */
+          }
+          newText = before + after;
+          setText(newText);
+        } else if (item.kind === "command") {
+          newText = before + item.value + space + after;
+          setText(newText);
+        } else if (item.kind === "action") {
+          if (item.value === "new") {
+            onNewSession?.();
+          } else if (item.value === "rename") {
+            // Trigger rename for the active session
+            const activeKey = useSessionStore.getState().activeSessionKey;
+            if (activeKey && onRenameSession) {
+              const [agentId, sessionId] = activeKey.split(":");
+              // We need to get the current title and prompt for a new one
+              // For now, send a signal; the actual rename dialog is handled by the parent
+              onRenameSession(agentId, sessionId, "");
+            }
+          } else if (item.value === "meshPlan") {
+            // Activate supervisor mode with plan intent; user types request text then Enter
+            setCommunicationMode("supervisor");
+            clearSendTargets();
+            // If a team is already selected, keep it; otherwise user picks via @team:
+            newText = before + after;
+            setText(newText);
+            // Focus textarea so user can type plan request immediately
+            requestAnimationFrame(() => textareaRef.current?.focus());
+          } else if (item.value === "meshStatus") {
+            getVsCodeApi().postMessage({ type: "mesh:togglePanel" });
+          } else if (item.value === "meshCancel") {
+            const currentPlan = useSessionStore.getState().currentPlan;
+            if (currentPlan) {
+              getVsCodeApi().postMessage({
+                type: "plan.cancel",
+                planId: currentPlan.id,
+              });
+            }
+          } else if (
+            item.value === "meshFanout" ||
+            item.value === "meshSupervisor" ||
+            item.value === "meshPipeline"
+          ) {
+            // Set communication mode — next @ picks become targets for this mode
+            const modeMap: Record<string, CommunicationMode> = {
+              meshFanout: "fanout",
+              meshSupervisor: "supervisor",
+              meshPipeline: "pipeline",
+            };
+            setCommunicationMode(modeMap[item.value]);
+            // Clear any stale targets from a previous mode
+            clearSendTargets();
+          }
+          newText = before + after;
+          setText(newText);
+        } else if (item.kind === "symbol") {
+          try {
+            const attachment = await resolveSymbol(item.value);
+            setAttachments((prev) => [...prev, attachment]);
+          } catch {
+            /* silently fail */
+          }
+          newText = before + after;
+          setText(newText);
+        } else if (item.kind === "team") {
+          // @team: picker — store selected team, remove @team:... from textarea
+          const team = useMeshStore
+            .getState()
+            .teams.find((t) => t.id === item.value);
+          if (team) {
+            setSelectedTeam({
+              id: team.id,
+              name: team.name,
+              leadAgentId: team.lead.agentId,
             });
           }
-        } else if (
-          item.value === "meshFanout" ||
-          item.value === "meshSupervisor" ||
-          item.value === "meshPipeline"
-        ) {
-          // Set communication mode — next @ picks become targets for this mode
-          const modeMap: Record<string, CommunicationMode> = {
-            meshFanout: "fanout",
-            meshSupervisor: "supervisor",
-            meshPipeline: "pipeline",
-          };
-          setCommunicationMode(modeMap[item.value]);
-          // Clear any stale targets from a previous mode
-          clearSendTargets();
-        }
-        newText = before + after;
-        setText(newText);
-      } else if (item.kind === "symbol") {
-        try {
-          const attachment = await resolveSymbol(item.value);
-          setAttachments((prev) => [...prev, attachment]);
-        } catch {
-          /* silently fail */
-        }
-        newText = before + after;
-        setText(newText);
-      } else if (item.kind === "team") {
-        // @team: picker — store selected team, remove @team:... from textarea
-        const team = useMeshStore.getState().teams.find((t) => t.id === item.value);
-        if (team) {
-          setSelectedTeam({
-            id: team.id,
-            name: team.name,
-            leadAgentId: team.lead.agentId,
-          });
-        }
-        newText = before + after;
-        setText(newText);
-      } else if (item.kind === "session") {
-        if (triggerState.subTrigger === "switch") {
-          onSwitchSession?.(item.agentId!, item.sessionId!);
-          newText = "";
-          setText(newText);
-        } else {
-          // Multi-@: add to send targets instead of replacing
-          const sessionInfoMap = useSessionStore.getState().sessionInfoMap;
-          const info = sessionInfoMap[`${item.agentId}:${item.sessionId}`];
-          const target: SendTarget = {
-            agentId: item.agentId!,
-            sessionId: item.sessionId!,
-            label: item.label,
-            status: (info?.status as SendTarget["status"]) ?? "idle",
-            sessionColor: item.sessionColor,
-            tokenUsage: info?.tokenUsage,
-            contextWindowMax: info?.contextWindowMax,
-          };
-          addSendTarget(target);
-
-          // Remove @query from textarea — send target chip is shown below
           newText = before + after;
           setText(newText);
+        } else if (item.kind === "session") {
+          if (triggerState.subTrigger === "switch") {
+            onSwitchSession?.(item.agentId!, item.sessionId!);
+            newText = "";
+            setText(newText);
+          } else {
+            // Multi-@: add to send targets instead of replacing
+            const sessionInfoMap = useSessionStore.getState().sessionInfoMap;
+            const info = sessionInfoMap[`${item.agentId}:${item.sessionId}`];
+            const target: SendTarget = {
+              agentId: item.agentId!,
+              sessionId: item.sessionId!,
+              label: item.label,
+              status: (info?.status as SendTarget["status"]) ?? "idle",
+              sessionColor: item.sessionColor,
+              tokenUsage: info?.tokenUsage,
+              contextWindowMax: info?.contextWindowMax,
+            };
+            addSendTarget(target);
 
-          requestAnimationFrame(() => {
-            if (textareaRef.current) {
-              const pos = before.length;
-              textareaRef.current.selectionStart = pos;
-              textareaRef.current.selectionEnd = pos;
-              textareaRef.current.focus();
-            }
-          });
+            // Remove @query from textarea — send target chip is shown below
+            newText = before + after;
+            setText(newText);
+
+            requestAnimationFrame(() => {
+              if (textareaRef.current) {
+                const pos = before.length;
+                textareaRef.current.selectionStart = pos;
+                textareaRef.current.selectionEnd = pos;
+                textareaRef.current.focus();
+              }
+            });
+          }
         }
-      }
 
-      return {
-        text: newText,
-        triggerState: {
-          active: false,
-          trigger: "#" as const,
-          query: "",
-          caretOffset: 0,
-          multiMode:
-            isMultiMode ||
-            (item.kind === "session" && triggerState.subTrigger !== "switch"),
-        },
-      };
-    },
-    [
-      resolveFile,
-      resolveSelection,
-      resolveDiff,
-      resolveSymbol,
-      onNewSession,
-      onSwitchSession,
-      addSendTarget,
-      isMultiMode,
-    ]
-  );
+        return {
+          text: newText,
+          triggerState: {
+            active: false,
+            trigger: "#" as const,
+            query: "",
+            caretOffset: 0,
+            multiMode:
+              isMultiMode ||
+              (item.kind === "session" && triggerState.subTrigger !== "switch"),
+          },
+        };
+      },
+      [
+        resolveFile,
+        resolveSelection,
+        resolveDiff,
+        resolveSymbol,
+        onNewSession,
+        onSwitchSession,
+        addSendTarget,
+        isMultiMode,
+      ]
+    );
 
-  const {
-    triggerState,
-    pickerIndex,
-    setPickerIndex,
-    handleChange: onTriggerChange,
-    handleSelect,
-    handleClose: onClosePicker,
-    reset: resetPickerHook,
-    pickerKeyDownRef,
-    registerKeyHandler,
-  } = useTriggerPicker({
-    fetchSuggestions,
-    resolveItem,
-  });
+    const {
+      triggerState,
+      pickerIndex,
+      setPickerIndex,
+      handleChange: onTriggerChange,
+      handleSelect,
+      handleClose: onClosePicker,
+      reset: resetPickerHook,
+      pickerKeyDownRef,
+      registerKeyHandler,
+    } = useTriggerPicker({
+      fetchSuggestions,
+      resolveItem,
+    });
 
-  // Wire up the early-defined resetPicker callback to the hook's reset
-  resetPickerImpl.current = resetPickerHook;
+    // Wire up the early-defined resetPicker callback to the hook's reset
+    resetPickerImpl.current = resetPickerHook;
 
-  const handleChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const value = e.target.value;
-      const caret = e.target.selectionStart ?? value.length;
+    const handleChange = useCallback(
+      (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        const value = e.target.value;
+        const caret = e.target.selectionStart ?? value.length;
 
-      // In multi-mode, trigger @ picker each time @ is typed
-      const multiTriggerState = isMultiMode
-        ? { ...onTriggerChange(value, caret), multiMode: true }
-        : onTriggerChange(value, caret);
+        // In multi-mode, trigger @ picker each time @ is typed
+        const multiTriggerState = isMultiMode
+          ? { ...onTriggerChange(value, caret), multiMode: true }
+          : onTriggerChange(value, caret);
 
-      setPickerIndex(0);
+        setPickerIndex(0);
 
-      if (historyIdxRef.current !== -1) {
+        if (historyIdxRef.current !== -1) {
+          historyIdxRef.current = -1;
+          inputBeforeNavRef.current = "";
+        }
+        setText(value);
+        autoResizeHeight();
+      },
+      [onTriggerChange, setPickerIndex, isMultiMode, autoResizeHeight]
+    );
+
+    const handleRemoveAttachment = useCallback((id: string) => {
+      setAttachments((prev) => prev.filter((a) => a.id !== id));
+    }, []);
+
+    /** Send immediately (bypass queue) — used by "send now" button on queued items */
+    const handleSendNow = useCallback(
+      (sendText: string, sendAttachments: ContextAttachment[]) => {
+        const trimmed = sendText.trim();
+        if ((!trimmed && sendAttachments.length === 0) || disabled) return;
+
+        const targets = sendTargets.length > 0 ? sendTargets : undefined;
+        log.info("sendNow", {
+          textLen: trimmed.length,
+          attachments: sendAttachments.length,
+          targets: targets?.length ?? 0,
+        });
+        onSend(
+          trimmed,
+          sendAttachments,
+          targets,
+          communicationMode,
+          selectedTeam?.id
+        );
+
+        clearSendTargets();
+        setSelectedTeam(null);
+        setCommunicationMode(null);
+      },
+      [
+        disabled,
+        onSend,
+        sendTargets,
+        clearSendTargets,
+        selectedTeam,
+        setSelectedTeam,
+        communicationMode,
+        setCommunicationMode,
+      ]
+    );
+
+    const handleSend = useCallback(() => {
+      const trimmed = text.trim();
+      if ((trimmed || attachments.length > 0) && !disabled) {
+        if (trimmed) {
+          const h = historyRef.current;
+          if (h.length === 0 || h[h.length - 1] !== trimmed) {
+            h.push(trimmed);
+            if (h.length > MAX_HISTORY) h.shift();
+          }
+        }
         historyIdxRef.current = -1;
         inputBeforeNavRef.current = "";
-      }
-      setText(value);
-      autoResizeHeight();
-    },
-    [onTriggerChange, setPickerIndex, isMultiMode, autoResizeHeight]
-  );
 
-  const handleRemoveAttachment = useCallback((id: string) => {
-    setAttachments((prev) => prev.filter((a) => a.id !== id));
-  }, []);
-
-  /** Send immediately (bypass queue) — used by "send now" button on queued items */
-  const handleSendNow = useCallback(
-    (sendText: string, sendAttachments: ContextAttachment[]) => {
-      const trimmed = sendText.trim();
-      if ((!trimmed && sendAttachments.length === 0) || disabled) return;
-
-      const targets = sendTargets.length > 0 ? sendTargets : undefined;
-      log.info("sendNow", {
-        textLen: trimmed.length,
-        attachments: sendAttachments.length,
-        targets: targets?.length ?? 0,
-      });
-      onSend(trimmed, sendAttachments, targets, communicationMode, selectedTeam?.id);
-
-      clearSendTargets();
-      setSelectedTeam(null);
-      setCommunicationMode(null);
-    },
-    [
-      disabled,
-      onSend,
-      sendTargets,
-      clearSendTargets,
-      selectedTeam,
-      setSelectedTeam,
-      communicationMode,
-      setCommunicationMode,
-    ]
-  );
-
-  const handleSend = useCallback(() => {
-    const trimmed = text.trim();
-    if ((trimmed || attachments.length > 0) && !disabled) {
-      if (trimmed) {
-        const h = historyRef.current;
-        if (h.length === 0 || h[h.length - 1] !== trimmed) {
-          h.push(trimmed);
-          if (h.length > MAX_HISTORY) h.shift();
+        // Supervisor mode + selectedTeam: route through mesh:plan
+        if (communicationMode === "supervisor" && selectedTeam) {
+          log.info("send:mesh:plan", {
+            textLen: trimmed.length,
+            teamId: selectedTeam.id,
+          });
+          // Display user message immediately in Supervisor view so it is
+          // visible on the Supervisor side without waiting for the extension
+          // host to echo it back through ACP (which may never happen for
+          // planner agents that only return plan updates).
+          const team = useMeshStore
+            .getState()
+            .teams.find((t) => t.id === selectedTeam.id);
+          if (team) {
+            const leadKey = sessionKeyOf(
+              team.lead.agentId,
+              team.lead.sessionId
+            );
+            const sessionStore = useSessionStore.getState();
+            sessionStore.setActiveSession(leadKey);
+            sessionStore.setSupervisorViewMode("focus");
+            sessionStore.setSupervisorFocusSession(leadKey);
+            const msgStore = useMessageStore.getState();
+            msgStore.appendMessage(leadKey, {
+              id: crypto.randomUUID(),
+              role: "user",
+              content: trimmed,
+              timestamp: Date.now(),
+              agentId: team.lead.agentId,
+              sessionId: team.lead.sessionId,
+              planMeta: { isPlanRequest: true, teamId: selectedTeam.id },
+            });
+            msgStore.appendMessage(leadKey, {
+              id: `plan-indicator-${Date.now()}`,
+              role: "system",
+              content: "Planning...",
+              timestamp: Date.now(),
+              agentId: team.lead.agentId,
+              sessionId: team.lead.sessionId,
+              planMeta: {
+                isPlanRequest: false,
+                planStatus: "draft",
+                teamId: selectedTeam.id,
+              },
+            });
+            sessionStore.setIsPlanning(true, null);
+          }
+          getVsCodeApi().postMessage({
+            type: "mesh:plan",
+            text: trimmed,
+            teamId: selectedTeam.id,
+          });
+          clearSendTargets();
+          setSelectedTeam(null);
+          setCommunicationMode(null);
+          resetPicker();
+          setText("");
+          setAttachments([]);
+          resetHeight();
+          return;
         }
-      }
-      historyIdxRef.current = -1;
-      inputBeforeNavRef.current = "";
 
-      // Supervisor mode + selectedTeam: route through mesh:plan
-      if (communicationMode === "supervisor" && selectedTeam) {
-        log.info("send:mesh:plan", {
+        const targets = sendTargets.length > 0 ? sendTargets : undefined;
+        log.info("send", {
           textLen: trimmed.length,
-          teamId: selectedTeam.id,
+          attachments: attachments.length,
+          targets: targets?.length ?? 0,
+          mode: communicationMode,
+          teamId: selectedTeam?.id ?? null,
         });
-        // Display user message immediately in Supervisor view so it is
-        // visible on the Supervisor side without waiting for the extension
-        // host to echo it back through ACP (which may never happen for
-        // planner agents that only return plan updates).
-        const team = useMeshStore
-          .getState()
-          .teams.find((t) => t.id === selectedTeam.id);
-        if (team) {
-          const leadKey = sessionKeyOf(team.lead.agentId, team.lead.sessionId);
-          const sessionStore = useSessionStore.getState();
-          sessionStore.setActiveSession(leadKey);
-          sessionStore.setSupervisorViewMode("focus");
-          sessionStore.setSupervisorFocusSession(leadKey);
-          const msgStore = useMessageStore.getState();
-          msgStore.appendMessage(leadKey, {
-            id: crypto.randomUUID(),
-            role: "user",
-            content: trimmed,
-            timestamp: Date.now(),
-            agentId: team.lead.agentId,
-            sessionId: team.lead.sessionId,
-            planMeta: { isPlanRequest: true, teamId: selectedTeam.id },
-          });
-          msgStore.appendMessage(leadKey, {
-            id: `plan-indicator-${Date.now()}`,
-            role: "system",
-            content: "Planning...",
-            timestamp: Date.now(),
-            agentId: team.lead.agentId,
-            sessionId: team.lead.sessionId,
-            planMeta: {
-              isPlanRequest: false,
-              planStatus: "draft",
-              teamId: selectedTeam.id,
-            },
-          });
-          sessionStore.setIsPlanning(true, null);
-        }
-        getVsCodeApi().postMessage({
-          type: "mesh:plan",
-          text: trimmed,
-          teamId: selectedTeam.id,
-        });
+        onSend(
+          trimmed,
+          attachments,
+          targets,
+          communicationMode,
+          selectedTeam?.id
+        );
+
         clearSendTargets();
         setSelectedTeam(null);
         setCommunicationMode(null);
@@ -992,291 +1034,286 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
         setText("");
         setAttachments([]);
         resetHeight();
-        return;
       }
+    }, [
+      text,
+      attachments,
+      disabled,
+      onSend,
+      sendTargets,
+      clearSendTargets,
+      selectedTeam,
+      setSelectedTeam,
+      resetHeight,
+      resetPicker,
+      communicationMode,
+      setCommunicationMode,
+    ]);
 
-      const targets = sendTargets.length > 0 ? sendTargets : undefined;
-      log.info("send", {
-        textLen: trimmed.length,
-        attachments: attachments.length,
-        targets: targets?.length ?? 0,
-        mode: communicationMode,
-        teamId: selectedTeam?.id ?? null,
-      });
-      onSend(trimmed, attachments, targets, communicationMode, selectedTeam?.id);
-
-      clearSendTargets();
-      setSelectedTeam(null);
-      setCommunicationMode(null);
-      resetPicker();
-      setText("");
-      setAttachments([]);
-      resetHeight();
-    }
-  }, [
-    text,
-    attachments,
-    disabled,
-    onSend,
-    sendTargets,
-    clearSendTargets,
-    selectedTeam,
-    setSelectedTeam,
-    resetHeight,
-    resetPicker,
-    communicationMode,
-    setCommunicationMode,
-  ]);
-
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent<HTMLTextAreaElement>) => {
-      // Picker open: delegate ArrowUp/Down/Enter/Escape to ContextPicker
-      if (triggerState.active && pickerKeyDownRef.current) {
-        if (["ArrowUp", "ArrowDown", "Enter", "Escape"].includes(e.key)) {
-          e.preventDefault();
-          pickerKeyDownRef.current(e);
-        }
-        return;
-      }
-
-      // Picker closed: Enter sends the message
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        handleSend();
-        return;
-      }
-
-      // Picker closed: ArrowUp/Down navigates message history.
-      // For multiline input, only navigate at the *boundary* of the textarea:
-      //   ArrowUp   → cursor is on the first line (any column)
-      //   ArrowDown → cursor is on the last line  (any column)
-      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-        const textarea = textareaRef.current;
-        if (textarea) {
-          const { selectionStart, value } = textarea;
-          const lines = value.split("\n");
-
-          // Determine cursor line-index
-          let offset = 0;
-          let cursorLine = 0;
-          for (let i = 0; i < lines.length; i++) {
-            const next = offset + lines[i].length;
-            if (selectionStart <= next) {
-              cursorLine = i;
-              break;
-            }
-            offset = next + 1; // skip the newline
+    const handleKeyDown = useCallback(
+      (e: KeyboardEvent<HTMLTextAreaElement>) => {
+        // Picker open: delegate ArrowUp/Down/Enter/Escape to ContextPicker
+        if (triggerState.active && pickerKeyDownRef.current) {
+          if (["ArrowUp", "ArrowDown", "Enter", "Escape"].includes(e.key)) {
+            e.preventDefault();
+            pickerKeyDownRef.current(e);
           }
+          return;
+        }
 
-          if (e.key === "ArrowUp") {
-            // Allow history nav only when on the first line
-            if (cursorLine > 0) return;
+        // Picker closed: Enter sends the message
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          handleSend();
+          return;
+        }
+
+        // Picker closed: ArrowUp/Down navigates message history.
+        // For multiline input, only navigate at the *boundary* of the textarea:
+        //   ArrowUp   → cursor is on the first line (any column)
+        //   ArrowDown → cursor is on the last line  (any column)
+        if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+          const textarea = textareaRef.current;
+          if (textarea) {
+            const { selectionStart, value } = textarea;
+            const lines = value.split("\n");
+
+            // Determine cursor line-index
+            let offset = 0;
+            let cursorLine = 0;
+            for (let i = 0; i < lines.length; i++) {
+              const next = offset + lines[i].length;
+              if (selectionStart <= next) {
+                cursorLine = i;
+                break;
+              }
+              offset = next + 1; // skip the newline
+            }
+
+            if (e.key === "ArrowUp") {
+              // Allow history nav only when on the first line
+              if (cursorLine > 0) return;
+            } else {
+              // ArrowDown — allow history nav only on the last line
+              if (cursorLine < lines.length - 1) return;
+            }
+          }
+        }
+
+        if (e.key === "ArrowUp") {
+          const history = historyRef.current;
+          if (history.length === 0) return;
+          if (historyIdxRef.current === -1) {
+            inputBeforeNavRef.current = text;
+            historyIdxRef.current = history.length - 1;
+            e.preventDefault();
+            setText(history[historyIdxRef.current]);
+          } else if (historyIdxRef.current > 0) {
+            historyIdxRef.current--;
+            e.preventDefault();
+            setText(history[historyIdxRef.current]);
+          }
+          // Defer resize to after React commits the new text to the DOM
+          requestAnimationFrame(() => autoResizeHeight());
+          return;
+        }
+
+        if (e.key === "ArrowDown") {
+          const history = historyRef.current;
+          if (historyIdxRef.current === -1) return;
+          if (historyIdxRef.current < history.length - 1) {
+            historyIdxRef.current++;
+            e.preventDefault();
+            setText(history[historyIdxRef.current]);
           } else {
-            // ArrowDown — allow history nav only on the last line
-            if (cursorLine < lines.length - 1) return;
+            e.preventDefault();
+            setText(inputBeforeNavRef.current);
+            historyIdxRef.current = -1;
+            inputBeforeNavRef.current = "";
           }
+          requestAnimationFrame(() => autoResizeHeight());
+          return;
         }
-      }
+      },
+      [
+        handleSend,
+        text,
+        autoResizeHeight,
+        triggerState.active,
+        pickerKeyDownRef,
+      ]
+    );
 
-      if (e.key === "ArrowUp") {
-        const history = historyRef.current;
-        if (history.length === 0) return;
-        if (historyIdxRef.current === -1) {
-          inputBeforeNavRef.current = text;
-          historyIdxRef.current = history.length - 1;
-          e.preventDefault();
-          setText(history[historyIdxRef.current]);
-        } else if (historyIdxRef.current > 0) {
-          historyIdxRef.current--;
-          e.preventDefault();
-          setText(history[historyIdxRef.current]);
-        }
-        // Defer resize to after React commits the new text to the DOM
-        requestAnimationFrame(() => autoResizeHeight());
-        return;
-      }
+    const placeholder = disabled
+      ? "Connect to an agent first\u2026"
+      : "Message (Enter to send, Shift+Enter for newline, # file / command, @ session)";
 
-      if (e.key === "ArrowDown") {
-        const history = historyRef.current;
-        if (historyIdxRef.current === -1) return;
-        if (historyIdxRef.current < history.length - 1) {
-          historyIdxRef.current++;
-          e.preventDefault();
-          setText(history[historyIdxRef.current]);
-        } else {
-          e.preventDefault();
-          setText(inputBeforeNavRef.current);
-          historyIdxRef.current = -1;
-          inputBeforeNavRef.current = "";
-        }
-        requestAnimationFrame(() => autoResizeHeight());
-        return;
-      }
-    },
-    [handleSend, text, autoResizeHeight, triggerState.active, pickerKeyDownRef]
-  );
+    return (
+      <div className="composer flex-shrink-0 px-3 pt-1.5 pb-2">
+        <ContextBar
+          attachments={attachments}
+          onRemove={handleRemoveAttachment}
+          sendTargets={sendTargets}
+          onRemoveSendTarget={removeSendTarget}
+          connectedAgents={connectedAgents}
+          selectedTeam={selectedTeam}
+          onRemoveSelectedTeam={() => setSelectedTeam(null)}
+        />
 
-  const placeholder = disabled
-    ? "Connect to an agent first\u2026"
-    : "Message (Enter to send, Shift+Enter for newline, # file / command, @ session)";
-
-  return (
-    <div className="composer flex-shrink-0 px-3 pt-1.5 pb-2">
-      <ContextBar
-        attachments={attachments}
-        onRemove={handleRemoveAttachment}
-        sendTargets={sendTargets}
-        onRemoveSendTarget={removeSendTarget}
-        connectedAgents={connectedAgents}
-        selectedTeam={selectedTeam}
-        onRemoveSelectedTeam={() => setSelectedTeam(null)}
-      />
-
-      {/* Mesh mode badge — shown when /mesh fanout|supervisor|pipeline is active */}
-      {communicationMode && (
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-bg-secondary border border-border text-xs mb-1">
-          <Icon name={MODE_META[communicationMode].icon} size="sm" />
-          <span className="text-fg-secondary font-medium">
-            {MODE_META[communicationMode].label}
-          </span>
-          <button
-            className="ml-auto flex items-center justify-center w-4 h-4 rounded bg-transparent text-fg-muted hover:bg-error hover:text-user-fg cursor-pointer border-none text-xs"
-            onClick={() => setCommunicationMode(null)}
-            title="Clear mode"
-          >
-            <Icon name="close" size="sm" />
-          </button>
-        </div>
-      )}
-
-      {/* Queue panel — shown when there are queued messages */}
-      {queue.length > 0 && (
-        <div className="bg-bg-secondary border border-border rounded-md mb-1 overflow-hidden">
-          <div className="flex items-center justify-between px-2 py-1 border-b border-border bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]">
-            <span className="text-[10px] font-semibold text-fg-secondary font-mono uppercase tracking-wider">
-              {queue.length} queued message{queue.length !== 1 ? "s" : ""}
+        {/* Mesh mode badge — shown when /mesh fanout|supervisor|pipeline is active */}
+        {communicationMode && (
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-bg-secondary border border-border text-xs mb-1">
+            <Icon name={MODE_META[communicationMode].icon} size="sm" />
+            <span className="text-fg-secondary font-medium">
+              {MODE_META[communicationMode].label}
             </span>
-            {onClearQueue && (
-              <button
-                className="inline-flex items-center justify-center px-1.5 py-px rounded-[3px] bg-transparent text-fg-muted text-[10px] cursor-pointer border border-transparent hover:bg-error hover:text-user-fg hover:border-error transition-all"
-                onClick={onClearQueue}
-                title="Clear all queued messages"
-                aria-label="Clear all queued messages"
-              >
-                Clear all
-              </button>
-            )}
-          </div>
-          <ul className="list-none m-0 p-0 max-h-[120px] overflow-y-auto">
-            {queue.map((entry) => (
-              <li key={entry.id} className="flex items-center justify-between gap-1 px-2 py-[3px] border-b border-[color-mix(in_srgb,var(--border)_30%,transparent)] last:border-b-0">
-                <div className="flex-1 min-w-0 overflow-hidden">
-                  <span
-                    className="text-[11px] text-fg-secondary whitespace-nowrap overflow-hidden text-ellipsis block"
-                    title={entry.text}
-                  >
-                    {entry.text.length > 80
-                      ? entry.text.slice(0, 80) + "\u2026"
-                      : entry.text}
-                  </span>
-                </div>
-                <div className="flex items-center gap-0.5 flex-shrink-0">
-                  {onSendNow && entry.status === "pending" && (
-                    <button
-                      className="inline-flex items-center justify-center w-[18px] h-[18px] p-0 rounded-[3px] bg-transparent text-fg-muted text-[10px] cursor-pointer border-none hover:bg-accent hover:text-user-fg transition-all flex-shrink-0"
-                      onClick={() => onSendNow(entry.id)}
-                      title="Send now (bypass queue)"
-                      aria-label="Send now"
-                    >
-                      ↑
-                    </button>
-                  )}
-                  {onRemoveQueueItem && entry.status === "pending" && (
-                    <button
-                      className="inline-flex items-center justify-center w-[18px] h-[18px] p-0 rounded-[3px] bg-transparent text-fg-muted text-[10px] cursor-pointer border-none hover:bg-error hover:text-user-fg transition-all flex-shrink-0"
-                      onClick={() => onRemoveQueueItem(entry.id)}
-                      title="Remove from queue"
-                      aria-label="Remove from queue"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {triggerState.active && (
-        <ContextPicker
-          trigger={triggerState.trigger}
-          subTrigger={triggerState.subTrigger}
-          query={triggerState.query}
-          onSelect={(item) => handleSelect({ text, triggerState, item })}
-          onClose={onClosePicker}
-          fetchItems={fetchSuggestions}
-          selectedIndex={pickerIndex}
-          onSelectedIndexChange={setPickerIndex}
-          registerKeyHandler={registerKeyHandler}
-          onItemsFetched={(items, setItems) => {
-            const isSessionTrigger =
-              (triggerState.trigger === "@" &&
-                triggerState.subTrigger !== "team") ||
-              (triggerState.trigger === "#" &&
-                triggerState.subTrigger === "switch");
-            if (isSessionTrigger) {
-              enrichSessionSuggestionsAsync(items, setItems);
-            }
-          }}
-        />
-      )}
-      <div className="flex items-end gap-2 bg-bg-input border border-transparent rounded-lg px-2.5 py-1 focus-within:border-accent">
-        <textarea
-          ref={textareaRef}
-          value={text}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          disabled={disabled}
-          rows={1}
-          className="flex-1 bg-transparent border-none outline-none font-ui text-fg-primary text-[13px] leading-[1.5] resize-none max-h-[160px] min-h-[20px] placeholder:text-fg-muted"
-        />
-        {status === "running" || status === "cancelling" ? (
-          <button
-            className={`bg-transparent border-none cursor-pointer text-sm w-6 h-6 rounded flex-shrink-0 flex items-center justify-center p-0 leading-none ${status === "cancelling" ? "text-fg-muted cursor-not-allowed" : "text-fg-secondary hover:text-error"}`}
-            onClick={status === "running" ? () => onCancel(cancelTargets) : undefined}
-            disabled={status === "cancelling"}
-            title={status === "cancelling" ? "Cancelling…" : "Stop generation"}
-          >
-            {status === "cancelling" ? "◔" : "■"}
-          </button>
-        ) : (
-          <>
             <button
-              className="bg-transparent border-none cursor-pointer text-sm w-6 h-6 rounded flex-shrink-0 flex items-center justify-center p-0 leading-none text-accent hover:bg-accent-hover disabled:text-fg-muted disabled:cursor-not-allowed"
-              onClick={handleSend}
-              disabled={disabled || (!text.trim() && attachments.length === 0)}
-              title="Send to active session"
+              className="ml-auto flex items-center justify-center w-4 h-4 rounded bg-transparent text-fg-muted hover:bg-error hover:text-user-fg cursor-pointer border-none text-xs"
+              onClick={() => setCommunicationMode(null)}
+              title="Clear mode"
             >
-              ↑
+              <Icon name="close" size="sm" />
             </button>
-            {hasPinnedSessions && (
+          </div>
+        )}
+
+        {/* Queue panel — shown when there are queued messages */}
+        {queue.length > 0 && (
+          <div className="bg-bg-secondary border border-border rounded-md mb-1 overflow-hidden">
+            <div className="flex items-center justify-between px-2 py-1 border-b border-border bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]">
+              <span className="text-[10px] font-semibold text-fg-secondary font-mono uppercase tracking-wider">
+                {queue.length} queued message{queue.length !== 1 ? "s" : ""}
+              </span>
+              {onClearQueue && (
+                <button
+                  className="inline-flex items-center justify-center px-1.5 py-px rounded-[3px] bg-transparent text-fg-muted text-[10px] cursor-pointer border border-transparent hover:bg-error hover:text-user-fg hover:border-error transition-all"
+                  onClick={onClearQueue}
+                  title="Clear all queued messages"
+                  aria-label="Clear all queued messages"
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
+            <ul className="list-none m-0 p-0 max-h-[120px] overflow-y-auto">
+              {queue.map((entry) => (
+                <li
+                  key={entry.id}
+                  className="flex items-center justify-between gap-1 px-2 py-[3px] border-b border-[color-mix(in_srgb,var(--border)_30%,transparent)] last:border-b-0"
+                >
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <span
+                      className="text-[11px] text-fg-secondary whitespace-nowrap overflow-hidden text-ellipsis block"
+                      title={entry.text}
+                    >
+                      {entry.text.length > 80
+                        ? entry.text.slice(0, 80) + "\u2026"
+                        : entry.text}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-0.5 flex-shrink-0">
+                    {onSendNow && entry.status === "pending" && (
+                      <button
+                        className="inline-flex items-center justify-center w-[18px] h-[18px] p-0 rounded-[3px] bg-transparent text-fg-muted text-[10px] cursor-pointer border-none hover:bg-accent hover:text-user-fg transition-all flex-shrink-0"
+                        onClick={() => onSendNow(entry.id)}
+                        title="Send now (bypass queue)"
+                        aria-label="Send now"
+                      >
+                        ↑
+                      </button>
+                    )}
+                    {onRemoveQueueItem && entry.status === "pending" && (
+                      <button
+                        className="inline-flex items-center justify-center w-[18px] h-[18px] p-0 rounded-[3px] bg-transparent text-fg-muted text-[10px] cursor-pointer border-none hover:bg-error hover:text-user-fg transition-all flex-shrink-0"
+                        onClick={() => onRemoveQueueItem(entry.id)}
+                        title="Remove from queue"
+                        aria-label="Remove from queue"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {triggerState.active && (
+          <ContextPicker
+            trigger={triggerState.trigger}
+            subTrigger={triggerState.subTrigger}
+            query={triggerState.query}
+            onSelect={(item) => handleSelect({ text, triggerState, item })}
+            onClose={onClosePicker}
+            fetchItems={fetchSuggestions}
+            selectedIndex={pickerIndex}
+            onSelectedIndexChange={setPickerIndex}
+            registerKeyHandler={registerKeyHandler}
+            onItemsFetched={(items, setItems) => {
+              const isSessionTrigger =
+                (triggerState.trigger === "@" &&
+                  triggerState.subTrigger !== "team") ||
+                (triggerState.trigger === "#" &&
+                  triggerState.subTrigger === "switch");
+              if (isSessionTrigger) {
+                enrichSessionSuggestionsAsync(items, setItems);
+              }
+            }}
+          />
+        )}
+        <div className="flex items-end gap-2 bg-bg-input border border-transparent rounded-lg px-2.5 py-1 focus-within:border-accent">
+          <textarea
+            ref={textareaRef}
+            value={text}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            disabled={disabled}
+            rows={1}
+            className="flex-1 bg-transparent border-none outline-none font-ui text-fg-primary text-[13px] leading-[1.5] resize-none max-h-[160px] min-h-[20px] placeholder:text-fg-muted"
+          />
+          {status === "running" || status === "cancelling" ? (
+            <button
+              className={`bg-transparent border-none cursor-pointer text-sm w-6 h-6 rounded flex-shrink-0 flex items-center justify-center p-0 leading-none ${status === "cancelling" ? "text-fg-muted cursor-not-allowed" : "text-fg-secondary hover:text-error"}`}
+              onClick={
+                status === "running" ? () => onCancel(cancelTargets) : undefined
+              }
+              disabled={status === "cancelling"}
+              title={
+                status === "cancelling" ? "Cancelling…" : "Stop generation"
+              }
+            >
+              {status === "cancelling" ? "◔" : "■"}
+            </button>
+          ) : (
+            <>
               <button
-                className="bg-transparent border-none cursor-pointer text-sm w-6 h-6 rounded flex-shrink-0 flex items-center justify-center p-0 leading-none text-accent opacity-80 hover:opacity-100 hover:bg-accent-hover disabled:text-fg-muted disabled:cursor-not-allowed disabled:opacity-40"
-                onClick={handleSendToAllPinned}
+                className="bg-transparent border-none cursor-pointer text-sm w-6 h-6 rounded flex-shrink-0 flex items-center justify-center p-0 leading-none text-accent hover:bg-accent-hover disabled:text-fg-muted disabled:cursor-not-allowed"
+                onClick={handleSend}
                 disabled={
                   disabled || (!text.trim() && attachments.length === 0)
                 }
-                title={`Send to all pinned (${pinnedSessionKeys.length})`}
+                title="Send to active session"
               >
-                ↑↑
+                ↑
               </button>
-            )}
-          </>
-        )}
+              {hasPinnedSessions && (
+                <button
+                  className="bg-transparent border-none cursor-pointer text-sm w-6 h-6 rounded flex-shrink-0 flex items-center justify-center p-0 leading-none text-accent opacity-80 hover:opacity-100 hover:bg-accent-hover disabled:text-fg-muted disabled:cursor-not-allowed disabled:opacity-40"
+                  onClick={handleSendToAllPinned}
+                  disabled={
+                    disabled || (!text.trim() && attachments.length === 0)
+                  }
+                  title={`Send to all pinned (${pinnedSessionKeys.length})`}
+                >
+                  ↑↑
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
   }
 );

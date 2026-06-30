@@ -1,6 +1,10 @@
 import assert from "assert";
 import { describe, it } from "mocha";
-import type { PipelineItem, ChatDisplayItem, IntermediateStep } from "../../../pipeline/types";
+import type {
+  PipelineItem,
+  ChatDisplayItem,
+  IntermediateStep,
+} from "../../../pipeline/types";
 import {
   selectFinalResponse,
   splitLatestSteps,
@@ -16,27 +20,57 @@ function nextKey(prefix: string): string {
   return `${prefix}-${++keyCounter}`;
 }
 
-function userMsg(content: string, overrides: Partial<ChatDisplayItem> = {}): ChatDisplayItem {
+function userMsg(
+  content: string,
+  overrides: Partial<ChatDisplayItem> = {}
+): ChatDisplayItem {
   return {
-    type: "chat", role: "user", agentId: "a1", content, key: nextKey("user"),
-    timestamp: Date.now(), isFirstOfTurn: false,
-    attachments: [], thinking: undefined, ...overrides,
+    type: "chat",
+    role: "user",
+    agentId: "a1",
+    content,
+    key: nextKey("user"),
+    timestamp: Date.now(),
+    isFirstOfTurn: false,
+    attachments: [],
+    thinking: undefined,
+    ...overrides,
   };
 }
 
-function agentMsg(content: string, overrides: Partial<ChatDisplayItem> = {}): ChatDisplayItem {
+function agentMsg(
+  content: string,
+  overrides: Partial<ChatDisplayItem> = {}
+): ChatDisplayItem {
   return {
-    type: "chat", role: "agent", agentId: "a1", content, key: nextKey("agent"),
-    timestamp: Date.now(), isFirstOfTurn: false,
-    attachments: [], thinking: undefined, ...overrides,
+    type: "chat",
+    role: "agent",
+    agentId: "a1",
+    content,
+    key: nextKey("agent"),
+    timestamp: Date.now(),
+    isFirstOfTurn: false,
+    attachments: [],
+    thinking: undefined,
+    ...overrides,
   };
 }
 
-function thinkingItem(content: string, overrides: Partial<ChatDisplayItem> = {}): ChatDisplayItem {
+function thinkingItem(
+  content: string,
+  overrides: Partial<ChatDisplayItem> = {}
+): ChatDisplayItem {
   return {
-    type: "chat", role: "agent", agentId: "a1", content: "", key: nextKey("think"),
-    timestamp: Date.now(), isFirstOfTurn: true,
-    attachments: [], thinking: { content, isStreaming: false }, ...overrides,
+    type: "chat",
+    role: "agent",
+    agentId: "a1",
+    content: "",
+    key: nextKey("think"),
+    timestamp: Date.now(),
+    isFirstOfTurn: true,
+    attachments: [],
+    thinking: { content, isStreaming: false },
+    ...overrides,
   };
 }
 
@@ -46,7 +80,7 @@ function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
 
 function makeStep(
   agentMessage: ChatDisplayItem | null,
-  toolCalls: ChatDisplayItem[] = [],
+  toolCalls: ChatDisplayItem[] = []
 ): IntermediateStep {
   return { agentMessage, toolCalls, isPreAgent: agentMessage == null };
 }
@@ -204,9 +238,16 @@ describe("groupByUserBoundary", () => {
   it("banner items exclude the final response", () => {
     const think = thinkingItem("thinking...");
     const toolMsg = agentMsg("using tool...", { isFirstOfTurn: true });
-    const finalResponse = agentMsg("Here's the answer!", { isFirstOfTurn: false });
+    const finalResponse = agentMsg("Here's the answer!", {
+      isFirstOfTurn: false,
+    });
 
-    const items: PipelineItem[] = [userMsg("help me"), think, toolMsg, finalResponse];
+    const items: PipelineItem[] = [
+      userMsg("help me"),
+      think,
+      toolMsg,
+      finalResponse,
+    ];
     const result = groupByUserBoundary(items);
     assert.ok(result.latestGroup);
     // thinking and toolMsg are intermediate steps
@@ -218,24 +259,33 @@ describe("groupByUserBoundary", () => {
 
   it("three turns: two past groups both have final responses", () => {
     const items: PipelineItem[] = [
-      userMsg("q1"), thinkingItem("t1"), agentMsg("a1", { isFirstOfTurn: false }),
-      userMsg("q2"), thinkingItem("t2"), agentMsg("a2", { isFirstOfTurn: false }),
-      userMsg("q3"), thinkingItem("t3"), agentMsg("a3", { isFirstOfTurn: false }),
+      userMsg("q1"),
+      thinkingItem("t1"),
+      agentMsg("a1", { isFirstOfTurn: false }),
+      userMsg("q2"),
+      thinkingItem("t2"),
+      agentMsg("a2", { isFirstOfTurn: false }),
+      userMsg("q3"),
+      thinkingItem("t3"),
+      agentMsg("a3", { isFirstOfTurn: false }),
     ];
     const result = groupByUserBoundary(items);
     assert.strictEqual(result.groups.length, 2);
     assert.ok(result.groups[0].steps.length >= 1);
     assert.strictEqual(
-      (result.groups[0].finalResponse?.item as ChatDisplayItem).content, "a1"
+      (result.groups[0].finalResponse?.item as ChatDisplayItem).content,
+      "a1"
     );
     assert.ok(result.groups[1].steps.length >= 1);
     assert.strictEqual(
-      (result.groups[1].finalResponse?.item as ChatDisplayItem).content, "a2"
+      (result.groups[1].finalResponse?.item as ChatDisplayItem).content,
+      "a2"
     );
     assert.ok(result.latestGroup);
     assert.ok(result.latestGroup.finalResponse);
     assert.strictEqual(
-      (result.latestGroup.finalResponse?.item as ChatDisplayItem).content, "a3"
+      (result.latestGroup.finalResponse?.item as ChatDisplayItem).content,
+      "a3"
     );
   });
 
@@ -270,25 +320,32 @@ describe("groupByUserBoundary", () => {
     assert.ok(result.latestGroup);
     assert.ok(result.latestGroup.finalResponse);
     assert.strictEqual(
-      (result.latestGroup.finalResponse.item as ChatDisplayItem).content, "step 2"
+      (result.latestGroup.finalResponse.item as ChatDisplayItem).content,
+      "step 2"
     );
   });
 
   it("cancel after final response: finalResponse preserved, new turn starts", () => {
     const items: PipelineItem[] = [
-      userMsg("q1"), thinkingItem("t1"), agentMsg("a1", { isFirstOfTurn: false }),
-      userMsg("q2"), thinkingItem("t2"), agentMsg("partial...", { isFirstOfTurn: true }),
+      userMsg("q1"),
+      thinkingItem("t1"),
+      agentMsg("a1", { isFirstOfTurn: false }),
+      userMsg("q2"),
+      thinkingItem("t2"),
+      agentMsg("partial...", { isFirstOfTurn: true }),
     ];
     const result = groupByUserBoundary(items);
     assert.strictEqual(result.groups.length, 1);
     assert.ok(result.groups[0].steps.length >= 1);
     assert.strictEqual(
-      (result.groups[0].finalResponse?.item as ChatDisplayItem).content, "a1"
+      (result.groups[0].finalResponse?.item as ChatDisplayItem).content,
+      "a1"
     );
     assert.ok(result.latestGroup);
     assert.ok(result.latestGroup.finalResponse);
     assert.strictEqual(
-      (result.latestGroup.finalResponse.item as ChatDisplayItem).content, "partial..."
+      (result.latestGroup.finalResponse.item as ChatDisplayItem).content,
+      "partial..."
     );
   });
 
@@ -306,10 +363,12 @@ describe("groupByUserBoundary", () => {
       assert.ok(result.latestGroup);
       assert.ok(result.latestGroup.finalResponse);
       assert.strictEqual(
-        (result.latestGroup.finalResponse.item as ChatDisplayItem).content, "chunk2"
+        (result.latestGroup.finalResponse.item as ChatDisplayItem).content,
+        "chunk2"
       );
       assert.strictEqual(
-        (result.latestGroup.finalResponse.item as ChatDisplayItem).stopReason, "end_turn"
+        (result.latestGroup.finalResponse.item as ChatDisplayItem).stopReason,
+        "end_turn"
       );
     });
 
@@ -324,7 +383,8 @@ describe("groupByUserBoundary", () => {
       assert.ok(result.latestGroup);
       assert.ok(result.latestGroup.finalResponse);
       assert.strictEqual(
-        (result.latestGroup.finalResponse.item as ChatDisplayItem).content, "second"
+        (result.latestGroup.finalResponse.item as ChatDisplayItem).content,
+        "second"
       );
     });
 
@@ -338,7 +398,8 @@ describe("groupByUserBoundary", () => {
       assert.ok(result.latestGroup);
       assert.ok(result.latestGroup.finalResponse);
       assert.strictEqual(
-        (result.latestGroup.finalResponse.item as ChatDisplayItem).content, "b"
+        (result.latestGroup.finalResponse.item as ChatDisplayItem).content,
+        "b"
       );
     });
 
@@ -355,10 +416,12 @@ describe("groupByUserBoundary", () => {
       const past = result.groups[0];
       assert.ok(past.finalResponse);
       assert.strictEqual(
-        (past.finalResponse.item as ChatDisplayItem).content, "answer"
+        (past.finalResponse.item as ChatDisplayItem).content,
+        "answer"
       );
       assert.strictEqual(
-        (past.finalResponse.item as ChatDisplayItem).stopReason, "end_turn"
+        (past.finalResponse.item as ChatDisplayItem).stopReason,
+        "end_turn"
       );
     });
 
@@ -366,16 +429,21 @@ describe("groupByUserBoundary", () => {
       const items: PipelineItem[] = [
         userMsg("do stuff"),
         thinkingItem("thinking..."),
-        agentMsg("partial work", { isFirstOfTurn: true, stopReason: "cancelled" }),
+        agentMsg("partial work", {
+          isFirstOfTurn: true,
+          stopReason: "cancelled",
+        }),
       ];
       const result = groupByUserBoundary(items);
       assert.ok(result.latestGroup);
       assert.ok(result.latestGroup.finalResponse);
       assert.strictEqual(
-        (result.latestGroup.finalResponse.item as ChatDisplayItem).content, "partial work"
+        (result.latestGroup.finalResponse.item as ChatDisplayItem).content,
+        "partial work"
       );
       assert.strictEqual(
-        (result.latestGroup.finalResponse.item as ChatDisplayItem).stopReason, "cancelled"
+        (result.latestGroup.finalResponse.item as ChatDisplayItem).stopReason,
+        "cancelled"
       );
     });
 
@@ -389,7 +457,8 @@ describe("groupByUserBoundary", () => {
       assert.ok(result.latestGroup);
       assert.ok(result.latestGroup.finalResponse);
       assert.strictEqual(
-        (result.latestGroup.finalResponse.item as ChatDisplayItem).content, "b"
+        (result.latestGroup.finalResponse.item as ChatDisplayItem).content,
+        "b"
       );
     });
 
@@ -403,7 +472,8 @@ describe("groupByUserBoundary", () => {
       assert.ok(result.latestGroup);
       assert.ok(result.latestGroup.finalResponse);
       assert.strictEqual(
-        (result.latestGroup.finalResponse.item as ChatDisplayItem).content, "b"
+        (result.latestGroup.finalResponse.item as ChatDisplayItem).content,
+        "b"
       );
     });
   });
@@ -474,18 +544,22 @@ describe("groupByUserBoundary", () => {
     describe("integration: groupByUserBoundary → splitLatestSteps", () => {
       it("no final response, 2 steps → last peeled out", () => {
         const items: PipelineItem[] = [
-          userMsg("do stuff"), thinkingItem("thinking..."),
+          userMsg("do stuff"),
+          thinkingItem("thinking..."),
           agentMsg("working...", { isFirstOfTurn: true }),
         ];
         const { latestGroup } = groupByUserBoundary(items);
         assert.ok(latestGroup);
         assert.ok(latestGroup.finalResponse);
         assert.strictEqual(
-          (latestGroup.finalResponse.item as ChatDisplayItem).content, "working..."
+          (latestGroup.finalResponse.item as ChatDisplayItem).content,
+          "working..."
         );
 
-        const { olderSteps, currentStep } =
-          splitLatestSteps(latestGroup.steps, latestGroup.finalResponse != null);
+        const { olderSteps, currentStep } = splitLatestSteps(
+          latestGroup.steps,
+          latestGroup.finalResponse != null
+        );
         // With final, all steps are older (folded in banner)
         assert.strictEqual(currentStep, null);
         assert.ok(olderSteps.length >= 1);
@@ -493,7 +567,8 @@ describe("groupByUserBoundary", () => {
 
       it("final response arrived, 2 steps → all in banner", () => {
         const items: PipelineItem[] = [
-          userMsg("do stuff"), thinkingItem("thinking..."),
+          userMsg("do stuff"),
+          thinkingItem("thinking..."),
           agentMsg("working...", { isFirstOfTurn: true }),
           agentMsg("done!", { isFirstOfTurn: false }),
         ];
@@ -502,26 +577,34 @@ describe("groupByUserBoundary", () => {
         assert.ok(latestGroup.steps.length >= 1);
         assert.ok(latestGroup.finalResponse);
 
-        const { olderSteps, currentStep } =
-          splitLatestSteps(latestGroup.steps, latestGroup.finalResponse != null);
+        const { olderSteps, currentStep } = splitLatestSteps(
+          latestGroup.steps,
+          latestGroup.finalResponse != null
+        );
         assert.ok(olderSteps.length >= 1);
         assert.strictEqual(currentStep, null);
       });
 
       it("no final response, 1 step → last peeled out, banner empty", () => {
-        const items: PipelineItem[] = [userMsg("hello"), thinkingItem("thinking...")];
+        const items: PipelineItem[] = [
+          userMsg("hello"),
+          thinkingItem("thinking..."),
+        ];
         const { latestGroup } = groupByUserBoundary(items);
         assert.ok(latestGroup);
         assert.ok(latestGroup.finalResponse);
 
-        const { olderSteps, currentStep } =
-          splitLatestSteps(latestGroup.steps, latestGroup.finalResponse != null);
+        const { olderSteps, currentStep } = splitLatestSteps(
+          latestGroup.steps,
+          latestGroup.finalResponse != null
+        );
         assert.strictEqual(currentStep, null);
       });
 
       it("final response with stopReason, steps → all in banner", () => {
         const items: PipelineItem[] = [
-          userMsg("q"), thinkingItem("t"),
+          userMsg("q"),
+          thinkingItem("t"),
           agentMsg("s1", { isFirstOfTurn: true }),
           agentMsg("s2", { isFirstOfTurn: true }),
           agentMsg("final", { isFirstOfTurn: true, stopReason: "end_turn" }),
@@ -530,8 +613,10 @@ describe("groupByUserBoundary", () => {
         assert.ok(latestGroup);
         assert.ok(latestGroup.finalResponse);
 
-        const { olderSteps, currentStep } =
-          splitLatestSteps(latestGroup.steps, latestGroup.finalResponse != null);
+        const { olderSteps, currentStep } = splitLatestSteps(
+          latestGroup.steps,
+          latestGroup.finalResponse != null
+        );
         assert.ok(olderSteps.length >= 1);
         assert.strictEqual(currentStep, null);
       });
@@ -543,15 +628,18 @@ describe("groupByUserBoundary", () => {
         assert.strictEqual(latestGroup.steps.length, 0);
         assert.strictEqual(latestGroup.finalResponse, null);
 
-        const { olderSteps, currentStep } =
-          splitLatestSteps(latestGroup.steps, latestGroup.finalResponse != null);
+        const { olderSteps, currentStep } = splitLatestSteps(
+          latestGroup.steps,
+          latestGroup.finalResponse != null
+        );
         assert.strictEqual(olderSteps.length, 0);
         assert.strictEqual(currentStep, null);
       });
 
       it("non-consecutive after consecutive: final picked, rest intermediate → split", () => {
         const items: PipelineItem[] = [
-          userMsg("do stuff"), thinkingItem("thinking..."),
+          userMsg("do stuff"),
+          thinkingItem("thinking..."),
           agentMsg("working...", { isFirstOfTurn: true }),
           agentMsg("done!", { isFirstOfTurn: false }),
         ];
@@ -559,11 +647,14 @@ describe("groupByUserBoundary", () => {
         assert.ok(latestGroup);
         assert.ok(latestGroup.finalResponse);
         assert.strictEqual(
-          (latestGroup.finalResponse.item as ChatDisplayItem).content, "done!"
+          (latestGroup.finalResponse.item as ChatDisplayItem).content,
+          "done!"
         );
 
-        const { olderSteps, currentStep } =
-          splitLatestSteps(latestGroup.steps, latestGroup.finalResponse != null);
+        const { olderSteps, currentStep } = splitLatestSteps(
+          latestGroup.steps,
+          latestGroup.finalResponse != null
+        );
         assert.ok(olderSteps.length >= 1);
         assert.strictEqual(currentStep, null);
       });
@@ -574,20 +665,25 @@ describe("groupByUserBoundary", () => {
 
   it("new user message: previous latest becomes folded past group with final response", () => {
     const items: PipelineItem[] = [
-      userMsg("q1"), thinkingItem("t1"), agentMsg("a1", { isFirstOfTurn: false }),
-      userMsg("q2"), agentMsg("a2", { isFirstOfTurn: false }),
+      userMsg("q1"),
+      thinkingItem("t1"),
+      agentMsg("a1", { isFirstOfTurn: false }),
+      userMsg("q2"),
+      agentMsg("a2", { isFirstOfTurn: false }),
     ];
     const result = groupByUserBoundary(items);
     assert.strictEqual(result.groups.length, 1);
     const past = result.groups[0];
     assert.ok(past.steps.length >= 1);
     assert.strictEqual(
-      (past.finalResponse?.item as ChatDisplayItem).content, "a1"
+      (past.finalResponse?.item as ChatDisplayItem).content,
+      "a1"
     );
     assert.ok(result.latestGroup);
     assert.strictEqual(result.latestGroup.steps.length, 0);
     assert.strictEqual(
-      (result.latestGroup.finalResponse?.item as ChatDisplayItem).content, "a2"
+      (result.latestGroup.finalResponse?.item as ChatDisplayItem).content,
+      "a2"
     );
   });
 });

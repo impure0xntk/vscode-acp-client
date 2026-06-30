@@ -122,7 +122,9 @@ export function DetailsPanel(p: DetailsPanelProps): React.ReactElement {
       {p.agentInfo && <AgentSection info={p.agentInfo} />}
 
       <section className="mb-0">
-        <h3 className="text-[10px] font-semibold text-fg-muted uppercase tracking-[0.4px] mb-1">Session</h3>
+        <h3 className="text-[10px] font-semibold text-fg-muted uppercase tracking-[0.4px] mb-1">
+          Session
+        </h3>
         <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-x-[14px] gap-y-1">
           {[...grouped.entries()]
             .filter(([c]) => c === "Session")
@@ -144,7 +146,9 @@ export function DetailsPanel(p: DetailsPanelProps): React.ReactElement {
 
       {runtime.length > 0 && (
         <section className="mb-0">
-          <h3 className="text-[10px] font-semibold text-fg-muted uppercase tracking-[0.4px] mb-1">Runtime</h3>
+          <h3 className="text-[10px] font-semibold text-fg-muted uppercase tracking-[0.4px] mb-1">
+            Runtime
+          </h3>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-x-[14px] gap-y-1">
             {runtime.map((m) => (
               <Row key={m.key} label={m.label} value={m.value} />
@@ -163,7 +167,9 @@ export function DetailsPanel(p: DetailsPanelProps): React.ReactElement {
 
       {workspace.length > 0 && (
         <section className="mb-0">
-          <h3 className="text-[10px] font-semibold text-fg-muted uppercase tracking-[0.4px] mb-1">Workspace</h3>
+          <h3 className="text-[10px] font-semibold text-fg-muted uppercase tracking-[0.4px] mb-1">
+            Workspace
+          </h3>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-x-[14px] gap-y-1">
             {workspace.map((m) => (
               <Row key={m.key} label={m.label} value={m.value} />
@@ -178,8 +184,13 @@ export function DetailsPanel(p: DetailsPanelProps): React.ReactElement {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-[1px] min-w-0">
-      <span className="text-[10px] text-fg-muted uppercase tracking-[0.3px] whitespace-nowrap overflow-hidden text-ellipsis">{label}</span>
-      <span className="text-xs text-fg-primary font-mono overflow-hidden text-ellipsis whitespace-nowrap" title={value}>
+      <span className="text-[10px] text-fg-muted uppercase tracking-[0.3px] whitespace-nowrap overflow-hidden text-ellipsis">
+        {label}
+      </span>
+      <span
+        className="text-xs text-fg-primary font-mono overflow-hidden text-ellipsis whitespace-nowrap"
+        title={value}
+      >
         {value}
       </span>
     </div>
@@ -291,7 +302,9 @@ export const SessionFooter = React.memo(function SessionFooter(
   // Static duration: compute once from sessionStartMs and lastResponseAt
   // (or sessionStartMs to now if still running). No live tick.
   if (sessionStartMs) {
-    const endMs = lastResponseAt ? new Date(lastResponseAt).getTime() : Date.now();
+    const endMs = lastResponseAt
+      ? new Date(lastResponseAt).getTime()
+      : Date.now();
     const staticElapsed = Math.max(0, endMs - sessionStartMs);
     chips.push({
       key: "dur",
@@ -362,7 +375,9 @@ export const SessionFooter = React.memo(function SessionFooter(
       <div className="flex items-center justify-between px-3.5 py-1 gap-[10px] min-h-[28px]">
         <div className="flex items-center gap-2 flex-1 justify-start min-w-0 overflow-hidden">
           {prefix && (
-            <span className="text-[11px] font-mono text-fg-muted whitespace-nowrap overflow-hidden text-ellipsis shrink-1 min-w-0 pr-[6px]">{prefix}</span>
+            <span className="text-[11px] font-mono text-fg-muted whitespace-nowrap overflow-hidden text-ellipsis shrink-1 min-w-0 pr-[6px]">
+              {prefix}
+            </span>
           )}
           <div className="flex items-center gap-1 flex-nowrap overflow-hidden">
             {slChips.map((c) => (
@@ -396,7 +411,9 @@ export const SessionFooter = React.memo(function SessionFooter(
         </div>
       </div>
 
-      <div className={`overflow-hidden transition-all duration-150 ${open ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"}`}>
+      <div
+        className={`overflow-hidden transition-all duration-150 ${open ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"}`}
+      >
         <div className="overflow-hidden min-h-0">
           <DetailsPanel
             mode={mode}

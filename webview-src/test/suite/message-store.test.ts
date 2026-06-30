@@ -359,7 +359,10 @@ describe("messageStore", () => {
         stopReason: "end_turn",
       });
       const state = useMessageStore.getState();
-      assert.strictEqual(state.perSession["session-1"][0].stopReason, undefined);
+      assert.strictEqual(
+        state.perSession["session-1"][0].stopReason,
+        undefined
+      );
     });
 
     it("skips agent messages with stopReason (previous turn final response)", () => {
@@ -368,7 +371,12 @@ describe("messageStore", () => {
       // must NOT overwrite the previous turn's writeSeq.
       const msgs = [
         makeMessage({ role: "user", content: "q1" }),
-        makeMessage({ role: "agent", content: "a1", writeSeq: 0, stopReason: "end_turn" }),
+        makeMessage({
+          role: "agent",
+          content: "a1",
+          writeSeq: 0,
+          stopReason: "end_turn",
+        }),
         makeMessage({ role: "user", content: "q2" }),
       ];
       useMessageStore.getState().setMessages("session-1", msgs);
@@ -415,7 +423,10 @@ describe("messageStore", () => {
       const state = useMessageStore.getState();
       assert.strictEqual(state.perSession["session-1"].length, 3);
       assert.strictEqual(state.perSession["session-1"][0].content, "first");
-      assert.strictEqual(state.perSession["session-1"][1].content, "updated second");
+      assert.strictEqual(
+        state.perSession["session-1"][1].content,
+        "updated second"
+      );
       assert.strictEqual(state.perSession["session-1"][2].content, "third");
     });
 
@@ -423,7 +434,9 @@ describe("messageStore", () => {
       const msgs = [makeMessage({ content: "only" })];
       useMessageStore.getState().setMessages("session-1", msgs);
       const stateBefore = useMessageStore.getState();
-      useMessageStore.getState().updateMessage("session-1", -1, makeMessage({ content: "x" }));
+      useMessageStore
+        .getState()
+        .updateMessage("session-1", -1, makeMessage({ content: "x" }));
       const stateAfter = useMessageStore.getState();
       assert.strictEqual(stateAfter, stateBefore);
     });
@@ -432,14 +445,18 @@ describe("messageStore", () => {
       const msgs = [makeMessage({ content: "only" })];
       useMessageStore.getState().setMessages("session-1", msgs);
       const stateBefore = useMessageStore.getState();
-      useMessageStore.getState().updateMessage("session-1", 5, makeMessage({ content: "x" }));
+      useMessageStore
+        .getState()
+        .updateMessage("session-1", 5, makeMessage({ content: "x" }));
       const stateAfter = useMessageStore.getState();
       assert.strictEqual(stateAfter, stateBefore);
     });
 
     it("is a no-op when session key does not exist", () => {
       const stateBefore = useMessageStore.getState();
-      useMessageStore.getState().updateMessage("nonexistent", 0, makeMessage({ content: "x" }));
+      useMessageStore
+        .getState()
+        .updateMessage("nonexistent", 0, makeMessage({ content: "x" }));
       const stateAfter = useMessageStore.getState();
       assert.strictEqual(stateAfter, stateBefore);
     });
@@ -451,15 +468,23 @@ describe("messageStore", () => {
       ];
       useMessageStore.getState().setMessages("session-1", msgs);
       const oldArray = useMessageStore.getState().perSession["session-1"];
-      useMessageStore.getState().updateMessage("session-1", 0, makeMessage({ content: "A" }));
+      useMessageStore
+        .getState()
+        .updateMessage("session-1", 0, makeMessage({ content: "A" }));
       const newArray = useMessageStore.getState().perSession["session-1"];
       assert.notStrictEqual(newArray, oldArray);
     });
 
     it("does not affect other sessions", () => {
-      useMessageStore.getState().setMessages("session-1", [makeMessage({ content: "a" })]);
-      useMessageStore.getState().setMessages("session-2", [makeMessage({ content: "b" })]);
-      useMessageStore.getState().updateMessage("session-1", 0, makeMessage({ content: "A" }));
+      useMessageStore
+        .getState()
+        .setMessages("session-1", [makeMessage({ content: "a" })]);
+      useMessageStore
+        .getState()
+        .setMessages("session-2", [makeMessage({ content: "b" })]);
+      useMessageStore
+        .getState()
+        .updateMessage("session-1", 0, makeMessage({ content: "A" }));
       const state = useMessageStore.getState();
       assert.strictEqual(state.perSession["session-1"][0].content, "A");
       assert.strictEqual(state.perSession["session-2"][0].content, "b");
@@ -482,7 +507,13 @@ describe("messageStore", () => {
       // Same messageId → should merge
       useMessageStore
         .getState()
-        .appendStreamChunk("session-1", "agent-1", "sess-A", " second part", "m1");
+        .appendStreamChunk(
+          "session-1",
+          "agent-1",
+          "sess-A",
+          " second part",
+          "m1"
+        );
 
       const state = useMessageStore.getState();
       assert.strictEqual(state.perSession["session-1"].length, 1);
@@ -510,7 +541,10 @@ describe("messageStore", () => {
 
       const state = useMessageStore.getState();
       assert.strictEqual(state.perSession["session-1"].length, 1);
-      assert.strictEqual(state.perSession["session-1"][0].content, "first second");
+      assert.strictEqual(
+        state.perSession["session-1"][0].content,
+        "first second"
+      );
     });
 
     it("appendStreamChunk creates new message when messageId differs and last is different agent", () => {
@@ -545,11 +579,20 @@ describe("messageStore", () => {
 
       useMessageStore
         .getState()
-        .appendStreamChunks("session-1", "agent-1", "sess-A", [" W", "orld"], "m1");
+        .appendStreamChunks(
+          "session-1",
+          "agent-1",
+          "sess-A",
+          [" W", "orld"],
+          "m1"
+        );
 
       const state = useMessageStore.getState();
       assert.strictEqual(state.perSession["session-1"].length, 1);
-      assert.strictEqual(state.perSession["session-1"][0].content, "Hello World");
+      assert.strictEqual(
+        state.perSession["session-1"][0].content,
+        "Hello World"
+      );
     });
 
     it("messageId merge skips tool messages in between", () => {
@@ -567,7 +610,10 @@ describe("messageStore", () => {
 
       const state = useMessageStore.getState();
       assert.strictEqual(state.perSession["session-1"].length, 2);
-      assert.strictEqual(state.perSession["session-1"][0].content, "analyzing complete");
+      assert.strictEqual(
+        state.perSession["session-1"][0].content,
+        "analyzing complete"
+      );
       assert.strictEqual(state.perSession["session-1"][1].content, "result");
     });
 
@@ -587,7 +633,10 @@ describe("messageStore", () => {
 
       const state = useMessageStore.getState();
       assert.strictEqual(state.perSession["session-1"].length, 1);
-      assert.strictEqual(state.perSession["session-1"][0].content, "first second");
+      assert.strictEqual(
+        state.perSession["session-1"][0].content,
+        "first second"
+      );
     });
 
     it("new message uses messageId as id when creating from scratch", () => {

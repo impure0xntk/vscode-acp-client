@@ -84,7 +84,9 @@ export function AgentCard({
       </div>
 
       {/* Status label */}
-      <div className="flex-shrink-0 text-[9px] text-fg-muted">{STATUS_LABEL[status] ?? status}</div>
+      <div className="flex-shrink-0 text-[9px] text-fg-muted">
+        {STATUS_LABEL[status] ?? status}
+      </div>
 
       {/* Progress bar (only when running) */}
       {status === "running" && (

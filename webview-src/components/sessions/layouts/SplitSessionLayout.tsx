@@ -35,7 +35,9 @@ interface SessionSectionInnerProps {
   pendingMap?: Record<string, boolean>;
   renderHeader?: (props: SessionHeaderProps) => React.ReactNode;
   getSessionColor: (key: string) => string;
-  onAttachDiff?: (attachment: import("../../../types").ContextAttachment) => void;
+  onAttachDiff?: (
+    attachment: import("../../../types").ContextAttachment
+  ) => void;
 }
 
 const SessionSectionInner = React.memo(function SessionSectionInner({
@@ -89,8 +91,7 @@ const SessionSectionInner = React.memo(function SessionSectionInner({
 
   const flashAnimClass =
     isFlashing &&
-    (info?.lastTurnOutcome === "completed" ||
-      info?.lastTurnOutcome === "error")
+    (info?.lastTurnOutcome === "completed" || info?.lastTurnOutcome === "error")
       ? "animate-usec-flash-border"
       : "";
 
@@ -215,7 +216,9 @@ export interface SplitSessionLayoutProps {
   pendingMap?: Record<string, boolean>;
   renderHeader?: (props: SessionHeaderProps) => React.ReactNode;
   getSessionColor: (key: string) => string;
-  onAttachDiff?: (attachment: import("../../../types").ContextAttachment) => void;
+  onAttachDiff?: (
+    attachment: import("../../../types").ContextAttachment
+  ) => void;
 }
 
 export const SplitSessionLayout = React.memo(function SplitSessionLayout({
@@ -332,7 +335,10 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
 
   const allMessages = useMessageStore.getState().perSession;
 
-  const effectiveRatios = computeEffectiveRatios(splitRatios, visibleKeys.length);
+  const effectiveRatios = computeEffectiveRatios(
+    splitRatios,
+    visibleKeys.length
+  );
 
   function computeEffectiveRatios(ratios: number[], count: number): number[] {
     if (count <= 0) return [];

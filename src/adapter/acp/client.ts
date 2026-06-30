@@ -123,8 +123,7 @@ export class PlatformAcpClient implements Client {
     let originalContent: string | null = null;
     try {
       originalContent = await this.deps.fs.readFile(params.path);
-    } catch {
-    }
+    } catch {}
     await this.deps.fs.writeFile(params.path, params.content);
     this.onFileWrite?.({
       agentId: this.agentId,
@@ -175,5 +174,3 @@ export class PlatformAcpClient implements Client {
     });
   }
 }
-
-

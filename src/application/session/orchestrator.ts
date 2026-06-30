@@ -19,7 +19,7 @@ import type { FileSystemAPI } from "../../platform/filesystem";
 import type { PersistentHistoryStore } from "./persistentHistory";
 import type { SessionHistoryStore, HistoryEntry } from "./historyStore";
 import { PromptBuilder } from "../../domain/services/prompt-builder";
-import type { MeshAgentRole, MeshProtocolConfig, InboundMessage } from "../../domain/services/prompt-builder";
+import type { MeshProtocolConfig } from "../../domain/services/prompt-builder";
 import { getLogger } from "../../platform/backends";
 
 const log = getLogger("orchestrator");
@@ -30,7 +30,15 @@ import { SessionLifecycle } from "./session-lifecycle";
 import { PromptExecution } from "./prompt-execution";
 import { ProtocolHandler } from "./protocol-handler";
 import { SessionOverview } from "./session-overview";
-import type { AgentConfig, PromptContext, RestoreResult, AgentStatus, SessionStatusInfo, AgentConnectionState, AppSessionInfo, AgentInfo } from "./types";
+import type {
+  AgentConfig,
+  RestoreResult,
+  AgentStatus,
+  SessionStatusInfo,
+  AgentConnectionState,
+  AppSessionInfo,
+  AgentInfo,
+} from "./types";
 
 // Re-export types for downstream consumers
 export type {
@@ -48,9 +56,7 @@ export type {
   PromptContext,
 } from "./types";
 
-export {
-  sessionKey,
-} from "./session-state";
+export { sessionKey } from "./session-state";
 
 // ============================================================================
 // OrchestratorDeps
@@ -116,8 +122,11 @@ export class SessionOrchestrator extends EventEmitter {
       getMeshGlobalEnabled: () =>
         deps.ui.getConfiguration<boolean>("acp.meshProtocol", "enabled", false),
       emit: (event: string, ...args: unknown[]) => this.emit(event, ...args),
-      appendToolMessage: (agentId: string, sessionId: string, message: import("../../domain/models/chat").ChatMessage) =>
-        this.appendMessage(agentId, sessionId, message),
+      appendToolMessage: (
+        agentId: string,
+        sessionId: string,
+        message: import("../../domain/models/chat").ChatMessage
+      ) => this.appendMessage(agentId, sessionId, message),
     });
 
     // 5. SessionLifecycle (depends on agentConnection, sessionState, promptExecution)
@@ -183,7 +192,7 @@ export class SessionOrchestrator extends EventEmitter {
 
     this.sessionState.getOrCreateAgentSessions(agentId);
 
-    const initResponse = await this.agentConnection.connect(agentId, config);
+    await this.agentConnection.connect(agentId, config);
 
     // Initialize PromptBuilder for Mesh Protocol injection
     if (config.meshRole && config.meshProtocol?.enabled) {
@@ -195,7 +204,10 @@ export class SessionOrchestrator extends EventEmitter {
         teamId: config.meshProtocol.teamId,
         teamName: config.meshProtocol.teamName,
       };
-      this.sessionState.setPromptBuilder(agentId, new PromptBuilder(meshConfig));
+      this.sessionState.setPromptBuilder(
+        agentId,
+        new PromptBuilder(meshConfig)
+      );
       log.info("Mesh Protocol prompt builder initialized", {
         agentId,
         role: config.meshRole,
@@ -220,7 +232,9 @@ export class SessionOrchestrator extends EventEmitter {
     return this.agentConnection.getAgentInfo(agentId);
   }
 
-  getConnection(agentId: string): import("@agentclientprotocol/sdk").ClientSideConnection | undefined {
+  getConnection(
+    agentId: string
+  ): import("@agentclientprotocol/sdk").ClientSideConnection | undefined {
     return this.agentConnection.getConnection(agentId);
   }
 
@@ -247,8 +261,14 @@ export class SessionOrchestrator extends EventEmitter {
     this.emit("sessionTitleChanged", { agentId, sessionId, title });
   }
 
-  async forkSession(agentId: string, sourceSessionId: string): Promise<RestoreResult> {
-    const result = await this.sessionLifecycle.forkSession(agentId, sourceSessionId);
+  async forkSession(
+    agentId: string,
+    sourceSessionId: string
+  ): Promise<RestoreResult> {
+    const result = await this.sessionLifecycle.forkSession(
+      agentId,
+      sourceSessionId
+    );
     this.sessionOverview.emitDebounced();
     return result;
   }
@@ -259,7 +279,12 @@ export class SessionOrchestrator extends EventEmitter {
     messages: import("../../domain/models/chat").ChatMessage[],
     cwd?: string
   ): Promise<RestoreResult> {
-    const result = await this.sessionLifecycle.restoreSession(agentId, sourceSessionId, messages, cwd);
+    const result = await this.sessionLifecycle.restoreSession(
+      agentId,
+      sourceSessionId,
+      messages,
+      cwd
+    );
     this.sessionOverview.emitDebounced();
     return result;
   }
@@ -285,15 +310,30 @@ export class SessionOrchestrator extends EventEmitter {
   // Prompt Queue
   // ========================================================================
 
-  getQueuedPrompts(agentId: string, sessionId: string): import("./types").QueuedPrompt[] {
+  getQueuedPrompts(
+    agentId: string,
+    sessionId: string
+  ): import("./types").QueuedPrompt[] {
     return this.promptExecution.getQueuedPrompts(agentId, sessionId);
   }
 
-  cancelQueuedPrompt(agentId: string, sessionId: string, promptId: string): boolean {
-    return this.promptExecution.cancelQueuedPrompt(agentId, sessionId, promptId);
+  cancelQueuedPrompt(
+    agentId: string,
+    sessionId: string,
+    promptId: string
+  ): boolean {
+    return this.promptExecution.cancelQueuedPrompt(
+      agentId,
+      sessionId,
+      promptId
+    );
   }
 
-  reorderQueuedPrompts(agentId: string, sessionId: string, orderedIds: string[]): void {
+  reorderQueuedPrompts(
+    agentId: string,
+    sessionId: string,
+    orderedIds: string[]
+  ): void {
     this.promptExecution.reorderQueuedPrompts(agentId, sessionId, orderedIds);
   }
 
@@ -308,7 +348,13 @@ export class SessionOrchestrator extends EventEmitter {
     usedBefore: number,
     usedAfter: number
   ): void {
-    this.promptExecution.handleContextCompression(agentId, sessionId, contextWindowMax, usedBefore, usedAfter);
+    this.promptExecution.handleContextCompression(
+      agentId,
+      sessionId,
+      contextWindowMax,
+      usedBefore,
+      usedAfter
+    );
   }
 
   // ========================================================================
@@ -333,6 +379,7 @@ export class SessionOrchestrator extends EventEmitter {
 
     this.persistSession(sessionId, agentId);
     this.syncSessionHistory(agentId, sessionId, message);
+    this.sessionOverview.invalidateCounterCache(agentId, sessionId);
     this.sessionOverview.emitDebounced();
 
     this.emit("sessionMessage", { agentId, sessionId, message });
@@ -376,7 +423,9 @@ export class SessionOrchestrator extends EventEmitter {
     void this.sessionHistoryStore.upsertEntry(entry);
   }
 
-  private serializeMessageForStorage(msg: import("../../domain/models/chat").ChatMessage): import("../../domain/models/chat").ChatMessage {
+  private serializeMessageForStorage(
+    msg: import("../../domain/models/chat").ChatMessage
+  ): import("../../domain/models/chat").ChatMessage {
     const stored = { ...msg };
     if (msg.toolCalls) {
       (stored as any).toolCallsJson = JSON.stringify(msg.toolCalls);
@@ -424,7 +473,10 @@ export class SessionOrchestrator extends EventEmitter {
   setActiveSession(agentId: string, sessionId: string): void {
     const agentSessions = this.sessionState.getAgentSessions(agentId);
     if (!agentSessions?.has(sessionId)) {
-      log.warn("setActiveSession: session not found, skipping", { agentId, sessionId });
+      log.warn("setActiveSession: session not found, skipping", {
+        agentId,
+        sessionId,
+      });
       return;
     }
     this.sessionState.setActiveSession(agentId, sessionId);
@@ -432,11 +484,16 @@ export class SessionOrchestrator extends EventEmitter {
     this.emit("sessionActiveChanged", { agentId, sessionId });
   }
 
-  getActiveSessionInfo(agentId: string): import("./types").AppSessionInfo | undefined {
+  getActiveSessionInfo(
+    agentId: string
+  ): import("./types").AppSessionInfo | undefined {
     return this.sessionState.getActiveSessionInfo(agentId);
   }
 
-  getSessionInfo(agentId: string, sessionId: string): import("./types").AppSessionInfo | undefined {
+  getSessionInfo(
+    agentId: string,
+    sessionId: string
+  ): import("./types").AppSessionInfo | undefined {
     return this.sessionState.getSessionInfo(agentId, sessionId);
   }
 
@@ -452,7 +509,9 @@ export class SessionOrchestrator extends EventEmitter {
     return this.sessionState.getAllSessions();
   }
 
-  findSessionGlobally(sessionId: string): { agentId: string; info: import("./types").AppSessionInfo } | undefined {
+  findSessionGlobally(
+    sessionId: string
+  ): { agentId: string; info: import("./types").AppSessionInfo } | undefined {
     return this.sessionState.findSessionGlobally(sessionId);
   }
 
@@ -471,14 +530,16 @@ export class SessionOrchestrator extends EventEmitter {
       return;
     }
     const found = this.sessionState.findSessionGlobally(sessionId);
-    if (!found) throw new Error(`Session ${sessionId} not found in any connected agent`);
+    if (!found)
+      throw new Error(`Session ${sessionId} not found in any connected agent`);
     void this.prompt(found.agentId, sessionId, text, context);
   }
 
   async cancelSession(sessionId: string, agentId?: string): Promise<void> {
     if (agentId) return this.cancel(agentId, sessionId);
     const found = this.sessionState.findSessionGlobally(sessionId);
-    if (!found) throw new Error(`Session ${sessionId} not found in any connected agent`);
+    if (!found)
+      throw new Error(`Session ${sessionId} not found in any connected agent`);
     return this.cancel(found.agentId, sessionId);
   }
 
@@ -489,7 +550,8 @@ export class SessionOrchestrator extends EventEmitter {
   ): void {
     if (agentId) return this.appendMessage(agentId, sessionId, message);
     const found = this.sessionState.findSessionGlobally(sessionId);
-    if (!found) throw new Error(`Session ${sessionId} not found in any connected agent`);
+    if (!found)
+      throw new Error(`Session ${sessionId} not found in any connected agent`);
     return this.appendMessage(found.agentId, sessionId, message);
   }
 
@@ -516,7 +578,8 @@ export class SessionOrchestrator extends EventEmitter {
   }
 
   getAgentStatus(agentId: string, config?: AgentConfig): AgentStatus {
-    const resolvedConfig = config ?? this.agentConnection.getAgentConfig(agentId);
+    const resolvedConfig =
+      config ?? this.agentConnection.getAgentConfig(agentId);
     if (!resolvedConfig) {
       throw new Error(`Agent ${agentId} not found`);
     }
@@ -579,8 +642,10 @@ export class SessionOrchestrator extends EventEmitter {
   // Session Overview
   // ========================================================================
 
-  getSessionOverview(): { sessions: Array<{ sessionId: string; agentId: string; title: string; status: import("../../domain/models/session").SessionStatus; lastTurnOutcome: import("../../domain/models/session").TurnOutcome | null; model?: string; mode?: string; pinned: boolean; progress: { elapsedMs: number; tokenUsage: {input: number; output: number; total: number}; contextWindow?: {used: number; max: number; percentage: number}; messageCount: number; toolCallCount: number; toolCallsCompleted: number}; recentResponses: Array<{messageId: string; role: "agent" | "tool"; preview: string; toolName?: string; status?: "completed" | "running" | "failed"; timestamp: string}>; cwd?: string; createdAt: string; lastResponseAt: string | null}>; lastUpdated: string } {
-    return this.sessionOverview.compute();
+  getSessionOverview(
+    opts: { withRecentResponses?: boolean } = {}
+  ): ReturnType<SessionOverview["compute"]> {
+    return this.sessionOverview.compute(opts);
   }
 
   triggerOverviewUpdate(): void {
@@ -591,8 +656,13 @@ export class SessionOrchestrator extends EventEmitter {
   // Session Commands
   // ========================================================================
 
-  getSessionCommands(agentId: string, sessionId: string): import("@agentclientprotocol/sdk").AvailableCommand[] {
-    return this.protocolHandler.getSessionCommands(sessionKey(agentId, sessionId));
+  getSessionCommands(
+    agentId: string,
+    sessionId: string
+  ): import("@agentclientprotocol/sdk").AvailableCommand[] {
+    return this.protocolHandler.getSessionCommands(
+      sessionKey(agentId, sessionId)
+    );
   }
 
   // Allow protocolHandler to access historyStore
@@ -609,12 +679,17 @@ export class SessionOrchestrator extends EventEmitter {
   // ========================================================================
 
   /** Passthrough to protocolHandler.handleSessionUpdate — for tests */
-  handleSessionUpdate(agentId: string, notification: import("@agentclientprotocol/sdk").SessionNotification): void {
+  handleSessionUpdate(
+    agentId: string,
+    notification: import("@agentclientprotocol/sdk").SessionNotification
+  ): void {
     this.protocolHandler.handleSessionUpdate(agentId, notification);
   }
 
   /** Passthrough to sessionLifecycle — for tests */
-  chatMessageToContentBlocks(msg: import("../../domain/models/chat").ChatMessage): import("@agentclientprotocol/sdk").ContentBlock[] {
+  chatMessageToContentBlocks(
+    msg: import("../../domain/models/chat").ChatMessage
+  ): import("@agentclientprotocol/sdk").ContentBlock[] {
     return this.sessionLifecycle.chatMessageToContentBlocks(msg);
   }
 
@@ -631,11 +706,17 @@ export class SessionOrchestrator extends EventEmitter {
   getInternalState(): {
     sessions: Map<string, Map<string, AppSessionInfo>>;
     streamTextBuffer: Map<string, string>;
-    streamMsgRef: Map<string, { agentId: string; sessionId: string; msgId: string }>;
+    streamMsgRef: Map<
+      string,
+      { agentId: string; sessionId: string; msgId: string }
+    >;
     agentInfoMap: Map<string, AgentInfo>;
     agentConfigs: Map<string, AgentConfig>;
     protocolHandler: ProtocolHandler;
-    connections: Map<string, import("@agentclientprotocol/sdk").ClientSideConnection>;
+    connections: Map<
+      string,
+      import("@agentclientprotocol/sdk").ClientSideConnection
+    >;
   } {
     return {
       sessions: this.sessionState["sessions"],
@@ -659,7 +740,9 @@ export class SessionOrchestrator extends EventEmitter {
       for (const sessionInfo of agentSessions) {
         this.historyStore?.saveSession(sessionInfo);
         if (sessionInfo.messages.length > 0) {
-          const msgs = sessionInfo.messages.map((m) => this.serializeMessageForStorage(m));
+          const msgs = sessionInfo.messages.map((m) =>
+            this.serializeMessageForStorage(m)
+          );
           this.historyStore?.saveMessages(sessionInfo.sessionId, msgs);
         }
       }

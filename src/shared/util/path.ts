@@ -20,7 +20,7 @@ const ELLIPSIS = "…";
  */
 export function abbreviatePath(
   inputPath: string | null | undefined,
-  maxLength: number = DEFAULT_MAX_LENGTH,
+  maxLength: number = DEFAULT_MAX_LENGTH
 ): string {
   if (!inputPath) return "";
 
@@ -46,5 +46,7 @@ export function abbreviatePath(
   }
 
   // Step 3: last resort — truncate the full path to maxLength
-  return inputPath.length <= maxLength ? inputPath : inputPath.slice(-maxLength);
+  return inputPath.length <= maxLength
+    ? inputPath
+    : inputPath.slice(-maxLength);
 }

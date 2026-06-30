@@ -25,8 +25,14 @@ export function AgentBadge({
   const displayName = agentName ?? agentId;
   return (
     <span className={`inline-flex items-center gap-1 ${className}`.trim()}>
-      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
-      <span className="text-[11px] font-medium text-fg-primary truncate" title={agentId}>
+      <span
+        className="w-2 h-2 rounded-full shrink-0"
+        style={{ backgroundColor: dotColor }}
+      />
+      <span
+        className="text-[11px] font-medium text-fg-primary truncate"
+        title={agentId}
+      >
         {displayName}
       </span>
     </span>

@@ -135,7 +135,9 @@ export function SessionTab({
             onClick={(e) => e.stopPropagation()}
           />
         ) : (
-          <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-fg-primary leading-[1.2]">{tab.title}</span>
+          <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-fg-primary leading-[1.2]">
+            {tab.title}
+          </span>
         )}
       </div>
 

@@ -224,7 +224,10 @@ export class MeshOrchestrator {
     const sessionId =
       this.sessionOrchestrator.getActiveSessionId(targetAgentId);
     if (!sessionId) {
-      log.debug("forwardToAgent: no active session", { messageId: message.id, targetAgentId });
+      log.debug("forwardToAgent: no active session", {
+        messageId: message.id,
+        targetAgentId,
+      });
       return;
     }
 
@@ -422,7 +425,11 @@ export class MeshOrchestrator {
         priority: "normal",
       },
     };
-    log.info("handoff", { messageId: message.id, from: fromAgentId, to: toAgentId });
+    log.info("handoff", {
+      messageId: message.id,
+      from: fromAgentId,
+      to: toAgentId,
+    });
     await this.messageBus.send(message);
   }
 
@@ -441,7 +448,12 @@ export class MeshOrchestrator {
       payload: { question: content },
       metadata: { priority },
     };
-    log.info("sendMessage", { messageId: message.id, from: fromAgentId, to: toAgentId, priority });
+    log.info("sendMessage", {
+      messageId: message.id,
+      from: fromAgentId,
+      to: toAgentId,
+      priority,
+    });
     await this.messageBus.send(message);
   }
 

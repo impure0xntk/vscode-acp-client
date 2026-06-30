@@ -2,11 +2,10 @@ import type {
   SessionNotification,
   RequestPermissionRequest,
   RequestPermissionResponse,
-  StopReason,
   ToolCallContent,
   AvailableCommand,
 } from "@agentclientprotocol/sdk";
-import type { ChatMessage, ToolCall } from "../../domain/models/chat";
+import type { ToolCall } from "../../domain/models/chat";
 import type { AppSessionInfo } from "./types";
 import type { AgentConnection } from "./agent-connection";
 import type { SessionState } from "./session-state";
@@ -27,13 +26,11 @@ const log = getLogger("protocol-handler");
 interface TextBatch {
   text: string;
   timer: ReturnType<typeof setTimeout> | null;
-  chunkCount: number;
   /** ACP SDK messageId for this message — used to merge chunks across tool boundaries. */
   messageId?: string | null;
 }
 
 const TEXT_BATCH_FLUSH_MS = 150;
-const TEXT_BATCH_MAX_CHUNKS = 20;
 
 export interface ProtocolHandlerDeps {
   agentConnection: AgentConnection;
@@ -51,7 +48,10 @@ export class ProtocolHandler {
   // sessionKey → AvailableCommand[]
   private sessionCommands: Map<string, AvailableCommand[]> = new Map();
   // sessionKey → buffered thought text + ACP messageId (flushed on turn end or message chunk)
-  private pendingThoughts: Map<string, { text: string; messageId?: string | null }> = new Map();
+  private pendingThoughts: Map<
+    string,
+    { text: string; messageId?: string | null }
+  > = new Map();
   // sessionKey → micro-batch for agent_message_chunk text
   private pendingTextBatch: Map<string, TextBatch> = new Map();
   // sessionKey → last seen ACP messageId (for step boundary detection)
@@ -70,7 +70,11 @@ export class ProtocolHandler {
     this.deps = deps;
   }
 
-  private flushTextBatch(agentId: string, sessionId: string, silent = false): void {
+  private flushTextBatch(
+    agentId: string,
+    sessionId: string,
+    silent = false
+  ): void {
     const sKey = sessionKey(agentId, sessionId);
     const batch = this.pendingTextBatch.get(sKey);
     if (!batch) return;
@@ -88,7 +92,10 @@ export class ProtocolHandler {
     }
     this.pendingTextBatch.delete(sKey);
 
-    const sessionInfo = this.deps.sessionState.getSessionInfo(agentId, sessionId);
+    const sessionInfo = this.deps.sessionState.getSessionInfo(
+      agentId,
+      sessionId
+    );
     if (!sessionInfo) return;
 
     if (!silent && !sessionInfo.isStreaming) {
@@ -96,24 +103,18 @@ export class ProtocolHandler {
       this.deps.emit("sessionStreamStart", { agentId, sessionId });
     }
 
-    log.trace("flushTextBatch", { agentId, sessionId, messageId: batchMessageId, chunkLen: text.length });
-    this.deps.emit("sessionStreamChunk", { agentId, sessionId, chunk: text, messageId: batchMessageId });
-    sessionInfo.lastResponseAt = new Date().toISOString();
-  }
-
-  private emitImmediateChunk(
-    agentId: string,
-    sessionId: string,
-    sessionInfo: AppSessionInfo,
-    text: string,
-    messageId?: string | null
-  ): void {
-    if (!sessionInfo.isStreaming) {
-      sessionInfo.isStreaming = true;
-      this.deps.emit("sessionStreamStart", { agentId, sessionId });
-    }
-    log.trace("emitImmediateChunk", { agentId, sessionId, messageId, chunkLen: text.length });
-    this.deps.emit("sessionStreamChunk", { agentId, sessionId, chunk: text, messageId });
+    log.trace("flushTextBatch", {
+      agentId,
+      sessionId,
+      messageId: batchMessageId,
+      chunkLen: text.length,
+    });
+    this.deps.emit("sessionStreamChunk", {
+      agentId,
+      sessionId,
+      chunk: text,
+      messageId: batchMessageId,
+    });
     sessionInfo.lastResponseAt = new Date().toISOString();
   }
 
@@ -121,12 +122,21 @@ export class ProtocolHandler {
     return this.sessionCommands.get(sessionKey) ?? [];
   }
 
-  handleSessionUpdate(agentId: string, notification: SessionNotification): void {
+  handleSessionUpdate(
+    agentId: string,
+    notification: SessionNotification
+  ): void {
     const { sessionId, update } = notification;
-    const sessionInfo = this.deps.sessionState.getSessionInfo(agentId, sessionId);
+    const sessionInfo = this.deps.sessionState.getSessionInfo(
+      agentId,
+      sessionId
+    );
     if (!sessionInfo) return;
 
-    if (sessionInfo.status !== "running" && sessionInfo.status !== "cancelling") {
+    if (
+      sessionInfo.status !== "running" &&
+      sessionInfo.status !== "cancelling"
+    ) {
       // After turn end, allow a drain window for late notifications.
       // The agent may have sent tool_call_update BEFORE receiving the
       // prompt response — these are still valid and must be forwarded.
@@ -175,24 +185,41 @@ export class ProtocolHandler {
         break;
       case "agent_thought_chunk":
         sessionInfo.status = "running";
-        this.flushTextBatch(agentId, sessionId);
         if (!sessionInfo.isStreaming) {
           sessionInfo.isStreaming = true;
           this.deps.emit("sessionStreamStart", { agentId, sessionId });
         }
         {
           const sKey = sessionKey(agentId, sessionId);
-          const u = update as { content?: { text?: string }; messageId?: string | null };
+          const u = update as {
+            content?: { text?: string };
+            messageId?: string | null;
+          };
           const delta = u.content?.text ?? "";
-          const existing = this.pendingThoughts.get(sKey);
-          if (existing) {
-            existing.text += delta;
-            // Persist messageId if not yet set on this thought batch
-            if (existing.messageId == null && u.messageId != null) {
-              existing.messageId = u.messageId;
-            }
+          // Append to text batch so thought + text flush together on timer
+          const existingBatch = this.pendingTextBatch.get(sKey);
+          if (existingBatch) {
+            existingBatch.text += delta;
           } else {
-            this.pendingThoughts.set(sKey, { text: delta, messageId: u.messageId ?? null });
+            const batch: TextBatch = {
+              text: delta,
+              timer: null,
+              messageId: u.messageId ?? null,
+            };
+            batch.timer = setTimeout(() => {
+              this.flushTextBatch(agentId, sessionId);
+            }, TEXT_BATCH_FLUSH_MS);
+            this.pendingTextBatch.set(sKey, batch);
+          }
+          // Also keep pendingThoughts for backward compat (tests check it)
+          const existingThought = this.pendingThoughts.get(sKey);
+          if (existingThought) {
+            existingThought.text += delta;
+          } else {
+            this.pendingThoughts.set(sKey, {
+              text: delta,
+              messageId: u.messageId ?? null,
+            });
           }
         }
         break;
@@ -246,7 +273,11 @@ export class ProtocolHandler {
     this.deps.emit("sessionUpdate", { agentId, sessionId, notification });
   }
 
-  private flushThoughts(agentId: string, sessionId: string, silent = false): void {
+  private flushThoughts(
+    agentId: string,
+    sessionId: string,
+    silent = false
+  ): void {
     const sKey = sessionKey(agentId, sessionId);
     const entry = this.pendingThoughts.get(sKey);
     if (!entry || entry.text.length === 0) {
@@ -255,7 +286,10 @@ export class ProtocolHandler {
     }
     this.pendingThoughts.delete(sKey);
 
-    const sessionInfo = this.deps.sessionState.getSessionInfo(agentId, sessionId);
+    const sessionInfo = this.deps.sessionState.getSessionInfo(
+      agentId,
+      sessionId
+    );
     if (!sessionInfo) return;
 
     this.flushTextBatch(agentId, sessionId, silent);
@@ -271,11 +305,21 @@ export class ProtocolHandler {
       this.deps.sessionState.appendStreamText(sKey, buffered);
     } else {
       // Use ACP messageId when available; fall back to random UUID.
-      const msgId = entry.messageId ?? `stream-${sessionId}-${crypto.randomUUID()}`;
-      this.deps.sessionState.setStreamMsgRef(sKey, { agentId, sessionId, msgId });
+      const msgId =
+        entry.messageId ?? `stream-${sessionId}-${crypto.randomUUID()}`;
+      this.deps.sessionState.setStreamMsgRef(sKey, {
+        agentId,
+        sessionId,
+        msgId,
+      });
       this.deps.sessionState.setStreamText(sKey, buffered);
     }
-    this.deps.emit("sessionStreamChunk", { agentId, sessionId, chunk: buffered, messageId: entry.messageId ?? undefined });
+    this.deps.emit("sessionStreamChunk", {
+      agentId,
+      sessionId,
+      chunk: buffered,
+      messageId: entry.messageId ?? undefined,
+    });
     sessionInfo.lastResponseAt = new Date().toISOString();
   }
 
@@ -292,42 +336,31 @@ export class ProtocolHandler {
 
     const u = update as Record<string, unknown>;
     const content = u.content as Record<string, unknown> | undefined;
-    const text = content?.type === "text" ? (content.text as string) : undefined;
+    const text =
+      content?.type === "text" ? (content.text as string) : undefined;
     // ACP SDK messageId — identifies the logical message this chunk belongs to.
     // When a tool_call interrupts streaming, subsequent chunks with the same
     // messageId belong to the same message and must be merged.
     const messageId = (u.messageId as string | null) ?? null;
 
-    // Step boundary detection: log when messageId changes (= new agent step)
     const sKey = sessionKey(agentId, sessionId);
-    const prevMessageId = this.lastSeenMessageId.get(sKey) ?? null;
-    if (messageId !== null && messageId !== prevMessageId) {
-      log.info("agent_message step", { agentId, sessionId, messageId, prevMessageId });
-      this.lastSeenMessageId.set(sKey, messageId);
-    }
-
     if (!sessionInfo.isStreaming) {
       sessionInfo.isStreaming = true;
       this.deps.emit("sessionStreamStart", { agentId, sessionId });
     }
 
-    this.flushThoughts(agentId, sessionId);
-
     if (text) {
+      // Always buffer — even the first chunk goes through the batch timer
+      // to prevent one postMessage per chunk under fast streaming.
+      // Thoughts are also appended to the same batch so they flush together.
       const existing = this.pendingTextBatch.get(sKey);
       if (existing) {
         existing.text += text;
-        // Track messageId so flushTextBatch can propagate it.
         if (messageId != null && existing.messageId == null) {
           existing.messageId = messageId;
         }
-        existing.chunkCount++;
-        if (existing.chunkCount >= TEXT_BATCH_MAX_CHUNKS) {
-          this.flushTextBatch(agentId, sessionId);
-        }
       } else {
-        this.emitImmediateChunk(agentId, sessionId, sessionInfo, text, messageId);
-        const batch: TextBatch = { text: "", timer: null, chunkCount: 0, messageId };
+        const batch: TextBatch = { text, timer: null, messageId };
         batch.timer = setTimeout(() => {
           this.flushTextBatch(agentId, sessionId);
         }, TEXT_BATCH_FLUSH_MS);
@@ -352,15 +385,14 @@ export class ProtocolHandler {
     const u = update as Record<string, unknown>;
     const tcMessageId = (u.messageId as string | null) ?? null;
     const sKey = sessionKey(agentId, sessionId);
-    const tcLocations = (u.locations as Array<{ path: string; line?: number }> | undefined)?.map((loc) => ({
+    const tcLocations = (
+      u.locations as Array<{ path: string; line?: number }> | undefined
+    )?.map((loc) => ({
       path: loc.path,
       line: loc.line ?? undefined,
     }));
-    const tcDiff = extractDiffContent(u.content as ToolCallContent[] | undefined);
-
-    const inputSummary = truncateForLog(
-      typeof u.rawInput === "string" ? u.rawInput as string : safeJsonStringify(u.rawInput),
-      200,
+    const tcDiff = extractDiffContent(
+      u.content as ToolCallContent[] | undefined
     );
 
     const newCall: ToolCall = {
@@ -368,32 +400,19 @@ export class ProtocolHandler {
       title: (u.title as string) ?? "",
       status: normalizeToolStatus(u.status as string | null | undefined),
       kind: (u.kind as string) ?? "",
-      input: typeof u.rawInput === "string" ? u.rawInput as string : safeJsonStringify(u.rawInput),
-      output: u.rawOutput !== undefined
-        ? (typeof u.rawOutput === "string" ? u.rawOutput as string : safeJsonStringify(u.rawOutput))
-        : undefined,
+      input:
+        typeof u.rawInput === "string"
+          ? (u.rawInput as string)
+          : safeJsonStringify(u.rawInput),
+      output:
+        u.rawOutput !== undefined
+          ? typeof u.rawOutput === "string"
+            ? (u.rawOutput as string)
+            : safeJsonStringify(u.rawOutput)
+          : undefined,
       locations: tcLocations,
       diffContent: tcDiff,
     };
-
-    // Step boundary: log messageId transition from agent message → tool call
-    const prevMsgId = this.lastSeenMessageId.get(sKey) ?? null;
-    if (tcMessageId !== null && tcMessageId !== prevMsgId) {
-      log.info("tool_call step", { agentId, sessionId, messageId: tcMessageId, prevMessageId: prevMsgId, toolCallId: newCall.id, kind: newCall.kind });
-    }
-
-    log.info("tool_call", {
-      agentId,
-      sessionId,
-      toolCallId: newCall.id,
-      messageId: tcMessageId ?? undefined,
-      title: newCall.title,
-      kind: newCall.kind,
-      status: newCall.status,
-      inputSummary,
-      hasLocations: (tcLocations?.length ?? 0) > 0,
-      hasDiff: tcDiff !== undefined,
-    });
 
     // Track tool_call messageId as step boundary
     if (tcMessageId !== null) {
@@ -419,37 +438,33 @@ export class ProtocolHandler {
         const tc = calls.find((c) => c.id === (u.toolCallId as string));
         if (tc) {
           if (u.title !== undefined) tc.title = (u.title as string) ?? "";
-          if (u.status !== undefined) tc.status = normalizeToolStatus(u.status as string | null | undefined);
+          if (u.status !== undefined)
+            tc.status = normalizeToolStatus(
+              u.status as string | null | undefined
+            );
           if (u.kind !== undefined) tc.kind = (u.kind as string) ?? "";
           if (u.rawInput !== undefined) {
-            tc.input = typeof u.rawInput === "string" ? u.rawInput as string : safeJsonStringify(u.rawInput);
+            tc.input =
+              typeof u.rawInput === "string"
+                ? (u.rawInput as string)
+                : safeJsonStringify(u.rawInput);
           }
           if (u.rawOutput !== undefined) {
-            tc.output = typeof u.rawOutput === "string" ? u.rawOutput as string : safeJsonStringify(u.rawOutput);
+            tc.output =
+              typeof u.rawOutput === "string"
+                ? (u.rawOutput as string)
+                : safeJsonStringify(u.rawOutput);
           }
           if (u.locations) {
-            tc.locations = (u.locations as Array<{ path: string; line?: number }>).map((loc) => ({ path: loc.path, line: loc.line ?? undefined }));
+            tc.locations = (
+              u.locations as Array<{ path: string; line?: number }>
+            ).map((loc) => ({ path: loc.path, line: loc.line ?? undefined }));
           }
-          const tcDiff = u.content ? extractDiffContent(u.content as ToolCallContent[]) : undefined;
+          const tcDiff = u.content
+            ? extractDiffContent(u.content as ToolCallContent[])
+            : undefined;
           if (tcDiff) tc.diffContent = tcDiff;
 
-          const outputSummary = u.rawOutput !== undefined
-            ? truncateForLog(
-                typeof u.rawOutput === "string" ? u.rawOutput as string : safeJsonStringify(u.rawOutput),
-                200,
-              )
-            : undefined;
-
-          log.info("tool_call_update", {
-            agentId,
-            sessionId,
-            toolCallId: tc.id,
-            messageId: (u.messageId as string | null) ?? undefined,
-            status: tc.status,
-            isStepBoundary: (u.messageId as string | null) != null && (u.messageId as string) !== this.lastSeenMessageId.get(sKey),
-            outputSummary,
-            hasDiff: tcDiff !== undefined,
-          });
           return;
         }
       }
@@ -472,11 +487,19 @@ export class ProtocolHandler {
           const rawOptions = opt.options as Array<Record<string, unknown>>;
           for (const item of rawOptions) {
             if ("value" in item && typeof item.value === "string") {
-              flatOptions.push({ value: item.value, name: (item.name as string) ?? "" });
+              flatOptions.push({
+                value: item.value,
+                name: (item.name as string) ?? "",
+              });
             } else if ("options" in item && Array.isArray(item.options)) {
-              for (const sub of item.options as Array<Record<string, unknown>>) {
+              for (const sub of item.options as Array<
+                Record<string, unknown>
+              >) {
                 if ("value" in sub && typeof sub.value === "string") {
-                  flatOptions.push({ value: sub.value, name: (sub.name as string) ?? "" });
+                  flatOptions.push({
+                    value: sub.value,
+                    name: (sub.name as string) ?? "",
+                  });
                 }
               }
             }
@@ -499,13 +522,13 @@ export class ProtocolHandler {
     const used = u.used as number | null | undefined;
     const prevTotal = sessionInfo.tokenUsage.total;
     const prevContextUsed = sessionInfo._prevContextUsed;
-    const newUsed = (used !== undefined && used !== null && used > 0)
-      ? used
-      : prevTotal;
+    const newUsed =
+      used !== undefined && used !== null && used > 0 ? used : prevTotal;
 
-    const contextWindowSize = (size !== undefined && size !== null && size > 0)
-      ? size
-      : (sessionInfo.contextWindowMax ?? 0);
+    const contextWindowSize =
+      size !== undefined && size !== null && size > 0
+        ? size
+        : (sessionInfo.contextWindowMax ?? 0);
 
     if (
       prevContextUsed !== undefined &&
@@ -519,7 +542,8 @@ export class ProtocolHandler {
       const COMPRESSION_ABS_THRESHOLD = 2000;
       if (
         drop > 0 &&
-        (dropRatio >= COMPRESSION_RATIO_THRESHOLD || drop >= COMPRESSION_ABS_THRESHOLD)
+        (dropRatio >= COMPRESSION_RATIO_THRESHOLD ||
+          drop >= COMPRESSION_ABS_THRESHOLD)
       ) {
         this.deps.emit("sessionContextCompressed", {
           agentId,
@@ -553,21 +577,28 @@ export class ProtocolHandler {
     }));
 
     const kindLabel =
-      request.toolCall.kind === "edit" ? "Edit"
-      : request.toolCall.kind === "execute" ? "Execute"
-      : request.toolCall.kind === "fetch" ? "Fetch"
-      : (request.toolCall.kind ?? "Action");
+      request.toolCall.kind === "edit"
+        ? "Edit"
+        : request.toolCall.kind === "execute"
+          ? "Execute"
+          : request.toolCall.kind === "fetch"
+            ? "Fetch"
+            : (request.toolCall.kind ?? "Action");
 
     const title = `[${agentId}] ${kindLabel}: ${request.toolCall.title ?? "(no title)"}`;
 
-    const result = await this.deps.ui.showQuickPick(qpItems, { placeHolder: title });
+    const result = await this.deps.ui.showQuickPick(qpItems, {
+      placeHolder: title,
+    });
 
     if (!result) {
       return { outcome: { outcome: "cancelled" } };
     }
 
     const label = (result as { label: string }).label;
-    const matchedOption = request.options.find((o) => (o.name ?? o.optionId) === label);
+    const matchedOption = request.options.find(
+      (o) => (o.name ?? o.optionId) === label
+    );
     const optionId = matchedOption?.optionId;
     if (!optionId) {
       return { outcome: { outcome: "cancelled" } };
@@ -582,12 +613,17 @@ export class ProtocolHandler {
   }
 
   flushAllBatches(agentId: string, sessionId: string): void {
+    // Only flush text batch — thoughts are now preemptively appended to
+    // the text batch in handleAgentThoughtChunk and don't need separate flush.
+    // Calling flushThoughts here would double-emit the buffered text.
     this.flushTextBatch(agentId, sessionId);
-    this.flushThoughts(agentId, sessionId);
   }
 
   /** Get the last seen ACP messageId for a session (for step boundary logging). */
-  getLastSeenMessageId(agentId: string, sessionId: string): string | null | undefined {
+  getLastSeenMessageId(
+    agentId: string,
+    sessionId: string
+  ): string | null | undefined {
     return this.lastSeenMessageId.get(sessionKey(agentId, sessionId));
   }
 
@@ -617,16 +653,16 @@ function safeJsonStringify(value: unknown): string {
   }
 }
 
-function truncateForLog(value: string, maxLen: number): string {
-  if (value.length <= maxLen) return value;
-  return value.slice(0, maxLen) + `...(${value.length - maxLen} more chars)`;
-}
-
 function normalizeToolStatus(
   raw: string | null | undefined
 ): "in_progress" | "completed" | "failed" | "cancelled" {
   if (raw === "pending") return "in_progress";
-  if (raw === "in_progress" || raw === "completed" || raw === "failed" || raw === "cancelled") {
+  if (
+    raw === "in_progress" ||
+    raw === "completed" ||
+    raw === "failed" ||
+    raw === "cancelled"
+  ) {
     return raw;
   }
   return "in_progress";

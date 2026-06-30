@@ -22,7 +22,10 @@ describe("grouping — file edit summary", () => {
 
   describe("computeLineDiff", () => {
     it("returns 0/0 for identical content", () => {
-      assert.deepStrictEqual(computeLineDiff("a\nb\nc", "a\nb\nc"), { added: 0, deleted: 0 });
+      assert.deepStrictEqual(computeLineDiff("a\nb\nc", "a\nb\nc"), {
+        added: 0,
+        deleted: 0,
+      });
     });
 
     it("returns 0/0 for both empty", () => {
@@ -30,11 +33,17 @@ describe("grouping — file edit summary", () => {
     });
 
     it("counts additions when original is empty", () => {
-      assert.deepStrictEqual(computeLineDiff(null, "line1\nline2"), { added: 2, deleted: 0 });
+      assert.deepStrictEqual(computeLineDiff(null, "line1\nline2"), {
+        added: 2,
+        deleted: 0,
+      });
     });
 
     it("counts deletions when new is empty", () => {
-      assert.deepStrictEqual(computeLineDiff("line1\nline2", null), { added: 0, deleted: 2 });
+      assert.deepStrictEqual(computeLineDiff("line1\nline2", null), {
+        added: 0,
+        deleted: 2,
+      });
     });
 
     it("counts mixed additions and deletions", () => {
@@ -116,9 +125,9 @@ describe("grouping — file edit summary", () => {
 
     it("handles mixed: some paths same, some different (diff-based)", () => {
       const store = useFileWriteStore.getState();
-      store.addWrite("a1", "s1", "/a.ts", "line1");  // original=null → "line1" = 1 added
-      store.addWrite("a1", "s1", "/b.ts", "line1\nline2\nline3");  // original=null → 3 added
-      store.addWrite("a1", "s1", "/a.ts", "line2\nline3");  // overrides latest for /a.ts
+      store.addWrite("a1", "s1", "/a.ts", "line1"); // original=null → "line1" = 1 added
+      store.addWrite("a1", "s1", "/b.ts", "line1\nline2\nline3"); // original=null → 3 added
+      store.addWrite("a1", "s1", "/a.ts", "line2\nline3"); // overrides latest for /a.ts
       const result = extractFileEditSummaryFromStore("a1", "s1");
       assert.ok(result);
       assert.strictEqual(result.length, 2);

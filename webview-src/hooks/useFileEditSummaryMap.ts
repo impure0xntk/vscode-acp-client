@@ -1,6 +1,9 @@
 import { useMemo } from "react";
 import { useFileWriteStore } from "../store/fileWriteStore";
-import { buildSummaryFromWrites, lowerBound } from "../pipeline/stages/grouping";
+import {
+  buildSummaryFromWrites,
+  lowerBound,
+} from "../pipeline/stages/grouping";
 import type { FileEditEntry } from "../pipeline/types";
 import type { FileWriteRecord } from "../store/fileWriteStore";
 
@@ -13,7 +16,7 @@ const EMPTY_WRITES: readonly FileWriteRecord[] = [];
 export function useFileEditSummaryMap(
   agentId: string,
   sessionId: string,
-  boundaries: { lo: number; hi: number }[],
+  boundaries: { lo: number; hi: number }[]
 ): Map<number, FileEditEntry[]> | undefined {
   const writes = useFileWriteStore((s) => {
     const key = `${agentId}:${sessionId}`;
@@ -32,7 +35,10 @@ export function useFileEditSummaryMap(
       writeIdx = lowerBound(sortedWrites, lo, writeIdx);
 
       const stepWrites: FileWriteRecord[] = [];
-      while (writeIdx < sortedWrites.length && sortedWrites[writeIdx].seq < hi) {
+      while (
+        writeIdx < sortedWrites.length &&
+        sortedWrites[writeIdx].seq < hi
+      ) {
         stepWrites.push(sortedWrites[writeIdx]);
         writeIdx++;
       }

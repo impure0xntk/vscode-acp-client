@@ -18,7 +18,11 @@ export interface PromptExecutionDeps {
   /** Emit event to orchestrator (sessionTurnActiveChanged, etc.) */
   emit: (event: string, ...args: unknown[]) => void;
   /** Append a tool message to the session — used by flushToolCallGroup to surface buffered calls */
-  appendToolMessage: (agentId: string, sessionId: string, message: import("../../domain/models/chat").ChatMessage) => void;
+  appendToolMessage: (
+    agentId: string,
+    sessionId: string,
+    message: import("../../domain/models/chat").ChatMessage
+  ) => void;
 }
 
 export class PromptExecution {
@@ -34,7 +38,10 @@ export class PromptExecution {
     text: string,
     context?: PromptContext
   ): Promise<QueuedPrompt | undefined> {
-    const sessionInfo = this.deps.sessionState.getSessionInfo(agentId, sessionId);
+    const sessionInfo = this.deps.sessionState.getSessionInfo(
+      agentId,
+      sessionId
+    );
     if (!sessionInfo) {
       throw new Error(`Session ${sessionId} not found for agent ${agentId}`);
     }
@@ -69,7 +76,10 @@ export class PromptExecution {
       throw new Error(`Agent ${agentId} is not connected`);
     }
 
-    const sessionInfo = this.deps.sessionState.getSessionInfo(agentId, sessionId);
+    const sessionInfo = this.deps.sessionState.getSessionInfo(
+      agentId,
+      sessionId
+    );
     if (!sessionInfo) {
       throw new Error(`Session ${sessionId} not found for agent ${agentId}`);
     }
@@ -79,7 +89,11 @@ export class PromptExecution {
     const builder = this.deps.sessionState.getPromptBuilder(agentId);
     if (meshGlobalEnabled && builder && text.length > 0) {
       const lastInbound = this.deps.sessionState.getLastInboundMessage(agentId);
-      finalText = builder.buildUserPrompt({ text, mode: "direct", inboundMessage: lastInbound });
+      finalText = builder.buildUserPrompt({
+        text,
+        mode: "direct",
+        inboundMessage: lastInbound,
+      });
     }
 
     const turnMessageId = crypto.randomUUID();
@@ -98,7 +112,10 @@ export class PromptExecution {
     sessionInfo.updatedAt = new Date();
     sessionInfo.isStreaming = true;
 
-    const promptBlocks: ContentBlock[] = [...(context ?? []), { type: "text", text: finalText }];
+    const promptBlocks: ContentBlock[] = [
+      ...(context ?? []),
+      { type: "text", text: finalText },
+    ];
 
     let stopReason: StopReason | undefined;
     try {
@@ -127,14 +144,25 @@ export class PromptExecution {
       this.deps.sessionState.clearStreamText(sKey);
       this.deps.sessionState.clearStreamMsgRef(sKey);
 
-      log.info("turn completed", { agentId, sessionId, messageId: turnMessageId, tokens: sessionInfo.tokenUsage, stopReason });
+      log.info("turn completed", {
+        agentId,
+        sessionId,
+        messageId: turnMessageId,
+        tokens: sessionInfo.tokenUsage,
+        stopReason,
+      });
 
       // Reset step tracking for next turn
       this.deps.protocolHandler.resetStepTracking(agentId, sessionId);
     } catch (e) {
       sessionInfo.lastTurnOutcome = "error";
       sessionInfo.isStreaming = false;
-      log.warn("turn error", { agentId, sessionId, messageId: turnMessageId, error: e instanceof Error ? e.message : String(e) });
+      log.warn("turn error", {
+        agentId,
+        sessionId,
+        messageId: turnMessageId,
+        error: e instanceof Error ? e.message : String(e),
+      });
       throw e;
     } finally {
       sessionInfo.status = "idle";
@@ -155,7 +183,10 @@ export class PromptExecution {
 
   async cancel(agentId: string, sessionId: string): Promise<void> {
     const connection = this.deps.agentConnection.getConnection(agentId);
-    const sessionInfo = this.deps.sessionState.getSessionInfo(agentId, sessionId);
+    const sessionInfo = this.deps.sessionState.getSessionInfo(
+      agentId,
+      sessionId
+    );
 
     if (sessionInfo) {
       sessionInfo.pendingCancel = true;
@@ -175,12 +206,18 @@ export class PromptExecution {
     }
   }
 
-  private async processNextInQueue(agentId: string, sessionId: string): Promise<void> {
+  private async processNextInQueue(
+    agentId: string,
+    sessionId: string
+  ): Promise<void> {
     const key = sessionKey(agentId, sessionId);
     const queue = this.deps.sessionState.getQueue(key);
     if (queue.length === 0) return;
 
-    const sessionInfo = this.deps.sessionState.getSessionInfo(agentId, sessionId);
+    const sessionInfo = this.deps.sessionState.getSessionInfo(
+      agentId,
+      sessionId
+    );
     if (!sessionInfo || sessionInfo.status === "running") return;
 
     const next = queue.shift()!;
@@ -203,11 +240,22 @@ export class PromptExecution {
     return this.deps.sessionState.getQueue(sessionKey(agentId, sessionId));
   }
 
-  cancelQueuedPrompt(agentId: string, sessionId: string, promptId: string): boolean {
-    return this.deps.sessionState.removeFromQueue(sessionKey(agentId, sessionId), promptId);
+  cancelQueuedPrompt(
+    agentId: string,
+    sessionId: string,
+    promptId: string
+  ): boolean {
+    return this.deps.sessionState.removeFromQueue(
+      sessionKey(agentId, sessionId),
+      promptId
+    );
   }
 
-  reorderQueuedPrompts(agentId: string, sessionId: string, orderedIds: string[]): void {
+  reorderQueuedPrompts(
+    agentId: string,
+    sessionId: string,
+    orderedIds: string[]
+  ): void {
     const key = sessionKey(agentId, sessionId);
     const queue = this.deps.sessionState.getQueue(key);
     const pending = queue.filter((e) => e.status === "pending");
@@ -237,7 +285,8 @@ export class PromptExecution {
     if (!builder) return;
 
     const now = Date.now();
-    const lastReinjection = this.deps.sessionState.getLastReinjectionAt(agentId);
+    const lastReinjection =
+      this.deps.sessionState.getLastReinjectionAt(agentId);
     if (now - lastReinjection < 60_000) return;
 
     this.deps.sessionState.setLastReinjectionAt(agentId, now);
@@ -246,8 +295,15 @@ export class PromptExecution {
     const reinjectionText = builder.buildReinjection(lastInbound);
     if (!reinjectionText) return;
 
-    const sessionInfo = this.deps.sessionState.getSessionInfo(agentId, sessionId);
-    log.info("scheduling reinjection after context compression", { agentId, sessionId, messageId: sessionInfo?.lastTurnMessageId });
+    const sessionInfo = this.deps.sessionState.getSessionInfo(
+      agentId,
+      sessionId
+    );
+    log.info("scheduling reinjection after context compression", {
+      agentId,
+      sessionId,
+      messageId: sessionInfo?.lastTurnMessageId,
+    });
 
     const entry: QueuedPrompt = {
       id: crypto.randomUUID(),
@@ -265,7 +321,11 @@ export class PromptExecution {
     this.deps.sessionState.setQueue(key, queue);
   }
 
-  bufferToolCall(agentId: string, sessionId: string, newCall: import("../../domain/models/chat").ToolCall): void {
+  bufferToolCall(
+    agentId: string,
+    sessionId: string,
+    newCall: import("../../domain/models/chat").ToolCall
+  ): void {
     const key = sessionKey(agentId, sessionId);
     let buffered = this.deps.sessionState.getPendingToolCalls(key);
     if (!buffered) {

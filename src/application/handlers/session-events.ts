@@ -1,18 +1,13 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import type { SessionOrchestrator } from "../orchestrator";
-import type { AppSessionInfo } from "../session/types";
 import type { ChatMessage } from "../../domain/models/chat";
+import type { SessionNotification } from "@agentclientprotocol/sdk";
+import type { FileWriteEvent } from "../../adapter/acp/client";
 import { ChatPanel } from "../../infrastructure/vscode/vscode-ui/chatPanel";
 import { ChatPresenter } from "../../infrastructure/vscode/vscode-ui/presenter";
 import type { AgentStatusTracker } from "../../adapter/agent/status";
-import type {
-  SessionHistoryStore,
-  HistoryEntry,
-} from "../session/historyStore";
-import { getLogger } from "../../platform/backends";
-
-const log = getLogger("handlers.session");
+import type { HistoryEntry } from "../session/historyStore";
 
 export interface SessionEventDeps {
   orchestrator: SessionOrchestrator;
@@ -39,6 +34,9 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
     sendTabs,
   } = deps;
 
+  // -------------------------------------------------------------------------
+  // Agent lifecycle
+  // -------------------------------------------------------------------------
   orchestrator.on("agentConnected", (agentId: string) => {
     statusTracker.updateAgentStatus(agentId, { state: "idle" });
     updateContext();
@@ -56,6 +54,9 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
     sendTabs();
   });
 
+  // -------------------------------------------------------------------------
+  // Session lifecycle
+  // -------------------------------------------------------------------------
   orchestrator.on(
     "sessionCreated",
     ({
@@ -83,15 +84,7 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
       sendTabs();
       updateContext();
 
-      const cp = getChatPanel();
-      if (cp) {
-        const overview = orchestrator.getSessionOverview();
-        cp.postMessage({
-          type: "sessionOverview:state",
-          payload: overview,
-        });
-      }
-
+      // Working directory outside workspace warning
       if (cwd) {
         const wsFolders = vscode.workspace.workspaceFolders ?? [];
         if (wsFolders.length > 0) {
@@ -109,19 +102,9 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
     }
   );
 
-  // NOTE: Do NOT call sendTabs() here. sendTabs() triggers handleSetTabs in
-  // the webview which calls setActiveSession(), which emits
-  // sessionActiveChanged again — creating an infinite loop:
-  //   sessionActiveChanged → sendTabs → handleSetTabs → setActiveSession
-  //     → sessionActiveChanged → ...
-  // Instead, sendTabs() is called explicitly at the sites that need it
-  // (agentConnected, sessionCreated, etc.).  The session/switch message
-  // sent below already carries the activeSessionKey info the webview needs.
-  //
-  // NOTE: Do NOT call getSessionOverview() here either. setActiveSession()
-  // already calls emitOverviewUpdate() which is debounced (100ms). Calling
-  // getSessionOverview() synchronously here blocks the extension host and
-  // duplicates the work — the debounced emission covers the overview update.
+  // NOTE: Do NOT call sendTabs() here — would trigger infinite loop via
+  // handleSetTabs → setActiveSession → sessionActiveChanged.
+  // Do NOT call getSessionOverview() — emitDebounced covers it.
   orchestrator.on(
     "sessionActiveChanged",
     ({ agentId, sessionId }: { agentId: string; sessionId: string }) => {
@@ -134,15 +117,16 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
     }
   );
 
-  // Push for ALL sessions (not just active) so multi-@ and background turns
-  // are reflected in tabs, overview, and streaming status.
+  // -------------------------------------------------------------------------
+  // Turn lifecycle
+  // -------------------------------------------------------------------------
   let turnActiveOverviewTimer: ReturnType<typeof setTimeout> | null = null;
   orchestrator.on(
     "sessionTurnActiveChanged",
     ({
       agentId,
       sessionId,
-      active,
+      active: _active,
       stopReason,
     }: {
       agentId: string;
@@ -156,10 +140,6 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
         cp?.pushSessionInfo(agentId, sessionId, info);
         cp?.pushTurnActive(agentId, sessionId, info.status === "running");
       }
-      // Always notify webview of stream end so isStreaming is reset.
-      // Without this, tool-call-only turns (where the agent produces no
-      // text chunks) leave isStreaming=true forever, blocking subsequent
-      // messages from appearing in the chat UI.
       cp?.pushStreamEnd(agentId, sessionId);
 
       if (stopReason) {
@@ -170,14 +150,15 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
           stopReason,
         });
       }
-      // Debounce overview updates — rapid turnActive changes during a turn
-      // can flood the webview with sessionOverview:state messages.
+      // Debounce overview updates — use fast path (no recentResponses)
       if (turnActiveOverviewTimer) clearTimeout(turnActiveOverviewTimer);
       turnActiveOverviewTimer = setTimeout(() => {
         turnActiveOverviewTimer = null;
         const cp2 = getChatPanel();
         if (cp2) {
-          const overview = orchestrator.getSessionOverview();
+          const overview = orchestrator.getSessionOverview({
+            withRecentResponses: false,
+          });
           cp2.postMessage({
             type: "sessionOverview:state",
             payload: overview,
@@ -187,11 +168,9 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
     }
   );
 
-  // Push messages for ALL sessions — the fanout executor routes to the
-  // correct (agentId, sessionId) pair, so no cross-tab leakage is possible.
-  // The active-session guard was removed because pushUserMessage fires
-  // *before* orchestrator.prompt() updates activeSessions, causing every
-  // message to be dropped during the race window.
+  // -------------------------------------------------------------------------
+  // Messages
+  // -------------------------------------------------------------------------
   orchestrator.on(
     "sessionMessage",
     ({
@@ -205,27 +184,23 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
     }) => {
       const cp = getChatPanel();
       if (!cp) {
-        log.debug("sessionMessage dropped (no ChatPanel yet)", {
-          agentId,
-          sessionId,
-          role: message.role,
-          contentLen: message.content?.length,
-        });
         return;
       }
       const info = orchestrator.getSessionInfo(agentId, sessionId);
-      log.debug("sessionMessage → pushMessage", {
-        agentId,
-        sessionId,
-        role: message.role,
-        msgId: message.id,
-        acpMessageId: message.id,
-        contentLen: message.content?.length,
-      });
       cp.pushMessage(agentId, sessionId, message, info?.cwd);
       if (info) {
         cp.pushSessionInfo(agentId, sessionId, info);
       }
+      // Update status tracker for sidebar
+      statusTracker.updateSessionStatus(agentId, sessionId, {
+        sessionId,
+        title: info?.title ?? sessionId,
+        status: "idle",
+        isActive: true,
+        messageCount: info ? info.messages.length : 0,
+        tokenUsage: info?.tokenUsage ?? { input: 0, output: 0, total: 0 },
+      });
+      updateContext();
     }
   );
 
@@ -248,23 +223,10 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
       }
       deps.presenter.removeSession(agentId, sessionId);
       sendTabs();
-
-      const cpClosed = getChatPanel();
-      if (cpClosed) {
-        const overview = orchestrator.getSessionOverview();
-        cpClosed.postMessage({
-          type: "sessionOverview:state",
-          payload: overview,
-        });
-      }
     }
   );
 
-  // NOTE: Do NOT call sendTabs() here. sendTabs() re-registers all sessions
-  // in the presenter and rebuilds tabOrder in the webview, which causes
-  // unpinned sessions to reappear in the multi-session view and overview.
-  // The session status change is already reflected by pushSessionInfo +
-  // the debounced sessionOverview:update emission from the orchestrator.
+  // NOTE: Do NOT call sendTabs() here — see comment in session-events.ts
   orchestrator.on(
     "sessionCompleted",
     ({
@@ -294,13 +256,166 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
       if (info) {
         cp?.pushSessionInfo(agentId, sessionId, info);
       }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // Tool calls / session notifications (merged from wireMessageEvents)
+  // -------------------------------------------------------------------------
+  orchestrator.on(
+    "sessionUpdate",
+    (event: {
+      agentId: string;
+      sessionId: string;
+      notification: SessionNotification;
+    }) => {
+      const { agentId, sessionId, notification } = event;
+      const update = notification.update;
+      const cp = getChatPanel();
+      const activeSessionId = orchestrator.getActiveSessionId(agentId);
+      const isActive = sessionId === activeSessionId;
+
+      // Forward only relevant update types to webview for active session
+      if (
+        isActive &&
+        update.sessionUpdate !== "agent_thought_chunk" &&
+        update.sessionUpdate !== "agent_message_chunk"
+      ) {
+        cp?.pushSessionNotification(agentId, sessionId, notification);
+      }
+
+      // Update status tracker
+      statusTracker.updateSessionStatus(agentId, sessionId, {
+        sessionId,
+        title:
+          orchestrator.getSessionInfo(agentId, sessionId)?.title ?? sessionId,
+        status: "running",
+        isActive: true,
+        messageCount: 0,
+        tokenUsage: orchestrator.getSessionInfo(agentId, sessionId)
+          ?.tokenUsage ?? { input: 0, output: 0, total: 0 },
+      });
+      updateContext();
+
+      // Push updated sessionInfo for specific update types that change metadata
+      if (
+        isActive &&
+        (update.sessionUpdate === "current_mode_update" ||
+          update.sessionUpdate === "config_option_update" ||
+          update.sessionUpdate === "tool_call" ||
+          update.sessionUpdate === "tool_call_update" ||
+          update.sessionUpdate === "session_info_update" ||
+          update.sessionUpdate === "usage_update")
+      ) {
+        const sessionInfo = orchestrator.getSessionInfo(agentId, sessionId);
+        if (sessionInfo) {
+          cp?.pushSessionInfo(agentId, sessionId, sessionInfo);
+        }
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // Streaming
+  // -------------------------------------------------------------------------
+  orchestrator.on(
+    "sessionStreamStart",
+    (event: { agentId: string; sessionId: string }) => {
+      const cp = getChatPanel();
       if (cp) {
-        const overview = orchestrator.getSessionOverview();
         cp.postMessage({
-          type: "sessionOverview:state",
-          payload: overview,
+          type: "session/streamStart",
+          agentId: event.sessionId,
+          sessionId: event.sessionId,
         });
       }
     }
   );
+
+  orchestrator.on(
+    "sessionStreamChunk",
+    (event: {
+      agentId: string;
+      sessionId: string;
+      chunk: string;
+      messageId?: string;
+    }) => {
+      const cp = getChatPanel();
+      if (cp) {
+        cp.pushStreamChunk(
+          event.agentId,
+          event.sessionId,
+          event.chunk,
+          event.messageId
+        );
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // Available commands
+  // -------------------------------------------------------------------------
+  orchestrator.on(
+    "sessionCommandsUpdated",
+    ({
+      agentId,
+      sessionId,
+      commands,
+    }: {
+      agentId: string;
+      sessionId: string;
+      commands: unknown[];
+    }) => {
+      const activeSessId = orchestrator.getActiveSessionId(agentId);
+      if (sessionId !== activeSessId) return;
+      getChatPanel()?.postMessage({
+        type: "session/commands",
+        agentId,
+        sessionId,
+        commands,
+      });
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // Context compression
+  // -------------------------------------------------------------------------
+  orchestrator.on(
+    "sessionContextCompressed",
+    (event: {
+      agentId: string;
+      sessionId: string;
+      contextWindowMax: number;
+      usedBefore: number;
+      usedAfter: number;
+    }) => {
+      const { agentId, sessionId, contextWindowMax, usedBefore, usedAfter } =
+        event;
+      const activeSessionId = orchestrator.getActiveSessionId(agentId);
+      if (sessionId !== activeSessionId) return;
+      const cp = getChatPanel();
+      cp?.pushSessionCompression(agentId, sessionId, {
+        contextWindowMax,
+        usedTokens: usedAfter,
+        usedBefore,
+      });
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // File writes (per-session data needed on any tab for file edit summary)
+  // -------------------------------------------------------------------------
+  orchestrator.on("fileWrite", (event: FileWriteEvent) => {
+    const { agentId, sessionId, path, content, originalContent, contentHash } =
+      event;
+    const cp = getChatPanel();
+    cp?.pushFileWrite(
+      agentId,
+      sessionId,
+      path,
+      content,
+      originalContent,
+      contentHash
+    );
+  });
 }

@@ -23,7 +23,11 @@ import { useChatHandlers } from "../hooks/useChatHandlers";
 import { useOverviewHandlers } from "../hooks/useOverviewHandlers";
 import { UnifiedMode, SupervisorMode } from "../components/modes";
 import { PlanViewerOverlay } from "../components/modes/supervisor/PlanViewer";
-import type { CommunicationMode, ContextAttachment, SendTarget } from "../types";
+import type {
+  CommunicationMode,
+  ContextAttachment,
+  SendTarget,
+} from "../types";
 
 export function AppContainer(): React.ReactElement {
   const log = useLogger("AppContainer");
@@ -50,11 +54,8 @@ export function AppContainer(): React.ReactElement {
     }))
   );
 
-  const activeSessionInfo = useSessionStore(
-    (s) =>
-      activeSessionKey
-        ? s.sessionInfoMap[activeSessionKey]
-        : undefined
+  const activeSessionInfo = useSessionStore((s) =>
+    activeSessionKey ? s.sessionInfoMap[activeSessionKey] : undefined
   );
 
   const activeSessionId = activeSessionKey
@@ -93,23 +94,19 @@ export function AppContainer(): React.ReactElement {
 
   const overviewOnLeft = overviewPosition === "left";
 
-
   const [showHistory, setShowHistory] = useState(false);
   const [selectedHistorySession, setSelectedHistorySession] =
     useState<PersistentSessionEntry | null>(null);
   const scrollToMessageRef = useRef<(id: string) => void>();
 
-
   const meshPanelVisible = useMeshStore((s) => s.meshPanelVisible);
   const setMeshPanelVisible = useMeshStore((s) => s.setMeshPanelVisible);
-
 
   useEffect(() => {
     if (currentPlan?.status === "executing") {
       setMeshPanelVisible(true);
     }
   }, [currentPlan?.status, setMeshPanelVisible]);
-
 
   const sendMessage = useCallback(
     (
@@ -162,23 +159,26 @@ export function AppContainer(): React.ReactElement {
     [activeAgentId, activeSessionId, displayStatus]
   );
 
-  const cancelTurn = useCallback((targets?: SendTarget[]) => {
-    if (targets && targets.length > 0) {
-      for (const t of targets) {
+  const cancelTurn = useCallback(
+    (targets?: SendTarget[]) => {
+      if (targets && targets.length > 0) {
+        for (const t of targets) {
+          getVsCodeApi().postMessage({
+            type: "cancelTurn",
+            agentId: t.agentId,
+            sessionId: t.sessionId,
+          });
+        }
+      } else {
         getVsCodeApi().postMessage({
           type: "cancelTurn",
-          agentId: t.agentId,
-          sessionId: t.sessionId,
+          agentId: activeAgentId,
+          sessionId: activeSessionId,
         });
       }
-    } else {
-      getVsCodeApi().postMessage({
-        type: "cancelTurn",
-        agentId: activeAgentId,
-        sessionId: activeSessionId,
-      });
-    }
-  }, [activeAgentId, activeSessionId]);
+    },
+    [activeAgentId, activeSessionId]
+  );
 
   const switchTab = useCallback((agentId: string, sessionId: string) => {
     const key = sessionKeyOf(agentId, sessionId);
@@ -227,7 +227,6 @@ export function AppContainer(): React.ReactElement {
   const setSessionOverviewSelection = useCallback((sessionIds: string[]) => {
     useUiStateStore.getState().setOverviewSelectedSessionIds(sessionIds);
   }, []);
-
 
   const forceScrollToBottomRef = useRef<() => void>();
   const { handleSend, handleCancel } = useChatHandlers({
@@ -293,7 +292,6 @@ export function AppContainer(): React.ReactElement {
     sessionOverviewState: overviewState,
   });
 
-
   const cancelQueuedPrompt = useCallback(
     (agentId: string, sessionId: string, promptId: string) => {
       getVsCodeApi().postMessage({
@@ -306,16 +304,13 @@ export function AppContainer(): React.ReactElement {
     []
   );
 
-  const clearQueue = useCallback(
-    (agentId: string, sessionId: string) => {
-      getVsCodeApi().postMessage({
-        type: "queue:clear",
-        agentId,
-        sessionId,
-      });
-    },
-    []
-  );
+  const clearQueue = useCallback((agentId: string, sessionId: string) => {
+    getVsCodeApi().postMessage({
+      type: "queue:clear",
+      agentId,
+      sessionId,
+    });
+  }, []);
 
   const handleRenameSession = useCallback(
     (agentId: string, sessionId: string, title: string) => {
@@ -358,7 +353,6 @@ export function AppContainer(): React.ReactElement {
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
   }, [log]);
-
 
   const fetchFiles = useCallback((query: string, cwd?: string) => {
     return new Promise<import("../types").FileCandidate[]>((resolve) => {
@@ -477,8 +471,6 @@ export function AppContainer(): React.ReactElement {
     });
   }, []);
 
-
-
   return (
     <div
       className={`prose prose-sm dark:prose-invert flex flex-col h-screen overflow-hidden relative${overviewVisible ? " with-overview" : ""}${overviewOnLeft ? " overview-left" : ""}`}
@@ -543,9 +535,11 @@ export function AppContainer(): React.ReactElement {
             onCancelQueuedPrompt={cancelQueuedPrompt}
             onClearQueue={clearQueue}
             onAttachDiff={(attachment) => {
-              window.dispatchEvent(new CustomEvent("acp:attachDiff", {
-                detail: { attachment },
-              }));
+              window.dispatchEvent(
+                new CustomEvent("acp:attachDiff", {
+                  detail: { attachment },
+                })
+              );
             }}
           />
         ) : (
@@ -567,9 +561,11 @@ export function AppContainer(): React.ReactElement {
             onCancelQueuedPrompt={cancelQueuedPrompt}
             onClearQueue={clearQueue}
             onAttachDiff={(attachment) => {
-              window.dispatchEvent(new CustomEvent("acp:attachDiff", {
-                detail: { attachment },
-              }));
+              window.dispatchEvent(
+                new CustomEvent("acp:attachDiff", {
+                  detail: { attachment },
+                })
+              );
             }}
           />
         )}

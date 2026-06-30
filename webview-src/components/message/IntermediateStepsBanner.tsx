@@ -1,9 +1,4 @@
-import React, {
-  useState,
-  useCallback,
-  useEffect,
-  useRef,
-} from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Icon } from "../../lib/icons";
 import { DisplayItemView } from "./DisplayItemView";
 import { StepView } from "./StepView";
@@ -183,9 +178,10 @@ export function IntermediateStepsBanner({
           {steps.map((step, idx) => {
             // Use external fileEditSummaryMap if provided (only when step.fileEditSummary is missing)
             const externalSummary = fileEditSummaryMap?.get(idx);
-            const stepWithSummary = externalSummary && !step.fileEditSummary
-              ? { ...step, fileEditSummary: externalSummary }
-              : step;
+            const stepWithSummary =
+              externalSummary && !step.fileEditSummary
+                ? { ...step, fileEditSummary: externalSummary }
+                : step;
             return (
               <StepView
                 key={`step-${idx}`}
@@ -215,5 +211,3 @@ export function IntermediateStepsBanner({
     </div>
   );
 }
-
-

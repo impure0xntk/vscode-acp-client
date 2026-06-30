@@ -1,13 +1,9 @@
-import type { AppSessionInfo } from "./types";
 import type { SessionStatus, TurnOutcome } from "../../domain/models/session";
 import type { AgentConnection } from "./agent-connection";
 import type { SessionState } from "./session-state";
 import type { ChatMessage } from "../../domain/models/chat";
 
 type OverviewEntry = SessionOverview["sessions"][number];
-import { getLogger } from "../../platform/backends";
-
-const log = getLogger("session-overview");
 
 export interface SessionOverview {
   sessions: Array<{
@@ -51,26 +47,67 @@ export interface SessionOverviewDeps {
 export class SessionOverview {
   private deps: SessionOverviewDeps;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  // Cached per-session counters — invalidated on message append
+  private counterCache = new Map<
+    string,
+    { messageCount: number; toolCallCount: number; toolCallsCompleted: number }
+  >();
 
   constructor(deps: SessionOverviewDeps) {
     this.deps = deps;
   }
 
-  compute(): { sessions: OverviewEntry[]; lastUpdated: string } {
+  /** Invalidate cache for a session — called on appendMessage */
+  invalidateCounterCache(agentId: string, sessionId: string): void {
+    this.counterCache.delete(`${agentId}:${sessionId}`);
+  }
+
+  private getOrComputeCounters(
+    agentId: string,
+    sessionId: string,
+    messages: ChatMessage[]
+  ): {
+    messageCount: number;
+    toolCallCount: number;
+    toolCallsCompleted: number;
+  } {
+    const key = `${agentId}:${sessionId}`;
+    const cached = this.counterCache.get(key);
+    if (cached && cached.messageCount === messages.length) {
+      return cached;
+    }
+    let toolCallCount = 0;
+    let toolCallsCompleted = 0;
+    for (const msg of messages) {
+      const tcs = msg.toolCalls;
+      if (tcs) {
+        toolCallCount += tcs.length;
+        for (const tc of tcs) {
+          if (tc.status === "completed") toolCallsCompleted++;
+        }
+      }
+    }
+    const result = {
+      messageCount: messages.length,
+      toolCallCount,
+      toolCallsCompleted,
+    };
+    this.counterCache.set(key, result);
+    return result;
+  }
+
+  compute(opts: { withRecentResponses?: boolean } = {}): {
+    sessions: OverviewEntry[];
+    lastUpdated: string;
+  } {
+    const { withRecentResponses = false } = opts;
     const sessions: OverviewEntry[] = [];
 
     const allSessions = this.deps.sessionState.getAllSessions();
     for (const [agentId, agentSessions] of allSessions) {
       for (const info of agentSessions) {
         const sid = info.sessionId;
-        const toolCallCount = info.messages.reduce(
-          (count: number, msg: ChatMessage) => count + (msg.toolCalls?.length ?? 0),
-          0
-        );
-        const toolCallsCompleted = info.messages.reduce(
-          (count: number, msg: ChatMessage) => count + (msg.toolCalls?.filter((tc) => tc.status === "completed").length ?? 0),
-          0
-        );
+        const counters = this.getOrComputeCounters(agentId, sid, info.messages);
 
         sessions.push({
           sessionId: sid,
@@ -82,9 +119,10 @@ export class SessionOverview {
           mode: info.mode,
           pinned: this.deps.sessionState.isSessionPinned(agentId, sid),
           progress: {
-            elapsedMs: info.status === "running" && info.lastResponseAt
-              ? Date.now() - new Date(info.lastResponseAt).getTime()
-              : 0,
+            elapsedMs:
+              info.status === "running" && info.lastResponseAt
+                ? Date.now() - new Date(info.lastResponseAt).getTime()
+                : 0,
             tokenUsage: {
               input: info.tokenUsage.input,
               output: info.tokenUsage.output,
@@ -94,14 +132,18 @@ export class SessionOverview {
               ? {
                   used: info.tokenUsage.total,
                   max: info.contextWindowMax,
-                  percentage: Math.round((info.tokenUsage.total / info.contextWindowMax) * 100),
+                  percentage: Math.round(
+                    (info.tokenUsage.total / info.contextWindowMax) * 100
+                  ),
                 }
               : undefined,
-            messageCount: info.messages.length,
-            toolCallCount,
-            toolCallsCompleted,
+            messageCount: counters.messageCount,
+            toolCallCount: counters.toolCallCount,
+            toolCallsCompleted: counters.toolCallsCompleted,
           },
-          recentResponses: this.extractRecentResponses(info.messages, 3),
+          recentResponses: withRecentResponses
+            ? this.extractRecentResponses(info.messages, 3)
+            : [],
           cwd: info.cwd,
           createdAt: info.createdAt.toISOString(),
           lastResponseAt: info.lastResponseAt,
@@ -117,7 +159,7 @@ export class SessionOverview {
       clearTimeout(this.debounceTimer);
     }
     this.debounceTimer = setTimeout(() => {
-      const overview = this.compute();
+      const overview = this.compute({ withRecentResponses: true });
       this.deps.emit("sessionOverview:update", overview);
     }, 100);
   }

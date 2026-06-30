@@ -49,10 +49,7 @@ export class MessagePipeline {
    * (e.g. streaming chunk appended to an existing message, or
    * stopReason stamped by turnEnded).
    */
-  refreshLast(
-    rawMessages: RawMessage[],
-    ctx: PipelineContext
-  ): PipelineItem[] {
+  refreshLast(rawMessages: RawMessage[], ctx: PipelineContext): PipelineItem[] {
     if (rawMessages.length === 0) {
       this.cache = [];
       return this.cache;

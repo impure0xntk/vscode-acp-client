@@ -1,7 +1,10 @@
 import type { AppSessionInfo, QueuedPrompt } from "./types";
 import type { ToolCall } from "../../domain/models/chat";
 import type { PromptBuilder } from "../../domain/services/prompt-builder";
-import type { InboundMessage, MeshProtocolConfig } from "../../domain/services/prompt-builder";
+import type {
+  InboundMessage,
+  MeshProtocolConfig,
+} from "../../domain/services/prompt-builder";
 import { getLogger } from "../../platform/backends";
 
 const log = getLogger("session-state");
@@ -21,7 +24,10 @@ export class SessionState {
   // Streaming text buffer: sessionKey → accumulated text
   private streamTextBuffer: Map<string, string> = new Map();
   // Streaming message ref: sessionKey → { agentId, sessionId, msgId }
-  private streamMsgRef: Map<string, { agentId: string; sessionId: string; msgId: string }> = new Map();
+  private streamMsgRef: Map<
+    string,
+    { agentId: string; sessionId: string; msgId: string }
+  > = new Map();
 
   // Tool call buffering: sessionKey → Map<kind, ToolCall[]>
   private pendingToolCalls: Map<string, Map<string, ToolCall[]>> = new Map();
@@ -50,11 +56,18 @@ export class SessionState {
     return m;
   }
 
-  getSessionInfo(agentId: string, sessionId: string): AppSessionInfo | undefined {
+  getSessionInfo(
+    agentId: string,
+    sessionId: string
+  ): AppSessionInfo | undefined {
     return this.sessions.get(agentId)?.get(sessionId);
   }
 
-  setSessionInfo(agentId: string, sessionId: string, info: AppSessionInfo): void {
+  setSessionInfo(
+    agentId: string,
+    sessionId: string,
+    info: AppSessionInfo
+  ): void {
     const agentSessions = this.getOrCreateAgentSessions(agentId);
     agentSessions.set(sessionId, info);
   }
@@ -91,8 +104,16 @@ export class SessionState {
     return result;
   }
 
-  getAllSessionsFlat(): Array<{ agentId: string; sessionId: string; info: AppSessionInfo }> {
-    const result: Array<{ agentId: string; sessionId: string; info: AppSessionInfo }> = [];
+  getAllSessionsFlat(): Array<{
+    agentId: string;
+    sessionId: string;
+    info: AppSessionInfo;
+  }> {
+    const result: Array<{
+      agentId: string;
+      sessionId: string;
+      info: AppSessionInfo;
+    }> = [];
     for (const [agentId, agentSessions] of this.sessions) {
       for (const [sessionId, info] of agentSessions) {
         result.push({ agentId, sessionId, info });
@@ -101,7 +122,9 @@ export class SessionState {
     return result;
   }
 
-  findSessionGlobally(sessionId: string): { agentId: string; info: AppSessionInfo } | undefined {
+  findSessionGlobally(
+    sessionId: string
+  ): { agentId: string; info: AppSessionInfo } | undefined {
     for (const [agentId, agentSessions] of this.sessions) {
       const info = agentSessions.get(sessionId);
       if (info) return { agentId, info };
@@ -170,11 +193,16 @@ export class SessionState {
     this.streamTextBuffer.delete(sessionKey);
   }
 
-  getStreamMsgRef(sessionKey: string): { agentId: string; sessionId: string; msgId: string } | undefined {
+  getStreamMsgRef(
+    sessionKey: string
+  ): { agentId: string; sessionId: string; msgId: string } | undefined {
     return this.streamMsgRef.get(sessionKey);
   }
 
-  setStreamMsgRef(sessionKey: string, ref: { agentId: string; sessionId: string; msgId: string }): void {
+  setStreamMsgRef(
+    sessionKey: string,
+    ref: { agentId: string; sessionId: string; msgId: string }
+  ): void {
     this.streamMsgRef.set(sessionKey, ref);
   }
 
@@ -186,7 +214,10 @@ export class SessionState {
     return this.pendingToolCalls.get(sessionKey);
   }
 
-  setPendingToolCalls(sessionKey: string, buffered: Map<string, ToolCall[]>): void {
+  setPendingToolCalls(
+    sessionKey: string,
+    buffered: Map<string, ToolCall[]>
+  ): void {
     this.pendingToolCalls.set(sessionKey, buffered);
   }
 
@@ -215,7 +246,9 @@ export class SessionState {
   removeFromQueue(sessionKey: string, promptId: string): boolean {
     const queue = this.promptQueue.get(sessionKey);
     if (!queue) return false;
-    const idx = queue.findIndex((e) => e.id === promptId && e.status === "pending");
+    const idx = queue.findIndex(
+      (e) => e.id === promptId && e.status === "pending"
+    );
     if (idx === -1) return false;
     queue.splice(idx, 1);
     if (queue.length === 0) {

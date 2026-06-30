@@ -186,7 +186,9 @@ export function SessionOverviewHeader({
   agentColor?: string;
 }): React.ReactElement {
   return (
-    <div className={`flex items-center gap-1 min-w-0 overflow-hidden ${className}`.trim()}>
+    <div
+      className={`flex items-center gap-1 min-w-0 overflow-hidden ${className}`.trim()}
+    >
       <AgentBadge
         agentId={session.agentId}
         agentColor={agentColor}

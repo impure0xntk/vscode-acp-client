@@ -42,10 +42,7 @@ export function SessionOverviewPopup({
     >
       <SessionOverviewHeader session={liveItem} />
       <SessionOverviewChips session={liveItem} />
-      <ResponsePreviewList
-        responses={liveItem.recentResponses}
-        maxItems={5}
-      />
+      <ResponsePreviewList responses={liveItem.recentResponses} maxItems={5} />
 
       <div className="flex justify-end border-t border-border/40 pt-[4px] mt-[2px]">
         <span className="text-3xs text-fg-muted font-mono">

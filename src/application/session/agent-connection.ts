@@ -19,11 +19,19 @@ const log = getLogger("agent-connection");
 export interface AgentConnectionDeps {
   ui: UIAPI;
   fs: FileSystemAPI;
-  onSessionUpdate: (agentId: string, notification: import("@agentclientprotocol/sdk").SessionNotification) => void;
-  onRequestPermission: (agentId: string, request: import("@agentclientprotocol/sdk").RequestPermissionRequest) => Promise<import("@agentclientprotocol/sdk").RequestPermissionResponse>;
+  onSessionUpdate: (
+    agentId: string,
+    notification: import("@agentclientprotocol/sdk").SessionNotification
+  ) => void;
+  onRequestPermission: (
+    agentId: string,
+    request: import("@agentclientprotocol/sdk").RequestPermissionRequest
+  ) => Promise<import("@agentclientprotocol/sdk").RequestPermissionResponse>;
   onAgentDisconnected: (agentId: string) => void;
   /** Called when the agent writes a file via ACP fs/write_text_file */
-  onFileWrite: (event: import("../../adapter/acp/client").FileWriteEvent) => void;
+  onFileWrite: (
+    event: import("../../adapter/acp/client").FileWriteEvent
+  ) => void;
 }
 
 export class AgentConnection {
@@ -42,7 +50,10 @@ export class AgentConnection {
     this.deps = deps;
   }
 
-  async connect(agentId: string, config: AgentConfig): Promise<InitializeResponse> {
+  async connect(
+    agentId: string,
+    config: AgentConfig
+  ): Promise<InitializeResponse> {
     if (this.connections.has(agentId)) {
       throw new Error(`Agent ${agentId} already connected`);
     }
@@ -142,8 +153,7 @@ export class AgentConnection {
       capabilities: response.agentCapabilities
         ? {
             loadSession: response.agentCapabilities.loadSession ?? false,
-            promptCapabilities: response.agentCapabilities
-              .promptCapabilities
+            promptCapabilities: response.agentCapabilities.promptCapabilities
               ? {
                   image:
                     response.agentCapabilities.promptCapabilities.image ??

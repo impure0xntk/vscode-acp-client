@@ -161,14 +161,18 @@ export function ToolBatchSummary({
           </span>
         </button>
 
-        <div className={`grid transition-[grid-template-rows] duration-200 ease-out${expanded ? " grid-rows-[1fr]" : " grid-rows-[0fr]"}`}>
+        <div
+          className={`grid transition-[grid-template-rows] duration-200 ease-out${expanded ? " grid-rows-[1fr]" : " grid-rows-[0fr]"}`}
+        >
           <div className="overflow-hidden">
             <div className="px-2 pb-0.5 pt-px flex flex-col gap-[1px] bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)] animate-tool-batch-expand">
               {calls.map((call) => (
                 <div
                   key={call.id}
                   className="flex items-center gap-1 px-0.75 py-px text-[9px] font-mono text-fg-secondary rounded-[2px] hover:bg-[color-mix(in_srgb,var(--accent-hover)_50%,transparent)]"
-                  style={{ paddingLeft: `${6 + (depth > 0 ? INDENT_PX : 0)}px` }}
+                  style={{
+                    paddingLeft: `${6 + (depth > 0 ? INDENT_PX : 0)}px`,
+                  }}
                 >
                   <ToolCallCard {...call} />
                 </div>
@@ -184,7 +188,6 @@ export function ToolBatchSummary({
     <div
       className={`${allExpanded ? " overflow-visible" : ""} ${appearClass} mt-[2px] rounded overflow-hidden text-[10px] text-fg-primary bg-[color-mix(in_srgb,var(--bg-secondary)_6%,transparent)]`}
     >
-
       <button
         className="flex items-center gap-[3px] px-1.25 w-fit max-w-full border-none bg-transparent text-fg-primary font-[var(--font-ui)] text-[10px] cursor-pointer text-left transition-colors duration-150 hover:bg-accent-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]"
         onClick={() => setAllExpanded(!allExpanded)}
@@ -227,16 +230,14 @@ export function ToolBatchSummary({
         </span>
       </button>
 
-      <div className={`grid transition-[grid-template-rows] duration-200 ease-out${allExpanded ? " grid-rows-[1fr]" : " grid-rows-[0fr]"}`}>
+      <div
+        className={`grid transition-[grid-template-rows] duration-200 ease-out${allExpanded ? " grid-rows-[1fr]" : " grid-rows-[0fr]"}`}
+      >
         <div className="overflow-hidden">
           <div className="px-2 pb-0.5 pt-px flex flex-col gap-[1px] bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)] animate-tool-batch-expand">
-
             <ErrorsGroup errors={errors} depth={depth + 1} />
 
-
-            {ok.length > 0 && (
-              <ToolBatchSummary calls={ok} depth={depth + 1} />
-            )}
+            {ok.length > 0 && <ToolBatchSummary calls={ok} depth={depth + 1} />}
           </div>
         </div>
       </div>

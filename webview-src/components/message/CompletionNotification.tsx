@@ -73,9 +73,7 @@ export function CompletionNotification({
           <span className="text-xs font-medium text-fg-primary whitespace-nowrap overflow-hidden text-ellipsis">
             {displayName}
           </span>
-          <span className="text-[10px] text-fg-muted">
-            {agentId}
-          </span>
+          <span className="text-[10px] text-fg-muted">{agentId}</span>
         </span>
       </div>
       <button

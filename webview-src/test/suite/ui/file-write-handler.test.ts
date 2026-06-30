@@ -28,8 +28,12 @@ describe("webviewMessageHandler — file-write & writeSeq integration", () => {
 
   describe("handleSessionFileWrite → addWrite", () => {
     it("adds a write record with correct path and content", () => {
-      useFileWriteStore.getState().addWrite(agentId, sessionId, "/foo.ts", "line1\nline2");
-      const writes = useFileWriteStore.getState().getWritesForSession(agentId, sessionId);
+      useFileWriteStore
+        .getState()
+        .addWrite(agentId, sessionId, "/foo.ts", "line1\nline2");
+      const writes = useFileWriteStore
+        .getState()
+        .getWritesForSession(agentId, sessionId);
       assert.strictEqual(writes.length, 1);
       assert.strictEqual(writes[0].path, "/foo.ts");
       assert.strictEqual(writes[0].content, "line1\nline2");
@@ -38,9 +42,15 @@ describe("webviewMessageHandler — file-write & writeSeq integration", () => {
 
     it("increments global seq across writes from different sessions", () => {
       useFileWriteStore.getState().addWrite(agentId, sessionId, "/a.ts", "a");
-      useFileWriteStore.getState().addWrite(agentId, "other-sess", "/b.ts", "b");
-      const w1 = useFileWriteStore.getState().getWritesForSession(agentId, sessionId);
-      const w2 = useFileWriteStore.getState().getWritesForSession(agentId, "other-sess");
+      useFileWriteStore
+        .getState()
+        .addWrite(agentId, "other-sess", "/b.ts", "b");
+      const w1 = useFileWriteStore
+        .getState()
+        .getWritesForSession(agentId, sessionId);
+      const w2 = useFileWriteStore
+        .getState()
+        .getWritesForSession(agentId, "other-sess");
       assert.strictEqual(w1[0].seq, 0);
       assert.strictEqual(w2[0].seq, 1);
     });
@@ -90,11 +100,15 @@ describe("webviewMessageHandler — file-write & writeSeq integration", () => {
       // Turn ends → clearSession
       useFileWriteStore.getState().clearSession(agentId, sessionId);
       assert.strictEqual(
-        useFileWriteStore.getState().getWritesForSession(agentId, sessionId).length, 0
+        useFileWriteStore.getState().getWritesForSession(agentId, sessionId)
+          .length,
+        0
       );
       // Seq counter preserved — next write gets seq=1 (continues from global)
       useFileWriteStore.getState().addWrite(agentId, sessionId, "/b.ts", "b");
-      const writes = useFileWriteStore.getState().getWritesForSession(agentId, sessionId);
+      const writes = useFileWriteStore
+        .getState()
+        .getWritesForSession(agentId, sessionId);
       assert.strictEqual(writes[0].seq, 1);
     });
 
@@ -104,7 +118,9 @@ describe("webviewMessageHandler — file-write & writeSeq integration", () => {
 
       useFileWriteStore.getState().clearSession(agentId, sessionId);
       assert.strictEqual(
-        useFileWriteStore.getState().getWritesForSession(agentId, "other").length, 1
+        useFileWriteStore.getState().getWritesForSession(agentId, "other")
+          .length,
+        1
       );
     });
   });
@@ -127,10 +143,14 @@ describe("webviewMessageHandler — file-write & writeSeq integration", () => {
       const writeSeq2 = useFileWriteStore.getState().currentSeq();
       assert.strictEqual(writeSeq2, 1);
 
-      useFileWriteStore.getState().addWrite(agentId, sessionId, "/c.ts", "c\nc"); // seq=1
-      useFileWriteStore.getState().addWrite(agentId, sessionId, "/d.ts", "d");   // seq=2
+      useFileWriteStore
+        .getState()
+        .addWrite(agentId, sessionId, "/c.ts", "c\nc"); // seq=1
+      useFileWriteStore.getState().addWrite(agentId, sessionId, "/d.ts", "d"); // seq=2
 
-      const writes = useFileWriteStore.getState().getWritesForSession(agentId, sessionId);
+      const writes = useFileWriteStore
+        .getState()
+        .getWritesForSession(agentId, sessionId);
       assert.strictEqual(writes.length, 2);
       assert.strictEqual(writes[0].path, "/c.ts");
       assert.strictEqual(writes[1].path, "/d.ts");

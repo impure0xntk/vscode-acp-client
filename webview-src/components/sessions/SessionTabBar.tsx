@@ -1,9 +1,4 @@
-import React, {
-  useCallback,
-  useState,
-  useEffect,
-  useRef,
-} from "react";
+import React, { useCallback, useState, useEffect, useRef } from "react";
 import type {
   SessionTabState,
   ConnectedAgentInfo,
@@ -14,8 +9,6 @@ import type { StatusIconType, TurnOutcome } from "../primitives/StatusIcon";
 import { UnreadBadge } from "../primitives/UnreadBadge";
 import { IconClose, IconPin, IconPinFilled } from "../../lib/icons";
 import { useSessionInfo } from "../../hooks/useSessionInfo";
-
-
 
 export interface SessionTabBarProps {
   tabs: SessionTabState[];
@@ -28,8 +21,6 @@ export interface SessionTabBarProps {
   pinnedSessionKeys?: string[];
   onTogglePin?: (key: string) => void;
 }
-
-
 
 interface UnifiedTabProps {
   tab: SessionTabState;
@@ -122,7 +113,9 @@ const UnifiedTab = React.memo(function UnifiedTab({
       }}
       style={{
         borderLeft: `3px solid ${agentColor ?? "transparent"}`,
-        boxShadow: isActive ? `inset 0 -2px 0 0 ${agentColor ?? "var(--accent)"}` : "none",
+        boxShadow: isActive
+          ? `inset 0 -2px 0 0 ${agentColor ?? "var(--accent)"}`
+          : "none",
       }}
     >
       <StatusIcon status={status} />
@@ -174,11 +167,7 @@ const UnifiedTab = React.memo(function UnifiedTab({
           <IconPin size={12} className="opacity-25" />
         )}
       </button>
-      <UnreadBadge
-        count={unreadCount}
-        hidden={isActive}
-        className="shrink-0"
-      />
+      <UnreadBadge count={unreadCount} hidden={isActive} className="shrink-0" />
       {/* Close button */}
       <button
         className={`inline-flex items-center justify-center w-[18px] h-[18px] p-0 border-none rounded-[3px] bg-transparent text-fg-muted cursor-pointer shrink-0 transition-all duration-150 hover:bg-[color-mix(in_srgb,var(--error)_15%,transparent)] hover:text-error ${isActive || isHovered ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
@@ -194,8 +183,6 @@ const UnifiedTab = React.memo(function UnifiedTab({
     </div>
   );
 });
-
-
 
 export const SessionTabBar = React.memo(function SessionTabBar({
   tabs,

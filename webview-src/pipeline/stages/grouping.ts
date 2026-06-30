@@ -1,4 +1,9 @@
-import type { ChatDisplayItem, FileEditEntry, IntermediateStep, PipelineItem } from "../types";
+import type {
+  ChatDisplayItem,
+  FileEditEntry,
+  IntermediateStep,
+  PipelineItem,
+} from "../types";
 import { useFileWriteStore } from "../../store/fileWriteStore";
 import type { FileWriteRecord } from "../../store/fileWriteStore";
 import { getLogger } from "../../lib/logger";
@@ -87,7 +92,10 @@ const diffCache = new Map<DiffCacheKey, { added: number; deleted: number }>();
  * Set a cache entry with LRU eviction.
  * Moves the entry to the end (most recently used).
  */
-function setDiffCache(key: DiffCacheKey, value: { added: number; deleted: number }): void {
+function setDiffCache(
+  key: DiffCacheKey,
+  value: { added: number; deleted: number }
+): void {
   if (diffCache.has(key)) {
     // Move to end (MRU)
     diffCache.delete(key);
@@ -112,7 +120,7 @@ function setDiffCache(key: DiffCacheKey, value: { added: number; deleted: number
  */
 export function computeLineDiff(
   original: string | null,
-  newContent: string | null,
+  newContent: string | null
 ): { added: number; deleted: number } {
   if (original === newContent) return { added: 0, deleted: 0 };
 
@@ -126,19 +134,38 @@ export function computeLineDiff(
   let result: { added: number; deleted: number };
 
   // Handle empty cases
-  if (origLines.length === 1 && origLines[0] === "" && newLines.length === 1 && newLines[0] === "") {
+  if (
+    origLines.length === 1 &&
+    origLines[0] === "" &&
+    newLines.length === 1 &&
+    newLines[0] === ""
+  ) {
     result = { added: 0, deleted: 0 };
   } else if (origLines.length === 1 && origLines[0] === "") {
     // All lines are additions
-    result = { added: newLines[newLines.length - 1] === "" ? newLines.length - 1 : newLines.length, deleted: 0 };
+    result = {
+      added:
+        newLines[newLines.length - 1] === ""
+          ? newLines.length - 1
+          : newLines.length,
+      deleted: 0,
+    };
   } else if (newLines.length === 1 && newLines[0] === "") {
     // All lines are deletions
-    result = { added: 0, deleted: origLines[origLines.length - 1] === "" ? origLines.length - 1 : origLines.length };
+    result = {
+      added: 0,
+      deleted:
+        origLines[origLines.length - 1] === ""
+          ? origLines.length - 1
+          : origLines.length,
+    };
   } else {
     // LCS using dynamic programming with O(n*m) time, O(n*m) space
     const m = origLines.length;
     const n = newLines.length;
-    const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    const dp: number[][] = Array.from({ length: m + 1 }, () =>
+      new Array(n + 1).fill(0)
+    );
 
     for (let i = 1; i <= m; i++) {
       for (let j = 1; j <= n; j++) {
@@ -173,16 +200,24 @@ export function clearDiffCache(): void {
  * Original content is taken from the first write to each path.
  * Line counts are computed using cached LCS-based diff.
  */
-export function buildSummaryFromWrites(writes: FileWriteRecord[]): FileEditEntry[] | undefined {
+export function buildSummaryFromWrites(
+  writes: FileWriteRecord[]
+): FileEditEntry[] | undefined {
   if (writes.length === 0) return undefined;
 
-  const seen = new Map<string, { originalContent: string | null; writtenContent: string | null }>();
+  const seen = new Map<
+    string,
+    { originalContent: string | null; writtenContent: string | null }
+  >();
   for (const w of writes) {
     const existing = seen.get(w.path);
     if (existing) {
       existing.writtenContent = w.content;
     } else {
-      seen.set(w.path, { originalContent: w.originalContent, writtenContent: w.content });
+      seen.set(w.path, {
+        originalContent: w.originalContent,
+        writtenContent: w.content,
+      });
     }
   }
 
@@ -219,8 +254,13 @@ export function extractFileEditSummaryFromStore(
  * Binary search: find first index where arr[idx].seq >= target.
  * Assumes arr is sorted by seq ascending.  O(log n).
  */
-export function lowerBound(arr: FileWriteRecord[], target: number, start: number = 0): number {
-  let lo = start, hi = arr.length;
+export function lowerBound(
+  arr: FileWriteRecord[],
+  target: number,
+  start: number = 0
+): number {
+  let lo = start,
+    hi = arr.length;
   while (lo < hi) {
     const mid = (lo + hi) >>> 1;
     if (arr[mid].seq < target) lo = mid + 1;
@@ -240,7 +280,7 @@ export function lowerBound(arr: FileWriteRecord[], target: number, start: number
 function getWritesForTurn(
   allWrites: FileWriteRecord[],
   turnFirstWriteSeq: number,
-  nextTurnFirstWriteSeq: number | null,
+  nextTurnFirstWriteSeq: number | null
 ): FileWriteRecord[] {
   const lo = turnFirstWriteSeq;
   const hi = nextTurnFirstWriteSeq ?? Infinity;
@@ -265,8 +305,6 @@ interface WriteSeqBoundary {
   hi: number;
 }
 
-
-
 /**
  * Compute write-seq boundaries for each step in a group.
  * Uses the `writeSeq` field stamped on agent messages via the
@@ -275,7 +313,9 @@ interface WriteSeqBoundary {
  * For pre-agent steps (agentMessage === null), the lower bound is 0
  * (writes before any agent message arrived).
  */
-function computeWriteSeqBoundaries(steps: IntermediateStep[]): WriteSeqBoundary[] {
+function computeWriteSeqBoundaries(
+  steps: IntermediateStep[]
+): WriteSeqBoundary[] {
   const boundaries: WriteSeqBoundary[] = [];
   for (let i = 0; i < steps.length; i++) {
     const step = steps[i];
@@ -301,7 +341,10 @@ function computeWriteSeqBoundaries(steps: IntermediateStep[]): WriteSeqBoundary[
   }
   log.debug("computeWriteSeqBoundaries", {
     stepCount: steps.length,
-    boundaries: boundaries.map((b) => ({ lo: b.lo, hi: b.hi === Infinity ? "∞" : b.hi })),
+    boundaries: boundaries.map((b) => ({
+      lo: b.lo,
+      hi: b.hi === Infinity ? "∞" : b.hi,
+    })),
     agentMessageWriteSeqs: steps.map((s) => s.agentMessage?.writeSeq ?? null),
   });
   return boundaries;
@@ -323,7 +366,10 @@ export function attachStepFileEditSummariesV2(
   const store = useFileWriteStore.getState();
   const allWrites = store.getWritesForSession(agentId, sessionId);
   if (allWrites.length === 0) {
-    log.debug("attachStepFileEditSummariesV2: no writes for session", { agentId, sessionId });
+    log.debug("attachStepFileEditSummariesV2: no writes for session", {
+      agentId,
+      sessionId,
+    });
     return;
   }
 
@@ -333,7 +379,10 @@ export function attachStepFileEditSummariesV2(
     sessionId,
     stepCount: steps.length,
     writeCount: allWrites.length,
-    boundaries: boundaries.map((b) => ({ lo: b.lo, hi: b.hi === Infinity ? "∞" : b.hi })),
+    boundaries: boundaries.map((b) => ({
+      lo: b.lo,
+      hi: b.hi === Infinity ? "∞" : b.hi,
+    })),
     writeSeqs: allWrites.map((w) => w.seq),
     stepWriteSeqs: steps.map((s) => s.agentMessage?.writeSeq ?? null),
   });
@@ -381,7 +430,10 @@ function attachStepFileEditSummaries(
   const store = useFileWriteStore.getState();
   const allWrites = store.getWritesForSession(agentId, sessionId);
   if (allWrites.length === 0) {
-    log.debug("attachStepFileEditSummaries: no writes for session", { agentId, sessionId });
+    log.debug("attachStepFileEditSummaries: no writes for session", {
+      agentId,
+      sessionId,
+    });
     return;
   }
 
@@ -391,7 +443,10 @@ function attachStepFileEditSummaries(
     sessionId,
     stepCount: steps.length,
     writeCount: allWrites.length,
-    boundaries: boundaries.map((b) => ({ lo: b.lo, hi: b.hi === Infinity ? "∞" : b.hi })),
+    boundaries: boundaries.map((b) => ({
+      lo: b.lo,
+      hi: b.hi === Infinity ? "∞" : b.hi,
+    })),
     writeSeqs: allWrites.map((w) => w.seq),
     stepWriteSeqs: steps.map((s) => s.agentMessage?.writeSeq ?? null),
   });
@@ -420,7 +475,9 @@ function isRealAgentChat(item: PipelineItem): boolean {
 }
 
 function isAgentOrTool(item: PipelineItem): boolean {
-  return item.type === "chat" && (item.role === "agent" || item.role === "tool");
+  return (
+    item.type === "chat" && (item.role === "agent" || item.role === "tool")
+  );
 }
 
 function isThinking(item: PipelineItem): boolean {
@@ -437,7 +494,11 @@ function isThinking(item: PipelineItem): boolean {
  */
 function firstWriteSeqOfItems(items: PipelineItem[]): number {
   for (const item of items) {
-    if (item.type === "chat" && item.role === "agent" && item.writeSeq != null) {
+    if (
+      item.type === "chat" &&
+      item.role === "agent" &&
+      item.writeSeq != null
+    ) {
       return item.writeSeq;
     }
   }
@@ -447,7 +508,10 @@ function firstWriteSeqOfItems(items: PipelineItem[]): number {
 /**
  * Extract agentId and sessionId from the first chat item that carries them.
  */
-function sessionOfItems(items: PipelineItem[]): { agentId: string; sessionId: string } {
+function sessionOfItems(items: PipelineItem[]): {
+  agentId: string;
+  sessionId: string;
+} {
   for (const item of items) {
     if (item.type === "chat") {
       const chat = item as ChatDisplayItem;
@@ -586,11 +650,24 @@ export function splitIntoSteps(
       // Check if this agent message has the same messageId as the most
       // recently flushed step's agentMessage.  If so, append content
       // instead of starting a new step.
+      //
+      // However, do NOT merge if the last step's agent message is
+      // isFirstOfTurn (starts a new logical step) or has a stopReason
+      // (marks the end of a turn).  In those cases the incoming agent
+      // message must start a new step so it can be correctly classified
+      // as intermediate or final by groupByUserBoundary.
       const lastStep = steps.length > 0 ? steps[steps.length - 1] : null;
+      const lastStepIsBoundary =
+        lastStep != null &&
+        !lastStep.isPreAgent &&
+        lastStep.agentMessage != null &&
+        ((lastStep.agentMessage as ChatDisplayItem).isFirstOfTurn ||
+          (lastStep.agentMessage as ChatDisplayItem).stopReason != null);
       const sameAsLastStep =
         lastStep != null &&
         !lastStep.isPreAgent &&
         lastStep.agentMessage != null &&
+        !lastStepIsBoundary &&
         agentItem.messageId != null &&
         agentItem.messageId === lastStep.agentMessage.messageId;
 
@@ -695,58 +772,89 @@ export function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
   };
   const partitionedLatestSteps = latestSteps.map(stripFES);
   const latestSession = sessionOfItems(afterLastUser);
-  const allLatestWrites = [...useFileWriteStore.getState().getWritesForSession(latestSession.agentId, latestSession.sessionId)].sort((a, b) => a.seq - b.seq);
+  const allLatestWrites = [
+    ...useFileWriteStore
+      .getState()
+      .getWritesForSession(latestSession.agentId, latestSession.sessionId),
+  ].sort((a, b) => a.seq - b.seq);
   const latestFirstWriteSeq = firstWriteSeqOfItems(afterLastUser);
-  const scopedLatestWrites = getWritesForTurn(allLatestWrites, latestFirstWriteSeq, null);
+  const scopedLatestWrites = getWritesForTurn(
+    allLatestWrites,
+    latestFirstWriteSeq,
+    null
+  );
 
-  const finalStepSummary = buildSummaryFromWrites(scopedLatestWrites) ?? undefined;
+  const finalStepSummary =
+    buildSummaryFromWrites(scopedLatestWrites) ?? undefined;
 
   let latestCurrentStep: IntermediateStep | null = null;
   if (latestFinal && latestFinalIdx >= 0) {
+    // Collect only tool calls that immediately follow the final response,
+    // stopping at the next agent message (which starts a new step).
+    // This prevents subsequent agent messages and their tool calls from
+    // being absorbed into the final step's toolCalls.
     const postFinalItems = latestAgentChats.slice(latestFinalIdx + 1);
-    if (postFinalItems.length > 0) {
+    const toolCallsAfterFinal: ChatDisplayItem[] = [];
+    for (const item of postFinalItems) {
+      if (isRealAgentChat(item)) {
+        // New agent message starts a new step — stop collecting
+        break;
+      }
+      toolCallsAfterFinal.push(item as ChatDisplayItem);
+    }
+    if (toolCallsAfterFinal.length > 0) {
       latestCurrentStep = {
         agentMessage: latestFinal.item as ChatDisplayItem,
-        toolCalls: postFinalItems as ChatDisplayItem[],
+        toolCalls: toolCallsAfterFinal,
         isPreAgent: false,
         fileEditSummary: finalStepSummary,
       };
     }
   }
 
-  const latestTurnSummary = buildSummaryFromWrites(scopedLatestWrites) ?? undefined;
+  const latestTurnSummary =
+    buildSummaryFromWrites(scopedLatestWrites) ?? undefined;
 
   log.info("groupByUserBoundary: latestGroup", {
     userItemKey: items[lastUserIdx].key,
     stepCount: partitionedLatestSteps.length,
     finalResponseKey: latestFinal?.item.key ?? null,
-    finalResponseStopReason: (latestFinal?.item as ChatDisplayItem)?.stopReason ?? null,
+    finalResponseStopReason:
+      (latestFinal?.item as ChatDisplayItem)?.stopReason ?? null,
     currentStepAgentKey: latestCurrentStep?.agentMessage?.key ?? null,
     currentStepFES: latestCurrentStep?.fileEditSummary?.length ?? 0,
     turnFESLength: latestTurnSummary?.length ?? 0,
-    turnFESEntries: latestTurnSummary?.map(e => `${e.path} (+${e.lineCount})`) ?? [],
-    agentMessageWriteSeqs: partitionedLatestSteps.map(s => s.agentMessage?.writeSeq ?? null),
+    turnFESEntries:
+      latestTurnSummary?.map((e) => `${e.path} (+${e.lineCount})`) ?? [],
+    agentMessageWriteSeqs: partitionedLatestSteps.map(
+      (s) => s.agentMessage?.writeSeq ?? null
+    ),
     sessionKey: `${latestSession.agentId}:${latestSession.sessionId}`,
     writeCount: scopedLatestWrites.length,
   });
 
-  // When finalResponse exists with writes but NO post-final items, create a
-  // synthetic currentStep that carries the fileEditSummary — this ensures
-  // the final step's file edits are shown both per-step AND as part of the
-  // turn-level summary without duplication (the SessionChatContainer hides
-  // turnFileEditSummary when currentStep is present).
+  // When finalResponse exists with writes but NO post-final tool calls,
+  // still create a currentStep that carries the fileEditSummary — this
+  // ensures the final step's file edits are shown via StepView.
+  // Without this, the final response's file edits would only appear as
+  // turnFileEditSummary below, losing per-step attribution.
+  // Note: we only create a synthetic currentStep when there are NO
+  // post-final tool calls at all — if there are tool calls, the block
+  // above already creates the currentStep with those tools.
   const latestGroup: AgentResponseGroup = {
     userItem: items[lastUserIdx],
     steps: partitionedLatestSteps,
     finalResponse: latestFinal,
-    currentStep: latestCurrentStep ?? (finalStepSummary
-      ? {
-          agentMessage: latestFinal!.item as ChatDisplayItem,
-          toolCalls: [],
-          isPreAgent: false,
-          fileEditSummary: finalStepSummary,
-        }
-      : null),
+    currentStep:
+      latestCurrentStep ??
+      (finalStepSummary
+        ? {
+            agentMessage: latestFinal!.item as ChatDisplayItem,
+            toolCalls: [],
+            isPreAgent: false,
+            fileEditSummary: finalStepSummary,
+          }
+        : null),
     turnFileEditSummary: latestTurnSummary,
     passthrough: [],
   };
@@ -780,26 +888,36 @@ export function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
     // Skipped here to keep step objects immutable for React.memo.
 
     // Turn-level file edit summary: scoped to THIS turn's writes only
-    const allTurnWrites = [...useFileWriteStore.getState().getWritesForSession(turnSession.agentId, turnSession.sessionId)].sort((a, b) => a.seq - b.seq);
+    const allTurnWrites = [
+      ...useFileWriteStore
+        .getState()
+        .getWritesForSession(turnSession.agentId, turnSession.sessionId),
+    ].sort((a, b) => a.seq - b.seq);
     const turnFirstWriteSeq = firstWriteSeqOfItems(groupItems);
-    const nextGroupItems = g + 1 < userIndices.length - 1
-      ? items.slice(userIndices[g + 1] + 1, userIndices[g + 2])
-      : afterLastUser;
+    const nextGroupItems =
+      g + 1 < userIndices.length - 1
+        ? items.slice(userIndices[g + 1] + 1, userIndices[g + 2])
+        : afterLastUser;
     const nextTurnFirstWriteSeq = firstWriteSeqOfItems(nextGroupItems);
-    const scopedTurnWrites = getWritesForTurn(allTurnWrites, turnFirstWriteSeq, nextTurnFirstWriteSeq);
+    const scopedTurnWrites = getWritesForTurn(
+      allTurnWrites,
+      turnFirstWriteSeq,
+      nextTurnFirstWriteSeq
+    );
     const turnSummary = buildSummaryFromWrites(scopedTurnWrites) ?? undefined;
 
     // Non-agent/tool items between two user messages: compression, mode_change,
     // error_notice, custom. These were splitIntoSteps input but silently dropped
     // because splitIntoSteps only emits IntermediateStep for chat-agent/tool items.
     // Collect them as passthrough so they render between groups.
-    const passthrough = finalIdx >= 0
-      ? groupItems.filter(
-          (item) =>
-            item.key !== final!.item.key &&
-            !turnAgentChats.find((ac) => ac.key === item.key)
-        )
-      : groupItems.filter((item) => !isAgentOrTool(item));
+    const passthrough =
+      finalIdx >= 0
+        ? groupItems.filter(
+            (item) =>
+              item.key !== final!.item.key &&
+              !turnAgentChats.find((ac) => ac.key === item.key)
+          )
+        : groupItems.filter((item) => !isAgentOrTool(item));
 
     groups.push({
       userItem: items[startIdx],

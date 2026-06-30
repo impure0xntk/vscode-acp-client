@@ -1,4 +1,11 @@
-import React, { memo, useCallback, useState, useEffect, useMemo, useRef } from "react";
+import React, {
+  memo,
+  useCallback,
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import { createTwoFilesPatch, parsePatch } from "diff";
 import type { FileEditEntry } from "../../pipeline/types";
 import { getVsCodeApi } from "../../lib/vscodeApi";
@@ -23,13 +30,21 @@ interface RowState {
 function buildUnifiedDiff(
   original: string | null,
   filePath: string,
-  writtenContent: string | null,
+  writtenContent: string | null
 ): string {
   const origSrc = original ?? "";
   const newSrc = writtenContent ?? "";
-  return createTwoFilesPatch(filePath, filePath, origSrc, newSrc, undefined, undefined, {
-    context: 3,
-  });
+  return createTwoFilesPatch(
+    filePath,
+    filePath,
+    origSrc,
+    newSrc,
+    undefined,
+    undefined,
+    {
+      context: 3,
+    }
+  );
 }
 
 interface DiffLine {
@@ -60,7 +75,12 @@ function parseDiffForRender(diffText: string): DiffLine[] | null {
           } else if (l.startsWith("-")) {
             lines.push({ type: "-", text: l.slice(1), oldLine: oldLine++ });
           } else if (l.startsWith(" ")) {
-            lines.push({ type: "|", text: l.slice(1), oldLine: oldLine++, newLine: newLine++ });
+            lines.push({
+              type: "|",
+              text: l.slice(1),
+              oldLine: oldLine++,
+              newLine: newLine++,
+            });
           } else if (l.startsWith("@@")) {
             lines.push({ type: "@@", text: l, hunkHeader: l });
           }
@@ -81,7 +101,7 @@ function parseDiffForRender(diffText: string): DiffLine[] | null {
 function filterRenderableEntries(
   entries: FileEditEntry[],
   agentId: string,
-  sessionId: string,
+  sessionId: string
 ): FileEditEntry[] {
   if (!agentId || !sessionId) return entries;
   const store = useFileWriteStore.getState();
@@ -100,7 +120,7 @@ function useBatchStaleCheck(
   entries: FileEditEntry[],
   agentId: string | undefined,
   sessionId: string | undefined,
-  onSetStatus: (path: string, status: RowStatus) => void,
+  onSetStatus: (path: string, status: RowStatus) => void
 ): void {
   const onSetStatusRef = useRef(onSetStatus);
   onSetStatusRef.current = onSetStatus;
@@ -139,7 +159,9 @@ function useBatchStaleCheck(
         batchId,
         checks: checks.map((c) => ({ path: c.path, expectedHash: c.hash })),
       });
-    } catch { /* vscodeApi not available */ }
+    } catch {
+      /* vscodeApi not available */
+    }
 
     return () => window.removeEventListener("message", handler);
   }, [agentId, sessionId, entries]);
@@ -157,7 +179,7 @@ function FileEditSummaryInner({
   // Filter out entries without a contentHash — they're too old to render
   const renderableEntries = useMemo(
     () => filterRenderableEntries(entries, agentId ?? "", sessionId ?? ""),
-    [entries, agentId, sessionId],
+    [entries, agentId, sessionId]
   );
 
   const toggleCollapse = useCallback(() => {
@@ -177,7 +199,10 @@ function FileEditSummaryInner({
   const setRowStatus = useCallback((path: string, status: RowStatus) => {
     setRowStates((prev) => ({
       ...prev,
-      [path]: { ...(prev[path] ?? { expanded: false, status: "modified" }), status },
+      [path]: {
+        ...(prev[path] ?? { expanded: false, status: "modified" }),
+        status,
+      },
     }));
   }, []);
 
@@ -187,7 +212,10 @@ function FileEditSummaryInner({
   if (renderableEntries.length === 0) return null;
 
   const totalLines = renderableEntries.reduce((s, e) => s + e.lineCount, 0);
-  const totalDeleted = renderableEntries.reduce((s, e) => s + e.deletedLines, 0);
+  const totalDeleted = renderableEntries.reduce(
+    (s, e) => s + e.deletedLines,
+    0
+  );
 
   return (
     <div className="ml-4 mr-1 mt-1 mb-1 rounded-md border border-[color-mix(in_srgb,var(--border)_60%,transparent)] bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)] overflow-hidden">
@@ -197,14 +225,24 @@ function FileEditSummaryInner({
         onClick={toggleCollapse}
         aria-expanded={!collapsed}
       >
-        <span className="text-[10px] text-fg-muted flex-shrink-0 transition-transform duration-150" style={{ transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }} aria-hidden="true">▼</span>
-        <span className="text-[11px] font-medium text-fg-secondary flex-shrink-0">Files changed</span>
+        <span
+          className="text-[10px] text-fg-muted flex-shrink-0 transition-transform duration-150"
+          style={{ transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}
+          aria-hidden="true"
+        >
+          ▼
+        </span>
+        <span className="text-[11px] font-medium text-fg-secondary flex-shrink-0">
+          Files changed
+        </span>
         <span className="inline-flex items-center justify-center min-w-[18px] h-[16px] px-[5px] rounded-[8px] bg-[color-mix(in_srgb,var(--accent)_15%,transparent)] text-[10px] font-mono font-semibold text-accent flex-shrink-0">
           {renderableEntries.length}
         </span>
         <span className="text-[10px] font-mono text-fg-muted flex-shrink-0">
           <span className="text-success">+{totalLines}</span>
-          {totalDeleted > 0 && <span className="text-error"> -{totalDeleted}</span>}
+          {totalDeleted > 0 && (
+            <span className="text-error"> -{totalDeleted}</span>
+          )}
         </span>
       </button>
 
@@ -215,7 +253,9 @@ function FileEditSummaryInner({
             <FileEditRow
               key={`${entry.path}-${idx}`}
               entry={entry}
-              state={rowStates[entry.path] ?? { expanded: false, status: "modified" }}
+              state={
+                rowStates[entry.path] ?? { expanded: false, status: "modified" }
+              }
               onToggle={() => toggleRow(entry.path)}
               sessionId={sessionId}
               agentId={agentId}
@@ -230,7 +270,7 @@ function FileEditSummaryInner({
 
 function areFileEditSummaryPropsEqual(
   prev: FileEditSummaryProps,
-  next: FileEditSummaryProps,
+  next: FileEditSummaryProps
 ): boolean {
   return (
     prev.entries === next.entries &&
@@ -240,7 +280,10 @@ function areFileEditSummaryPropsEqual(
   );
 }
 
-export const FileEditSummary = memo(FileEditSummaryInner, areFileEditSummaryPropsEqual);
+export const FileEditSummary = memo(
+  FileEditSummaryInner,
+  areFileEditSummaryPropsEqual
+);
 
 interface FileEditRowProps {
   entry: FileEditEntry;
@@ -281,9 +324,11 @@ function FileEditRow({
       e.stopPropagation();
       try {
         getVsCodeApi().postMessage({ type: "openFile", path: entry.path });
-      } catch { /* vscodeApi not available */ }
+      } catch {
+        /* vscodeApi not available */
+      }
     },
-    [entry.path],
+    [entry.path]
   );
 
   const handleOpenDiff = useCallback(
@@ -298,19 +343,26 @@ function FileEditRow({
           originalContent: originalContent ?? undefined,
           expectedHash: storedHash || undefined,
         });
-      } catch { /* vscodeApi not available */ }
+      } catch {
+        /* vscodeApi not available */
+      }
     },
-    [entry.path, agentId, sessionId, originalContent, storedHash],
+    [entry.path, agentId, sessionId, originalContent, storedHash]
   );
 
   const handleAttachDiff = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
       if (!agentId || !sessionId || !onAttachDiff) return;
-      const diffContent = buildUnifiedDiff(originalContent ?? "", entry.path, entry.writtenContent ?? null);
-      const labelSuffix = entry.deletedLines > 0
-        ? ` (+${entry.lineCount} -${entry.deletedLines})`
-        : ` (+${entry.lineCount})`;
+      const diffContent = buildUnifiedDiff(
+        originalContent ?? "",
+        entry.path,
+        entry.writtenContent ?? null
+      );
+      const labelSuffix =
+        entry.deletedLines > 0
+          ? ` (+${entry.lineCount} -${entry.deletedLines})`
+          : ` (+${entry.lineCount})`;
       const attachment: ContextAttachment = {
         id: `diff:${entry.path}:${Date.now()}`,
         type: "diff",
@@ -322,7 +374,7 @@ function FileEditRow({
       };
       onAttachDiff(attachment);
     },
-    [agentId, sessionId, entry, originalContent, basename, onAttachDiff],
+    [agentId, sessionId, entry, originalContent, basename, onAttachDiff]
   );
 
   const handleRevert = useCallback(
@@ -338,9 +390,11 @@ function FileEditRow({
           sessionId,
           originalContent,
         });
-      } catch { /* vscodeApi not available */ }
+      } catch {
+        /* vscodeApi not available */
+      }
     },
-    [agentId, sessionId, entry.path, originalContent],
+    [agentId, sessionId, entry.path, originalContent]
   );
 
   const canRevert = originalContent != null;
@@ -348,14 +402,19 @@ function FileEditRow({
   // (potentially huge string) to avoid useMemo recomputation when content
   // reference changes.  storedHash uniquely identifies the content version.
   const diffContent = useMemo(
-    () => isExpanded
-      ? buildUnifiedDiff(originalContent ?? "", entry.path, entry.writtenContent ?? null)
-      : "",
-    [isExpanded, storedHash, entry.path, entry.writtenContent],
+    () =>
+      isExpanded
+        ? buildUnifiedDiff(
+            originalContent ?? "",
+            entry.path,
+            entry.writtenContent ?? null
+          )
+        : "",
+    [isExpanded, storedHash, entry.path, entry.writtenContent]
   );
   const parsedDiffLines = useMemo(
-    () => isExpanded ? parseDiffForRender(diffContent) : null,
-    [isExpanded, diffContent],
+    () => (isExpanded ? parseDiffForRender(diffContent) : null),
+    [isExpanded, diffContent]
   );
 
   return (
@@ -366,7 +425,12 @@ function FileEditRow({
         onClick={onToggle}
         role="button"
         tabIndex={0}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
         title={entry.path}
       >
         {/* Status indicator */}
@@ -380,17 +444,25 @@ function FileEditRow({
 
         {/* Path */}
         <span className="flex-1 min-w-0 flex items-baseline gap-0.5 text-[11px] leading-tight">
-          <span className="text-fg-primary font-medium truncate">{basename}</span>
+          <span className="text-fg-primary font-medium truncate">
+            {basename}
+          </span>
           {dirPath && (
-            <span className="text-fg-muted truncate text-[10px]">{dirPath}/</span>
+            <span className="text-fg-muted truncate text-[10px]">
+              {dirPath}/
+            </span>
           )}
         </span>
 
         {/* Line count badge */}
         <span className="inline-flex items-center gap-0.5 flex-shrink-0">
-          <span className="text-[10px] font-mono font-semibold text-success">+{entry.lineCount}</span>
+          <span className="text-[10px] font-mono font-semibold text-success">
+            +{entry.lineCount}
+          </span>
           {entry.deletedLines > 0 && (
-            <span className="text-[10px] font-mono font-semibold text-error">-{entry.deletedLines}</span>
+            <span className="text-[10px] font-mono font-semibold text-error">
+              -{entry.deletedLines}
+            </span>
           )}
         </span>
 
@@ -441,7 +513,9 @@ function FileEditRow({
         <div className="border-t border-[color-mix(in_srgb,var(--border)_30%,transparent)] bg-[color-mix(in_srgb,var(--bg-primary)_40%,transparent)]">
           {/* Diff toolbar */}
           <div className="flex items-center justify-between px-2.5 py-[3px] border-b border-[color-mix(in_srgb,var(--border)_20%,transparent)]">
-            <span className="text-[9px] font-mono text-fg-muted uppercase tracking-wide">Diff preview</span>
+            <span className="text-[9px] font-mono text-fg-muted uppercase tracking-wide">
+              Diff preview
+            </span>
             <div className="flex items-center gap-1">
               {canRevert && (
                 <button
@@ -459,37 +533,48 @@ function FileEditRow({
           {isExpanded && (
             <pre className="px-2.5 py-2 m-0 font-mono text-[10px] leading-[1.5] overflow-x-auto max-h-[240px] overflow-y-auto whitespace-pre text-fg-secondary">
               {parsedDiffLines === null ? (
-                <div className="text-fg-muted text-[10px] opacity-60 px-1 py-2">(Unable to parse diff output)</div>
-              ) : parsedDiffLines.map((dl, i) => {
-                if (dl.type === "@@") {
+                <div className="text-fg-muted text-[10px] opacity-60 px-1 py-2">
+                  (Unable to parse diff output)
+                </div>
+              ) : (
+                parsedDiffLines.map((dl, i) => {
+                  if (dl.type === "@@") {
+                    return (
+                      <div
+                        key={i}
+                        className="px-1 py-[1px] my-[1px] text-[9px] font-medium tracking-wide bg-[color-mix(in_srgb,var(--fg-muted)_8%,transparent)] text-fg-muted"
+                      >
+                        {dl.hunkHeader}
+                      </div>
+                    );
+                  }
+                  const prefix =
+                    dl.type === "+" ? "+" : dl.type === "-" ? "-" : " ";
                   return (
                     <div
                       key={i}
-                      className="px-1 py-[1px] my-[1px] text-[9px] font-medium tracking-wide bg-[color-mix(in_srgb,var(--fg-muted)_8%,transparent)] text-fg-muted"
+                      className={
+                        dl.type === "-"
+                          ? "bg-[rgba(241,76,76,0.10)] text-[#f48771]"
+                          : dl.type === "+"
+                            ? "bg-[rgba(78,201,176,0.10)] text-[#89d185]"
+                            : ""
+                      }
                     >
-                      {dl.hunkHeader}
+                      <span className="inline-block w-[3.5ch] text-right pr-[0.5ch] select-none opacity-40 font-mono">
+                        {dl.oldLine ?? ""}
+                      </span>
+                      <span className="inline-block w-[3.5ch] text-right pr-[0.5ch] select-none opacity-40 font-mono">
+                        {dl.newLine ?? ""}
+                      </span>
+                      <span className="inline-block w-3 select-none opacity-60">
+                        {prefix}
+                      </span>
+                      <span>{dl.text}</span>
                     </div>
                   );
-                }
-                const prefix = dl.type === "+" ? "+" : dl.type === "-" ? "-" : " ";
-                return (
-                  <div
-                    key={i}
-                    className={
-                      dl.type === "-"
-                        ? "bg-[rgba(241,76,76,0.10)] text-[#f48771]"
-                        : dl.type === "+"
-                          ? "bg-[rgba(78,201,176,0.10)] text-[#89d185]"
-                          : ""
-                    }
-                  >
-                    <span className="inline-block w-[3.5ch] text-right pr-[0.5ch] select-none opacity-40 font-mono">{dl.oldLine ?? ""}</span>
-                    <span className="inline-block w-[3.5ch] text-right pr-[0.5ch] select-none opacity-40 font-mono">{dl.newLine ?? ""}</span>
-                    <span className="inline-block w-3 select-none opacity-60">{prefix}</span>
-                    <span>{dl.text}</span>
-                  </div>
-                );
-              })}
+                })
+              )}
             </pre>
           )}
         </div>

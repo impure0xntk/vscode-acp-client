@@ -30,7 +30,12 @@ function parseDiffForRender(diffText: string): DiffLine[] {
         } else if (l.startsWith("-")) {
           lines.push({ type: "-", text: l.slice(1), oldLine: oldLine++ });
         } else if (l.startsWith(" ")) {
-          lines.push({ type: "|", text: l.slice(1), oldLine: oldLine++, newLine: newLine++ });
+          lines.push({
+            type: "|",
+            text: l.slice(1),
+            oldLine: oldLine++,
+            newLine: newLine++,
+          });
         }
       }
     }
@@ -40,7 +45,15 @@ function parseDiffForRender(diffText: string): DiffLine[] {
 
 describe("parseDiffForRender", () => {
   it("parses a simple single-hunk diff with correct line numbers", () => {
-    const diff = createTwoFilesPatch("/test.ts", "/test.ts", "line1\nline2\nline3\n", "line1\nmodified\nline2\nline3\n", undefined, undefined, { context: 3 });
+    const diff = createTwoFilesPatch(
+      "/test.ts",
+      "/test.ts",
+      "line1\nline2\nline3\n",
+      "line1\nmodified\nline2\nline3\n",
+      undefined,
+      undefined,
+      { context: 3 }
+    );
     const result = parseDiffForRender(diff);
 
     // Should have hunk header + content lines
@@ -66,19 +79,38 @@ describe("parseDiffForRender", () => {
   });
 
   it("filters out Index:, ---, +++ lines (not present in parsed output)", () => {
-    const diff = createTwoFilesPatch("a.ts", "a.ts", "old\n", "new\n", undefined, undefined, { context: 1 });
+    const diff = createTwoFilesPatch(
+      "a.ts",
+      "a.ts",
+      "old\n",
+      "new\n",
+      undefined,
+      undefined,
+      { context: 1 }
+    );
     const result = parseDiffForRender(diff);
 
     // No line should start with "Index:", "---", "+++"
     for (const l of result) {
-      assert.ok(!l.text.startsWith("Index:"), `Unexpected Index line: ${l.text}`);
+      assert.ok(
+        !l.text.startsWith("Index:"),
+        `Unexpected Index line: ${l.text}`
+      );
       assert.ok(!l.text.startsWith("---"), `Unexpected --- line: ${l.text}`);
       assert.ok(!l.text.startsWith("+++"), `Unexpected +++ line: ${l.text}`);
     }
   });
 
   it("preserves @@ hunk headers with line-number context", () => {
-    const diff = createTwoFilesPatch("f.ts", "f.ts", "a\nb\nc\nd\ne\nf\ng\n", "a\nB\nc\nd\ne\nF\ng\n", undefined, undefined, { context: 1 });
+    const diff = createTwoFilesPatch(
+      "f.ts",
+      "f.ts",
+      "a\nb\nc\nd\ne\nf\ng\n",
+      "a\nB\nc\nd\ne\nF\ng\n",
+      undefined,
+      undefined,
+      { context: 1 }
+    );
     const result = parseDiffForRender(diff);
 
     const hunkHeaders = result.filter((l) => l.type === "@@");
@@ -92,9 +124,19 @@ describe("parseDiffForRender", () => {
   });
 
   it("handles multi-hunk diffs with correct line numbering per hunk", () => {
-    const original = "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\n";
-    const modified = "LINE1\nline2\nline3\nline4\nline5\nLINE6\nline7\nline8\nline9\nLINE10\n";
-    const diff = createTwoFilesPatch("m.ts", "m.ts", original, modified, undefined, undefined, { context: 1 });
+    const original =
+      "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\n";
+    const modified =
+      "LINE1\nline2\nline3\nline4\nline5\nLINE6\nline7\nline8\nline9\nLINE10\n";
+    const diff = createTwoFilesPatch(
+      "m.ts",
+      "m.ts",
+      original,
+      modified,
+      undefined,
+      undefined,
+      { context: 1 }
+    );
     const result = parseDiffForRender(diff);
 
     const hunkHeaders = result.filter((l) => l.type === "@@");
@@ -114,7 +156,15 @@ describe("parseDiffForRender", () => {
     // 3-line file, 2 separate single-line changes far apart
     const orig = "a\nb\nc\nd\ne\nf\ng\nh\ni\nj\n";
     const mod = "A\nb\nc\nd\ne\nf\ng\nh\ni\nJ\n";
-    const diff = createTwoFilesPatch("x.ts", "x.ts", orig, mod, undefined, undefined, { context: 0 });
+    const diff = createTwoFilesPatch(
+      "x.ts",
+      "x.ts",
+      orig,
+      mod,
+      undefined,
+      undefined,
+      { context: 0 }
+    );
     const result = parseDiffForRender(diff);
 
     // With context=0, each hunk has just the changed line
@@ -139,20 +189,39 @@ describe("parseDiffForRender", () => {
   });
 
   it("handles empty diff (no changes) → no hunks", () => {
-    const diff = createTwoFilesPatch("s.ts", "s.ts", "same\n", "same\n", undefined, undefined, { context: 3 });
+    const diff = createTwoFilesPatch(
+      "s.ts",
+      "s.ts",
+      "same\n",
+      "same\n",
+      undefined,
+      undefined,
+      { context: 3 }
+    );
     const result = parseDiffForRender(diff);
     assert.strictEqual(result.length, 0);
   });
 
   it("handles new file (all additions)", () => {
-    const diff = createTwoFilesPatch("new.ts", "new.ts", "", "line1\nline2\n", undefined, undefined, { context: 3 });
+    const diff = createTwoFilesPatch(
+      "new.ts",
+      "new.ts",
+      "",
+      "line1\nline2\n",
+      undefined,
+      undefined,
+      { context: 3 }
+    );
     const result = parseDiffForRender(diff);
 
     assert.ok(result.length > 0, "should have at least a hunk header");
     const hunkHeader = result[0];
     assert.strictEqual(hunkHeader.type, "@@");
     // oldStart=1, oldLines=0 for new file (diff package convention)
-    assert.ok(hunkHeader.hunkHeader!.includes("+1,2"), `Expected +1,2 in header: ${hunkHeader.hunkHeader}`);
+    assert.ok(
+      hunkHeader.hunkHeader!.includes("+1,2"),
+      `Expected +1,2 in header: ${hunkHeader.hunkHeader}`
+    );
 
     const adds = result.filter((l) => l.type === "+");
     assert.strictEqual(adds.length, 2);
@@ -163,14 +232,25 @@ describe("parseDiffForRender", () => {
   });
 
   it("handles deleted file (all deletions)", () => {
-    const diff = createTwoFilesPatch("del.ts", "del.ts", "line1\nline2\n", "", undefined, undefined, { context: 3 });
+    const diff = createTwoFilesPatch(
+      "del.ts",
+      "del.ts",
+      "line1\nline2\n",
+      "",
+      undefined,
+      undefined,
+      { context: 3 }
+    );
     const result = parseDiffForRender(diff);
 
     assert.ok(result.length > 0, "should have at least a hunk header");
     const hunkHeader = result[0];
     assert.strictEqual(hunkHeader.type, "@@");
     // newStart=1, newLines=0 for deleted file (diff package convention)
-    assert.ok(hunkHeader.hunkHeader!.includes("+1,0"), `Expected +1,0 in header: ${hunkHeader.hunkHeader}`);
+    assert.ok(
+      hunkHeader.hunkHeader!.includes("+1,0"),
+      `Expected +1,0 in header: ${hunkHeader.hunkHeader}`
+    );
 
     const dels = result.filter((l) => l.type === "-");
     assert.strictEqual(dels.length, 2);
@@ -190,16 +270,53 @@ describe("computeWriteSeqBoundaries — duplicate writeSeq edge cases", () => {
     // and writes fall to the last step with that seq.
     // This tests the fix in computeWriteSeqBoundaries that prevents empty ranges.
     const { useFileWriteStore } = require("../../../store/fileWriteStore");
-    const { IntermediateStepGrouper } = require("../../../pipeline/stages/grouping");
+    const {
+      IntermediateStepGrouper,
+    } = require("../../../pipeline/stages/grouping");
     useFileWriteStore.setState({ writes: {}, nextSeq: 0 });
 
     useFileWriteStore.getState().addWrite("a1", "s1", "/f.ts", "content");
 
     // Two consecutive (streaming) agent messages, both with writeSeq=0
     const items = [
-      { type: "chat", role: "user", agentId: "a1", sessionId: "s1", content: "edit", key: "u", timestamp: Date.now(), isFirstOfTurn: false, attachments: [], thinking: undefined },
-      { type: "chat", role: "agent", agentId: "a1", sessionId: "s1", content: "thinking...", key: "a1", timestamp: Date.now(), isFirstOfTurn: true, attachments: [], thinking: undefined, writeSeq: 0 },
-      { type: "chat", role: "agent", agentId: "a1", sessionId: "s1", content: "done!", key: "a2", timestamp: Date.now(), isFirstOfTurn: true, attachments: [], thinking: undefined, writeSeq: 0 },
+      {
+        type: "chat",
+        role: "user",
+        agentId: "a1",
+        sessionId: "s1",
+        content: "edit",
+        key: "u",
+        timestamp: Date.now(),
+        isFirstOfTurn: false,
+        attachments: [],
+        thinking: undefined,
+      },
+      {
+        type: "chat",
+        role: "agent",
+        agentId: "a1",
+        sessionId: "s1",
+        content: "thinking...",
+        key: "a1",
+        timestamp: Date.now(),
+        isFirstOfTurn: true,
+        attachments: [],
+        thinking: undefined,
+        writeSeq: 0,
+      },
+      {
+        type: "chat",
+        role: "agent",
+        agentId: "a1",
+        sessionId: "s1",
+        content: "done!",
+        key: "a2",
+        timestamp: Date.now(),
+        isFirstOfTurn: true,
+        attachments: [],
+        thinking: undefined,
+        writeSeq: 0,
+      },
     ];
 
     const result = new IntermediateStepGrouper(items).compute();

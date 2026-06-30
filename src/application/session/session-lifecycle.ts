@@ -23,8 +23,14 @@ function withTimeout<T>(
       reject(new Error(`Timeout after ${rejectMs}ms: ${label}`));
     }, rejectMs);
     promise.then(
-      (value) => { clearTimeout(timer); resolve(value); },
-      (err) => { clearTimeout(timer); reject(err); }
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      }
     );
   });
 }
@@ -103,7 +109,10 @@ export class SessionLifecycle {
       this.deps.sessionState.clearActiveSession(agentId);
       const remaining = this.deps.sessionState.getSessionsForAgent(agentId);
       if (remaining.length > 0) {
-        this.deps.sessionState.setActiveSession(agentId, remaining[0].sessionId);
+        this.deps.sessionState.setActiveSession(
+          agentId,
+          remaining[0].sessionId
+        );
       }
     }
 
@@ -126,7 +135,10 @@ export class SessionLifecycle {
   }
 
   renameSession(agentId: string, sessionId: string, title: string): void {
-    const sessionInfo = this.deps.sessionState.getSessionInfo(agentId, sessionId);
+    const sessionInfo = this.deps.sessionState.getSessionInfo(
+      agentId,
+      sessionId
+    );
     if (!sessionInfo) {
       throw new Error(`Session ${sessionId} not found for agent ${agentId}`);
     }
@@ -139,10 +151,18 @@ export class SessionLifecycle {
     log.info("session renamed", { agentId, sessionId, title: trimmed });
   }
 
-  async forkSession(agentId: string, sourceSessionId: string): Promise<import("./types").RestoreResult> {
-    const sourceInfo = this.deps.sessionState.getSessionInfo(agentId, sourceSessionId);
+  async forkSession(
+    agentId: string,
+    sourceSessionId: string
+  ): Promise<import("./types").RestoreResult> {
+    const sourceInfo = this.deps.sessionState.getSessionInfo(
+      agentId,
+      sourceSessionId
+    );
     if (!sourceInfo) {
-      throw new Error(`Session ${sourceSessionId} not found for agent ${agentId}`);
+      throw new Error(
+        `Session ${sourceSessionId} not found for agent ${agentId}`
+      );
     }
 
     const allMessages = sourceInfo.messages.map((m) => ({
@@ -152,19 +172,28 @@ export class SessionLifecycle {
 
     const newSessionId = await this.createSession(agentId, sourceInfo.cwd);
 
-    const newInfo = this.deps.sessionState.getSessionInfo(agentId, newSessionId);
+    const newInfo = this.deps.sessionState.getSessionInfo(
+      agentId,
+      newSessionId
+    );
     if (newInfo) {
       newInfo.messages = allMessages;
       newInfo.title = `${sourceInfo.title} (fork)`;
     }
 
-    const replayable = allMessages.filter((m) => m.role === "user" || m.role === "agent");
+    const replayable = allMessages.filter(
+      (m) => m.role === "user" || m.role === "agent"
+    );
     let replayed = 0;
     if (replayable.length > 0) {
       replayed = await this.replayMessages(agentId, newSessionId, replayable);
     }
 
-    return { sessionId: newSessionId, nativeRestore: false, replayedMessageCount: replayed };
+    return {
+      sessionId: newSessionId,
+      nativeRestore: false,
+      replayedMessageCount: replayed,
+    };
   }
 
   async restoreSession(
@@ -174,7 +203,10 @@ export class SessionLifecycle {
     cwd?: string
   ): Promise<import("./types").RestoreResult> {
     const agentInfo = this.deps.agentConnection.getAgentInfo(agentId);
-    const sourceInfo = this.deps.sessionState.getSessionInfo(agentId, sourceSessionId);
+    const sourceInfo = this.deps.sessionState.getSessionInfo(
+      agentId,
+      sourceSessionId
+    );
     const effectiveCwd = cwd ?? sourceInfo?.cwd ?? process.cwd();
 
     if (agentInfo?.capabilities?.loadSession) {
@@ -188,7 +220,10 @@ export class SessionLifecycle {
       });
 
       const now = new Date();
-      const restoredMessages = messages.map((m) => ({ ...m, id: m.id || crypto.randomUUID() }));
+      const restoredMessages = messages.map((m) => ({
+        ...m,
+        id: m.id || crypto.randomUUID(),
+      }));
 
       const sessionInfo: AppSessionInfo = {
         sessionId: sourceSessionId,
@@ -206,7 +241,11 @@ export class SessionLifecycle {
         pendingCancel: false,
       };
 
-      this.deps.sessionState.setSessionInfo(agentId, sourceSessionId, sessionInfo);
+      this.deps.sessionState.setSessionInfo(
+        agentId,
+        sourceSessionId,
+        sessionInfo
+      );
 
       if (!this.deps.sessionState.getActiveSessionId(agentId)) {
         this.deps.sessionState.setActiveSession(agentId, sourceSessionId);
@@ -214,13 +253,23 @@ export class SessionLifecycle {
 
       this.persistSession(sourceSessionId, agentId);
 
-      return { sessionId: sourceSessionId, nativeRestore: true, replayedMessageCount: 0 };
+      return {
+        sessionId: sourceSessionId,
+        nativeRestore: true,
+        replayedMessageCount: 0,
+      };
     }
 
     const newSessionId = await this.createSession(agentId, effectiveCwd);
-    const newInfo = this.deps.sessionState.getSessionInfo(agentId, newSessionId);
+    const newInfo = this.deps.sessionState.getSessionInfo(
+      agentId,
+      newSessionId
+    );
     if (newInfo) {
-      newInfo.messages = messages.map((m) => ({ ...m, id: m.id || crypto.randomUUID() }));
+      newInfo.messages = messages.map((m) => ({
+        ...m,
+        id: m.id || crypto.randomUUID(),
+      }));
     }
 
     const replayed = await this.replayMessages(agentId, newSessionId, messages);
@@ -229,16 +278,36 @@ export class SessionLifecycle {
       newInfo.title = sourceInfo.title;
     }
 
-    return { sessionId: newSessionId, nativeRestore: false, replayedMessageCount: replayed };
+    return {
+      sessionId: newSessionId,
+      nativeRestore: false,
+      replayedMessageCount: replayed,
+    };
   }
 
-  private async replayMessages(agentId: string, sessionId: string, messages: ChatMessage[]): Promise<number> {
-    const replayable = messages.filter((m) => m.role === "user" || m.role === "agent");
+  private async replayMessages(
+    agentId: string,
+    sessionId: string,
+    messages: ChatMessage[]
+  ): Promise<number> {
+    const replayable = messages.filter(
+      (m) => m.role === "user" || m.role === "agent"
+    );
     if (replayable.length === 0) return 0;
 
     const replayId = crypto.randomUUID();
-    log.info("replay started", { agentId, sessionId, replayId, total: replayable.length });
-    this.deps.emit("sessionReplayStart", { agentId, sessionId, replayId, total: replayable.length });
+    log.info("replay started", {
+      agentId,
+      sessionId,
+      replayId,
+      total: replayable.length,
+    });
+    this.deps.emit("sessionReplayStart", {
+      agentId,
+      sessionId,
+      replayId,
+      total: replayable.length,
+    });
 
     let replayed = 0;
     for (const msg of replayable) {
@@ -250,7 +319,13 @@ export class SessionLifecycle {
           `replay message ${msg.id}`
         );
         replayed++;
-        this.deps.emit("sessionReplayProgress", { agentId, sessionId, replayId, index: replayed, total: replayable.length });
+        this.deps.emit("sessionReplayProgress", {
+          agentId,
+          sessionId,
+          replayId,
+          index: replayed,
+          total: replayable.length,
+        });
       } catch (e) {
         log.warn("replay message failed", {
           agentId,
@@ -261,8 +336,19 @@ export class SessionLifecycle {
       }
     }
 
-    this.deps.emit("sessionReplayComplete", { agentId, sessionId, replayId, replayed });
-    log.info("replay completed", { agentId, sessionId, replayId, replayed, total: replayable.length });
+    this.deps.emit("sessionReplayComplete", {
+      agentId,
+      sessionId,
+      replayId,
+      replayed,
+    });
+    log.info("replay completed", {
+      agentId,
+      sessionId,
+      replayId,
+      replayed,
+      total: replayable.length,
+    });
     return replayed;
   }
 
@@ -285,7 +371,10 @@ export class SessionLifecycle {
         }>;
         for (const att of attachments) {
           if (att.type === "file" || att.type === "selection") {
-            blocks.push({ type: "resource", resource: { uri: att.path, text: att.content } });
+            blocks.push({
+              type: "resource",
+              resource: { uri: att.path, text: att.content },
+            });
           }
         }
       } catch {
@@ -307,7 +396,11 @@ export class SessionLifecycle {
     }
   }
 
-  private syncHistoryStore(agentId: string, sessionId: string, info: AppSessionInfo): void {
+  private syncHistoryStore(
+    agentId: string,
+    sessionId: string,
+    info: AppSessionInfo
+  ): void {
     if (!this.deps.sessionHistoryStore) return;
     const entry: HistoryEntry = {
       sessionId,

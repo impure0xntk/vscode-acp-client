@@ -203,7 +203,9 @@ export function TeamCreateDialog({
                       {session.sessionTitle}
                     </span>
                     {isLead && (
-                      <span className="text-[9px] px-1.5 py-px rounded-[3px] bg-[color-mix(in_srgb,var(--warning)_20%,transparent)] text-warning font-semibold uppercase flex-shrink-0">Lead</span>
+                      <span className="text-[9px] px-1.5 py-px rounded-[3px] bg-[color-mix(in_srgb,var(--warning)_20%,transparent)] text-warning font-semibold uppercase flex-shrink-0">
+                        Lead
+                      </span>
                     )}
                   </button>
                 );
@@ -234,7 +236,9 @@ export function TeamCreateDialog({
 
         <div className="flex flex-col gap-1 max-h-40 overflow-y-auto">
           {totalSessions === 0 ? (
-            <div className="flex items-center gap-1.5 p-3 text-fg-muted text-[12px] italic">No sessions available</div>
+            <div className="flex items-center gap-1.5 p-3 text-fg-muted text-[12px] italic">
+              No sessions available
+            </div>
           ) : (
             agentOptions.map((agent) =>
               agent.sessions.map((session) => {
@@ -283,7 +287,9 @@ export function TeamCreateDialog({
                       {session.sessionTitle}
                     </span>
                     {isLead && (
-                      <span className="text-[9px] px-1.5 py-px rounded-[3px] bg-[color-mix(in_srgb,var(--warning)_20%,transparent)] text-warning font-semibold uppercase flex-shrink-0">Lead</span>
+                      <span className="text-[9px] px-1.5 py-px rounded-[3px] bg-[color-mix(in_srgb,var(--warning)_20%,transparent)] text-warning font-semibold uppercase flex-shrink-0">
+                        Lead
+                      </span>
                     )}
                   </button>
                 );
@@ -311,7 +317,9 @@ export function TeamCreateDialog({
         <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
           <div className="flex items-center gap-2">
             <Icon name="users" size="sm" />
-            <span className="text-sm font-semibold text-fg-primary">Create Team</span>
+            <span className="text-sm font-semibold text-fg-primary">
+              Create Team
+            </span>
           </div>
           <button
             className="inline-flex items-center justify-center w-6 h-6 p-0 border-none rounded-[4px] bg-transparent text-fg-muted cursor-pointer hover:bg-error hover:text-user-fg"
@@ -325,7 +333,10 @@ export function TeamCreateDialog({
 
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="team-name" className="text-[11px] font-semibold text-fg-secondary">
+            <label
+              htmlFor="team-name"
+              className="text-[11px] font-semibold text-fg-secondary"
+            >
               Team Name <span className="text-error">*</span>
             </label>
             <input
@@ -342,7 +353,10 @@ export function TeamCreateDialog({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="team-desc" className="text-[11px] font-semibold text-fg-secondary">
+            <label
+              htmlFor="team-desc"
+              className="text-[11px] font-semibold text-fg-secondary"
+            >
               Description
             </label>
             <input
@@ -358,7 +372,10 @@ export function TeamCreateDialog({
           {renderMemberPicker()}
 
           {error && (
-            <div className="flex items-center gap-1.5 py-2 px-3 rounded-[4px] bg-[color-mix(in_srgb,var(--error)_10%,transparent)] border border-[color-mix(in_srgb,var(--error)_20%,transparent)] text-error text-[12px]" role="alert">
+            <div
+              className="flex items-center gap-1.5 py-2 px-3 rounded-[4px] bg-[color-mix(in_srgb,var(--error)_10%,transparent)] border border-[color-mix(in_srgb,var(--error)_20%,transparent)] text-error text-[12px]"
+              role="alert"
+            >
               <Icon name="circle-filled" size="sm" />
               <span>{error}</span>
             </div>

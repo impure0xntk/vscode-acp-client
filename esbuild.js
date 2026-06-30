@@ -32,7 +32,13 @@ async function processCss(inputFile, outputFile) {
  */
 function aliasPathPlugin() {
   const webviewSrcDir = path.join(__dirname, "webview-src");
-  const canonicalPath = path.join(__dirname, "src", "shared", "util", "path.ts");
+  const canonicalPath = path.join(
+    __dirname,
+    "src",
+    "shared",
+    "util",
+    "path.ts"
+  );
 
   return {
     name: "alias-path",

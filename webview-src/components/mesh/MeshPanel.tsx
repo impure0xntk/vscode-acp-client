@@ -60,22 +60,33 @@ function AgentStatusRow({
           className="flex-shrink-0 text-fg-muted"
         />
         <StatusIcon status={agent.state} size="sm" />
-        <span className="text-[11px] font-semibold font-mono text-fg-primary flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{agent.agentId}</span>
+        <span className="text-[11px] font-semibold font-mono text-fg-primary flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+          {agent.agentId}
+        </span>
         {agent.role && (
-          <span className={`text-[9px] px-1 rounded-[2px] uppercase font-semibold flex-shrink-0 ${agent.role === "lead" ? "bg-[color-mix(in_srgb,var(--warning)_20%,transparent)] text-warning" : "bg-[color-mix(in_srgb,var(--accent)_15%,transparent)] text-accent"}`}>
+          <span
+            className={`text-[9px] px-1 rounded-[2px] uppercase font-semibold flex-shrink-0 ${agent.role === "lead" ? "bg-[color-mix(in_srgb,var(--warning)_20%,transparent)] text-warning" : "bg-[color-mix(in_srgb,var(--accent)_15%,transparent)] text-accent"}`}
+          >
             {agent.role}
           </span>
         )}
-        <span className="text-[9px] text-fg-muted flex-shrink-0">{stateLabel}</span>
+        <span className="text-[9px] text-fg-muted flex-shrink-0">
+          {stateLabel}
+        </span>
         {agent.progress !== undefined && (
-          <span className="text-[9px] text-fg-muted font-mono flex-shrink-0">{agent.progress}%</span>
+          <span className="text-[9px] text-fg-muted font-mono flex-shrink-0">
+            {agent.progress}%
+          </span>
         )}
       </div>
 
       {isExpanded && (
         <div className="py-0.5 px-2 pb-1 flex flex-col gap-0.5">
           {agent.sessions.map((s) => (
-            <div key={s.sessionId} className="flex items-center gap-1 py-0.5 px-1 text-[10px] text-fg-secondary">
+            <div
+              key={s.sessionId}
+              className="flex items-center gap-1 py-0.5 px-1 text-[10px] text-fg-secondary"
+            >
               <StatusIcon
                 status={
                   s.status as
@@ -87,8 +98,12 @@ function AgentStatusRow({
                 }
                 size="sm"
               />
-              <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{s.title}</span>
-              <span className="font-mono text-[9px] text-fg-muted">{s.sessionId.slice(0, 8)}</span>
+              <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+                {s.title}
+              </span>
+              <span className="font-mono text-[9px] text-fg-muted">
+                {s.sessionId.slice(0, 8)}
+              </span>
             </div>
           ))}
           {agent.currentTask && (
@@ -142,7 +157,10 @@ function AddMemberDialog({
   }, [selected, team.id, onClose]);
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50"
+      onClick={onClose}
+    >
       <div
         className="w-[360px] max-w-[90vw] max-h-[60vh] flex flex-col bg-bg-secondary border border-border rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
         onClick={(e) => e.stopPropagation()}
@@ -261,7 +279,9 @@ function TeamSessionCard({
     >
       <div className="flex items-center gap-1 min-w-0">
         <StatusIcon status={effective} size="sm" colorGroup={colorGroup} />
-        <span className="text-[10px] font-semibold font-mono text-fg-primary flex-shrink-0">{agentId}</span>
+        <span className="text-[10px] font-semibold font-mono text-fg-primary flex-shrink-0">
+          {agentId}
+        </span>
         <span className="text-[9px] font-mono text-fg-muted flex-shrink-0">
           {sessionId.slice(0, 8)}
         </span>
@@ -363,7 +383,10 @@ function TeamRow({
     const members = team.members
       .filter(
         (m) =>
-          !(m.agentId === team.lead.agentId && m.sessionId === team.lead.sessionId)
+          !(
+            m.agentId === team.lead.agentId &&
+            m.sessionId === team.lead.sessionId
+          )
       )
       .map((m) => ({ ...m, isLead: false }));
     return [lead, ...members];
@@ -387,14 +410,20 @@ function TeamRow({
           style={{ background: statusColor }}
         />
         <Icon name="users" size="sm" className="flex-shrink-0 text-fg-muted" />
-        <span className="flex-1 min-w-0 text-[11px] font-semibold text-fg-primary overflow-hidden text-ellipsis whitespace-nowrap">{team.name}</span>
-        <span className="text-[10px] text-fg-muted font-mono flex-shrink-0 px-1 rounded-[3px] bg-[color-mix(in_srgb,var(--fg-muted)_12%,transparent)]">{team.members.length}</span>
+        <span className="flex-1 min-w-0 text-[11px] font-semibold text-fg-primary overflow-hidden text-ellipsis whitespace-nowrap">
+          {team.name}
+        </span>
+        <span className="text-[10px] text-fg-muted font-mono flex-shrink-0 px-1 rounded-[3px] bg-[color-mix(in_srgb,var(--fg-muted)_12%,transparent)]">
+          {team.members.length}
+        </span>
       </div>
 
       {expanded && (
         <div className="py-1 pl-6 pr-2 pb-1.5 flex flex-col gap-1">
           {team.description && (
-            <div className="text-[10px] text-fg-secondary leading-relaxed">{team.description}</div>
+            <div className="text-[10px] text-fg-secondary leading-relaxed">
+              {team.description}
+            </div>
           )}
 
           {/* Session status cards */}
@@ -444,7 +473,9 @@ function TeamRow({
           </div>
 
           <div className="flex items-center gap-2 mt-1 pt-1 border-t border-[color-mix(in_srgb,var(--border)_30%,transparent)]">
-            <span className="text-[9px] text-fg-muted font-mono">ID: {team.id.slice(0, 12)}</span>
+            <span className="text-[9px] text-fg-muted font-mono">
+              ID: {team.id.slice(0, 12)}
+            </span>
             <span className="text-[9px] text-fg-muted font-mono">
               {new Date(team.createdAt).toLocaleDateString()}
             </span>
@@ -510,15 +541,22 @@ function TaskBoard({ tasks }: { tasks: MeshTaskEntry[] }): React.ReactElement {
   return (
     <div className="flex flex-col gap-0.5 px-1">
       {tasks.map((task) => (
-        <div key={task.id} className="flex items-center gap-1.5 py-1 px-2 rounded-[3px] bg-bg-primary">
+        <div
+          key={task.id}
+          className="flex items-center gap-1.5 py-1 px-2 rounded-[3px] bg-bg-primary"
+        >
           <Icon
             name={statusIcon(task.status)}
             size="sm"
             style={{ color: statusColor(task.status) }}
           />
-          <span className="flex-1 min-w-0 text-[11px] text-fg-primary overflow-hidden text-ellipsis whitespace-nowrap">{task.title}</span>
+          <span className="flex-1 min-w-0 text-[11px] text-fg-primary overflow-hidden text-ellipsis whitespace-nowrap">
+            {task.title}
+          </span>
           {task.assignedTo && (
-            <span className="text-[9px] text-fg-muted font-mono flex-shrink-0">{task.assignedTo}</span>
+            <span className="text-[9px] text-fg-muted font-mono flex-shrink-0">
+              {task.assignedTo}
+            </span>
           )}
           {task.progress !== undefined && (
             <div className="w-10 h-[3px] rounded-[1.5px] bg-border overflow-hidden flex-shrink-0">
@@ -550,17 +588,28 @@ function RecentMessages({
   return (
     <div className="flex flex-col gap-px px-1">
       {messages.slice(-20).map((msg) => (
-        <div key={msg.messageId} className="flex items-center gap-1 py-0.5 px-2 text-[10px] text-fg-secondary rounded-[2px] hover:bg-accent-hover">
+        <div
+          key={msg.messageId}
+          className="flex items-center gap-1 py-0.5 px-2 text-[10px] text-fg-secondary rounded-[2px] hover:bg-accent-hover"
+        >
           <span className="font-mono text-[9px] text-fg-muted flex-shrink-0">
             {new Date(msg.timestamp).toLocaleTimeString([], {
               hour: "2-digit",
               minute: "2-digit",
             })}
           </span>
-          <span className="font-semibold text-fg-primary flex-shrink-0">{msg.from}</span>
-          <Icon name="chevron-right" size="sm" className="text-fg-muted flex-shrink-0" />
+          <span className="font-semibold text-fg-primary flex-shrink-0">
+            {msg.from}
+          </span>
+          <Icon
+            name="chevron-right"
+            size="sm"
+            className="text-fg-muted flex-shrink-0"
+          />
           <span className="text-fg-muted flex-shrink-0">{msg.to}</span>
-          <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{msg.summary}</span>
+          <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+            {msg.summary}
+          </span>
         </div>
       ))}
     </div>
@@ -671,7 +720,9 @@ export function MeshPanel({
           <Icon name="users" size="sm" />
           Teams
           {teams.length > 0 && (
-            <span className="inline-flex items-center justify-center min-w-[14px] h-[14px] px-1 ml-1 rounded-[7px] bg-accent text-user-fg text-[9px] font-bold">{teams.length}</span>
+            <span className="inline-flex items-center justify-center min-w-[14px] h-[14px] px-1 ml-1 rounded-[7px] bg-accent text-user-fg text-[9px] font-bold">
+              {teams.length}
+            </span>
           )}
         </button>
         <button
@@ -680,7 +731,9 @@ export function MeshPanel({
         >
           Agents
           {agentStatuses.length > 0 && (
-            <span className="inline-flex items-center justify-center min-w-[14px] h-[14px] px-1 ml-1 rounded-[7px] bg-accent text-user-fg text-[9px] font-bold">{agentStatuses.length}</span>
+            <span className="inline-flex items-center justify-center min-w-[14px] h-[14px] px-1 ml-1 rounded-[7px] bg-accent text-user-fg text-[9px] font-bold">
+              {agentStatuses.length}
+            </span>
           )}
         </button>
         <button
@@ -689,7 +742,9 @@ export function MeshPanel({
         >
           Tasks
           {tasks.length > 0 && (
-            <span className="inline-flex items-center justify-center min-w-[14px] h-[14px] px-1 ml-1 rounded-[7px] bg-accent text-user-fg text-[9px] font-bold">{tasks.length}</span>
+            <span className="inline-flex items-center justify-center min-w-[14px] h-[14px] px-1 ml-1 rounded-[7px] bg-accent text-user-fg text-[9px] font-bold">
+              {tasks.length}
+            </span>
           )}
         </button>
         <button

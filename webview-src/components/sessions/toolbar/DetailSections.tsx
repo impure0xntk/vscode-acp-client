@@ -13,7 +13,10 @@ export function Row({
   return (
     <div className="flex items-baseline justify-between gap-2 py-px">
       <span className="text-[10px] text-fg-muted shrink-0">{label}</span>
-      <span className="text-[11px] text-fg-primary text-right truncate font-[var(--font-mono)]" title={value}>
+      <span
+        className="text-[11px] text-fg-primary text-right truncate font-[var(--font-mono)]"
+        title={value}
+      >
         {value}
       </span>
     </div>
@@ -73,7 +76,9 @@ export function MetricsSection({
 
   return (
     <section className="mb-0">
-      <h3 className="text-[10px] font-semibold text-fg-muted uppercase tracking-[0.4px] mb-1">Metrics</h3>
+      <h3 className="text-[10px] font-semibold text-fg-muted uppercase tracking-[0.4px] mb-1">
+        Metrics
+      </h3>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-x-3.5 gap-y-1">
         <Row
           label="Input"
@@ -126,22 +131,35 @@ export function TurnSection({
   // Turn duration: sessionStartMs → lastResponseAt.
   const turnDuration =
     lastResponseAt && sessionStartMs
-      ? fmtDuration(Math.max(0, new Date(lastResponseAt).getTime() - sessionStartMs))
+      ? fmtDuration(
+          Math.max(0, new Date(lastResponseAt).getTime() - sessionStartMs)
+        )
       : null;
 
   return (
     <section className="mb-0">
-      <h3 className="text-[10px] font-semibold text-fg-muted uppercase tracking-[0.4px] mb-1">Turn</h3>
+      <h3 className="text-[10px] font-semibold text-fg-muted uppercase tracking-[0.4px] mb-1">
+        Turn
+      </h3>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-x-3.5 gap-y-1">
         <div className="flex flex-col gap-px min-w-0">
           <span className="text-[10px] text-fg-muted uppercase">Outcome</span>
-          <span className={`text-xs text-fg-primary font-[var(--font-mono)] overflow-hidden text-ellipsis whitespace-nowrap ${
-            outcome === "completed" ? "!text-[var(--success)]" :
-            outcome === "error" ? "!text-error" :
-            outcome === "cancelled" ? "!text-fg-muted opacity-70" :
-            "!text-[#4fc3f7]"
-          }`}>
-            <Icon name={outcomeIcon} size="sm" className="inline-flex items-center mr-1 shrink-0" />
+          <span
+            className={`text-xs text-fg-primary font-[var(--font-mono)] overflow-hidden text-ellipsis whitespace-nowrap ${
+              outcome === "completed"
+                ? "!text-[var(--success)]"
+                : outcome === "error"
+                  ? "!text-error"
+                  : outcome === "cancelled"
+                    ? "!text-fg-muted opacity-70"
+                    : "!text-[#4fc3f7]"
+            }`}
+          >
+            <Icon
+              name={outcomeIcon}
+              size="sm"
+              className="inline-flex items-center mr-1 shrink-0"
+            />
             {outcomeLabel}
           </span>
         </div>
@@ -172,7 +190,9 @@ export function SectionDetailsPanel({
   // Static duration from createdAt to lastResponseAt (or now).
   const detailElapsed = sessionStartMs
     ? (() => {
-        const end = info.lastResponseAt ? new Date(info.lastResponseAt).getTime() : Date.now();
+        const end = info.lastResponseAt
+          ? new Date(info.lastResponseAt).getTime()
+          : Date.now();
         return fmtDuration(Math.max(0, end - sessionStartMs));
       })()
     : "—";
@@ -182,7 +202,9 @@ export function SectionDetailsPanel({
       {agentInfo && <AgentSection info={agentInfo} />}
 
       <section className="mb-0">
-        <h3 className="text-[10px] font-semibold text-fg-muted uppercase tracking-[0.4px] mb-1">Metrics</h3>
+        <h3 className="text-[10px] font-semibold text-fg-muted uppercase tracking-[0.4px] mb-1">
+          Metrics
+        </h3>
         <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-x-3.5 gap-y-1">
           <Row
             label="Input"
@@ -203,7 +225,9 @@ export function SectionDetailsPanel({
 
       {info.cwd && (
         <section className="mb-0">
-          <h3 className="text-[10px] font-semibold text-fg-muted uppercase tracking-[0.4px] mb-1">Workspace</h3>
+          <h3 className="text-[10px] font-semibold text-fg-muted uppercase tracking-[0.4px] mb-1">
+            Workspace
+          </h3>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-x-3.5 gap-y-1">
             <Row label="CWD" value={info.cwd} />
           </div>
@@ -217,7 +241,9 @@ export function SectionDetailsPanel({
       />
 
       <section className="mb-0">
-        <h3 className="text-[10px] font-semibold text-fg-muted uppercase tracking-[0.4px] mb-1">Session</h3>
+        <h3 className="text-[10px] font-semibold text-fg-muted uppercase tracking-[0.4px] mb-1">
+          Session
+        </h3>
         <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-x-3.5 gap-y-1">
           <SessionIdRow sessionId={info.sessionId} onFork={onForkSession} />
         </div>
@@ -257,7 +283,10 @@ export function SessionIdRow({
     <div className="flex flex-col gap-px min-w-0 col-span-full">
       <span className="text-[10px] text-fg-muted uppercase">Session ID</span>
       <div className="flex items-center gap-1">
-        <span className="text-xs text-fg-primary font-[var(--font-mono)] overflow-hidden text-ellipsis whitespace-nowrap" title={sessionId}>
+        <span
+          className="text-xs text-fg-primary font-[var(--font-mono)] overflow-hidden text-ellipsis whitespace-nowrap"
+          title={sessionId}
+        >
           {shortId}
         </span>
         <button

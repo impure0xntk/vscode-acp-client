@@ -31,10 +31,7 @@ import { registerSessionCommands } from "./commands/session";
 import { registerExportDebugLogCommand } from "./commands/exportDebugLog";
 import { LogEntrySinkImpl } from "../../domain/services/log-entry-sink";
 import { wireChatPanelEvents } from "./commands/prompt";
-import {
-  wireSessionEvents,
-  wireMessageEvents,
-} from "../../application/handlers";
+import { wireSessionEvents } from "../../application/handlers";
 import { MeshOrchestrator } from "../../domain/services/mesh-orchestrator";
 import { MessageBus } from "../../domain/services/message-bus";
 import { FileLockManager } from "../../domain/services/file-lock-manager";
@@ -125,8 +122,7 @@ async function getStatuslineInfo(workspaceRoot: string): Promise<{
     const remote = stdout.trim();
     const match = remote.match(/[:/]([^/]+?)(\.git)?$/);
     if (match) repoName = match[1];
-  } catch {
-  }
+  } catch {}
 
   let branch = "";
   try {
@@ -151,8 +147,7 @@ async function getStatuslineInfo(workspaceRoot: string): Promise<{
       cwd: workspaceRoot,
     });
     tag = stdout.trim();
-  } catch {
-  }
+  } catch {}
 
   return { hostname, repoName, branch, tag };
 }
@@ -201,7 +196,33 @@ function sendOverviewPosition(): void {
   });
 }
 
-function sendTabsToChatPanel(): void {
+// Debounced sendTabsToChatPanel — coalesces rapid calls within 100ms
+// into a single webview postMessage + overview computation.
+let sendTabsDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+let sendTabsScheduled = false;
+
+function sendTabsToChatPanel(immediate = false): void {
+  if (immediate) {
+    if (sendTabsDebounceTimer) {
+      clearTimeout(sendTabsDebounceTimer);
+      sendTabsDebounceTimer = null;
+    }
+    sendTabsScheduled = false;
+    sendTabsNow();
+    return;
+  }
+
+  // Skip if already scheduled — the pending timer will pick up latest state
+  if (sendTabsScheduled) return;
+  sendTabsScheduled = true;
+  sendTabsDebounceTimer = setTimeout(() => {
+    sendTabsDebounceTimer = null;
+    sendTabsScheduled = false;
+    sendTabsNow();
+  }, 100);
+}
+
+function sendTabsNow(): void {
   if (!chatPanel) return;
   presenter.setWorkspace(
     vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null,
@@ -249,11 +270,14 @@ function sendTabsToChatPanel(): void {
     }
   }
 
-  const allTabs = Array.from(presenter.buildSetTabsMessage().tabs);
-  let activeAgentId =
-    [...orchestrator.getAllAgents()].find((a) =>
-      orchestrator.getActiveSessionId(a.agentId)
-    )?.agentId ?? null;
+  const allTabs = currentMsg.tabs;
+  let activeAgentId: string | null = null;
+  for (const a of orchestrator.getAllAgents()) {
+    if (orchestrator.getActiveSessionId(a.agentId)) {
+      activeAgentId = a.agentId;
+      break;
+    }
+  }
   let activeSessionId = activeAgentId
     ? (orchestrator.getActiveSessionId(activeAgentId) ?? null)
     : null;
@@ -266,7 +290,10 @@ function sendTabsToChatPanel(): void {
 
   chatPanel.postMessage(presenter.buildSetTabsMessage());
 
-  const overview = orchestrator.getSessionOverview();
+  // Use fast path — skips recentResponses extraction per session
+  const overview = orchestrator.getSessionOverview({
+    withRecentResponses: false,
+  });
   chatPanel.postMessage({
     type: "sessionOverview:state",
     payload: overview,
@@ -351,7 +378,7 @@ export async function activate(
   registry = new AgentRegistry(platform);
   orchestrator = new SessionOrchestrator({ ui: platform.ui, fs: platform.fs });
 
-    const messageBus = new MessageBus();
+  const messageBus = new MessageBus();
   const fileLockManager = new FileLockManager();
   const taskBoardStore = new TaskBoardStore();
   meshOrchestrator = new MeshOrchestrator({
@@ -452,16 +479,6 @@ function wireOrchestratorEvents(meshOrch: MeshOrchestrator): void {
     historyStore,
     updateContext,
     sendTabs: sendTabsToChatPanel,
-  });
-
-  wireMessageEvents({
-    orchestrator,
-    getChatPanel,
-    presenter,
-    statusTracker,
-    updateContext,
-    sendTabs: sendTabsToChatPanel,
-    meshOrchestrator: meshOrch,
   });
 
   meshOrch.onExtractedMessage = (msg) => {
@@ -732,7 +749,9 @@ function registerCommands(context: vscode.ExtensionContext): void {
     () => {
       if (!chatPanel) return;
       chatPanel.postMessage({ type: "sessionOverview:toggle" });
-      const overview = orchestrator.getSessionOverview();
+      const overview = orchestrator.getSessionOverview({
+        withRecentResponses: true,
+      });
       chatPanel.postMessage({
         type: "sessionOverview:state",
         payload: overview,
@@ -768,16 +787,7 @@ function registerCommands(context: vscode.ExtensionContext): void {
   }
 }
 
-
-
 async function applyPreset(preset: PresetConfig): Promise<void> {
-  const panelMode =
-    preset.layout === "grid" || preset.layout === "split"
-      ? "unified"
-      : vscode.workspace
-          .getConfiguration("acp")
-          .get<string>("defaultChatPanel", "unified");
-
   const wsFolders = (vscode.workspace.workspaceFolders ?? []).map(
     (f) => f.uri.fsPath
   );

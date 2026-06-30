@@ -67,7 +67,11 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
 
   orchestrator.on(
     "sessionMessage",
-    (event: { agentId: string; sessionId: string; message: import("../../domain/models/chat").ChatMessage }) => {
+    (event: {
+      agentId: string;
+      sessionId: string;
+      message: import("../../domain/models/chat").ChatMessage;
+    }) => {
       const { agentId, sessionId, message } = event;
       const cp = getChatPanel();
       if (cp) {
@@ -81,7 +85,11 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
         status: "idle",
         isActive: true,
         messageCount: sessionInfo ? sessionInfo.messages.length : 0,
-        tokenUsage: sessionInfo?.tokenUsage ?? { input: 0, output: 0, total: 0 },
+        tokenUsage: sessionInfo?.tokenUsage ?? {
+          input: 0,
+          output: 0,
+          total: 0,
+        },
       });
       updateContext();
     }
@@ -100,7 +108,12 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
 
   orchestrator.on(
     "sessionStreamChunk",
-    (event: { agentId: string; sessionId: string; chunk: string; messageId?: string }) => {
+    (event: {
+      agentId: string;
+      sessionId: string;
+      chunk: string;
+      messageId?: string;
+    }) => {
       const { agentId, sessionId, chunk, messageId } = event;
       const cp = getChatPanel();
       if (cp) {
@@ -195,12 +208,17 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
   // Unlike sessionUpdate (text/thought/tool-call), file writes are per-
   // session data needed on any tab.  Dropping non-active writes caused
   // the file edit summary to silently disappear.
-  orchestrator.on(
-    "fileWrite",
-    (event: FileWriteEvent) => {
-      const { agentId, sessionId, path, content, originalContent, contentHash } = event;
-      const cp = getChatPanel();
-      cp?.pushFileWrite(agentId, sessionId, path, content, originalContent, contentHash);
-    }
-  );
+  orchestrator.on("fileWrite", (event: FileWriteEvent) => {
+    const { agentId, sessionId, path, content, originalContent, contentHash } =
+      event;
+    const cp = getChatPanel();
+    cp?.pushFileWrite(
+      agentId,
+      sessionId,
+      path,
+      content,
+      originalContent,
+      contentHash
+    );
+  });
 }

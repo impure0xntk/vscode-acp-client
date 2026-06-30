@@ -50,7 +50,11 @@ export interface SupervisorModeProps {
   fetchSymbols: (query: string) => Promise<SuggestionItem[]>;
   resolveSymbol: (name: string) => Promise<ContextAttachment>;
   availableCommands?: SlashCommand[];
-  onCancelQueuedPrompt?: (agentId: string, sessionId: string, promptId: string) => void;
+  onCancelQueuedPrompt?: (
+    agentId: string,
+    sessionId: string,
+    promptId: string
+  ) => void;
   onClearQueue?: (agentId: string, sessionId: string) => void;
   onAttachDiff?: (attachment: ContextAttachment) => void;
 }
@@ -162,7 +166,7 @@ export const SupervisorMode = React.memo(function SupervisorMode({
       const [agentId, sessionId] = sessionKey.split(":");
       onSwitchSession(agentId, sessionId);
     },
-    [setSupervisorFocusSession, setSupervisorViewMode, onSwitchSession],
+    [setSupervisorFocusSession, setSupervisorViewMode, onSwitchSession]
   );
 
   const handleOverview = useCallback(() => {
@@ -176,18 +180,17 @@ export const SupervisorMode = React.memo(function SupervisorMode({
       const [agentId, sessionId] = sessionKey.split(":");
       getVsCodeApi().postMessage({ type: "closeSession", sessionId, agentId });
     },
-    [removeTab],
+    [removeTab]
   );
 
   // Current in-progress step ID for highlighting
-  const currentStepId = currentPlan?.steps.find(
-    (s) => s.status === "in_progress",
-  )?.id ?? null;
+  const currentStepId =
+    currentPlan?.steps.find((s) => s.status === "in_progress")?.id ?? null;
 
   // Queue for the active session
   const promptQueue = useSessionStore((s) => s.promptQueue);
   const sessionQueue: QueuedPrompt[] = activeSessionKey
-    ? promptQueue[activeSessionKey] ?? []
+    ? (promptQueue[activeSessionKey] ?? [])
     : [];
 
   return (
@@ -245,14 +248,18 @@ export const SupervisorMode = React.memo(function SupervisorMode({
             }
             onSendMessage(entry.text, entry.attachments ?? []);
             if (activeSessionKey) {
-              useSessionStore.getState().removeQueuedPrompt(activeSessionKey, promptId);
+              useSessionStore
+                .getState()
+                .removeQueuedPrompt(activeSessionKey, promptId);
             }
           }}
           onRemoveQueueItem={(promptId) => {
             if (activeSessionKey) {
               const [agentId, sessionId] = activeSessionKey.split(":");
               onCancelQueuedPrompt?.(agentId, sessionId, promptId);
-              useSessionStore.getState().removeQueuedPrompt(activeSessionKey, promptId);
+              useSessionStore
+                .getState()
+                .removeQueuedPrompt(activeSessionKey, promptId);
             }
           }}
           onClearQueue={() => {

@@ -59,7 +59,10 @@ function highlightMatch(text: string, query: string): React.ReactNode {
   const parts = text.split(re);
   return parts.map((part, i) =>
     re.test(part) ? (
-      <mark key={i} className="bg-[color-mix(in_srgb,var(--accent)_30%,transparent)] text-fg-primary rounded-[2px] px-[2px]">
+      <mark
+        key={i}
+        className="bg-[color-mix(in_srgb,var(--accent)_30%,transparent)] text-fg-primary rounded-[2px] px-[2px]"
+      >
         {part}
       </mark>
     ) : (
@@ -149,9 +152,7 @@ function SessionRow({
           {highlightMatch(entry.title, query)}
         </div>
         <div className="flex items-center gap-1.5 mt-px">
-          <span className="text-[10px] text-fg-secondary">
-            {entry.agentId}
-          </span>
+          <span className="text-[10px] text-fg-secondary">{entry.agentId}</span>
           <span
             className="text-[10px] text-fg-muted"
             title={formatDate(entry.createdAt)}

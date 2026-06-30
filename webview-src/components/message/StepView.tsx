@@ -53,9 +53,7 @@ function StepViewInner({
   // Pre-agent step with only tool calls (no agent message) — show header
   if (!step.agentMessage && hasToolCalls) {
     const firstTs = step.toolCalls[0]?.timestamp;
-    const timeStr = firstTs
-      ? new Date(firstTs).toLocaleTimeString()
-      : "";
+    const timeStr = firstTs ? new Date(firstTs).toLocaleTimeString() : "";
     return (
       <div className="flex flex-col gap-[1px]">
         {forceHeader && (
@@ -68,7 +66,12 @@ function StepViewInner({
           <ToolBatchSummary calls={allToolCalls} isNew={isNew} />
         </div>
         {hasFileEdits && (
-          <FileEditSummary entries={fileEditEntries} sessionId={sessionId} agentId={agentId} onAttachDiff={onAttachDiff} />
+          <FileEditSummary
+            entries={fileEditEntries}
+            sessionId={sessionId}
+            agentId={agentId}
+            onAttachDiff={onAttachDiff}
+          />
         )}
       </div>
     );
@@ -93,7 +96,12 @@ function StepViewInner({
         </div>
       )}
       {hasFileEdits && (
-        <FileEditSummary entries={fileEditEntries} sessionId={sessionId} agentId={agentId} onAttachDiff={onAttachDiff} />
+        <FileEditSummary
+          entries={fileEditEntries}
+          sessionId={sessionId}
+          agentId={agentId}
+          onAttachDiff={onAttachDiff}
+        />
       )}
     </div>
   );
@@ -101,7 +109,7 @@ function StepViewInner({
 
 function areStepViewPropsEqual(
   prev: StepViewProps,
-  next: StepViewProps,
+  next: StepViewProps
 ): boolean {
   return (
     prev.step === next.step &&

@@ -54,7 +54,11 @@ export interface UnifiedModeProps {
   fetchSymbols: (query: string) => Promise<SuggestionItem[]>;
   resolveSymbol: (name: string) => Promise<ContextAttachment>;
   availableCommands?: SlashCommand[];
-  onCancelQueuedPrompt?: (agentId: string, sessionId: string, promptId: string) => void;
+  onCancelQueuedPrompt?: (
+    agentId: string,
+    sessionId: string,
+    promptId: string
+  ) => void;
   onClearQueue?: (agentId: string, sessionId: string) => void;
   onAttachDiff?: (attachment: ContextAttachment) => void;
 }
@@ -271,7 +275,7 @@ export const UnifiedMode = React.memo(function UnifiedMode({
   // Queue for the active session
   const promptQueue = useSessionStore((s) => s.promptQueue);
   const sessionQueue: QueuedPrompt[] = activeSessionKey
-    ? promptQueue[activeSessionKey] ?? []
+    ? (promptQueue[activeSessionKey] ?? [])
     : [];
 
   return (
@@ -307,9 +311,11 @@ export const UnifiedMode = React.memo(function UnifiedMode({
           // The Composer manages its own attachments state, so we need
           // to use a global event or direct state injection.
           // For now, dispatch a custom event that Composer listens to.
-          window.dispatchEvent(new CustomEvent("acp:attachDiff", {
-            detail: { attachment },
-          }));
+          window.dispatchEvent(
+            new CustomEvent("acp:attachDiff", {
+              detail: { attachment },
+            })
+          );
         }}
       />
       <Composer
@@ -339,14 +345,18 @@ export const UnifiedMode = React.memo(function UnifiedMode({
           onSendMessage(entry.text, entry.attachments ?? []);
           // Remove from local store
           if (activeSessionKey) {
-            useSessionStore.getState().removeQueuedPrompt(activeSessionKey, promptId);
+            useSessionStore
+              .getState()
+              .removeQueuedPrompt(activeSessionKey, promptId);
           }
         }}
         onRemoveQueueItem={(promptId) => {
           if (activeSessionKey) {
             const [agentId, sessionId] = activeSessionKey.split(":");
             onCancelQueuedPrompt?.(agentId, sessionId, promptId);
-            useSessionStore.getState().removeQueuedPrompt(activeSessionKey, promptId);
+            useSessionStore
+              .getState()
+              .removeQueuedPrompt(activeSessionKey, promptId);
           }
         }}
         onClearQueue={() => {

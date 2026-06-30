@@ -64,7 +64,12 @@ export function ContextBar({
           />
         ))}
         {attachments.map((a) => (
-          <ContextChip key={a.id} attachment={a} onRemove={onRemove} contextColor={contextColor} />
+          <ContextChip
+            key={a.id}
+            attachment={a}
+            onRemove={onRemove}
+            contextColor={contextColor}
+          />
         ))}
       </div>
     </div>

@@ -118,19 +118,25 @@ export const SessionHeader = React.memo(function SessionHeader({
       return null;
     })();
 
-    const displayTitle = info?.title ?? info?.sessionId?.slice(0, 8) ?? agentId ?? "";
+    const displayTitle =
+      info?.title ?? info?.sessionId?.slice(0, 8) ?? agentId ?? "";
     const displayCwd = info?.cwd ? abbreviatePath(info.cwd, 24) : undefined;
 
     return (
       <div
         className={`flex items-center gap-1 shrink-0 bg-bg-secondary border-b border-border min-h-[32px] relative${isActive ? "" : ""}`}
         data-color={color}
-        style={{
-          "--section-accent-color": color,
-          ...(isActive ? { backgroundColor: `${color}18` } : {}),
-        } as React.CSSProperties}
+        style={
+          {
+            "--section-accent-color": color,
+            ...(isActive ? { backgroundColor: `${color}18` } : {}),
+          } as React.CSSProperties
+        }
       >
-        <div className="absolute top-0 bottom-0 left-0 w-[3px] bg-[var(--section-accent-color,var(--accent))] shrink-0 z-10 pointer-events-none" aria-hidden="true" />
+        <div
+          className="absolute top-0 bottom-0 left-0 w-[3px] bg-[var(--section-accent-color,var(--accent))] shrink-0 z-10 pointer-events-none"
+          aria-hidden="true"
+        />
         <button
           className="flex-1 flex items-center gap-2 px-2 py-1 border-none bg-transparent text-fg-primary text-[11px] cursor-pointer text-left min-w-0 transition-colors duration-150"
           onClick={handleClick}
@@ -181,7 +187,10 @@ export const SessionHeader = React.memo(function SessionHeader({
         </button>
 
         <div className="flex items-center gap-1 shrink-0">
-          <ContextBar tokenUsage={info?.tokenUsage} contextWindowMax={info?.contextWindowMax} />
+          <ContextBar
+            tokenUsage={info?.tokenUsage}
+            contextWindowMax={info?.contextWindowMax}
+          />
           {info && (
             <ExpandButton
               info={info}
@@ -219,7 +228,7 @@ export const SessionHeader = React.memo(function SessionHeader({
     messageCount,
     onForkSession,
   }: {
-      info: SessionInfoDTO;
+    info: SessionInfoDTO;
     messageCount: number;
     onForkSession?: () => void;
   }): React.ReactElement {
@@ -269,5 +278,4 @@ export const SessionHeader = React.memo(function SessionHeader({
       </div>
     );
   }
-
 });

@@ -12,7 +12,9 @@ describe("fileWriteStore", () => {
   describe("addWrite", () => {
     it("stores a single write with seq=0", () => {
       useFileWriteStore.getState().addWrite("a1", "s1", "/foo.ts", "hello");
-      const writes = useFileWriteStore.getState().getWritesForSession("a1", "s1");
+      const writes = useFileWriteStore
+        .getState()
+        .getWritesForSession("a1", "s1");
       assert.strictEqual(writes.length, 1);
       assert.strictEqual(writes[0].path, "/foo.ts");
       assert.strictEqual(writes[0].content, "hello");
@@ -35,7 +37,9 @@ describe("fileWriteStore", () => {
       const store = useFileWriteStore.getState();
       store.addWrite("a1", "s1", "/a.ts", "aaa");
       store.addWrite("a1", "s1", "/b.ts", "bbb");
-      const writes = useFileWriteStore.getState().getWritesForSession("a1", "s1");
+      const writes = useFileWriteStore
+        .getState()
+        .getWritesForSession("a1", "s1");
       assert.strictEqual(writes.length, 2);
     });
 
@@ -44,10 +48,12 @@ describe("fileWriteStore", () => {
       store.addWrite("a1", "s1", "/a.ts", "aaa");
       store.addWrite("a1", "s2", "/b.ts", "bbb");
       assert.strictEqual(
-        useFileWriteStore.getState().getWritesForSession("a1", "s1").length, 1
+        useFileWriteStore.getState().getWritesForSession("a1", "s1").length,
+        1
       );
       assert.strictEqual(
-        useFileWriteStore.getState().getWritesForSession("a1", "s2").length, 1
+        useFileWriteStore.getState().getWritesForSession("a1", "s2").length,
+        1
       );
     });
   });
@@ -86,7 +92,8 @@ describe("fileWriteStore", () => {
       store.addWrite("a1", "s1", "/b.ts", "b");
       store.clearSession("a1", "s1");
       assert.deepStrictEqual(
-        useFileWriteStore.getState().getWritesForSession("a1", "s1"), []
+        useFileWriteStore.getState().getWritesForSession("a1", "s1"),
+        []
       );
     });
 
@@ -95,7 +102,9 @@ describe("fileWriteStore", () => {
       store.addWrite("a1", "s1", "/a.ts", "a");
       store.clearSession("a1", "s1");
       store.addWrite("a1", "s1", "/b.ts", "b");
-      const writes = useFileWriteStore.getState().getWritesForSession("a1", "s1");
+      const writes = useFileWriteStore
+        .getState()
+        .getWritesForSession("a1", "s1");
       assert.strictEqual(writes.length, 1);
       assert.strictEqual(writes[0].seq, 1); // seq continues from global counter
     });
@@ -106,7 +115,8 @@ describe("fileWriteStore", () => {
       store.addWrite("a1", "s2", "/b.ts", "b");
       store.clearSession("a1", "s1");
       assert.strictEqual(
-        useFileWriteStore.getState().getWritesForSession("a1", "s2").length, 1
+        useFileWriteStore.getState().getWritesForSession("a1", "s2").length,
+        1
       );
     });
 
@@ -115,7 +125,9 @@ describe("fileWriteStore", () => {
       store.addWrite("a1", "s1", "/a.ts", "a");
       store.clearSession("a1", "s1");
       store.addWrite("a1", "s1", "/b.ts", "b");
-      const writes = useFileWriteStore.getState().getWritesForSession("a1", "s1");
+      const writes = useFileWriteStore
+        .getState()
+        .getWritesForSession("a1", "s1");
       assert.strictEqual(writes.length, 1);
       assert.strictEqual(writes[0].path, "/b.ts");
     });

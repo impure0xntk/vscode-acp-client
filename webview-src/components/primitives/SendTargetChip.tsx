@@ -17,7 +17,10 @@ export interface ContextBarProps {
   contextWindowMax?: number;
 }
 
-export function ContextBar({ tokenUsage, contextWindowMax }: ContextBarProps): React.ReactElement | null {
+export function ContextBar({
+  tokenUsage,
+  contextWindowMax,
+}: ContextBarProps): React.ReactElement | null {
   if (!tokenUsage) return null;
 
   const pct =
@@ -29,13 +32,24 @@ export function ContextBar({ tokenUsage, contextWindowMax }: ContextBarProps): R
   const isWarning = pct !== null && pct >= 70;
   const fillColor = isCritical ? "#ef5350" : isWarning ? "#ffd54f" : "#4fc3f7";
   const fillHeight = pct !== null ? Math.max(10, Math.min(100, pct)) : 0;
-  const title = pct !== null
-    ? `${pct}% (${formatTokens(tokenUsage.totalTokens)} / ${formatTokens(contextWindowMax ?? 0)})`
-    : `${formatTokens(tokenUsage.totalTokens)} tokens used`;
+  const title =
+    pct !== null
+      ? `${pct}% (${formatTokens(tokenUsage.totalTokens)} / ${formatTokens(contextWindowMax ?? 0)})`
+      : `${formatTokens(tokenUsage.totalTokens)} tokens used`;
 
   return (
-    <span className={`inline-flex shrink-0 ml-[2px] w-[3px] h-[14px] overflow-hidden rounded-1.5${isCritical ? " animate-context-pulse" : ""}`} title={title}>
-      <span className="w-full rounded-1.5" style={{ height: `${fillHeight}%`, backgroundColor: fillColor, transition: "height 0.3s ease, background 0.3s ease" }} />
+    <span
+      className={`inline-flex shrink-0 ml-[2px] w-[3px] h-[14px] overflow-hidden rounded-1.5${isCritical ? " animate-context-pulse" : ""}`}
+      title={title}
+    >
+      <span
+        className="w-full rounded-1.5"
+        style={{
+          height: `${fillHeight}%`,
+          backgroundColor: fillColor,
+          transition: "height 0.3s ease, background 0.3s ease",
+        }}
+      />
     </span>
   );
 }
@@ -71,11 +85,19 @@ export function SendTargetChip({
       title={`${target.agentId}:${target.sessionId}`}
     >
       <StatusIcon status={status} size="sm" />
-      <span className="text-fg-primary max-w-[120px] truncate">{target.label}</span>
-      <ContextBar tokenUsage={target.tokenUsage} contextWindowMax={target.contextWindowMax} />
+      <span className="text-fg-primary max-w-[120px] truncate">
+        {target.label}
+      </span>
+      <ContextBar
+        tokenUsage={target.tokenUsage}
+        contextWindowMax={target.contextWindowMax}
+      />
       <button
         className="inline-flex items-center justify-center w-3.5 h-3.5 p-0 rounded-[2px] bg-transparent text-fg-muted text-[12px] leading-none shrink-0 ml-0.5 hover:bg-error hover:text-user-fg"
-        onClick={(e) => { e.stopPropagation(); onRemove(); }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove();
+        }}
         title="Remove send target"
         aria-label={`Remove ${target.label}`}
       >

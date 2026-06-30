@@ -9,9 +9,10 @@ export interface ContextChipProps {
   contextColor?: "normal" | "warning" | "critical";
 }
 
-function getContextColors(
-  color: "normal" | "warning" | "critical"
-): { border: string; bg: string } {
+function getContextColors(color: "normal" | "warning" | "critical"): {
+  border: string;
+  bg: string;
+} {
   switch (color) {
     case "warning":
       return {

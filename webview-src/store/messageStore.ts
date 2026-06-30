@@ -45,303 +45,364 @@ export interface MessageState {
   addQueuedPrompt: (key: string, entry: QueuedPrompt) => void;
 }
 
-export const useMessageStore: StoreApi<MessageState> = create<MessageState>((set) => ({
-  perSession: {},
-  streaming: {},
-  promptQueue: {},
+export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
+  (set) => ({
+    perSession: {},
+    streaming: {},
+    promptQueue: {},
 
-  setMessages: (key, msgs) =>
-    set((state) => {
-      const prev = state.perSession[key];
-      // Same reference → no change, return same state object
-      if (prev === msgs) return state;
-      log.debug("setMessages", { key, count: msgs.length });
-      return {
-        ...state,
-        perSession: { ...state.perSession, [key]: msgs },
-      };
-    }),
-
-  appendMessage: (key, msg) =>
-    set((state) => {
-      const existing = state.perSession[key] ?? [];
-      log.trace("appendMessage", {
-        key,
-        msgId: msg.id,
-        role: msg.role,
-        len: existing.length + 1,
-      });
-      return {
-        ...state,
-        perSession: { ...state.perSession, [key]: [...existing, msg] },
-      };
-    }),
-
-  setStreaming: (key, v) =>
-    set((state) => {
-      if (state.streaming[key] === v) return state;
-      log.trace("setStreaming", { key, streaming: v });
-      return {
-        ...state,
-        streaming: { ...state.streaming, [key]: v },
-      };
-    }),
-
-  /**
-   * Append multiple streaming chunks to the message store.
-   *
-   * Merge priority:
-   * 1. Same messageId (ACP SDK) — always merge.
-   * 2. Last message is directly mergeable (same agent).
-   * 3. Look back past tool messages for an in-progress agent message.
-   * 4. Otherwise, create a new ChatMessage.
-   */
-  appendStreamChunks: (key, agentId, sessionId, chunks: string[], messageId?: string | null) =>
-    set((state) => {
-      if (chunks.length === 0) return state;
-      const existing = state.perSession[key] ?? [];
-      const lastMsg = existing.length > 0 ? existing[existing.length - 1] : null;
-
-      // 1. messageId-based merge: find the agent message with matching id
-      let messageIdTargetIdx = -1;
-      if (messageId != null) {
-        for (let i = existing.length - 1; i >= 0; i--) {
-          const m = existing[i];
-          if (m.role === "agent" && m.id === messageId) {
-            messageIdTargetIdx = i;
-            break;
-          }
-          // Stop looking past user/system messages or completed agents
-          if (m.role === "user" || m.role === "system") break;
-          if (m.role === "agent" && m.stopReason != null && m.stopReason !== "") break;
-        }
-      }
-
-      // 2. Check if the last message is directly mergeable
-      const shouldMergeIntoLast =
-        lastMsg !== null &&
-        lastMsg.role === "agent" &&
-        lastMsg.agentId === agentId &&
-        (lastMsg.stopReason == null || lastMsg.stopReason === "");
-
-      // 3. If not directly mergeable, look back past tool messages to find
-      //    an in-progress agent message to merge into.
-      let mergeTargetIdx = -1;
-      if (!shouldMergeIntoLast && lastMsg !== null && messageIdTargetIdx < 0) {
-        for (let i = existing.length - 1; i >= 0; i--) {
-          const m = existing[i];
-          if (
-            m.role === "agent" &&
-            m.agentId === agentId &&
-            (m.stopReason == null || m.stopReason === "")
-          ) {
-            mergeTargetIdx = i;
-            break;
-          }
-          if (m.role === "user" || m.role === "system") break;
-          if (m.role === "agent" && m.stopReason != null && m.stopReason !== "") break;
-        }
-      }
-
-      const effectiveMergeTarget = messageIdTargetIdx >= 0 ? messageIdTargetIdx : (shouldMergeIntoLast ? (existing.length - 1) : mergeTargetIdx);
-
-      let newMessages: ChatMessage[];
-      if (effectiveMergeTarget >= 0) {
-        const merged = chunks.join("");
-        const target = existing[effectiveMergeTarget];
-        const updatedTarget: ChatMessage = {
-          ...target,
-          content: target.content + merged,
+    setMessages: (key, msgs) =>
+      set((state) => {
+        const prev = state.perSession[key];
+        // Same reference → no change, return same state object
+        if (prev === msgs) return state;
+        log.debug("setMessages", { key, count: msgs.length });
+        return {
+          ...state,
+          perSession: { ...state.perSession, [key]: msgs },
         };
-        newMessages = [...existing];
-        newMessages[effectiveMergeTarget] = updatedTarget;
-      } else {
-        // 4. No merge target — create a new ChatMessage.
-        const writeSeq = useFileWriteStore.getState().currentSeq();
-        const id = messageId ?? crypto.randomUUID();
-        const merged = chunks.join("");
-        newMessages = [
-          ...existing,
-          {
-            id,
-            role: "agent",
-            content: merged,
-            timestamp: Date.now(),
-            agentId,
-            sessionId,
-            writeSeq,
-          },
-        ];
-      }
+      }),
 
-      return {
-        ...state,
-        perSession: { ...state.perSession, [key]: newMessages },
-        streaming: { ...state.streaming, [key]: true },
-      };
-    }),
-
-  appendStreamChunk: (key, agentId, sessionId, chunk, messageId?: string | null) =>
-    set((state) => {
-      const existing = state.perSession[key] ?? [];
-      const lastMsg = existing.length > 0 ? existing[existing.length - 1] : null;
-
-      // 1. messageId-based merge: find agent message with matching id
-      let messageIdTargetIdx = -1;
-      if (messageId != null) {
-        for (let i = existing.length - 1; i >= 0; i--) {
-          const m = existing[i];
-          if (m.role === "agent" && m.id === messageId) {
-            messageIdTargetIdx = i;
-            break;
-          }
-          if (m.role === "user" || m.role === "system") break;
-          if (m.role === "agent" && m.stopReason != null && m.stopReason !== "") break;
-        }
-      }
-
-      // 2. Direct merge: last message is same-agent, in-progress
-      const shouldAppend =
-        lastMsg !== null &&
-        lastMsg.role === "agent" &&
-        lastMsg.agentId === agentId &&
-        (lastMsg.stopReason == null || lastMsg.stopReason === "");
-
-      // 3. Look back past tool messages for an in-progress agent message
-      let mergeTargetIdx = -1;
-      if (!shouldAppend && lastMsg !== null && messageIdTargetIdx < 0) {
-        for (let i = existing.length - 1; i >= 0; i--) {
-          const m = existing[i];
-          if (
-            m.role === "agent" &&
-            m.agentId === agentId &&
-            (m.stopReason == null || m.stopReason === "")
-          ) {
-            mergeTargetIdx = i;
-            break;
-          }
-          if (m.role === "user" || m.role === "system") break;
-          if (m.role === "agent" && m.stopReason != null && m.stopReason !== "") break;
-        }
-      }
-
-      const effectiveMergeTarget = messageIdTargetIdx >= 0 ? messageIdTargetIdx : (shouldAppend ? (existing.length - 1) : mergeTargetIdx);
-
-      let newMessages: ChatMessage[];
-      if (effectiveMergeTarget >= 0) {
-        const target = existing[effectiveMergeTarget];
-        const updatedTarget: ChatMessage = {
-          ...target,
-          content: target.content + chunk,
+    appendMessage: (key, msg) =>
+      set((state) => {
+        const existing = state.perSession[key] ?? [];
+        log.trace("appendMessage", {
+          key,
+          msgId: msg.id,
+          role: msg.role,
+          len: existing.length + 1,
+        });
+        return {
+          ...state,
+          perSession: { ...state.perSession, [key]: [...existing, msg] },
         };
-        newMessages = [...existing];
-        newMessages[effectiveMergeTarget] = updatedTarget;
-      } else {
-        // No merge target — create a new ChatMessage.
-        const writeSeq = useFileWriteStore.getState().currentSeq();
-        const id = messageId ?? crypto.randomUUID();
-        newMessages = [
-          ...existing,
-          {
-            id,
-            role: "agent",
-            content: chunk,
-            timestamp: Date.now(),
-            agentId,
-            sessionId,
-            writeSeq,
-          },
-        ];
-      }
-      const newStreaming =
-        state.streaming[key] === true
-          ? state.streaming
-          : { ...state.streaming, [key]: true };
-      log.trace("appendStreamChunk", { key, agentId, chunkLen: chunk.length });
-      return {
-        ...state,
-        perSession: { ...state.perSession, [key]: newMessages },
-        streaming: newStreaming,
-      };
-    }),
+      }),
 
-  updateLastAgentMessage: (key, update) =>
-    set((state) => {
-      const existing = state.perSession[key];
-      if (!existing || existing.length === 0) return state;
-      // Find the last agent message (skip tool messages so stopReason
-      // is always stamped on the text response, not a tool-only message).
-      // Also skip messages with stopReason — they belong to a PREVIOUS turn
-      // and must not be mutated by subsequent turn events.
-      for (let i = existing.length - 1; i >= 0; i--) {
-        if (existing[i].role === "agent" && (existing[i].stopReason == null || existing[i].stopReason === "")) {
-          const updated = { ...existing[i], ...update };
-          const next = [...existing];
-          next[i] = updated;
-          return {
-            ...state,
-            perSession: { ...state.perSession, [key]: next },
-          };
+    setStreaming: (key, v) =>
+      set((state) => {
+        if (state.streaming[key] === v) return state;
+        log.trace("setStreaming", { key, streaming: v });
+        return {
+          ...state,
+          streaming: { ...state.streaming, [key]: v },
+        };
+      }),
+
+    /**
+     * Append multiple streaming chunks to the message store.
+     *
+     * Merge priority:
+     * 1. Same messageId (ACP SDK) — always merge.
+     * 2. Last message is directly mergeable (same agent).
+     * 3. Look back past tool messages for an in-progress agent message.
+     * 4. Otherwise, create a new ChatMessage.
+     */
+    appendStreamChunks: (
+      key,
+      agentId,
+      sessionId,
+      chunks: string[],
+      messageId?: string | null
+    ) =>
+      set((state) => {
+        if (chunks.length === 0) return state;
+        const existing = state.perSession[key] ?? [];
+        const lastMsg =
+          existing.length > 0 ? existing[existing.length - 1] : null;
+
+        // 1. messageId-based merge: find the agent message with matching id
+        let messageIdTargetIdx = -1;
+        if (messageId != null) {
+          for (let i = existing.length - 1; i >= 0; i--) {
+            const m = existing[i];
+            if (m.role === "agent" && m.id === messageId) {
+              messageIdTargetIdx = i;
+              break;
+            }
+            // Stop looking past user/system messages or completed agents
+            if (m.role === "user" || m.role === "system") break;
+            if (
+              m.role === "agent" &&
+              m.stopReason != null &&
+              m.stopReason !== ""
+            )
+              break;
+          }
         }
-      }
-      // No agent message found — fall back to last tool message
-      for (let i = existing.length - 1; i >= 0; i--) {
-        if (existing[i].role === "tool") {
-          const updated = { ...existing[i], ...update };
-          const next = [...existing];
-          next[i] = updated;
-          return {
-            ...state,
-            perSession: { ...state.perSession, [key]: next },
-          };
+
+        // 2. Check if the last message is directly mergeable
+        const shouldMergeIntoLast =
+          lastMsg !== null &&
+          lastMsg.role === "agent" &&
+          lastMsg.agentId === agentId &&
+          (lastMsg.stopReason == null || lastMsg.stopReason === "");
+
+        // 3. If not directly mergeable, look back past tool messages to find
+        //    an in-progress agent message to merge into.
+        let mergeTargetIdx = -1;
+        if (
+          !shouldMergeIntoLast &&
+          lastMsg !== null &&
+          messageIdTargetIdx < 0
+        ) {
+          for (let i = existing.length - 1; i >= 0; i--) {
+            const m = existing[i];
+            if (
+              m.role === "agent" &&
+              m.agentId === agentId &&
+              (m.stopReason == null || m.stopReason === "")
+            ) {
+              mergeTargetIdx = i;
+              break;
+            }
+            if (m.role === "user" || m.role === "system") break;
+            if (
+              m.role === "agent" &&
+              m.stopReason != null &&
+              m.stopReason !== ""
+            )
+              break;
+          }
         }
+
+        const effectiveMergeTarget =
+          messageIdTargetIdx >= 0
+            ? messageIdTargetIdx
+            : shouldMergeIntoLast
+              ? existing.length - 1
+              : mergeTargetIdx;
+
+        let newMessages: ChatMessage[];
+        if (effectiveMergeTarget >= 0) {
+          const merged = chunks.join("");
+          const target = existing[effectiveMergeTarget];
+          const updatedTarget: ChatMessage = {
+            ...target,
+            content: target.content + merged,
+          };
+          newMessages = [...existing];
+          newMessages[effectiveMergeTarget] = updatedTarget;
+        } else {
+          // 4. No merge target — create a new ChatMessage.
+          const writeSeq = useFileWriteStore.getState().currentSeq();
+          const id = messageId ?? crypto.randomUUID();
+          const merged = chunks.join("");
+          newMessages = [
+            ...existing,
+            {
+              id,
+              role: "agent",
+              content: merged,
+              timestamp: Date.now(),
+              agentId,
+              sessionId,
+              writeSeq,
+            },
+          ];
+        }
+
+        return {
+          ...state,
+          perSession: { ...state.perSession, [key]: newMessages },
+          streaming: { ...state.streaming, [key]: true },
+        };
+      }),
+
+    appendStreamChunk: (
+      key,
+      agentId,
+      sessionId,
+      chunk,
+      messageId?: string | null
+    ) =>
+      set((state) => {
+        const existing = state.perSession[key] ?? [];
+        const lastMsg =
+          existing.length > 0 ? existing[existing.length - 1] : null;
+
+        // 1. messageId-based merge: find agent message with matching id
+        let messageIdTargetIdx = -1;
+        if (messageId != null) {
+          for (let i = existing.length - 1; i >= 0; i--) {
+            const m = existing[i];
+            if (m.role === "agent" && m.id === messageId) {
+              messageIdTargetIdx = i;
+              break;
+            }
+            if (m.role === "user" || m.role === "system") break;
+            if (
+              m.role === "agent" &&
+              m.stopReason != null &&
+              m.stopReason !== ""
+            )
+              break;
+          }
+        }
+
+        // 2. Direct merge: last message is same-agent, in-progress
+        const shouldAppend =
+          lastMsg !== null &&
+          lastMsg.role === "agent" &&
+          lastMsg.agentId === agentId &&
+          (lastMsg.stopReason == null || lastMsg.stopReason === "");
+
+        // 3. Look back past tool messages for an in-progress agent message
+        let mergeTargetIdx = -1;
+        if (!shouldAppend && lastMsg !== null && messageIdTargetIdx < 0) {
+          for (let i = existing.length - 1; i >= 0; i--) {
+            const m = existing[i];
+            if (
+              m.role === "agent" &&
+              m.agentId === agentId &&
+              (m.stopReason == null || m.stopReason === "")
+            ) {
+              mergeTargetIdx = i;
+              break;
+            }
+            if (m.role === "user" || m.role === "system") break;
+            if (
+              m.role === "agent" &&
+              m.stopReason != null &&
+              m.stopReason !== ""
+            )
+              break;
+          }
+        }
+
+        const effectiveMergeTarget =
+          messageIdTargetIdx >= 0
+            ? messageIdTargetIdx
+            : shouldAppend
+              ? existing.length - 1
+              : mergeTargetIdx;
+
+        let newMessages: ChatMessage[];
+        if (effectiveMergeTarget >= 0) {
+          const target = existing[effectiveMergeTarget];
+          const updatedTarget: ChatMessage = {
+            ...target,
+            content: target.content + chunk,
+          };
+          newMessages = [...existing];
+          newMessages[effectiveMergeTarget] = updatedTarget;
+        } else {
+          // No merge target — create a new ChatMessage.
+          const writeSeq = useFileWriteStore.getState().currentSeq();
+          const id = messageId ?? crypto.randomUUID();
+          newMessages = [
+            ...existing,
+            {
+              id,
+              role: "agent",
+              content: chunk,
+              timestamp: Date.now(),
+              agentId,
+              sessionId,
+              writeSeq,
+            },
+          ];
+        }
+        const newStreaming =
+          state.streaming[key] === true
+            ? state.streaming
+            : { ...state.streaming, [key]: true };
+        log.trace("appendStreamChunk", {
+          key,
+          agentId,
+          chunkLen: chunk.length,
+        });
+        return {
+          ...state,
+          perSession: { ...state.perSession, [key]: newMessages },
+          streaming: newStreaming,
+        };
+      }),
+
+    updateLastAgentMessage: (key, update) =>
+      set((state) => {
+        const existing = state.perSession[key];
+        if (!existing || existing.length === 0) return state;
+        // Find the last agent message (skip tool messages so stopReason
+        // is always stamped on the text response, not a tool-only message).
+        // Also skip messages with stopReason — they belong to a PREVIOUS turn
+        // and must not be mutated by subsequent turn events.
+        for (let i = existing.length - 1; i >= 0; i--) {
+          if (
+            existing[i].role === "agent" &&
+            (existing[i].stopReason == null || existing[i].stopReason === "")
+          ) {
+            const updated = { ...existing[i], ...update };
+            const next = [...existing];
+            next[i] = updated;
+            return {
+              ...state,
+              perSession: { ...state.perSession, [key]: next },
+            };
+          }
+        }
+        // No agent message found — fall back to last tool message
+        for (let i = existing.length - 1; i >= 0; i--) {
+          if (existing[i].role === "tool") {
+            const updated = { ...existing[i], ...update };
+            const next = [...existing];
+            next[i] = updated;
+            return {
+              ...state,
+              perSession: { ...state.perSession, [key]: next },
+            };
+          }
+        }
+        return state;
+      }),
+
+    getLastAgentMessage: (key: string): ChatMessage | null => {
+      const state = useMessageStore.getState();
+      const existing: ChatMessage[] | undefined = state.perSession[key];
+      if (!existing || existing.length === 0) return null;
+      // Return the last agent message that has no stopReason — this is the
+      // "current" agent message that is still accepting chunks.
+      for (let i = existing.length - 1; i >= 0; i--) {
+        if (
+          existing[i].role === "agent" &&
+          (existing[i].stopReason == null || existing[i].stopReason === "")
+        )
+          return existing[i];
       }
-      return state;
-    }),
+      return null;
+    },
 
-  getLastAgentMessage: (key: string): ChatMessage | null => {
-    const state = useMessageStore.getState();
-    const existing: ChatMessage[] | undefined = state.perSession[key];
-    if (!existing || existing.length === 0) return null;
-    // Return the last agent message that has no stopReason — this is the
-    // "current" agent message that is still accepting chunks.
-    for (let i = existing.length - 1; i >= 0; i--) {
-      if (existing[i].role === "agent" && (existing[i].stopReason == null || existing[i].stopReason === "")) return existing[i];
-    }
-    return null;
-  },
+    updateMessage: (key, index, msg) =>
+      set((state) => {
+        const existing = state.perSession[key];
+        if (!existing || index < 0 || index >= existing.length) return state;
+        const next = [...existing];
+        next[index] = msg;
+        return {
+          ...state,
+          perSession: { ...state.perSession, [key]: next },
+        };
+      }),
 
-  updateMessage: (key, index, msg) =>
-    set((state) => {
-      const existing = state.perSession[key];
-      if (!existing || index < 0 || index >= existing.length) return state;
-      const next = [...existing];
-      next[index] = msg;
-      return {
-        ...state,
-        perSession: { ...state.perSession, [key]: next },
-      };
-    }),
+    clearSession: (key) =>
+      set((state) => {
+        if (!(key in state.perSession)) return state;
+        const next = { ...state.perSession };
+        delete next[key];
+        return { ...state, perSession: next };
+      }),
 
-  clearSession: (key) =>
-    set((state) => {
-      if (!(key in state.perSession)) return state;
-      const next = { ...state.perSession };
-      delete next[key];
-      return { ...state, perSession: next };
-    }),
-
-  addQueuedPrompt: (key, entry) =>
-    set((state) => {
-      const existing = state.promptQueue[key] ?? [];
-      log.trace("addQueuedPrompt", {
-        key,
-        entryId: entry.id,
-        len: existing.length + 1,
-      });
-      return {
-        ...state,
-        promptQueue: { ...state.promptQueue, [key]: [...existing, entry] },
-      };
-    }),
-}));
+    addQueuedPrompt: (key, entry) =>
+      set((state) => {
+        const existing = state.promptQueue[key] ?? [];
+        log.trace("addQueuedPrompt", {
+          key,
+          entryId: entry.id,
+          len: existing.length + 1,
+        });
+        return {
+          ...state,
+          promptQueue: { ...state.promptQueue, [key]: [...existing, entry] },
+        };
+      }),
+  })
+);

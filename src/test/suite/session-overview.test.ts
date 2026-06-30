@@ -302,7 +302,7 @@ describe("SessionOrchestrator — getSessionOverview()", () => {
     );
     sessions.set("claude", agentSessions);
 
-    const overview = orch.getSessionOverview();
+    const overview = orch.getSessionOverview({ withRecentResponses: true });
     // extractRecentResponses only picks agent role messages, last 3
     const recent = overview.sessions[0].recentResponses;
     assert.ok(recent.length <= 3);
@@ -388,7 +388,7 @@ describe("SessionOrchestrator — extractRecentResponses()", () => {
         content: "Hello there, how are you doing on this fine day?",
       }),
     ]);
-    const overview = orch.getSessionOverview();
+    const overview = orch.getSessionOverview({ withRecentResponses: true });
     assert.strictEqual(overview.sessions[0].recentResponses.length, 0);
   });
 
@@ -400,7 +400,7 @@ describe("SessionOrchestrator — extractRecentResponses()", () => {
       );
     }
     addSession("s1", "claude", msgs);
-    const overview = orch.getSessionOverview();
+    const overview = orch.getSessionOverview({ withRecentResponses: true });
     assert.strictEqual(overview.sessions[0].recentResponses.length, 3);
   });
 
@@ -410,7 +410,7 @@ describe("SessionOrchestrator — extractRecentResponses()", () => {
       makeMessage({ role: "agent", content: "Second response" }),
       makeMessage({ role: "agent", content: "Third response" }),
     ]);
-    const overview = orch.getSessionOverview();
+    const overview = orch.getSessionOverview({ withRecentResponses: true });
     const previews = overview.sessions[0].recentResponses.map((r) => r.preview);
     assert.deepStrictEqual(previews, [
       "First response",
@@ -421,14 +421,14 @@ describe("SessionOrchestrator — extractRecentResponses()", () => {
 
   it("includes agent role in response items", () => {
     addSession("s1", "claude", [makeMessage({ role: "agent", content: "A" })]);
-    const overview = orch.getSessionOverview();
+    const overview = orch.getSessionOverview({ withRecentResponses: true });
     assert.strictEqual(overview.sessions[0].recentResponses[0].role, "agent");
   });
 
   it("uses messageId from source message", () => {
     const msg = makeMessage({ role: "agent", content: "Test" });
     addSession("s1", "claude", [msg]);
-    const overview = orch.getSessionOverview();
+    const overview = orch.getSessionOverview({ withRecentResponses: true });
     assert.strictEqual(
       overview.sessions[0].recentResponses[0].messageId,
       msg.id

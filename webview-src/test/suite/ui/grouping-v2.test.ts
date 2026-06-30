@@ -16,7 +16,10 @@ import {
   attachStepFileEditSummariesV2,
 } from "../../../pipeline/stages/grouping";
 import { useFileWriteStore } from "../../../store/fileWriteStore";
-import type { IntermediateStep, ChatDisplayItem } from "../../../pipeline/types";
+import type {
+  IntermediateStep,
+  ChatDisplayItem,
+} from "../../../pipeline/types";
 import type { FileWriteRecord } from "../../../store/fileWriteStore";
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -48,7 +51,7 @@ function agentChat(
 function makeStep(
   agentMessage: ChatDisplayItem | null,
   toolCalls: ChatDisplayItem[] = [],
-  isPreAgent = false,
+  isPreAgent = false
 ): IntermediateStep {
   return { agentMessage, toolCalls, isPreAgent } as IntermediateStep;
 }
@@ -63,45 +66,117 @@ describe("lowerBound", () => {
 
   it("returns 0 when target is smaller than all elements", () => {
     const arr: FileWriteRecord[] = [
-      { path: "/a", content: "x", originalContent: null, seq: 10, contentHash: "" },
-      { path: "/b", content: "y", originalContent: null, seq: 20, contentHash: "" },
+      {
+        path: "/a",
+        content: "x",
+        originalContent: null,
+        seq: 10,
+        contentHash: "",
+      },
+      {
+        path: "/b",
+        content: "y",
+        originalContent: null,
+        seq: 20,
+        contentHash: "",
+      },
     ];
     assert.strictEqual(lowerBound(arr, 5), 0);
   });
 
   it("returns length when target is greater than all elements", () => {
     const arr: FileWriteRecord[] = [
-      { path: "/a", content: "x", originalContent: null, seq: 1, contentHash: "" },
-      { path: "/b", content: "y", originalContent: null, seq: 2, contentHash: "" },
+      {
+        path: "/a",
+        content: "x",
+        originalContent: null,
+        seq: 1,
+        contentHash: "",
+      },
+      {
+        path: "/b",
+        content: "y",
+        originalContent: null,
+        seq: 2,
+        contentHash: "",
+      },
     ];
     assert.strictEqual(lowerBound(arr, 99), 2);
   });
 
   it("returns exact insertion index for mixed values", () => {
     const arr: FileWriteRecord[] = [
-      { path: "/a", content: "x", originalContent: null, seq: 1, contentHash: "" },
-      { path: "/b", content: "y", originalContent: null, seq: 3, contentHash: "" },
-      { path: "/c", content: "z", originalContent: null, seq: 5, contentHash: "" },
-      { path: "/d", content: "w", originalContent: null, seq: 7, contentHash: "" },
+      {
+        path: "/a",
+        content: "x",
+        originalContent: null,
+        seq: 1,
+        contentHash: "",
+      },
+      {
+        path: "/b",
+        content: "y",
+        originalContent: null,
+        seq: 3,
+        contentHash: "",
+      },
+      {
+        path: "/c",
+        content: "z",
+        originalContent: null,
+        seq: 5,
+        contentHash: "",
+      },
+      {
+        path: "/d",
+        content: "w",
+        originalContent: null,
+        seq: 7,
+        contentHash: "",
+      },
     ];
     // seqs: [1, 3, 5, 7]
-    assert.strictEqual(lowerBound(arr, 0), 0);  // before first
-    assert.strictEqual(lowerBound(arr, 1), 0);  // exact match → first index where seq >= 1
-    assert.strictEqual(lowerBound(arr, 2), 1);  // between 1 and 3
-    assert.strictEqual(lowerBound(arr, 3), 1);  // exact match
-    assert.strictEqual(lowerBound(arr, 4), 2);  // between 3 and 5
-    assert.strictEqual(lowerBound(arr, 5), 2);  // exact match
-    assert.strictEqual(lowerBound(arr, 6), 3);  // between 5 and 7
-    assert.strictEqual(lowerBound(arr, 7), 3);  // exact match
-    assert.strictEqual(lowerBound(arr, 8), 4);  // after last
+    assert.strictEqual(lowerBound(arr, 0), 0); // before first
+    assert.strictEqual(lowerBound(arr, 1), 0); // exact match → first index where seq >= 1
+    assert.strictEqual(lowerBound(arr, 2), 1); // between 1 and 3
+    assert.strictEqual(lowerBound(arr, 3), 1); // exact match
+    assert.strictEqual(lowerBound(arr, 4), 2); // between 3 and 5
+    assert.strictEqual(lowerBound(arr, 5), 2); // exact match
+    assert.strictEqual(lowerBound(arr, 6), 3); // between 5 and 7
+    assert.strictEqual(lowerBound(arr, 7), 3); // exact match
+    assert.strictEqual(lowerBound(arr, 8), 4); // after last
   });
 
   it("respects the start parameter", () => {
     const arr: FileWriteRecord[] = [
-      { path: "/a", content: "x", originalContent: null, seq: 1, contentHash: "" },
-      { path: "/b", content: "y", originalContent: null, seq: 3, contentHash: "" },
-      { path: "/c", content: "z", originalContent: null, seq: 5, contentHash: "" },
-      { path: "/d", content: "w", originalContent: null, seq: 7, contentHash: "" },
+      {
+        path: "/a",
+        content: "x",
+        originalContent: null,
+        seq: 1,
+        contentHash: "",
+      },
+      {
+        path: "/b",
+        content: "y",
+        originalContent: null,
+        seq: 3,
+        contentHash: "",
+      },
+      {
+        path: "/c",
+        content: "z",
+        originalContent: null,
+        seq: 5,
+        contentHash: "",
+      },
+      {
+        path: "/d",
+        content: "w",
+        originalContent: null,
+        seq: 7,
+        contentHash: "",
+      },
     ];
     // start=2 → skip seqs 1 and 3
     assert.strictEqual(lowerBound(arr, 1, 2), 2);
@@ -112,10 +187,34 @@ describe("lowerBound", () => {
 
   it("handles duplicates correctly", () => {
     const arr: FileWriteRecord[] = [
-      { path: "/a", content: "x", originalContent: null, seq: 1, contentHash: "" },
-      { path: "/b", content: "y", originalContent: null, seq: 1, contentHash: "" },
-      { path: "/c", content: "z", originalContent: null, seq: 1, contentHash: "" },
-      { path: "/d", content: "w", originalContent: null, seq: 2, contentHash: "" },
+      {
+        path: "/a",
+        content: "x",
+        originalContent: null,
+        seq: 1,
+        contentHash: "",
+      },
+      {
+        path: "/b",
+        content: "y",
+        originalContent: null,
+        seq: 1,
+        contentHash: "",
+      },
+      {
+        path: "/c",
+        content: "z",
+        originalContent: null,
+        seq: 1,
+        contentHash: "",
+      },
+      {
+        path: "/d",
+        content: "w",
+        originalContent: null,
+        seq: 2,
+        contentHash: "",
+      },
     ];
     // All seq=1 entries match → lower bound returns first
     assert.strictEqual(lowerBound(arr, 1), 0);
@@ -127,8 +226,11 @@ describe("lowerBound", () => {
     const arr: FileWriteRecord[] = [];
     for (let i = 0; i < 100000; i++) {
       arr.push({
-        path: `f${i}`, content: "x", originalContent: null,
-        seq: i * 2, contentHash: "",
+        path: `f${i}`,
+        content: "x",
+        originalContent: null,
+        seq: i * 2,
+        contentHash: "",
       });
     }
     // Should return without performance issue
@@ -148,7 +250,13 @@ describe("buildSummaryFromWrites", () => {
 
   it("handles single write with null original", () => {
     const writes: FileWriteRecord[] = [
-      { path: "/a.ts", content: "line1\nline2", originalContent: null, seq: 0, contentHash: "" },
+      {
+        path: "/a.ts",
+        content: "line1\nline2",
+        originalContent: null,
+        seq: 0,
+        contentHash: "",
+      },
     ];
     const result = buildSummaryFromWrites(writes);
     assert.ok(result);
@@ -161,8 +269,20 @@ describe("buildSummaryFromWrites", () => {
 
   it("merges multiple writes to same path (latest wins for diff)", () => {
     const writes: FileWriteRecord[] = [
-      { path: "/a.ts", content: "v1", originalContent: null, seq: 0, contentHash: "" },
-      { path: "/a.ts", content: "v2\nv2", originalContent: null, seq: 1, contentHash: "" },
+      {
+        path: "/a.ts",
+        content: "v1",
+        originalContent: null,
+        seq: 0,
+        contentHash: "",
+      },
+      {
+        path: "/a.ts",
+        content: "v2\nv2",
+        originalContent: null,
+        seq: 1,
+        contentHash: "",
+      },
     ];
     const result = buildSummaryFromWrites(writes);
     assert.ok(result);
@@ -175,8 +295,20 @@ describe("buildSummaryFromWrites", () => {
 
   it("preserves originalContent from first write", () => {
     const writes: FileWriteRecord[] = [
-      { path: "/a.ts", content: "new", originalContent: "original", seq: 0, contentHash: "" },
-      { path: "/a.ts", content: "newer", originalContent: "ignored", seq: 1, contentHash: "" },
+      {
+        path: "/a.ts",
+        content: "new",
+        originalContent: "original",
+        seq: 0,
+        contentHash: "",
+      },
+      {
+        path: "/a.ts",
+        content: "newer",
+        originalContent: "ignored",
+        seq: 1,
+        contentHash: "",
+      },
     ];
     const result = buildSummaryFromWrites(writes);
     assert.ok(result);
@@ -185,9 +317,27 @@ describe("buildSummaryFromWrites", () => {
 
   it("returns multiple entries for distinct paths", () => {
     const writes: FileWriteRecord[] = [
-      { path: "/a.ts", content: "a1", originalContent: null, seq: 0, contentHash: "" },
-      { path: "/b.ts", content: "b1\nb2", originalContent: null, seq: 1, contentHash: "" },
-      { path: "/c.ts", content: "c1", originalContent: null, seq: 2, contentHash: "" },
+      {
+        path: "/a.ts",
+        content: "a1",
+        originalContent: null,
+        seq: 0,
+        contentHash: "",
+      },
+      {
+        path: "/b.ts",
+        content: "b1\nb2",
+        originalContent: null,
+        seq: 1,
+        contentHash: "",
+      },
+      {
+        path: "/c.ts",
+        content: "c1",
+        originalContent: null,
+        seq: 2,
+        contentHash: "",
+      },
     ];
     const result = buildSummaryFromWrites(writes);
     assert.ok(result);
@@ -199,9 +349,27 @@ describe("buildSummaryFromWrites", () => {
   it("insertion order is preserved across unsorted seq", () => {
     // Writes arrive out of seq order but Map preserves insertion order
     const writes: FileWriteRecord[] = [
-      { path: "/later.ts", content: "aa", originalContent: null, seq: 5, contentHash: "" },
-      { path: "/early.ts", content: "bb", originalContent: null, seq: 1, contentHash: "" },
-      { path: "/mid.ts", content: "cc", originalContent: null, seq: 3, contentHash: "" },
+      {
+        path: "/later.ts",
+        content: "aa",
+        originalContent: null,
+        seq: 5,
+        contentHash: "",
+      },
+      {
+        path: "/early.ts",
+        content: "bb",
+        originalContent: null,
+        seq: 1,
+        contentHash: "",
+      },
+      {
+        path: "/mid.ts",
+        content: "cc",
+        originalContent: null,
+        seq: 3,
+        contentHash: "",
+      },
     ];
     const result = buildSummaryFromWrites(writes);
     assert.ok(result);
@@ -248,11 +416,11 @@ describe("attachStepFileEditSummariesV2", () => {
 
   it("partitions writes across 3 steps by writeSeq boundaries", () => {
     // Setup: writes with seq 0,1 → step1, seq 2,3 → step2, seq 4 → step3(final)
-    useFileWriteStore.getState().addWrite("a1", "s1", "/s1a.ts", "x");  // seq=0
-    useFileWriteStore.getState().addWrite("a1", "s1", "/s1b.ts", "y");  // seq=1
-    useFileWriteStore.getState().addWrite("a1", "s1", "/s2a.ts", "z");  // seq=2
-    useFileWriteStore.getState().addWrite("a1", "s1", "/s2b.ts", "w");  // seq=3
-    useFileWriteStore.getState().addWrite("a1", "s1", "/s3.ts",  "q");  // seq=4
+    useFileWriteStore.getState().addWrite("a1", "s1", "/s1a.ts", "x"); // seq=0
+    useFileWriteStore.getState().addWrite("a1", "s1", "/s1b.ts", "y"); // seq=1
+    useFileWriteStore.getState().addWrite("a1", "s1", "/s2a.ts", "z"); // seq=2
+    useFileWriteStore.getState().addWrite("a1", "s1", "/s2b.ts", "w"); // seq=3
+    useFileWriteStore.getState().addWrite("a1", "s1", "/s3.ts", "q"); // seq=4
 
     const steps = [
       makeStep(agentChat("step1", { writeSeq: 0 })),
@@ -311,7 +479,7 @@ describe("attachStepFileEditSummariesV2", () => {
     useFileWriteStore.getState().addWrite("a1", "s1", "/y.ts", "y"); // seq=1
 
     const steps = [
-      makeStep(agentChat("no-seq")),              // writeSeq undefined → 0
+      makeStep(agentChat("no-seq")), // writeSeq undefined → 0
       makeStep(agentChat("with-seq", { writeSeq: 1 })),
     ];
 
@@ -343,7 +511,9 @@ describe("attachStepFileEditSummariesV2", () => {
     // First step: boundary collapse → [0, ∞) includes the write
     // After collapse: boundaries[0].hi = boundaries[1].lo (=0) → no expansion possible
     // So writes go to second step (which has hi=∞)
-    const totalWithSummary = steps.filter((s) => s.fileEditSummary && s.fileEditSummary.length > 0).length;
+    const totalWithSummary = steps.filter(
+      (s) => s.fileEditSummary && s.fileEditSummary.length > 0
+    ).length;
     assert.ok(totalWithSummary >= 1, "At least one step should have the write");
   });
 
@@ -351,7 +521,7 @@ describe("attachStepFileEditSummariesV2", () => {
     useFileWriteStore.getState().addWrite("a1", "s1", "/pre.ts", "pre"); // seq=0
 
     const steps = [
-      makeStep(null, [], true),  // pre-agent step → writeSeq undefined → 0
+      makeStep(null, [], true), // pre-agent step → writeSeq undefined → 0
       makeStep(agentChat("agent", { writeSeq: 1 })),
     ];
 
@@ -390,8 +560,8 @@ describe("attachStepFileEditSummariesV2", () => {
   });
 
   it("respects session isolation (writes from other sessions ignored)", () => {
-    useFileWriteStore.getState().addWrite("a1", "s1", "/mine.ts", "m");   // seq=0 (correct session)
-    useFileWriteStore.getState().addWrite("a2", "s2", "/other.ts", "o");   // seq=1 (wrong session)
+    useFileWriteStore.getState().addWrite("a1", "s1", "/mine.ts", "m"); // seq=0 (correct session)
+    useFileWriteStore.getState().addWrite("a2", "s2", "/other.ts", "o"); // seq=1 (wrong session)
 
     const steps = [makeStep(agentChat("step", { writeSeq: 0 }))];
 
@@ -419,8 +589,10 @@ describe("attachStepFileEditSummariesV2", () => {
   });
 
   it("produces correct line counts after partitioning", () => {
-    useFileWriteStore.getState().addWrite("a1", "s1", "/multi.ts", "l1\nl2\nl3"); // seq=0
-    useFileWriteStore.getState().addWrite("a1", "s1", "/single.ts", "s1");       // seq=1
+    useFileWriteStore
+      .getState()
+      .addWrite("a1", "s1", "/multi.ts", "l1\nl2\nl3"); // seq=0
+    useFileWriteStore.getState().addWrite("a1", "s1", "/single.ts", "s1"); // seq=1
 
     const steps = [
       makeStep(agentChat("s1", { writeSeq: 0 })), // [0,1) → /multi.ts

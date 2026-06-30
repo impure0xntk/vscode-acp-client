@@ -439,7 +439,12 @@ export function wireChatPanelEvents(
           mode?: string;
           teamId?: string;
         };
-        if (mode === "supervisor" && teamId && _supervisorOrchestrator && _orchestrator) {
+        if (
+          mode === "supervisor" &&
+          teamId &&
+          _supervisorOrchestrator &&
+          _orchestrator
+        ) {
           const team = meshOrchestrator?.getTeam(teamId);
           if (team) {
             const leadTarget: SendTarget = {
@@ -451,8 +456,10 @@ export function wireChatPanelEvents(
             const workerTargets: SendTarget[] = team.members
               .filter(
                 (m) =>
-                  !(m.agentId === team.lead.agentId &&
-                    m.sessionId === team.lead.sessionId)
+                  !(
+                    m.agentId === team.lead.agentId &&
+                    m.sessionId === team.lead.sessionId
+                  )
               )
               .map((m) => ({
                 agentId: m.agentId,
@@ -757,14 +764,18 @@ export function wireChatPanelEvents(
       // File Edit messages
       // ==================================================================
       case "openDiff": {
-        const { path: diffPath, originalContent, expectedHash } = data as {
+        const {
+          path: diffPath,
+          originalContent,
+          expectedHash,
+        } = data as {
           path: string;
           originalContent?: string;
           expectedHash?: string;
         };
         void (async () => {
-          const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
-            ?? process.cwd();
+          const ws =
+            vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
           const absPath = path.isAbsolute(diffPath)
             ? diffPath
             : path.resolve(ws, diffPath);
@@ -772,7 +783,8 @@ export function wireChatPanelEvents(
 
           if (expectedHash) {
             try {
-              const currentContent = await vscode.workspace.fs.readFile(currentUri);
+              const currentContent =
+                await vscode.workspace.fs.readFile(currentUri);
               const currentHash = require("node:crypto")
                 .createHash("sha256")
                 .update(new TextDecoder().decode(currentContent), "utf8")
@@ -814,7 +826,11 @@ export function wireChatPanelEvents(
             // If the user saves changes in the diff, VS Code writes to the
             // current file (right side), so the temp file is no longer needed.
             setTimeout(() => {
-              try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
+              try {
+                fs.rmSync(tmpDir, { recursive: true, force: true });
+              } catch {
+                /* ignore */
+              }
             }, 60_000);
           } else {
             const doc = await vscode.workspace.openTextDocument(currentUri);
@@ -832,15 +848,18 @@ export function wireChatPanelEvents(
           originalContent: string;
         };
         void (async () => {
-          const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
-            ?? process.cwd();
+          const ws =
+            vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
           const absPath = path.isAbsolute(revertPath)
             ? revertPath
             : path.resolve(ws, revertPath);
           const uri = vscode.Uri.file(absPath);
           try {
             // Check if file exists
-            const exists = await vscode.workspace.fs.stat(uri).then(() => true, () => false);
+            const exists = await vscode.workspace.fs.stat(uri).then(
+              () => true,
+              () => false
+            );
             if (!exists) {
               void vscode.window.showWarningMessage(
                 `File not found: ${path.basename(absPath)}`
@@ -850,7 +869,10 @@ export function wireChatPanelEvents(
 
             // Write original content back
             const encoder = new TextEncoder();
-            await vscode.workspace.fs.writeFile(uri, encoder.encode(originalContent));
+            await vscode.workspace.fs.writeFile(
+              uri,
+              encoder.encode(originalContent)
+            );
 
             // Open the reverted file so the user can see the result
             const doc = await vscode.workspace.openTextDocument(uri);
@@ -862,7 +884,11 @@ export function wireChatPanelEvents(
               `Reverted ${path.basename(absPath)} to original content`
             );
           } catch (err) {
-            getLogger("prompt").error("revertFile failed", { absPath }, err as Error);
+            getLogger("prompt").error(
+              "revertFile failed",
+              { absPath },
+              err as Error
+            );
             void vscode.window.showErrorMessage(
               `Failed to revert ${path.basename(absPath)}: ${(err as Error).message}`
             );
@@ -872,17 +898,26 @@ export function wireChatPanelEvents(
       }
       // ── Check file hash (for stale detection in FileEditSummary) ──
       case "checkFileHash": {
-        const { path: checkPath, expectedHash, msgId } = data as {
+        const {
+          path: checkPath,
+          expectedHash,
+          msgId,
+        } = data as {
           path: string;
           expectedHash: string;
           msgId: string;
         };
         void (async () => {
-          const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
-          const absPath = path.isAbsolute(checkPath) ? checkPath : path.resolve(wsRoot, checkPath);
+          const wsRoot =
+            vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+          const absPath = path.isAbsolute(checkPath)
+            ? checkPath
+            : path.resolve(wsRoot, checkPath);
           let isStale = false;
           try {
-            const content = await vscode.workspace.fs.readFile(vscode.Uri.file(absPath));
+            const content = await vscode.workspace.fs.readFile(
+              vscode.Uri.file(absPath)
+            );
             const currentHash = require("node:crypto")
               .createHash("sha256")
               .update(new TextDecoder().decode(content), "utf8")
@@ -907,12 +942,17 @@ export function wireChatPanelEvents(
           checks: Array<{ path: string; expectedHash: string }>;
         };
         void (async () => {
-          const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+          const wsRoot =
+            vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
           for (const check of checks) {
-            const absPath = path.isAbsolute(check.path) ? check.path : path.resolve(wsRoot, check.path);
+            const absPath = path.isAbsolute(check.path)
+              ? check.path
+              : path.resolve(wsRoot, check.path);
             let isStale = false;
             try {
-              const content = await vscode.workspace.fs.readFile(vscode.Uri.file(absPath));
+              const content = await vscode.workspace.fs.readFile(
+                vscode.Uri.file(absPath)
+              );
               const currentHash = require("node:crypto")
                 .createHash("sha256")
                 .update(new TextDecoder().decode(content), "utf8")

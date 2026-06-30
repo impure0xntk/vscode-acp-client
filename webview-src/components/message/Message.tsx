@@ -45,7 +45,9 @@ function openFileFromLink(e: React.MouseEvent<HTMLElement>): void {
 
 function copyCodeBlock(e: React.MouseEvent<HTMLElement>): void {
   const btn = e.currentTarget as HTMLElement;
-  const wrapper = btn.closest("[data-code-block-wrapper]") as HTMLElement | null;
+  const wrapper = btn.closest(
+    "[data-code-block-wrapper]"
+  ) as HTMLElement | null;
   if (!wrapper) return;
   const codeEl = wrapper.querySelector("code");
   if (!codeEl) return;
@@ -114,7 +116,9 @@ function AttachmentChip({
       ) : attachment.type === "symbol" ? (
         <Icon name="symbol-class" size="sm" className="text-[12px]" />
       ) : (
-        <span className="inline-flex items-center justify-center w-[14px] h-[11px] rounded-[2px] font-mono text-[7px] font-bold leading-[-0.3px] shrink-0 bg-[color-mix(in_srgb,var(--accent)_20%,transparent)] text-fg-secondary">{"•"}</span>
+        <span className="inline-flex items-center justify-center w-[14px] h-[11px] rounded-[2px] font-mono text-[7px] font-bold leading-[-0.3px] shrink-0 bg-[color-mix(in_srgb,var(--accent)_20%,transparent)] text-fg-secondary">
+          {"•"}
+        </span>
       )}
       <span className="leading-none text-fg-primary">
         {attachment.type === "selection"
@@ -130,7 +134,9 @@ function AttachmentChip({
           :{attachment.lineRange[0]}-{attachment.lineRange[1]}
         </span>
       )}
-      <span className="text-fg-muted text-[9px] ml-[2px]">{attachment.tokenCount}t</span>
+      <span className="text-fg-muted text-[9px] ml-[2px]">
+        {attachment.tokenCount}t
+      </span>
     </span>
   );
 }
@@ -200,14 +206,18 @@ export const Message = React.memo(function Message({
       data-message-id={item.key}
     >
       {(isFirstOfTurn || forceHeader) && (
-        <div className={`flex items-center gap-2 text-[11px] text-fg-muted px-0.5 ${isUser ? "justify-end" : ""} mb-1`}>
+        <div
+          className={`flex items-center gap-2 text-[11px] text-fg-muted px-0.5 ${isUser ? "justify-end" : ""} mb-1`}
+        >
           <span className="font-medium text-fg-secondary">
             {isSystem ? "System" : isUser ? "You" : "Agent"}
           </span>
           <span className="text-[10px] opacity-50 message-time">{time}</span>
         </div>
       )}
-      <div className={`flex items-start gap-1.5 ${isUser ? "justify-end" : ""}`}>
+      <div
+        className={`flex items-start gap-1.5 ${isUser ? "justify-end" : ""}`}
+      >
         {isUser && (
           <div className="inline-flex items-center gap-1 opacity-0 invisible transition-opacity transition-visibility pointer-events-none shrink-0 self-center order-first group-hover:opacity-100 group-hover:visible group-hover:pointer-events-auto">
             <MessageActions
@@ -219,9 +229,13 @@ export const Message = React.memo(function Message({
           </div>
         )}
         {hasContent && (
-          <div className={`max-w-full ${isUser ? "bg-[color-mix(in_srgb,var(--user-bubble)_10%,transparent)] text-fg-primary px-3 py-2 rounded-lg border border-[color-mix(in_srgb,var(--user-bubble)_15%,transparent)] self-end max-w-[70%]" : "text-fg-primary"}`}>
+          <div
+            className={`max-w-full ${isUser ? "bg-[color-mix(in_srgb,var(--user-bubble)_10%,transparent)] text-fg-primary px-3 py-2 rounded-lg border border-[color-mix(in_srgb,var(--user-bubble)_15%,transparent)] self-end max-w-[70%]" : "text-fg-primary"}`}
+          >
             {isUser ? (
-              <div className="message-text whitespace-pre-wrap break-words text-[13px] leading-[1.5]">{content}</div>
+              <div className="message-text whitespace-pre-wrap break-words text-[13px] leading-[1.5]">
+                {content}
+              </div>
             ) : (
               <div className="flex items-start gap-1">
                 <div
@@ -253,10 +267,7 @@ export const Message = React.memo(function Message({
       )}
       {hasToolCalls && resolvedToolCalls && (
         <div className="ml-4 mr-1 mb-[2px]">
-          <ToolBatchSummary
-            calls={resolvedToolCalls}
-            isNew={isNew}
-          />
+          <ToolBatchSummary calls={resolvedToolCalls} isNew={isNew} />
         </div>
       )}
       {thinking && (
@@ -265,7 +276,6 @@ export const Message = React.memo(function Message({
           isStreaming={thinking.isStreaming}
         />
       )}
-
     </div>
   );
 });

@@ -142,12 +142,13 @@ export function SessionOverviewCard({
 
   const colorGroup = sessionColorGroup(liveItem.status);
 
-  const borderLeftClass = {
-    active: "border-l-[#4fc3f7]",
-    waiting: "border-l-[#ffd54f]",
-    error: "border-l-error",
-    done: "border-l-transparent",
-  }[colorGroup] ?? "border-l-transparent";
+  const borderLeftClass =
+    {
+      active: "border-l-[#4fc3f7]",
+      waiting: "border-l-[#ffd54f]",
+      error: "border-l-error",
+      done: "border-l-transparent",
+    }[colorGroup] ?? "border-l-transparent";
 
   const animClass = (() => {
     if (flashingStatus === "completed") return "animate-soc-flash-border";
@@ -177,7 +178,6 @@ export function SessionOverviewCard({
         }
       }}
     >
-
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <SessionOverviewHeader session={liveItem} agentColor={agentColor} />
@@ -195,15 +195,12 @@ export function SessionOverviewCard({
         </button>
       </div>
 
-
       <SessionOverviewChips session={liveItem} />
-
 
       <ResponsePreviewList
         responses={liveItem.recentResponses}
         maxItems={isExpanded ? 5 : 3}
       />
-
 
       <div className="flex flex-col gap-0.5 mt-1">
         <div className="flex items-center justify-between pt-1 border-t border-[color-mix(in_srgb,var(--border)_30%,transparent)]">

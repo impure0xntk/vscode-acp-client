@@ -72,7 +72,10 @@ export class ChatPanel {
   }>;
   private _onDidReceiveMessage: EventEmitter<Record<string, unknown>>;
   private _onOpenFile: EventEmitter<{ path: string; line?: number }>;
-  private _onRevertFile: EventEmitter<{ path: string; originalContent: string }>;
+  private _onRevertFile: EventEmitter<{
+    path: string;
+    originalContent: string;
+  }>;
 
   /** Extension-side logger — set by extension.ts after construction. */
   logger: {
@@ -275,8 +278,19 @@ export class ChatPanel {
     }
   }
 
-  pushStreamChunk(agentId: string, sessionId: string, chunk: string, messageId?: string): void {
-    this.postMessage({ type: "session/stream", agentId, sessionId, chunk, messageId });
+  pushStreamChunk(
+    agentId: string,
+    sessionId: string,
+    chunk: string,
+    messageId?: string
+  ): void {
+    this.postMessage({
+      type: "session/stream",
+      agentId,
+      sessionId,
+      chunk,
+      messageId,
+    });
   }
 
   pushStreamEnd(agentId: string, sessionId: string): void {

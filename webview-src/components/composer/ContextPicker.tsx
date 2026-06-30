@@ -9,7 +9,11 @@ import type { SuggestionItem, TriggerType, FileCandidate } from "../../types";
 import { Icon } from "../../lib/icons";
 import { StatusIcon } from "../primitives/StatusIcon";
 
-function PickerContextBar({ item }: { item: SuggestionItem }): React.ReactElement | null {
+function PickerContextBar({
+  item,
+}: {
+  item: SuggestionItem;
+}): React.ReactElement | null {
   const { sessionColor } = item;
 
   if (!sessionColor) return null;
@@ -58,7 +62,10 @@ export interface ContextPickerProps {
   registerKeyHandler: (
     handler: ((e: ReactKeyboardEvent<HTMLTextAreaElement>) => void) | null
   ) => void;
-  onItemsFetched?: (items: SuggestionItem[], setItems: (items: SuggestionItem[]) => void) => void;
+  onItemsFetched?: (
+    items: SuggestionItem[],
+    setItems: (items: SuggestionItem[]) => void
+  ) => void;
 }
 
 export function ContextPicker({
@@ -126,7 +133,9 @@ export function ContextPicker({
   }, [trigger, query, subTrigger, onSelectedIndexChange]);
 
   useEffect(() => {
-    const el = listRef.current?.children[selectedIndex] as HTMLElement | undefined;
+    const el = listRef.current?.children[selectedIndex] as
+      | HTMLElement
+      | undefined;
     el?.scrollIntoView({ block: "nearest" });
   }, [selectedIndex]);
 
@@ -175,7 +184,11 @@ export function ContextPicker({
                 <PickerContextBar item={item} />
               ) : null}
               {item.icon && item.kind !== "session" ? (
-                <Icon name={item.icon} className="shrink-0 text-[13px] w-[18px] text-center" size="sm" />
+                <Icon
+                  name={item.icon}
+                  className="shrink-0 text-[13px] w-[18px] text-center"
+                  size="sm"
+                />
               ) : null}
               {item.kind === "session" && item.status ? (
                 <StatusIcon status={item.status} />

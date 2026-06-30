@@ -39,15 +39,15 @@ function computeContentHash(msgs: RawMessage[]): string {
   const fastBound = Math.max(0, len - 3);
   for (let i = 0; i < fastBound; i++) {
     const m = msgs[i] as unknown as Record<string, unknown>;
-    hash += (typeof m.content === "string" ? m.content.length : 0).toString(36) + ";";
+    hash +=
+      (typeof m.content === "string" ? m.content.length : 0).toString(36) + ";";
   }
 
   // Hash suffix: last 3 messages — full mutable fields
   for (let i = fastBound; i < len; i++) {
     const m = msgs[i] as unknown as Record<string, unknown>;
     hash +=
-      (typeof m.content === "string" ? m.content.length : 0).toString(36) +
-      ";";
+      (typeof m.content === "string" ? m.content.length : 0).toString(36) + ";";
     if (m.stopReason !== undefined && m.stopReason !== null) {
       hash += String(m.stopReason) + ";";
     }
@@ -74,7 +74,8 @@ function computePrefixHash(msgs: RawMessage[]): string {
   let hash = len.toString(36) + ":";
   for (let i = 0; i < fastBound; i++) {
     const m = msgs[i] as unknown as Record<string, unknown>;
-    hash += (typeof m.content === "string" ? m.content.length : 0).toString(36) + ";";
+    hash +=
+      (typeof m.content === "string" ? m.content.length : 0).toString(36) + ";";
   }
   return hash;
 }
@@ -277,9 +278,7 @@ export function useMessagePipeline(
       const result = pipeline.process(dedupedMessages, ctx);
       entry.processedRawCount = dedupedMessages.length;
       entry.contentHash =
-        dedupedMessages.length > 0
-          ? computeContentHash(dedupedMessages)
-          : "";
+        dedupedMessages.length > 0 ? computeContentHash(dedupedMessages) : "";
       return result;
     }
 
@@ -297,7 +296,11 @@ export function useMessagePipeline(
 
           // If the prefix hash (messages except last 3) is unchanged,
           // only the suffix changed → use refreshLast for O(1) update
-          if (prevHash.length > 0 && computePrefixHash(dedupedMessages) === extractPrefixFromHash(prevHash, dedupedMessages.length)) {
+          if (
+            prevHash.length > 0 &&
+            computePrefixHash(dedupedMessages) ===
+              extractPrefixFromHash(prevHash, dedupedMessages.length)
+          ) {
             const result = pipeline.refreshLast(dedupedMessages, ctx);
             entry.processedRawCount = dedupedMessages.length;
             return result;
@@ -315,9 +318,7 @@ export function useMessagePipeline(
     const result = pipeline.processIncremental(newMessages, ctx);
     entry.processedRawCount = dedupedMessages.length;
     entry.contentHash =
-      dedupedMessages.length > 0
-        ? computeContentHash(dedupedMessages)
-        : "";
+      dedupedMessages.length > 0 ? computeContentHash(dedupedMessages) : "";
     return result;
   }, [dedupedMessages, pipeline, sessionId, agentId, processedRawCount, entry]);
 }

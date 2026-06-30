@@ -200,7 +200,10 @@ export function SessionOverviewPanel({
   }, [onNewSession]);
 
   return (
-    <div className="h-full border-l border-border bg-bg-secondary flex flex-col shrink-0" style={{ width, minWidth: width }}>
+    <div
+      className="h-full border-l border-border bg-bg-secondary flex flex-col shrink-0"
+      style={{ width, minWidth: width }}
+    >
       <SessionOverviewToolbar
         filter={state.filter}
         sessionCount={filteredSessions.length}
@@ -311,9 +314,7 @@ export function ResizableSessionOverviewPanel(
   if (!props.isVisible) return null;
 
   return (
-    <div
-      className="flex flex-row h-full shrink-0"
-    >
+    <div className="flex flex-row h-full shrink-0">
       <div
         className={`w-4 h-full cursor-col-resize shrink-0 bg-transparent transition-colors duration-150 relative${isResizing ? " resizing" : ""}`}
         onMouseDown={handleMouseDown}

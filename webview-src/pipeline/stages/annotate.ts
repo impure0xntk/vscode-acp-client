@@ -168,9 +168,7 @@ function toPipelineItem(
       // item of a new turn → show the header".  True when preceded by a
       // user message, a system notice, or at the start.
       const isAgentOrTool = msg.role === "agent" || msg.role === "tool";
-      isFirstOfTurn =
-        isAgentOrTool &&
-        (prevWasTurnBoundary && isAgentOrTool);
+      isFirstOfTurn = isAgentOrTool && prevWasTurnBoundary && isAgentOrTool;
 
       // Update turn state for next message.
       if (msg.role === "user") {

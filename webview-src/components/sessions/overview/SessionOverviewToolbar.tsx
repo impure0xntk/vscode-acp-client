@@ -128,7 +128,8 @@ export function SessionOverviewToolbar({
                   <span
                     className="shrink-0 w-[6px] h-[6px] rounded-full"
                     style={{
-                      backgroundColor: STATUS_DOT_COLORS[s] ?? "var(--fg-muted)",
+                      backgroundColor:
+                        STATUS_DOT_COLORS[s] ?? "var(--fg-muted)",
                     }}
                   />
                   <span className="shrink-0 w-3 text-[10px] text-center text-accent">

@@ -46,7 +46,8 @@ function makeUI(): UIAPI {
     }),
     showNotification: async () => undefined,
     clipboardWriteText: async () => {},
-    getConfiguration: <T>(_section: string, _key: string, defaultValue: T) => defaultValue,
+    getConfiguration: <T>(_section: string, _key: string, defaultValue: T) =>
+      defaultValue,
   } as unknown as UIAPI;
 }
 
@@ -102,7 +103,10 @@ interface OrchestratorInternals {
   getInternalState(): {
     sessions: Map<string, Map<string, AppSessionInfo>>;
     streamTextBuffer: Map<string, string>;
-    streamMsgRef: Map<string, { agentId: string; sessionId: string; msgId: string }>;
+    streamMsgRef: Map<
+      string,
+      { agentId: string; sessionId: string; msgId: string }
+    >;
     agentInfoMap: Map<string, AgentInfo>;
     agentConfigs: Map<string, any>;
     connections: Map<string, any>;
@@ -283,7 +287,9 @@ describe("restoreSession — Strategy 1: native loadSession", () => {
 
     // Remove source session from map
     const o = orchAs(orchestrator);
-    o.getInternalState().sessions.get("agent-native")!.delete("sess-source-001");
+    o.getInternalState()
+      .sessions.get("agent-native")!
+      .delete("sess-source-001");
 
     const messages = [makeMessage({ role: "user", content: "Hi" })];
     await orchestrator.restoreSession(

@@ -32,11 +32,11 @@ describe("abbreviatePath — Abbreviation Strategy", () => {
     const result = abbreviatePath(longPath, 30);
     assert.ok(
       result.length <= 30,
-      `Expected <= 30, got ${result.length}: ${result}`,
+      `Expected <= 30, got ${result.length}: ${result}`
     );
     assert.ok(
       result.endsWith("project"),
-      `Should end with last segment: ${result}`,
+      `Should end with last segment: ${result}`
     );
   });
 
@@ -45,7 +45,7 @@ describe("abbreviatePath — Abbreviation Strategy", () => {
     const result = abbreviatePath(longPath, 30);
     assert.ok(
       result.includes("h") && result.includes("u") && result.includes("g"),
-      `Should abbreviate intermediates: ${result}`,
+      `Should abbreviate intermediates: ${result}`
     );
   });
 
@@ -76,7 +76,7 @@ describe("abbreviatePath — Edge Cases", () => {
     const result = abbreviatePath(p, 15);
     assert.ok(
       result.length <= 15,
-      `Should abbreviate to fit: ${result.length}`,
+      `Should abbreviate to fit: ${result.length}`
     );
     assert.ok(result.endsWith("node"), `Should keep last segment: ${result}`);
   });
@@ -95,7 +95,7 @@ describe("abbreviatePath — Edge Cases", () => {
     const result = abbreviatePath(p, 8);
     assert.ok(
       result.length <= 8,
-      `Should abbreviate when over by 1: ${result.length}`,
+      `Should abbreviate when over by 1: ${result.length}`
     );
   });
 

@@ -37,7 +37,9 @@ function StatusBadge({ status }: { status: QueuedPrompt["status"] }) {
     cancelled: "text-fg-muted line-through",
   };
   return (
-    <span className={`text-[10px] font-medium uppercase tracking-wider ${statusClasses[status] ?? "text-fg-muted"}`}>
+    <span
+      className={`text-[10px] font-medium uppercase tracking-wider ${statusClasses[status] ?? "text-fg-muted"}`}
+    >
       {label}
     </span>
   );
@@ -85,12 +87,26 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
           role="status"
           aria-live="polite"
         >
-          <span className="shrink-0 flex items-center gap-[3px]" aria-hidden="true">
-            <span className="inline-block w-1 h-1 rounded-full bg-fg-muted animate-streaming-dot-bounce" style={{ animationDelay: "0s" }} />
-            <span className="inline-block w-1 h-1 rounded-full bg-fg-muted animate-streaming-dot-bounce" style={{ animationDelay: "0.2s" }} />
-            <span className="inline-block w-1 h-1 rounded-full bg-fg-muted animate-streaming-dot-bounce" style={{ animationDelay: "0.4s" }} />
+          <span
+            className="shrink-0 flex items-center gap-[3px]"
+            aria-hidden="true"
+          >
+            <span
+              className="inline-block w-1 h-1 rounded-full bg-fg-muted animate-streaming-dot-bounce"
+              style={{ animationDelay: "0s" }}
+            />
+            <span
+              className="inline-block w-1 h-1 rounded-full bg-fg-muted animate-streaming-dot-bounce"
+              style={{ animationDelay: "0.2s" }}
+            />
+            <span
+              className="inline-block w-1 h-1 rounded-full bg-fg-muted animate-streaming-dot-bounce"
+              style={{ animationDelay: "0.4s" }}
+            />
           </span>
-          <span className="whitespace-nowrap overflow-hidden text-ellipsis">Sending…</span>
+          <span className="whitespace-nowrap overflow-hidden text-ellipsis">
+            Sending…
+          </span>
         </div>
       ) : isCancelling ? (
         <div
@@ -99,7 +115,9 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
           aria-live="polite"
         >
           <Icon name="loading" size="sm" className="shrink-0 animate-spin" />
-          <span className="whitespace-nowrap overflow-hidden text-ellipsis">Cancelling…</span>
+          <span className="whitespace-nowrap overflow-hidden text-ellipsis">
+            Cancelling…
+          </span>
         </div>
       ) : effectiveAction ? (
         <div
@@ -128,10 +146,16 @@ export const SessionStatusBar = React.memo(function SessionStatusBar({
           </div>
           <ul className="list-none m-0 p-0 max-h-[120px] overflow-y-auto">
             {queue.map((entry) => (
-              <li key={entry.id} className="flex items-center justify-between gap-1 px-2 py-[3px] border-b border-[color-mix(in_srgb,var(--border)_30%,transparent)] last:border-b-0">
+              <li
+                key={entry.id}
+                className="flex items-center justify-between gap-1 px-2 py-[3px] border-b border-[color-mix(in_srgb,var(--border)_30%,transparent)] last:border-b-0"
+              >
                 <div className="flex flex-1 items-center gap-1.5 min-w-0 overflow-hidden">
                   <StatusBadge status={entry.status} />
-                  <span className="text-[11px] text-fg-secondary whitespace-nowrap overflow-hidden text-ellipsis block" title={entry.text}>
+                  <span
+                    className="text-[11px] text-fg-secondary whitespace-nowrap overflow-hidden text-ellipsis block"
+                    title={entry.text}
+                  >
                     {entry.text.length > 60
                       ? entry.text.slice(0, 60) + "\u2026"
                       : entry.text}

@@ -61,7 +61,12 @@ describe("extractDiffFromContent", () => {
   it("extracts diff entry", () => {
     const content = [
       { type: "text", text: "before" },
-      { type: "diff", oldText: "old line", newText: "new line", path: "src/app.ts" },
+      {
+        type: "diff",
+        oldText: "old line",
+        newText: "new line",
+        path: "src/app.ts",
+      },
     ];
     const result = extractDiffFromContent(content);
     assert.ok(result);
@@ -166,8 +171,14 @@ describe("handleSessionNotification (via store)", () => {
     assert.strictEqual(state.perSession[msgKey].length, 1);
     assert.strictEqual(state.perSession[msgKey][0].role, "tool");
     assert.strictEqual(state.perSession[msgKey][0].toolCalls![0].id, "tc-1");
-    assert.strictEqual(state.perSession[msgKey][0].toolCalls![0].title, "Read file");
-    assert.strictEqual(state.perSession[msgKey][0].toolCalls![0].status, "in_progress");
+    assert.strictEqual(
+      state.perSession[msgKey][0].toolCalls![0].title,
+      "Read file"
+    );
+    assert.strictEqual(
+      state.perSession[msgKey][0].toolCalls![0].status,
+      "in_progress"
+    );
     assert.strictEqual(state.perSession[msgKey][0].toolCalls![0].kind, "read");
   });
 
@@ -236,12 +247,18 @@ describe("handleSessionNotification (via store)", () => {
 
     // Simulate tool_call_update — find and replace
     const msgs = useMessageStore.getState().perSession[msgKey];
-    const idx = msgs!.findIndex((m) => m.toolCalls?.some((tc) => tc.id === "tc-3"));
+    const idx = msgs!.findIndex((m) =>
+      m.toolCalls?.some((tc) => tc.id === "tc-3")
+    );
     assert.ok(idx >= 0);
     const updatedTCs = msgs![idx].toolCalls!.map((tc) =>
       tc.id === "tc-3"
-        ? { ...tc, status: normalizeToolStatus("completed"), output: "file1.ts\nfile2.ts" }
-        : tc,
+        ? {
+            ...tc,
+            status: normalizeToolStatus("completed"),
+            output: "file1.ts\nfile2.ts",
+          }
+        : tc
     );
     useMessageStore.getState().updateMessage(msgKey, idx, {
       ...msgs![idx],

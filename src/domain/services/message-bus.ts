@@ -48,7 +48,10 @@ export class MessageBus {
     if (handlers && handlers.size > 0) {
       await this.dispatchToSet(handlers, message);
     } else {
-      log.debug("no subscriber, queuing", { messageId: message.id, to: message.to });
+      log.debug("no subscriber, queuing", {
+        messageId: message.id,
+        to: message.to,
+      });
       await this.queue(message);
     }
   }

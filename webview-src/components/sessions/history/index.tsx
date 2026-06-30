@@ -19,7 +19,7 @@ declare function acquireVsCodeApi(): {
   postMessage(msg: unknown): void;
   getState(): unknown;
   setState(state: unknown): void;
-}
+};
 
 const PAGE_SIZE = 50;
 
@@ -116,7 +116,6 @@ export function SessionHistoryPanel({
     return () => window.removeEventListener("message", handler);
   }, [vscode]);
 
-
   useEffect(() => {
     const timer = setTimeout(() => {
       if (query.trim()) {
@@ -128,7 +127,6 @@ export function SessionHistoryPanel({
     }, 300);
     return () => clearTimeout(timer);
   }, [query, vscode]);
-
 
   const filtered = useMemo(() => {
     let result = sessions;
@@ -398,7 +396,10 @@ export function SessionHistoryPanel({
       {/* Footer */}
       <div className="flex items-center justify-between px-2.5 py-1 border-t border-border shrink-0">
         <div className="flex gap-1">
-          <button className="px-2 py-[3px] border border-border rounded bg-bg-input text-fg-primary text-[11px] cursor-pointer transition-colors duration-150 whitespace-nowrap" onClick={handleCleanup}>
+          <button
+            className="px-2 py-[3px] border border-border rounded bg-bg-input text-fg-primary text-[11px] cursor-pointer transition-colors duration-150 whitespace-nowrap"
+            onClick={handleCleanup}
+          >
             Cleanup old
           </button>
         </div>

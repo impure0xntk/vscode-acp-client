@@ -59,11 +59,21 @@ export function CompareBar({
       <table className="w-full border-collapse text-[11px]">
         <thead>
           <tr>
-            <th className="text-left p-1.5 text-[10px] text-fg-muted font-semibold uppercase tracking-wider border-b border-border">Title</th>
-            <th className="text-left p-1.5 text-[10px] text-fg-muted font-semibold uppercase tracking-wider border-b border-border">Agent</th>
-            <th className="text-left p-1.5 text-[10px] text-fg-muted font-semibold uppercase tracking-wider border-b border-border">Messages</th>
-            <th className="text-left p-1.5 text-[10px] text-fg-muted font-semibold uppercase tracking-wider border-b border-border">Tokens</th>
-            <th className="text-left p-1.5 text-[10px] text-fg-muted font-semibold uppercase tracking-wider border-b border-border">Context %</th>
+            <th className="text-left p-1.5 text-[10px] text-fg-muted font-semibold uppercase tracking-wider border-b border-border">
+              Title
+            </th>
+            <th className="text-left p-1.5 text-[10px] text-fg-muted font-semibold uppercase tracking-wider border-b border-border">
+              Agent
+            </th>
+            <th className="text-left p-1.5 text-[10px] text-fg-muted font-semibold uppercase tracking-wider border-b border-border">
+              Messages
+            </th>
+            <th className="text-left p-1.5 text-[10px] text-fg-muted font-semibold uppercase tracking-wider border-b border-border">
+              Tokens
+            </th>
+            <th className="text-left p-1.5 text-[10px] text-fg-muted font-semibold uppercase tracking-wider border-b border-border">
+              Context %
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -74,7 +84,10 @@ export function CompareBar({
             );
             return (
               <tr key={s.sessionId}>
-                <td title={s.title} className="p-1.5 text-fg-primary max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap font-medium">
+                <td
+                  title={s.title}
+                  className="p-1.5 text-fg-primary max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap font-medium"
+                >
                   {s.title}
                 </td>
                 <td className="p-1.5 text-fg-primary">{s.agentId}</td>
@@ -86,7 +99,9 @@ export function CompareBar({
                         width: `${maxMsgs > 0 ? (s.messageCount / maxMsgs) * 100 : 0}%`,
                       }}
                     />
-                    <span className="text-[10px] text-fg-muted shrink-0 z-10">{s.messageCount}</span>
+                    <span className="text-[10px] text-fg-muted shrink-0 z-10">
+                      {s.messageCount}
+                    </span>
                   </div>
                 </td>
                 <td>
@@ -97,7 +112,9 @@ export function CompareBar({
                         width: `${maxTokens > 0 ? (s.tokenUsage.total / maxTokens) * 100 : 0}%`,
                       }}
                     />
-                    <span className="text-[10px] text-fg-muted shrink-0 z-10">{formatTokens(s.tokenUsage.total)}</span>
+                    <span className="text-[10px] text-fg-muted shrink-0 z-10">
+                      {formatTokens(s.tokenUsage.total)}
+                    </span>
                   </div>
                 </td>
                 <td>
@@ -114,7 +131,9 @@ export function CompareBar({
                               : "var(--vscode-terminal-ansiGreen)",
                       }}
                     />
-                    <span className="text-[10px] text-fg-muted shrink-0 z-10">{ctxPct}%</span>
+                    <span className="text-[10px] text-fg-muted shrink-0 z-10">
+                      {ctxPct}%
+                    </span>
                   </div>
                 </td>
               </tr>

@@ -64,9 +64,7 @@ export const CommandCenter = React.memo(function CommandCenter({
   }, []);
 
   return (
-    <div
-      className="flex flex-col flex-shrink-0"
-    >
+    <div className="flex flex-col flex-shrink-0">
       {/* Toggle bar */}
       <button
         className="flex items-center gap-1.5 w-full py-[6px] px-3.5 border-none bg-transparent text-fg-muted text-[11px] cursor-pointer text-left hover:bg-accent-hover hover:text-fg-primary focus-visible:outline focus-visible:outline-accent focus-visible:outline-offset-[-1px]"
@@ -76,7 +74,9 @@ export const CommandCenter = React.memo(function CommandCenter({
       >
         <Icon name="layout-grid" size="sm" />
         <span className="flex-1 font-medium">Command Center</span>
-        <span className="inline-flex items-center justify-center min-w-[14px] h-[14px] px-1 rounded-[7px] bg-bg-input text-fg-secondary text-[10px] font-semibold font-mono">{entries.length}</span>
+        <span className="inline-flex items-center justify-center min-w-[14px] h-[14px] px-1 rounded-[7px] bg-bg-input text-fg-secondary text-[10px] font-semibold font-mono">
+          {entries.length}
+        </span>
         <Icon
           name="chevron-down"
           size="sm"

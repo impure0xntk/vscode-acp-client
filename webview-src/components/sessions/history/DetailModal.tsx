@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import { Icon } from "../../../lib/icons";
 
 export interface ChatMessage {
@@ -220,14 +226,34 @@ export function DetailModal({
 
   const sessionStatus =
     session.status === "completed"
-      ? { icon: "check", color: "text-[var(--success)]" as const, label: "completed" }
+      ? {
+          icon: "check",
+          color: "text-[var(--success)]" as const,
+          label: "completed",
+        }
       : session.status === "error"
-        ? { icon: "cross", color: "text-[var(--error)]" as const, label: "error" }
+        ? {
+            icon: "cross",
+            color: "text-[var(--error)]" as const,
+            label: "error",
+          }
         : session.status === "cancelled"
-          ? { icon: "ban", color: "text-fg-muted opacity-70" as const, label: "cancelled" }
+          ? {
+              icon: "ban",
+              color: "text-fg-muted opacity-70" as const,
+              label: "cancelled",
+            }
           : session.status === "running"
-            ? { icon: "circle-outline", color: "text-[#4fc3f7]" as const, label: "running" }
-            : { icon: "circle-outline", color: "text-fg-muted" as const, label: session.status };
+            ? {
+                icon: "circle-outline",
+                color: "text-[#4fc3f7]" as const,
+                label: "running",
+              }
+            : {
+                icon: "circle-outline",
+                color: "text-fg-muted" as const,
+                label: session.status,
+              };
 
   return (
     <div
@@ -238,7 +264,6 @@ export function DetailModal({
         className="bg-bg-secondary border border-border rounded-lg w-[90%] max-w-[760px] max-h-[85vh] flex flex-col shadow-[0_8px_32px_rgba(0,0,0,0.4)] animate-modal-slide-in"
         onClick={(e) => e.stopPropagation()}
       >
-
         <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
           <h4 className="m-0 text-[13px] font-semibold overflow-hidden text-ellipsis whitespace-nowrap">
             {session.title}
@@ -250,7 +275,6 @@ export function DetailModal({
             <Icon name="close" size="sm" />
           </button>
         </div>
-
 
         <div className="px-4 py-2 border-b border-border shrink-0">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
@@ -298,7 +322,6 @@ export function DetailModal({
             )}
           </div>
         </div>
-
 
         <div className="flex-1 overflow-y-auto px-4 py-2" ref={msgListRef}>
           {turns.length === 0 ? (
@@ -404,7 +427,6 @@ export function DetailModal({
             })
           )}
         </div>
-
 
         <div className="flex justify-end gap-1.5 px-4 py-2 border-t border-border shrink-0">
           <button

@@ -111,8 +111,6 @@ export function sessionKeyOf(agentId: string, sessionId: string): string {
   return `${agentId}:${sessionId}`;
 }
 
-
-
 export function selectOverviewItems(
   state: SessionStoreState
 ): SessionOverviewItem[] {
@@ -583,9 +581,7 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
       if (!q) return state;
       const idx = q.findIndex((e) => e.id === promptId);
       if (idx < 0) return state;
-      const updated = q.map((e) =>
-        e.id === promptId ? { ...e, status } : e
-      );
+      const updated = q.map((e) => (e.id === promptId ? { ...e, status } : e));
       return {
         ...state,
         promptQueue: { ...state.promptQueue, [sessionKey]: updated },
@@ -611,7 +607,8 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
       // leaving the UI unable to display the restored session's messages.
       const incomingSet = new Set(order);
       const preserved = state.tabOrder.filter((k) => !incomingSet.has(k));
-      const mergedOrder = preserved.length > 0 ? [...order, ...preserved] : order;
+      const mergedOrder =
+        preserved.length > 0 ? [...order, ...preserved] : order;
 
       if (
         state.tabOrder.length !== mergedOrder.length ||

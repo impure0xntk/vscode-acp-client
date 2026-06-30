@@ -77,7 +77,9 @@ function flushBatch(msgKey: string, agentId: string, sessionId: string): void {
   streamBatchMap.delete(msgKey);
   batch.chunks = [];
 
-  useMessageStore.getState().appendStreamChunks(msgKey, agentId, sessionId, accumulated, messageId);
+  useMessageStore
+    .getState()
+    .appendStreamChunks(msgKey, agentId, sessionId, accumulated, messageId);
   const store = useSessionStore.getState();
   const existing = store.sessionInfoMap[msgKey];
   if (existing && existing.status === "running") {
@@ -88,7 +90,13 @@ function flushBatch(msgKey: string, agentId: string, sessionId: string): void {
   }
 }
 
-function scheduleStreamFlush(msgKey: string, agentId: string, sessionId: string, chunk: string, messageId?: string): void {
+function scheduleStreamFlush(
+  msgKey: string,
+  agentId: string,
+  sessionId: string,
+  chunk: string,
+  messageId?: string
+): void {
   let batch = streamBatchMap.get(msgKey);
   if (!batch) {
     batch = { chunks: [], rafId: null, messageId: messageId ?? null };
@@ -96,7 +104,11 @@ function scheduleStreamFlush(msgKey: string, agentId: string, sessionId: string,
   } else if (batch.messageId == null && messageId != null) {
     // Persist messageId for this batch window if not yet set.
     batch.messageId = messageId;
-  } else if (messageId != null && batch.messageId != null && messageId !== batch.messageId) {
+  } else if (
+    messageId != null &&
+    batch.messageId != null &&
+    messageId !== batch.messageId
+  ) {
     // messageId changed — flush the current batch so chunks are attributed
     // to the correct agent message.  Without this, all chunks accumulate
     // under the first messageId and subsequent logical messages are merged
@@ -116,7 +128,15 @@ function scheduleStreamFlush(msgKey: string, agentId: string, sessionId: string,
       b.chunks = [];
       b.rafId = null;
 
-      useMessageStore.getState().appendStreamChunks(msgKey, agentId, sessionId, accumulated, b.messageId);
+      useMessageStore
+        .getState()
+        .appendStreamChunks(
+          msgKey,
+          agentId,
+          sessionId,
+          accumulated,
+          b.messageId
+        );
       const store = useSessionStore.getState();
       const existing = store.sessionInfoMap[msgKey];
       if (existing && existing.status === "running") {
@@ -132,8 +152,6 @@ function scheduleStreamFlush(msgKey: string, agentId: string, sessionId: string,
 export function setPendingSwitch(agentId: string, sessionId: string): void {
   pendingSwitchGuard = sessionKeyOf(agentId, sessionId);
 }
-
-
 
 interface SetTabsMessage {
   type: "setTabs";
@@ -337,8 +355,6 @@ interface SessionOverviewStateMessage {
   payload: SessionOverviewState;
 }
 
-
-
 interface MeshStatusMessage {
   type: "mesh:status";
   agents: import("./types").MeshAgentStatus[];
@@ -411,8 +427,6 @@ interface MeshTeamUpdatedMessage {
   team: import("./types").MeshTeamEntry;
 }
 
-
-
 interface SessionTitleMessage {
   type: "session/title";
   agentId: string;
@@ -438,8 +452,6 @@ interface PathsResolvedMessage {
   paths: string[];
 }
 
-
-
 interface PlanUpdateMessage {
   type: "plan.update";
   plan: Plan;
@@ -456,8 +468,6 @@ interface PlanCancelledMessage {
   type: "plan.cancelled";
   planId: string;
 }
-
-
 
 interface AgentStatusMessage {
   type: "agent.status";
@@ -558,8 +568,6 @@ type WebviewMessage =
   | SessionNotificationMessage
   | SessionFileWriteMessage;
 
-
-
 function handleSetTabs(data: SetTabsMessage): void {
   log.info("handleSetTabs", {
     tabCount: data.tabs.length,
@@ -628,7 +636,9 @@ function handleSessionMessage(data: SessionMessage): void {
           }
         }
       }
-      const dedupedTCs = msg.toolCalls.filter((tc) => !existingTcIds.has(tc.id));
+      const dedupedTCs = msg.toolCalls.filter(
+        (tc) => !existingTcIds.has(tc.id)
+      );
       if (dedupedTCs.length === 0) {
         log.debug("handleSessionMessage: skipping duplicate tool message", {
           msgKey,
@@ -642,9 +652,11 @@ function handleSessionMessage(data: SessionMessage): void {
           before: msg.toolCalls.length,
           after: dedupedTCs.length,
         });
-        useMessageStore
-          .getState()
-          .appendMessage(msgKey, { ...msg, attachments, toolCalls: dedupedTCs });
+        useMessageStore.getState().appendMessage(msgKey, {
+          ...msg,
+          attachments,
+          toolCalls: dedupedTCs,
+        });
         return;
       }
     }
@@ -676,13 +688,27 @@ function handleSessionStreamStart(data: SessionStreamStart): void {
     const batchMessageId = batch.messageId;
     streamBatchMap.delete(msgKey);
     batch.chunks = [];
-    useMessageStore.getState().appendStreamChunks(msgKey, data.agentId, data.sessionId, accumulated, batchMessageId);
+    useMessageStore
+      .getState()
+      .appendStreamChunks(
+        msgKey,
+        data.agentId,
+        data.sessionId,
+        accumulated,
+        batchMessageId
+      );
   }
 }
 
 function handleSessionStream(data: SessionStream): void {
   const msgKey = sessionKeyOf(data.agentId, data.sessionId);
-  scheduleStreamFlush(msgKey, data.agentId, data.sessionId, data.chunk, data.messageId);
+  scheduleStreamFlush(
+    msgKey,
+    data.agentId,
+    data.sessionId,
+    data.chunk,
+    data.messageId
+  );
 }
 
 function handleSessionStreamEnd(data: SessionStreamEnd): void {
@@ -697,7 +723,15 @@ function handleSessionStreamEnd(data: SessionStreamEnd): void {
     const messageId = batch.messageId;
     streamBatchMap.delete(msgKey);
     batch.chunks = [];
-    useMessageStore.getState().appendStreamChunks(msgKey, data.agentId, data.sessionId, accumulated, messageId);
+    useMessageStore
+      .getState()
+      .appendStreamChunks(
+        msgKey,
+        data.agentId,
+        data.sessionId,
+        accumulated,
+        messageId
+      );
   }
   useMessageStore.getState().setStreaming(msgKey, false);
   const existing = useSessionStore.getState().sessionInfoMap[msgKey];
@@ -855,10 +889,7 @@ function handleSessionTurnEnded(data: SessionTurnEnded): void {
   useMessageStore.getState().setStreaming(key, false);
 
   // Map ACP stopReason to TurnOutcome for the UI
-  const outcome:
-    | "completed"
-    | "error"
-    | "cancelled" =
+  const outcome: "completed" | "error" | "cancelled" =
     data.stopReason === "end_turn" || data.stopReason === "max_turn_requests"
       ? "completed"
       : data.stopReason === "cancelled"
@@ -903,10 +934,7 @@ function handleSessionCompleted(data: SessionCompleted): void {
     });
   }
   // Show completion notification with outcome derived from stopReason
-  const outcome:
-    | "completed"
-    | "error"
-    | "cancelled" = data.stopReason
+  const outcome: "completed" | "error" | "cancelled" = data.stopReason
     ? data.stopReason === "end_turn" || data.stopReason === "max_turn_requests"
       ? "completed"
       : data.stopReason === "cancelled"
@@ -975,7 +1003,11 @@ function handleSessionSnapshot(data: SessionSnapshot): void {
   // and overwrites tabOrder without the restored session's key.
   const sessionStore = useSessionStore.getState();
   if (!sessionStore.tabOrder.includes(key)) {
-    sessionStore.addTab(data.agentId, data.sessionId, data.sessionId.slice(0, 8));
+    sessionStore.addTab(
+      data.agentId,
+      data.sessionId,
+      data.sessionId.slice(0, 8)
+    );
   }
 
   // Explicitly set the restored session as the active session so that
@@ -1065,7 +1097,9 @@ function handleQueueUpdated(data: QueueUpdatedMessage): void {
 
 function handleQueueDequeued(data: QueueDequeuedMessage): void {
   const key = sessionKeyOf(data.agentId, data.sessionId);
-  useSessionStore.getState().updateQueuedPromptStatus(key, data.entry.id, "sending");
+  useSessionStore
+    .getState()
+    .updateQueuedPromptStatus(key, data.entry.id, "sending");
 }
 
 function handleSessionOverviewState(data: SessionOverviewStateMessage): void {
@@ -1081,8 +1115,6 @@ function handleSessionOverviewPosition(
 ): void {
   useUiStateStore.getState().setOverviewPosition(data.payload.position);
 }
-
-
 
 function handleMeshStatus(data: MeshStatusMessage): void {
   useMeshStore.getState().setAgentStatuses(data.agents);
@@ -1129,8 +1161,6 @@ function handlePathsResolved(data: PathsResolvedMessage): void {
     .addResolvedPaths(data.sessionKey, data.paths);
 }
 
-
-
 function handleSessionTitle(data: SessionTitleMessage): void {
   const key = sessionKeyOf(data.agentId, data.sessionId);
   log.info("session title changed", {
@@ -1159,8 +1189,6 @@ function handleSessionUnpinned(data: SessionUnpinnedNotification): void {
   useSessionStore.getState().unpinSession(key);
 }
 
-
-
 function handlePlanUpdate(data: PlanUpdateMessage): void {
   log.info("plan.update", {
     planId: data.plan.id,
@@ -1176,7 +1204,9 @@ function handlePlanUpdate(data: PlanUpdateMessage): void {
   // the team lead's session; otherwise fall back to the active session.
   let targetKey: string | null = sessionStore.activeSessionKey;
   if (data.plan.teamId) {
-    const team = useMeshStore.getState().teams.find((t) => t.id === data.plan.teamId);
+    const team = useMeshStore
+      .getState()
+      .teams.find((t) => t.id === data.plan.teamId);
     if (team) {
       targetKey = sessionKeyOf(team.lead.agentId, team.lead.sessionId);
     }
@@ -1185,7 +1215,7 @@ function handlePlanUpdate(data: PlanUpdateMessage): void {
     const messages = useMessageStore.getState().perSession[targetKey];
     if (messages) {
       const idx = messages.findIndex(
-        (m) => m.planMeta?.planStatus === "draft" && !m.planMeta?.isPlanRequest,
+        (m) => m.planMeta?.planStatus === "draft" && !m.planMeta?.isPlanRequest
       );
       if (idx >= 0) {
         const updated: ChatMessage = {
@@ -1221,8 +1251,6 @@ function handlePlanCancelled(data: PlanCancelledMessage): void {
   store.cancelPlan();
 }
 
-
-
 function handleAgentStatus(data: AgentStatusMessage): void {
   log.debug("agent.status", { agentId: data.agentId, status: data.status });
   useMeshStore.getState().updateAgentStatus(data.agentId, {
@@ -1239,13 +1267,11 @@ function handleAgentStatus(data: AgentStatusMessage): void {
   });
 }
 
-
-
 /**
  * Normalize raw SDK toolCallStatus → webview ToolCall.status
  */
 export function normalizeToolStatus(
-  raw: string | null | undefined,
+  raw: string | null | undefined
 ): "in_progress" | "completed" | "failed" | "cancelled" {
   if (raw === "pending") return "in_progress";
   if (
@@ -1263,7 +1289,7 @@ export function normalizeToolStatus(
  * Extract diff content from a ToolCallContent array (SDK format).
  */
 export function extractDiffFromContent(
-  content: Array<{ type: string; [key: string]: unknown }> | undefined,
+  content: Array<{ type: string; [key: string]: unknown }> | undefined
 ): import("./types").ToolCallDiffContent | undefined {
   if (!content) return undefined;
   for (const c of content) {
@@ -1272,10 +1298,16 @@ export function extractDiffFromContent(
       const newText = (c.newText as string) ?? "";
       const filePath = (c.path as string) ?? "";
       // Build a minimal unified diff
-      const diff = oldText === newText
-        ? newText
-        : `--- ${filePath}\n+++ ${filePath}\n-${oldText}\n+${newText}`;
-      return { type: "diff", diff, oldPath: oldText ? filePath : undefined, newPath: filePath };
+      const diff =
+        oldText === newText
+          ? newText
+          : `--- ${filePath}\n+++ ${filePath}\n-${oldText}\n+${newText}`;
+      return {
+        type: "diff",
+        diff,
+        oldPath: oldText ? filePath : undefined,
+        newPath: filePath,
+      };
     }
   }
   return undefined;
@@ -1289,14 +1321,16 @@ function handleSessionFileWrite(data: SessionFileWriteMessage): void {
     contentLen: data.content.length,
     hasOriginal: data.originalContent !== undefined,
   });
-  useFileWriteStore.getState().addWrite(
-    data.agentId,
-    data.sessionId,
-    data.path,
-    data.content,
-    data.originalContent ?? null,
-    data.contentHash
-  );
+  useFileWriteStore
+    .getState()
+    .addWrite(
+      data.agentId,
+      data.sessionId,
+      data.path,
+      data.content,
+      data.originalContent ?? null,
+      data.contentHash
+    );
 }
 
 function handleSessionNotification(data: SessionNotificationMessage): void {
@@ -1315,11 +1349,13 @@ function handleSessionNotification(data: SessionNotificationMessage): void {
     const tcKind = (update.kind as string) ?? "";
     const rawInput = update.rawInput;
     const rawOutput = update.rawOutput;
-    const tcLocations = (update.locations as Array<{ path: string; line?: number }> | undefined)?.map(
-      (loc) => ({ path: loc.path, line: loc.line ?? undefined }),
-    );
+    const tcLocations = (
+      update.locations as Array<{ path: string; line?: number }> | undefined
+    )?.map((loc) => ({ path: loc.path, line: loc.line ?? undefined }));
     const tcDiff = extractDiffFromContent(
-      update.content as Array<{ type: string; [key: string]: unknown }> | undefined,
+      update.content as
+        | Array<{ type: string; [key: string]: unknown }>
+        | undefined
     );
 
     const toolCall = {
@@ -1327,10 +1363,14 @@ function handleSessionNotification(data: SessionNotificationMessage): void {
       title: tcTitle,
       status: tcStatus,
       kind: tcKind,
-      input: typeof rawInput === "string" ? rawInput : safeJsonStringify(rawInput),
-      output: rawOutput !== undefined
-        ? typeof rawOutput === "string" ? rawOutput : safeJsonStringify(rawOutput)
-        : undefined,
+      input:
+        typeof rawInput === "string" ? rawInput : safeJsonStringify(rawInput),
+      output:
+        rawOutput !== undefined
+          ? typeof rawOutput === "string"
+            ? rawOutput
+            : safeJsonStringify(rawOutput)
+          : undefined,
       locations: tcLocations,
       diffContent: tcDiff,
     };
@@ -1348,28 +1388,69 @@ function handleSessionNotification(data: SessionNotificationMessage): void {
     // separate cards instead of being merged into a single batch.
     if (existingMsgs) {
       const alreadyExists = existingMsgs.some(
-        (m: ChatMessage) => m.role === "tool" && m.toolCalls?.some((tc) => tc.id === tcId),
+        (m: ChatMessage) =>
+          m.role === "tool" && m.toolCalls?.some((tc) => tc.id === tcId)
       );
       if (alreadyExists) {
-        log.debug("handleSessionNotification: skipping duplicate tool_call", { msgKey, tcId });
+        log.debug("handleSessionNotification: skipping duplicate tool_call", {
+          msgKey,
+          tcId,
+        });
         return;
       }
     }
 
-    // Each tool_call notification creates its own tool message.
-    // This ensures that tool calls arriving between different agent messages
-    // are kept as separate PipelineItems, so they can be correctly grouped
-    // with their following agent message as a distinct intermediate step.
-    const toolMsg = {
-      id: `tc-${tcKind}-${tcId}-${Date.now()}`,
-      role: "tool" as const,
-      content: "",
-      timestamp: Date.now(),
-      agentId,
-      sessionId,
-      toolCalls: [toolCall],
-    };
-    store.appendMessage(msgKey, toolMsg);
+    // Merge consecutive tool calls arriving without an intervening agent message
+    // into the last tool message.  This ensures they render as a single
+    // ToolBatchSummary instead of individual ToolCallCards.
+    if (existingMsgs && existingMsgs.length > 0) {
+      const lastMsg = existingMsgs[existingMsgs.length - 1];
+      // Append to the last tool message only if no agent message has arrived
+      // since it (boundary check: last message is still a tool message).
+      if (lastMsg.role === "tool") {
+        log.debug(
+          "handleSessionNotification: appending to existing tool message",
+          {
+            msgKey,
+            lastMsgId: lastMsg.id,
+            incomingToolId: tcId,
+          }
+        );
+        useMessageStore
+          .getState()
+          .updateMessage(msgKey, existingMsgs.length - 1, {
+            ...lastMsg,
+            toolCalls: [...(lastMsg.toolCalls ?? []), toolCall],
+          });
+      } else {
+        // Agent message intervened — create a new tool message.
+        const toolMsg = {
+          id: `tc-${tcKind}-${tcId}-${Date.now()}`,
+          role: "tool" as const,
+          content: "",
+          timestamp: Date.now(),
+          agentId,
+          sessionId,
+          toolCalls: [toolCall],
+        };
+        store.appendMessage(msgKey, toolMsg);
+      }
+    } else {
+      // Each tool_call notification creates its own tool message.
+      // This ensures that tool calls arriving between different agent messages
+      // are kept as separate PipelineItems, so they can be correctly grouped
+      // with their following agent message as a distinct intermediate step.
+      const toolMsg = {
+        id: `tc-${tcKind}-${tcId}-${Date.now()}`,
+        role: "tool" as const,
+        content: "",
+        timestamp: Date.now(),
+        agentId,
+        sessionId,
+        toolCalls: [toolCall],
+      };
+      store.appendMessage(msgKey, toolMsg);
+    }
   } else if (su === "tool_call_update") {
     // Update an existing tool call in the message store
     const tcId = update.toolCallId as string;
@@ -1379,7 +1460,11 @@ function handleSessionNotification(data: SessionNotificationMessage): void {
     const existingMsgs = store.perSession[msgKey];
     if (!existingMsgs) return;
 
-    log.debug("handleSessionNotification: tool_call_update", { msgKey, tcId, status: newStatus });
+    log.debug("handleSessionNotification: tool_call_update", {
+      msgKey,
+      tcId,
+      status: newStatus,
+    });
 
     for (let i = existingMsgs.length - 1; i >= 0; i--) {
       const m = existingMsgs[i];
@@ -1393,19 +1478,32 @@ function handleSessionNotification(data: SessionNotificationMessage): void {
             title: (update.title as string) ?? tc.title,
             status: normalizeToolStatus((update.status as string) ?? tc.status),
             kind: (update.kind as string) ?? tc.kind,
-            input: rawInput !== undefined
-              ? typeof rawInput === "string" ? rawInput : safeJsonStringify(rawInput)
-              : tc.input,
-            output: rawOutput !== undefined
-              ? typeof rawOutput === "string" ? rawOutput : safeJsonStringify(rawOutput)
-              : tc.output,
+            input:
+              rawInput !== undefined
+                ? typeof rawInput === "string"
+                  ? rawInput
+                  : safeJsonStringify(rawInput)
+                : tc.input,
+            output:
+              rawOutput !== undefined
+                ? typeof rawOutput === "string"
+                  ? rawOutput
+                  : safeJsonStringify(rawOutput)
+                : tc.output,
             locations:
-              (update.locations as Array<{ path: string; line?: number }> | undefined)?.map(
-                (loc) => ({ path: loc.path, line: loc.line ?? undefined }),
-              ) ?? tc.locations,
+              (
+                update.locations as
+                  | Array<{ path: string; line?: number }>
+                  | undefined
+              )?.map((loc) => ({
+                path: loc.path,
+                line: loc.line ?? undefined,
+              })) ?? tc.locations,
             diffContent:
               extractDiffFromContent(
-                update.content as Array<{ type: string; [key: string]: unknown }> | undefined,
+                update.content as
+                  | Array<{ type: string; [key: string]: unknown }>
+                  | undefined
               ) ?? tc.diffContent,
           };
         });
@@ -1421,8 +1519,6 @@ function handleSessionNotification(data: SessionNotificationMessage): void {
     // interrupted; after interruption, subsequent tokens form the next step".
   }
 }
-
-
 
 /**
  * Configures the webview message handler.
@@ -1548,11 +1644,19 @@ export function setupMessageHandlers(): void {
         // so the plan request/response is visible in the Supervisor view
         // (otherwise messages go to the UnifiedMode's active session).
         if (data.teamId) {
-          const team = useMeshStore.getState().teams.find((t) => t.id === data.teamId);
+          const team = useMeshStore
+            .getState()
+            .teams.find((t) => t.id === data.teamId);
           if (team) {
-            const leadKey = sessionKeyOf(team.lead.agentId, team.lead.sessionId);
+            const leadKey = sessionKeyOf(
+              team.lead.agentId,
+              team.lead.sessionId
+            );
             if (activeKey !== leadKey) {
-              log.info("mesh:plan: switching to lead session", { from: activeKey, to: leadKey });
+              log.info("mesh:plan: switching to lead session", {
+                from: activeKey,
+                to: leadKey,
+              });
               sessionStore.setActiveSession(leadKey);
               activeKey = leadKey;
             }
@@ -1582,7 +1686,11 @@ export function setupMessageHandlers(): void {
             timestamp: Date.now(),
             agentId,
             sessionId,
-            planMeta: { isPlanRequest: false, planStatus: "draft", teamId: data.teamId ?? "" },
+            planMeta: {
+              isPlanRequest: false,
+              planStatus: "draft",
+              teamId: data.teamId ?? "",
+            },
           });
 
           useSessionStore.getState().setIsPlanning(true, null);

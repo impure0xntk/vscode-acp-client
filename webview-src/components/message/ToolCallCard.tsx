@@ -59,7 +59,12 @@ function parseDiffLines(diffText: string): RenderedDiffLine[] | null {
           } else if (l.startsWith("-")) {
             lines.push({ type: "-", text: l.slice(1), oldLine: oldLine++ });
           } else if (l.startsWith(" ")) {
-            lines.push({ type: "|", text: l.slice(1), oldLine: oldLine++, newLine: newLine++ });
+            lines.push({
+              type: "|",
+              text: l.slice(1),
+              oldLine: oldLine++,
+              newLine: newLine++,
+            });
           } else if (l.startsWith("@@")) {
             lines.push({ type: "@@", text: l, hunkHeader: l });
           }
@@ -81,7 +86,8 @@ export function DiffView({
     const allLines = parseDiffLines(diff.diff ?? "");
     if (allLines === null) return { error: true as const };
     const maxLines = 200;
-    if (allLines.length <= maxLines) return { lines: allLines, truncated: false };
+    if (allLines.length <= maxLines)
+      return { lines: allLines, truncated: false };
     return { lines: allLines.slice(0, maxLines), truncated: true };
   }, [diff.diff]);
 
@@ -121,15 +127,23 @@ export function DiffView({
                     : "text-fg-secondary"
               }
             >
-              <span className="inline-block w-[3.5ch] text-right pr-[0.5ch] select-none opacity-40 font-mono">{dl.oldLine ?? ""}</span>
-              <span className="inline-block w-[3.5ch] text-right pr-[0.5ch] select-none opacity-40 font-mono">{dl.newLine ?? ""}</span>
-              <span className="inline-block w-3 select-none opacity-60">{prefix}</span>
+              <span className="inline-block w-[3.5ch] text-right pr-[0.5ch] select-none opacity-40 font-mono">
+                {dl.oldLine ?? ""}
+              </span>
+              <span className="inline-block w-[3.5ch] text-right pr-[0.5ch] select-none opacity-40 font-mono">
+                {dl.newLine ?? ""}
+              </span>
+              <span className="inline-block w-3 select-none opacity-60">
+                {prefix}
+              </span>
               <span>{dl.text}</span>
             </div>
           );
         })}
         {rendered.truncated && (
-          <div className="text-fg-muted text-[10px] opacity-60">… (truncated)</div>
+          <div className="text-fg-muted text-[10px] opacity-60">
+            … (truncated)
+          </div>
         )}
       </pre>
     </div>
@@ -195,7 +209,9 @@ export function ToolCallCard({
         </span>
       </button>
 
-      <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+      <div
+        className={`grid transition-[grid-template-rows] duration-200 ease-out ${expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+      >
         <div className="overflow-hidden">
           <div className="px-1.25 pb-0.5 pt-px bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)]">
             {hasDiff && (

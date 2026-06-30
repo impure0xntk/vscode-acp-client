@@ -30,8 +30,6 @@ import {
 
 const SCROLL_BOTTOM_THRESHOLD = 100;
 
-
-
 interface StickyUserMessage {
   key: string;
   content: string;
@@ -198,7 +196,9 @@ export const SessionChatContainer = memo(function SessionChatContainer({
   // This replaces the pipeline's attachStepFileEditSummaries (O(S*W)).
   const stepsWithSeq = useMemo(() => {
     if (!latestGroup) return [];
-    return latestGroup.steps.map((s) => ({ writeSeq: s.agentMessage?.writeSeq ?? 0 }));
+    return latestGroup.steps.map((s) => ({
+      writeSeq: s.agentMessage?.writeSeq ?? 0,
+    }));
   }, [latestGroup]);
   const finalWriteSeq = useMemo(() => {
     if (!latestGroup?.finalResponse) return null;
@@ -223,7 +223,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
   const fileEditSummaryMap = useFileEditSummaryMap(
     agentId ?? "",
     sessionId ?? "",
-    summaryBoundaries,
+    summaryBoundaries
   );
 
   const collapsedMap = useIntermediateStepsCollapseMap(sessionKey ?? null);
@@ -430,7 +430,13 @@ export const SessionChatContainer = memo(function SessionChatContainer({
     if (isStreaming) {
       scheduleScrollRecompute();
     }
-  }, [sessionKey, isAtBottom, unreadCount, isStreaming, scheduleScrollRecompute]);
+  }, [
+    sessionKey,
+    isAtBottom,
+    unreadCount,
+    isStreaming,
+    scheduleScrollRecompute,
+  ]);
 
   const handleScrollToBottom = useCallback(() => {
     const wrapper = wrapperRef.current?.querySelector(
@@ -524,8 +530,12 @@ export const SessionChatContainer = memo(function SessionChatContainer({
             }}
           >
             <div className="flex items-center gap-2 mb-[2px]">
-              <span className="text-[11px] font-medium text-fg-secondary">You</span>
-              <span className="text-[10px] text-fg-muted opacity-50">{stickyTime}</span>
+              <span className="text-[11px] font-medium text-fg-secondary">
+                You
+              </span>
+              <span className="text-[10px] text-fg-muted opacity-50">
+                {stickyTime}
+              </span>
             </div>
             <div className="text-xs text-fg-primary whitespace-nowrap overflow-hidden text-ellipsis leading-[1.4]">
               {stickyUserMessage.content}
@@ -533,7 +543,10 @@ export const SessionChatContainer = memo(function SessionChatContainer({
             {stickyUserMessage.attachments.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-1">
                 {stickyUserMessage.attachments.map((a) => (
-                  <span key={a.id} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-fg-secondary text-[9px] font-mono">
+                  <span
+                    key={a.id}
+                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-fg-secondary text-[9px] font-mono"
+                  >
                     {a.label}
                   </span>
                 ))}
@@ -543,235 +556,257 @@ export const SessionChatContainer = memo(function SessionChatContainer({
         )}
 
         <div className="px-4 py-3 flex flex-col flex-1 min-h-0">
-        {isEmpty ? (
-          <div className="min-h-full flex flex-col items-center justify-center text-fg-muted">
-            <p className="text-sm font-medium text-fg-secondary">ACP Chat</p>
-            <p className="text-xs text-fg-muted max-w-[260px] text-center leading-relaxed mt-1">
-              {sessionId
-                ? "Send a message to start the conversation."
-                : "Connect to an agent and create a session to start."}
-            </p>
-          </div>
-        ) : (
-          <div
+          {isEmpty ? (
+            <div className="min-h-full flex flex-col items-center justify-center text-fg-muted">
+              <p className="text-sm font-medium text-fg-secondary">ACP Chat</p>
+              <p className="text-xs text-fg-muted max-w-[260px] text-center leading-relaxed mt-1">
+                {sessionId
+                  ? "Send a message to start the conversation."
+                  : "Connect to an agent and create a session to start."}
+              </p>
+            </div>
+          ) : (
+            <div
               className={`flex flex-col gap-0.5${isStreaming ? " [&>*:last-child]:animate-blink" : ""}`}
-            data-new-count={newCount > 0 ? newCount : undefined}
-          >
-            {/* Leading items — system notices, compression, etc. before first user message */}
-            {leading.map((item, idx) => (
-              <DisplayItemView
-                key={item.key}
-                item={item}
-                idx={idx}
-                items={leading}
-                sessionId={sessionId}
-                agentId={agentId}
-                isNew={newKeys.has(item.key)}
-              />
-            ))}
-
-            {/* Past groups */}
-            {groups.map((group) => {
-              const expanded = isGroupExpanded(group);
-              return (
-                <React.Fragment key={group.userItem.key}>
-                  <DisplayItemView
-                    item={group.userItem}
-                    idx={0}
-                    items={[group.userItem]}
-                    sessionId={sessionId}
-                    agentId={agentId}
-                    isNew={newKeys.has(group.userItem.key)}
-                  />
-                  <IntermediateStepsBanner
-                    steps={group.steps}
-                    defaultCollapsed={true}
-                    forceExpanded={expanded}
-                    sessionId={sessionId}
-                    agentId={agentId}
-                    onToggle={() =>
-                      toggleIntermediateSteps(sessionKey!, group.userItem.key)
-                    }
-                    onExpandSettled={recomputeScrollState}
-                    onAttachDiff={onAttachDiff}
-                  />
-                  {group.finalResponse && (
-                    <>
-                      <DisplayItemView
-                        item={group.finalResponse.item}
-                        idx={0}
-                        items={[group.finalResponse.item]}
-                        sessionId={sessionId}
-                        agentId={agentId}
-                        forceHeader={true}
-                        isNew={newKeys.has(group.finalResponse.item.key)}
-                      />
-                      {/* Turn-level file edit summary — only shown as fallback when
-                          no per-step fileEditSummary exists in this group's steps.
-                          When steps have per-step summaries, they are rendered
-                          inside StepView and we suppress the aggregate to avoid duplication. */}
-                      {group.turnFileEditSummary && group.turnFileEditSummary.length > 0 &&
-                       !group.steps.some((s) => s.fileEditSummary && s.fileEditSummary.length > 0) && (
-                        <FileEditSummary entries={group.turnFileEditSummary} sessionId={sessionId} agentId={agentId} onAttachDiff={onAttachDiff} />
-                      )}
-                    </>
-                  )}
-                  {/* Passthrough items — compression, mode_change, etc. that
-                      arrived after this group's turn and before the next user
-                      message. Rendered after finalResponse to preserve order. */}
-                  {group.passthrough.map((item, idx) => (
-                    <DisplayItemView
-                      key={item.key}
-                      item={item}
-                      idx={idx}
-                      items={group.passthrough}
-                      sessionId={sessionId}
-                      agentId={agentId}
-                      isNew={newKeys.has(item.key)}
-                    />
-                  ))}
-                </React.Fragment>
-              );
-            })}
-
-            {/* Latest group */}
-            {latestGroup &&
-              (() => {
-                const expanded = isGroupExpanded(latestGroup);
-                const { olderSteps, currentStep } = splitLatestSteps(
-                  latestGroup.steps,
-                  latestGroup.finalResponse != null,
-                  latestGroup.currentStep
-                );
-                return (
-                  <React.Fragment key="latest-group">
-                    <DisplayItemView
-                      item={latestGroup.userItem}
-                      idx={0}
-                      items={[latestGroup.userItem]}
-                      sessionId={sessionId}
-                      agentId={agentId}
-                      isNew={newKeys.has(latestGroup.userItem.key)}
-                    />
-                    {olderSteps.length > 0 && (
-                      <IntermediateStepsBanner
-                        steps={olderSteps}
-                        defaultCollapsed={true}
-                        forceExpanded={expanded}
-                        sessionId={sessionId}
-                        agentId={agentId}
-                        autoCollapse={latestAutoCollapse}
-                        onToggle={() =>
-                          toggleIntermediateSteps(
-                            sessionKey!,
-                            latestGroup.userItem.key
-                          )
-                        }
-                        onExpandSettled={recomputeScrollState}
-                        onAttachDiff={onAttachDiff}
-                        fileEditSummaryMap={fileEditSummaryMap}
-                      />
-                    )}
-                    {currentStep && (
-                      <StepView
-                        step={currentStep}
-                        sessionId={sessionId}
-                        agentId={agentId}
-                        isNew={true}
-                        forceHeader={true}
-                        isAgentNew={currentStep.agentMessage ? newKeys.has(currentStep.agentMessage.key) : false}
-                        onAttachDiff={onAttachDiff}
-                        externalFileEditEntries={fileEditSummaryMap?.get(olderSteps.length)}
-                      />
-                    )}
-                    {!currentStep && latestGroup.finalResponse && (
-                      <DisplayItemView
-                        item={latestGroup.finalResponse.item}
-                        idx={0}
-                        items={[latestGroup.finalResponse.item]}
-                        sessionId={sessionId}
-                        agentId={agentId}
-                        forceHeader={true}
-                        isNew={newKeys.has(latestGroup.finalResponse.item.key)}
-                      />
-                    )}
-
-                    {/* Cumulative file edit summary — shown after turn completes (finalResponse exists).
-                        Per-step file edits are shown via StepView for each step (including intermediate).
-                        When currentStep exists, its StepView already shows the fileEditSummary,
-                        so we suppress the turn-level aggregate to avoid duplication. */}
-                    {!currentStep && latestGroup.finalResponse && latestGroup.turnFileEditSummary && latestGroup.turnFileEditSummary.length > 0 && (
-                      <FileEditSummary
-                        entries={latestGroup.turnFileEditSummary}
-                        sessionId={sessionId}
-                        agentId={agentId}
-                        onAttachDiff={onAttachDiff}
-                      />
-                    )}
-                  </React.Fragment>
-                );
-              })()}
-
-            {/* Trailing items */}
-            {trailing.map((item, idx) => (
-              <DisplayItemView
-                key={item.key}
-                item={item}
-                idx={idx}
-                items={trailing}
-                sessionId={sessionId}
-                agentId={agentId}
-                isNew={newKeys.has(item.key)}
-              />
-            ))}
-
-            {/* Latest group passthrough — compression, mode_change, etc. that
-                arrived after the latest turn but before a new user message.
-                Rendered at the end to preserve chronological order. */}
-            {latestGroup?.passthrough && latestGroup.passthrough.length > 0 && (
-              latestGroup.passthrough.map((item, idx) => (
+              data-new-count={newCount > 0 ? newCount : undefined}
+            >
+              {/* Leading items — system notices, compression, etc. before first user message */}
+              {leading.map((item, idx) => (
                 <DisplayItemView
                   key={item.key}
                   item={item}
                   idx={idx}
-                  items={latestGroup.passthrough}
+                  items={leading}
                   sessionId={sessionId}
                   agentId={agentId}
                   isNew={newKeys.has(item.key)}
                 />
-              ))
-            )}
+              ))}
 
-            {isStreaming && (
-              <div className="py-1">
-                <span className="inline-block animate-blink text-accent font-bold">▋</span>
-              </div>
-            )}
-          </div>
-        )}
-        {/* Inside the scroll container so the button stays anchored to the
-            message area's bottom regardless of Composer height changes. */}
-        {showScrollButton && (
-          <div className="sticky bottom-0 z-10 pointer-events-none flex justify-end px-3 pb-2">
-            <button
-              className="pointer-events-auto relative flex items-center justify-center w-7 h-7 p-0 border border-border rounded-full bg-bg-secondary text-fg-primary shadow-[0_2px_8px_rgba(0,0,0,0.3)] cursor-pointer transition-all duration-150 hover:bg-accent-hover hover:border-accent hover:scale-105 active:scale-95"
-              onClick={handleScrollToBottom}
-              type="button"
-              title="Scroll to bottom"
-              aria-label="Scroll to bottom"
-            >
-              <span className="text-sm leading-none">↓</span>
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-[9px] bg-accent text-user-fg text-[10px] font-bold leading-none drop-shadow-[0_1px_3px_rgba(0,0,0,0.45)]">{unreadCount}</span>
+              {/* Past groups */}
+              {groups.map((group) => {
+                const expanded = isGroupExpanded(group);
+                return (
+                  <React.Fragment key={group.userItem.key}>
+                    <DisplayItemView
+                      item={group.userItem}
+                      idx={0}
+                      items={[group.userItem]}
+                      sessionId={sessionId}
+                      agentId={agentId}
+                      isNew={newKeys.has(group.userItem.key)}
+                    />
+                    <IntermediateStepsBanner
+                      steps={group.steps}
+                      defaultCollapsed={true}
+                      forceExpanded={expanded}
+                      sessionId={sessionId}
+                      agentId={agentId}
+                      onToggle={() =>
+                        toggleIntermediateSteps(sessionKey!, group.userItem.key)
+                      }
+                      onExpandSettled={recomputeScrollState}
+                      onAttachDiff={onAttachDiff}
+                    />
+                    {group.finalResponse && (
+                      <>
+                        <DisplayItemView
+                          item={group.finalResponse.item}
+                          idx={0}
+                          items={[group.finalResponse.item]}
+                          sessionId={sessionId}
+                          agentId={agentId}
+                          forceHeader={true}
+                          isNew={newKeys.has(group.finalResponse.item.key)}
+                        />
+                        {/* Turn-level file edit summary — only shown as fallback when
+                          no per-step fileEditSummary exists in this group's steps.
+                          When steps have per-step summaries, they are rendered
+                          inside StepView and we suppress the aggregate to avoid duplication. */}
+                        {group.turnFileEditSummary &&
+                          group.turnFileEditSummary.length > 0 &&
+                          !group.steps.some(
+                            (s) =>
+                              s.fileEditSummary && s.fileEditSummary.length > 0
+                          ) && (
+                            <FileEditSummary
+                              entries={group.turnFileEditSummary}
+                              sessionId={sessionId}
+                              agentId={agentId}
+                              onAttachDiff={onAttachDiff}
+                            />
+                          )}
+                      </>
+                    )}
+                    {/* Passthrough items — compression, mode_change, etc. that
+                      arrived after this group's turn and before the next user
+                      message. Rendered after finalResponse to preserve order. */}
+                    {group.passthrough.map((item, idx) => (
+                      <DisplayItemView
+                        key={item.key}
+                        item={item}
+                        idx={idx}
+                        items={group.passthrough}
+                        sessionId={sessionId}
+                        agentId={agentId}
+                        isNew={newKeys.has(item.key)}
+                      />
+                    ))}
+                  </React.Fragment>
+                );
+              })}
+
+              {/* Latest group */}
+              {latestGroup &&
+                (() => {
+                  const expanded = isGroupExpanded(latestGroup);
+                  const { olderSteps, currentStep } = splitLatestSteps(
+                    latestGroup.steps,
+                    latestGroup.finalResponse != null,
+                    latestGroup.currentStep
+                  );
+                  return (
+                    <React.Fragment key="latest-group">
+                      <DisplayItemView
+                        item={latestGroup.userItem}
+                        idx={0}
+                        items={[latestGroup.userItem]}
+                        sessionId={sessionId}
+                        agentId={agentId}
+                        isNew={newKeys.has(latestGroup.userItem.key)}
+                      />
+                      {olderSteps.length > 0 && (
+                        <IntermediateStepsBanner
+                          steps={olderSteps}
+                          defaultCollapsed={true}
+                          forceExpanded={expanded}
+                          sessionId={sessionId}
+                          agentId={agentId}
+                          autoCollapse={latestAutoCollapse}
+                          onToggle={() =>
+                            toggleIntermediateSteps(
+                              sessionKey!,
+                              latestGroup.userItem.key
+                            )
+                          }
+                          onExpandSettled={recomputeScrollState}
+                          onAttachDiff={onAttachDiff}
+                          fileEditSummaryMap={fileEditSummaryMap}
+                        />
+                      )}
+                      {currentStep && (
+                        <StepView
+                          step={currentStep}
+                          sessionId={sessionId}
+                          agentId={agentId}
+                          isNew={true}
+                          forceHeader={true}
+                          isAgentNew={
+                            currentStep.agentMessage
+                              ? newKeys.has(currentStep.agentMessage.key)
+                              : false
+                          }
+                          onAttachDiff={onAttachDiff}
+                          externalFileEditEntries={fileEditSummaryMap?.get(
+                            olderSteps.length
+                          )}
+                        />
+                      )}
+                      {!currentStep && latestGroup.finalResponse && (
+                        <DisplayItemView
+                          item={latestGroup.finalResponse.item}
+                          idx={0}
+                          items={[latestGroup.finalResponse.item]}
+                          sessionId={sessionId}
+                          agentId={agentId}
+                          forceHeader={true}
+                          isNew={newKeys.has(
+                            latestGroup.finalResponse.item.key
+                          )}
+                        />
+                      )}
+
+                      {/* Cumulative file edit summary — shown after turn completes (finalResponse exists).
+                        Per-step file edits are shown via StepView for each step (including intermediate).
+                        When currentStep exists, its StepView already shows the fileEditSummary,
+                        so we suppress the turn-level aggregate to avoid duplication. */}
+                      {!currentStep &&
+                        latestGroup.finalResponse &&
+                        latestGroup.turnFileEditSummary &&
+                        latestGroup.turnFileEditSummary.length > 0 && (
+                          <FileEditSummary
+                            entries={latestGroup.turnFileEditSummary}
+                            sessionId={sessionId}
+                            agentId={agentId}
+                            onAttachDiff={onAttachDiff}
+                          />
+                        )}
+                    </React.Fragment>
+                  );
+                })()}
+
+              {/* Trailing items */}
+              {trailing.map((item, idx) => (
+                <DisplayItemView
+                  key={item.key}
+                  item={item}
+                  idx={idx}
+                  items={trailing}
+                  sessionId={sessionId}
+                  agentId={agentId}
+                  isNew={newKeys.has(item.key)}
+                />
+              ))}
+
+              {/* Latest group passthrough — compression, mode_change, etc. that
+                arrived after the latest turn but before a new user message.
+                Rendered at the end to preserve chronological order. */}
+              {latestGroup?.passthrough &&
+                latestGroup.passthrough.length > 0 &&
+                latestGroup.passthrough.map((item, idx) => (
+                  <DisplayItemView
+                    key={item.key}
+                    item={item}
+                    idx={idx}
+                    items={latestGroup.passthrough}
+                    sessionId={sessionId}
+                    agentId={agentId}
+                    isNew={newKeys.has(item.key)}
+                  />
+                ))}
+
+              {isStreaming && (
+                <div className="py-1">
+                  <span className="inline-block animate-blink text-accent font-bold">
+                    ▋
+                  </span>
+                </div>
               )}
-            </button>
-          </div>
-        )}
-        <div ref={bottomRef} data-bottom-anchor="true" />
+            </div>
+          )}
+          {/* Inside the scroll container so the button stays anchored to the
+            message area's bottom regardless of Composer height changes. */}
+          {showScrollButton && (
+            <div className="sticky bottom-0 z-10 pointer-events-none flex justify-end px-3 pb-2">
+              <button
+                className="pointer-events-auto relative flex items-center justify-center w-7 h-7 p-0 border border-border rounded-full bg-bg-secondary text-fg-primary shadow-[0_2px_8px_rgba(0,0,0,0.3)] cursor-pointer transition-all duration-150 hover:bg-accent-hover hover:border-accent hover:scale-105 active:scale-95"
+                onClick={handleScrollToBottom}
+                type="button"
+                title="Scroll to bottom"
+                aria-label="Scroll to bottom"
+              >
+                <span className="text-sm leading-none">↓</span>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-[9px] bg-accent text-user-fg text-[10px] font-bold leading-none drop-shadow-[0_1px_3px_rgba(0,0,0,0.45)]">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          )}
+          <div ref={bottomRef} data-bottom-anchor="true" />
         </div>
       </div>
     </div>
   );
 });
-
-

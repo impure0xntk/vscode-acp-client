@@ -109,7 +109,8 @@ export class VscodePlatform implements PlatformAPI {
     const logChannel = vscode.window.createOutputChannel("ACP Client");
     const config = vscode.workspace.getConfiguration("acp");
     const levelName = config.get<string>("logLevel", "debug");
-    const logLevel: LogLevelValue = LogLevel[levelName as keyof typeof LogLevel] ?? LogLevel.debug;
+    const logLevel: LogLevelValue =
+      LogLevel[levelName as keyof typeof LogLevel] ?? LogLevel.debug;
     const baseBackend = new VsCodeOutputBackend(logChannel, logLevel);
     this.sinkBackend = new LogEntrySinkBackend(baseBackend);
     const factory = new LoggerFactoryImpl(this.sinkBackend);

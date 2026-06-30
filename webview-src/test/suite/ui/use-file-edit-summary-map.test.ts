@@ -24,7 +24,7 @@ import type { FileWriteRecord } from "../../../store/fileWriteStore";
 
 function computeSummaryMap(
   writes: FileWriteRecord[],
-  boundaries: { lo: number; hi: number }[],
+  boundaries: { lo: number; hi: number }[]
 ): Map<number, FileEditEntry[]> | undefined {
   if (writes.length === 0 || boundaries.length === 0) return undefined;
 
@@ -63,7 +63,13 @@ describe("useFileEditSummaryMap — computeSummaryMap (pure replica)", () => {
 
   it("returns undefined when no boundaries", () => {
     const writes: FileWriteRecord[] = [
-      { path: "/a.ts", content: "x", originalContent: null, seq: 0, contentHash: "h1" },
+      {
+        path: "/a.ts",
+        content: "x",
+        originalContent: null,
+        seq: 0,
+        contentHash: "h1",
+      },
     ];
     const map = computeSummaryMap(writes, []);
     assert.strictEqual(map, undefined);
@@ -71,9 +77,27 @@ describe("useFileEditSummaryMap — computeSummaryMap (pure replica)", () => {
 
   it("assigns writes to correct step indices by boundary", () => {
     const writes: FileWriteRecord[] = [
-      { path: "/s1.ts", content: "a", originalContent: null, seq: 0, contentHash: "" },
-      { path: "/s2.ts", content: "b", originalContent: null, seq: 1, contentHash: "" },
-      { path: "/s3.ts", content: "c", originalContent: null, seq: 2, contentHash: "" },
+      {
+        path: "/s1.ts",
+        content: "a",
+        originalContent: null,
+        seq: 0,
+        contentHash: "",
+      },
+      {
+        path: "/s2.ts",
+        content: "b",
+        originalContent: null,
+        seq: 1,
+        contentHash: "",
+      },
+      {
+        path: "/s3.ts",
+        content: "c",
+        originalContent: null,
+        seq: 2,
+        contentHash: "",
+      },
     ];
     const boundaries = [
       { lo: 0, hi: 1 }, // step 0
@@ -91,9 +115,21 @@ describe("useFileEditSummaryMap — computeSummaryMap (pure replica)", () => {
 
   it("returns only populated steps (sparse Map)", () => {
     const writes: FileWriteRecord[] = [
-      { path: "/a.ts", content: "a", originalContent: null, seq: 0, contentHash: "" },
+      {
+        path: "/a.ts",
+        content: "a",
+        originalContent: null,
+        seq: 0,
+        contentHash: "",
+      },
       // No writes for step 1 (boundary [1,2))
-      { path: "/c.ts", content: "c", originalContent: null, seq: 2, contentHash: "" },
+      {
+        path: "/c.ts",
+        content: "c",
+        originalContent: null,
+        seq: 2,
+        contentHash: "",
+      },
     ];
     const boundaries = [
       { lo: 0, hi: 1 },
@@ -111,8 +147,20 @@ describe("useFileEditSummaryMap — computeSummaryMap (pure replica)", () => {
 
   it("omits empty boundaries between populated steps", () => {
     const writes: FileWriteRecord[] = [
-      { path: "/first.ts", content: "1", originalContent: null, seq: 0, contentHash: "" },
-      { path: "/last.ts", content: "2", originalContent: null, seq: 9, contentHash: "" },
+      {
+        path: "/first.ts",
+        content: "1",
+        originalContent: null,
+        seq: 0,
+        contentHash: "",
+      },
+      {
+        path: "/last.ts",
+        content: "2",
+        originalContent: null,
+        seq: 9,
+        contentHash: "",
+      },
     ];
     const boundaries = [
       { lo: 0, hi: 1 },
@@ -131,8 +179,20 @@ describe("useFileEditSummaryMap — computeSummaryMap (pure replica)", () => {
 
   it("merges same-path writes within a single step boundary", () => {
     const writes: FileWriteRecord[] = [
-      { path: "/shared.ts", content: "v1", originalContent: null, seq: 0, contentHash: "" },
-      { path: "/shared.ts", content: "v2\nv2", originalContent: null, seq: 1, contentHash: "" },
+      {
+        path: "/shared.ts",
+        content: "v1",
+        originalContent: null,
+        seq: 0,
+        contentHash: "",
+      },
+      {
+        path: "/shared.ts",
+        content: "v2\nv2",
+        originalContent: null,
+        seq: 1,
+        contentHash: "",
+      },
     ];
     const boundaries = [
       { lo: 0, hi: Infinity }, // single boundary covers everything
@@ -169,9 +229,9 @@ describe("useFileEditSummaryMap — computeSummaryMap (pure replica)", () => {
 
     const writes = useFileWriteStore.getState().getWritesForSession("a1", "s1");
     const boundaries = [
-      { lo: 0, hi: 2 },            // intermediate step 0 [first.writeSeq, second.writeSeq)
-      { lo: 2, hi: 5 },            // intermediate step 1 [second.writeSeq, finalWriteSeq)
-      { lo: 5, hi: Infinity },     // final step [finalWriteSeq, ∞)
+      { lo: 0, hi: 2 }, // intermediate step 0 [first.writeSeq, second.writeSeq)
+      { lo: 2, hi: 5 }, // intermediate step 1 [second.writeSeq, finalWriteSeq)
+      { lo: 5, hi: Infinity }, // final step [finalWriteSeq, ∞)
     ];
 
     const map = computeSummaryMap(writes, boundaries);
@@ -211,7 +271,10 @@ describe("useFileEditSummaryMap — computeSummaryMap (pure replica)", () => {
     assert.ok(map);
     // Some steps should have writes
     assert.ok(map!.size > 0);
-    assert.ok(elapsed < 1000, `computeSummaryMap took ${elapsed}ms (expected <1000ms for 1000 writes + 101 boundaries)`);
+    assert.ok(
+      elapsed < 1000,
+      `computeSummaryMap took ${elapsed}ms (expected <1000ms for 1000 writes + 101 boundaries)`
+    );
   });
 });
 

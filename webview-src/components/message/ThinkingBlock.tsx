@@ -29,7 +29,9 @@ export function ThinkingBlock({
           ▸
         </span>
       </div>
-      <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+      <div
+        className={`grid transition-[grid-template-rows] duration-200 ease-out ${isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+      >
         <div className="overflow-hidden">
           <div className="px-2.5 py-[6px] font-mono text-[11px] leading-[1.5] text-fg-secondary whitespace-pre-wrap break-words">
             {content}

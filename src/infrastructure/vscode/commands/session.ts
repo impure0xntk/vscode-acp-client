@@ -557,9 +557,7 @@ export function registerSessionCommands(
   const newSessionAndPinCmd = vscode.commands.registerCommand(
     "acp.newSessionAndPin",
     async () => {
-      const agentId = await pickConnectedAgent(
-        "Select agent for new session"
-      );
+      const agentId = await pickConnectedAgent("Select agent for new session");
       if (!agentId) return;
 
       const wsFolders = vscode.workspace.workspaceFolders ?? [];

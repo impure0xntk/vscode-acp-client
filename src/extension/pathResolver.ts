@@ -12,10 +12,27 @@ export class BatchedPathResolver {
   private timer: ReturnType<typeof setTimeout> | null = null;
   private cwd: string;
   private callbacks: PathResolverCallbacks;
+  private static readonly CACHE_MAX = 5000;
+  private static readonly FLUSH_INTERVAL_MS = 100;
+  private static readonly FLUSH_BATCH_SIZE = 100;
 
   constructor(cwd: string, callbacks: PathResolverCallbacks) {
     this.cwd = cwd;
     this.callbacks = callbacks;
+  }
+
+  private enforceCacheLimit(): void {
+    if (BatchedPathResolver.CACHE_MAX <= 0) return;
+    if (this.cache.size <= BatchedPathResolver.CACHE_MAX) return;
+    // Evict oldest entries (Map iteration order = insertion order)
+    const overflow = this.cache.size - BatchedPathResolver.CACHE_MAX;
+    let i = 0;
+    for (const key of this.cache.keys()) {
+      if (i >= overflow) break;
+      this.cache.delete(key);
+      this.resolved.delete(key);
+      i++;
+    }
   }
 
   enqueue(paths: string[]): void {
@@ -33,7 +50,7 @@ export class BatchedPathResolver {
     if (this.timer) return;
     this.timer = setTimeout(() => {
       this.flush().catch(() => {});
-    }, 100);
+    }, BatchedPathResolver.FLUSH_INTERVAL_MS);
   }
 
   private async flush(): Promise<void> {
@@ -43,7 +60,7 @@ export class BatchedPathResolver {
 
     if (batch.length === 0) return;
 
-    const limited = batch.slice(0, 100);
+    const limited = batch.slice(0, BatchedPathResolver.FLUSH_BATCH_SIZE);
 
     const results = await Promise.all(
       limited.map(async (filePath) => {
@@ -65,6 +82,8 @@ export class BatchedPathResolver {
         }
       })
     );
+
+    this.enforceCacheLimit();
 
     const existingPaths: string[] = [];
 

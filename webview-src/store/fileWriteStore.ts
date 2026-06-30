@@ -30,12 +30,23 @@ export interface FileWriteStoreState {
     path: string,
     content: string,
     originalContent?: string | null,
-    contentHash?: string,
+    contentHash?: string
   ) => void;
   clearSession: (agentId: string, sessionId: string) => void;
-  getWritesForSession: (agentId: string, sessionId: string) => FileWriteRecord[];
-  getOriginalContent: (agentId: string, sessionId: string, path: string) => string | null;
-  getLastWriteHash: (agentId: string, sessionId: string, path: string) => string | null;
+  getWritesForSession: (
+    agentId: string,
+    sessionId: string
+  ) => FileWriteRecord[];
+  getOriginalContent: (
+    agentId: string,
+    sessionId: string,
+    path: string
+  ) => string | null;
+  getLastWriteHash: (
+    agentId: string,
+    sessionId: string,
+    path: string
+  ) => string | null;
   currentSeq: () => number;
 }
 
@@ -43,17 +54,39 @@ export const useFileWriteStore = create<FileWriteStoreState>((set, get) => ({
   writes: {},
   nextSeq: 0,
 
-  addWrite: (agentId, sessionId, path, content, originalContent, contentHash) => {
+  addWrite: (
+    agentId,
+    sessionId,
+    path,
+    content,
+    originalContent,
+    contentHash
+  ) => {
     const key = sessionKeyOf(agentId, sessionId);
     set((s) => {
       const existing = s.writes[key] ?? [];
       const seq = s.nextSeq;
-      log.debug("addWrite", { key, path, contentLen: content.length, seq, totalWrites: existing.length + 1 });
+      log.debug("addWrite", {
+        key,
+        path,
+        contentLen: content.length,
+        seq,
+        totalWrites: existing.length + 1,
+      });
       return {
         nextSeq: seq + 1,
         writes: {
           ...s.writes,
-          [key]: [...existing, { path, content, originalContent: originalContent ?? null, seq, contentHash: contentHash ?? "" }],
+          [key]: [
+            ...existing,
+            {
+              path,
+              content,
+              originalContent: originalContent ?? null,
+              seq,
+              contentHash: contentHash ?? "",
+            },
+          ],
         },
       };
     });
@@ -71,11 +104,19 @@ export const useFileWriteStore = create<FileWriteStoreState>((set, get) => ({
   getWritesForSession: (agentId, sessionId) => {
     const key = sessionKeyOf(agentId, sessionId);
     const writes = get().writes[key] ?? [];
-    log.debug("getWritesForSession", { key, count: writes.length, seqs: writes.map((w) => w.seq) });
+    log.debug("getWritesForSession", {
+      key,
+      count: writes.length,
+      seqs: writes.map((w) => w.seq),
+    });
     return writes;
   },
 
-  getOriginalContent: (agentId: string, sessionId: string, path: string): string | null => {
+  getOriginalContent: (
+    agentId: string,
+    sessionId: string,
+    path: string
+  ): string | null => {
     const key = sessionKeyOf(agentId, sessionId);
     const writes = get().writes[key] ?? [];
     for (const w of writes) {
@@ -86,7 +127,11 @@ export const useFileWriteStore = create<FileWriteStoreState>((set, get) => ({
     return null;
   },
 
-  getLastWriteHash: (agentId: string, sessionId: string, path: string): string | null => {
+  getLastWriteHash: (
+    agentId: string,
+    sessionId: string,
+    path: string
+  ): string | null => {
     const key = sessionKeyOf(agentId, sessionId);
     const writes = get().writes[key] ?? [];
     let lastHash: string | null = null;

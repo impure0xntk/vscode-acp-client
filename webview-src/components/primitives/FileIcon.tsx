@@ -41,7 +41,10 @@ export interface FileIconProps {
  * Compact file-type badge — monospace label derived from extension.
  * Shared across FileEditSummary, context chips, and any file-list UI.
  */
-export function FileIcon({ path, className = "" }: FileIconProps): React.ReactElement {
+export function FileIcon({
+  path,
+  className = "",
+}: FileIconProps): React.ReactElement {
   const ext = getFileExtension(path);
   return (
     <span
