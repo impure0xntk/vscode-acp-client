@@ -166,18 +166,14 @@ function toPipelineItem(
 
       // First-of-turn: true means "this agent/tool message is the first
       // item of a new turn → show the header".  True when preceded by a
-      // user message, a system notice, or when __stepBoundary is set.
+      // user message, a system notice, or at the start.
       const isAgentOrTool = msg.role === "agent" || msg.role === "tool";
       isFirstOfTurn =
         isAgentOrTool &&
-        (msg.__stepBoundary === true ||
-          (prevWasTurnBoundary && isAgentOrTool));
+        (prevWasTurnBoundary && isAgentOrTool);
 
       // Update turn state for next message.
-      if (msg.__stepBoundary === true) {
-        // __stepBoundary forces the *next* message to also be a turn start.
-        state.prevWasTurnBoundary = true;
-      } else if (msg.role === "user") {
+      if (msg.role === "user") {
         state.prevWasTurnBoundary = true;
       } else if (isFirstOfTurn) {
         // This agent consumed the boundary; subsequent ones are not.
@@ -200,7 +196,6 @@ function toPipelineItem(
         renderContext,
         thinking,
         isFirstOfTurn,
-        originalRole: msg.originalRole,
         stopReason: msg.stopReason,
       } satisfies ChatDisplayItem;
     }
@@ -211,10 +206,8 @@ function toPipelineItem(
  * Annotate classified messages into PipelineItem[].
  *
  * Turn-start detection (isFirstOfTurn): an agent/tool message is the first of
- * a new turn when the preceding message is a user message, a system-kind
- * notice (compression, mode_change, error_notice, custom), or when the
- * message carries the __stepBoundary flag (set by the message store after a
- * tool_call interrupts the stream).
+ * a new turn when the preceding message is a user message or a system-kind
+ * notice (compression, mode_change, error_notice, custom).
  */
 export function annotateMessages(
   messages: ClassifiedMessage[],

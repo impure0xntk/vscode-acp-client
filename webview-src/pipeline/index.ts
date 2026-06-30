@@ -14,7 +14,6 @@ export type {
   IntermediateStep,
   PipelineContext,
   FilterConfig,
-  MergeConfig,
   AnnotateConfig,
   PipelineConfig,
 } from "./types";
@@ -22,7 +21,6 @@ export type {
 // Stages
 export { classifyMessage } from "./stages/classify";
 export { filterMessages } from "./stages/filter";
-export { mergeToolBatches, ToolMergeStrategy, deduplicateToolCalls } from "./stages/merge";
 export { annotateMessages } from "./stages/annotate";
 export {
   IntermediateStepGrouper,

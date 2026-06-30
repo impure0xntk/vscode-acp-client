@@ -49,7 +49,7 @@ import { VsCodeOutputBackend } from "../backends/vscode-output-backend";
 import { LogEntrySinkBackend } from "../backends/log-entry-sink-backend";
 import { LoggerFactoryImpl } from "../backends/logger-impl";
 import { initLoggerFactory, getLoggerFactory } from "../backends";
-import type { LogLevelValue } from "../backends/types";
+import { LogLevel, type LogLevelValue } from "../backends/types";
 import type { PersistentHistoryStore } from "../../application/session/persistentHistory";
 import type { LogEntrySink } from "../backends/log-entry-sink-backend";
 import { LogEntrySinkImpl } from "../../domain/services/log-entry-sink";
@@ -107,7 +107,9 @@ export class VscodePlatform implements PlatformAPI {
     this.version = vscode.version;
 
     const logChannel = vscode.window.createOutputChannel("ACP Client");
-    const logLevel: LogLevelValue = 1; // default: debug for VS Code
+    const config = vscode.workspace.getConfiguration("acp");
+    const levelName = config.get<string>("logLevel", "debug");
+    const logLevel: LogLevelValue = LogLevel[levelName as keyof typeof LogLevel] ?? LogLevel.debug;
     const baseBackend = new VsCodeOutputBackend(logChannel, logLevel);
     this.sinkBackend = new LogEntrySinkBackend(baseBackend);
     const factory = new LoggerFactoryImpl(this.sinkBackend);

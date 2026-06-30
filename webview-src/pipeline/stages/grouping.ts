@@ -230,6 +230,30 @@ export function lowerBound(arr: FileWriteRecord[], target: number, start: number
 }
 
 /**
+ * Get writes scoped to a specific turn using writeSeq boundaries.
+ * A turn's writes are those with seq >= turn's first agent message writeSeq
+ * and < next turn's first agent message writeSeq (or Infinity for the last turn).
+ *
+ * For groups with no agent messages (pre-agent steps only), lo=0.
+ * For the last turn, hi=Infinity.
+ */
+function getWritesForTurn(
+  allWrites: FileWriteRecord[],
+  turnFirstWriteSeq: number,
+  nextTurnFirstWriteSeq: number | null,
+): FileWriteRecord[] {
+  const lo = turnFirstWriteSeq;
+  const hi = nextTurnFirstWriteSeq ?? Infinity;
+  const startIdx = lowerBound(allWrites, lo);
+  const result: FileWriteRecord[] = [];
+  for (let i = startIdx; i < allWrites.length; i++) {
+    if (allWrites[i].seq >= hi) break;
+    result.push(allWrites[i]);
+  }
+  return result;
+}
+
+/**
  * Boundary for partitioning file writes among steps.
  * `writeSeq` is the file-write sequence counter stamped on the agent message
  * that begins each step.  Writes with seq in [lo, hi) belong to that step.
@@ -240,6 +264,8 @@ interface WriteSeqBoundary {
   /** Exclusive upper bound (next step's lo, or Infinity for the last step) */
   hi: number;
 }
+
+
 
 /**
  * Compute write-seq boundaries for each step in a group.
@@ -385,24 +411,12 @@ function attachStepFileEditSummaries(
   }
 }
 
-function isPromotedTool(item: PipelineItem): boolean {
-  if (item.type !== "chat") return false;
-  const chat = item as ChatDisplayItem;
-  // Promoted tool: role="agent" with originalRole="tool" (set by merge when
-  // tool is absorbed into a preceding agent message).
-  if (chat.role === "agent" && chat.originalRole === "tool") return true;
-  // Raw tool: role="tool" — emitted as a standalone entry when no preceding
-  // agent message exists to absorb into (e.g., User → ToolCall → Agent).
-  if (chat.role === "tool") return true;
-  return false;
+function isToolItem(item: PipelineItem): boolean {
+  return item.type === "chat" && item.role === "tool";
 }
 
 function isRealAgentChat(item: PipelineItem): boolean {
-  return (
-    item.type === "chat" &&
-    item.role === "agent" &&
-    (item as ChatDisplayItem).originalRole !== "tool"
-  );
+  return item.type === "chat" && item.role === "agent";
 }
 
 function isAgentOrTool(item: PipelineItem): boolean {
@@ -415,6 +429,19 @@ function isThinking(item: PipelineItem): boolean {
     item.role === "agent" &&
     (item as ChatDisplayItem).thinking != null
   );
+}
+
+/**
+ * Extract the writeSeq from the first agent message in a list of items.
+ * Returns 0 if no agent message with writeSeq is found (pre-agent steps).
+ */
+function firstWriteSeqOfItems(items: PipelineItem[]): number {
+  for (const item of items) {
+    if (item.type === "chat" && item.role === "agent" && item.writeSeq != null) {
+      return item.writeSeq;
+    }
+  }
+  return 0;
 }
 
 /**
@@ -602,7 +629,7 @@ export function splitIntoSteps(
       flushAgentStep();
       flushPendingAsPreAgent();
       currentAgent = agentItem;
-    } else if (isPromotedTool(item)) {
+    } else if (isToolItem(item)) {
       if (currentAgent != null) {
         currentTools.push(item as ChatDisplayItem);
       } else {
@@ -668,17 +695,12 @@ export function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
   };
   const partitionedLatestSteps = latestSteps.map(stripFES);
   const latestSession = sessionOfItems(afterLastUser);
+  const allLatestWrites = [...useFileWriteStore.getState().getWritesForSession(latestSession.agentId, latestSession.sessionId)].sort((a, b) => a.seq - b.seq);
+  const latestFirstWriteSeq = firstWriteSeqOfItems(afterLastUser);
+  const scopedLatestWrites = getWritesForTurn(allLatestWrites, latestFirstWriteSeq, null);
 
-  // Compute final step summary for currentStep (used by SessionChatContainer)
-  const finalStepSummary = buildSummaryFromWrites(
-    useFileWriteStore.getState().getWritesForSession(latestSession.agentId, latestSession.sessionId)
-  ) ?? undefined;
+  const finalStepSummary = buildSummaryFromWrites(scopedLatestWrites) ?? undefined;
 
-  // currentStep with file edits for the final step
-  // Only set currentStep when there are items AFTER the final response
-  // (tool calls that belong to the final step).  When the final response
-  // is the last item, currentStep stays null — the turn-level summary
-  // below the final response handles aggregate display.
   let latestCurrentStep: IntermediateStep | null = null;
   if (latestFinal && latestFinalIdx >= 0) {
     const postFinalItems = latestAgentChats.slice(latestFinalIdx + 1);
@@ -692,10 +714,7 @@ export function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
     }
   }
 
-  // Turn-level file edit summary: ALL writes for this session merged
-  const latestTurnSummary = buildSummaryFromWrites(
-    useFileWriteStore.getState().getWritesForSession(latestSession.agentId, latestSession.sessionId)
-  ) ?? undefined;
+  const latestTurnSummary = buildSummaryFromWrites(scopedLatestWrites) ?? undefined;
 
   log.info("groupByUserBoundary: latestGroup", {
     userItemKey: items[lastUserIdx].key,
@@ -708,7 +727,7 @@ export function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
     turnFESEntries: latestTurnSummary?.map(e => `${e.path} (+${e.lineCount})`) ?? [],
     agentMessageWriteSeqs: partitionedLatestSteps.map(s => s.agentMessage?.writeSeq ?? null),
     sessionKey: `${latestSession.agentId}:${latestSession.sessionId}`,
-    writeCount: useFileWriteStore.getState().getWritesForSession(latestSession.agentId, latestSession.sessionId).length,
+    writeCount: scopedLatestWrites.length,
   });
 
   // When finalResponse exists with writes but NO post-final items, create a
@@ -760,10 +779,15 @@ export function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
     // Per-step file edit summaries moved to useFileEditSummaryMap hook.
     // Skipped here to keep step objects immutable for React.memo.
 
-    // Turn-level file edit summary: ALL writes for this session merged
-    const turnSummary = buildSummaryFromWrites(
-      useFileWriteStore.getState().getWritesForSession(turnSession.agentId, turnSession.sessionId)
-    ) ?? undefined;
+    // Turn-level file edit summary: scoped to THIS turn's writes only
+    const allTurnWrites = [...useFileWriteStore.getState().getWritesForSession(turnSession.agentId, turnSession.sessionId)].sort((a, b) => a.seq - b.seq);
+    const turnFirstWriteSeq = firstWriteSeqOfItems(groupItems);
+    const nextGroupItems = g + 1 < userIndices.length - 1
+      ? items.slice(userIndices[g + 1] + 1, userIndices[g + 2])
+      : afterLastUser;
+    const nextTurnFirstWriteSeq = firstWriteSeqOfItems(nextGroupItems);
+    const scopedTurnWrites = getWritesForTurn(allTurnWrites, turnFirstWriteSeq, nextTurnFirstWriteSeq);
+    const turnSummary = buildSummaryFromWrites(scopedTurnWrites) ?? undefined;
 
     // Non-agent/tool items between two user messages: compression, mode_change,
     // error_notice, custom. These were splitIntoSteps input but silently dropped

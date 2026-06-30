@@ -56,6 +56,16 @@ export class ProtocolHandler {
   private pendingTextBatch: Map<string, TextBatch> = new Map();
   // sessionKey → last seen ACP messageId (for step boundary detection)
   private lastSeenMessageId: Map<string, string | null> = new Map();
+  /**
+   * Drain window for late notifications after turn end.
+   * When a turn completes, session/update notifications may still be in-flight
+   * (the agent sent them before receiving the prompt response).  Without a
+   * drain window, these are silently dropped — causing incomplete tool_call_update
+   * delivery (status stays "in_progress" forever).
+   */
+  private turnEndedAt: Map<string, number> = new Map();
+  private static readonly DRAIN_WINDOW_MS = 2000;
+
   constructor(deps: ProtocolHandlerDeps) {
     this.deps = deps;
   }
@@ -117,6 +127,26 @@ export class ProtocolHandler {
     if (!sessionInfo) return;
 
     if (sessionInfo.status !== "running" && sessionInfo.status !== "cancelling") {
+      // After turn end, allow a drain window for late notifications.
+      // The agent may have sent tool_call_update BEFORE receiving the
+      // prompt response — these are still valid and must be forwarded.
+      const sKey = sessionKey(agentId, sessionId);
+      const endedAt = this.turnEndedAt.get(sKey);
+      if (endedAt == null) return; // no recent turn — truly stale
+      const elapsed = Date.now() - endedAt;
+      if (elapsed > ProtocolHandler.DRAIN_WINDOW_MS) {
+        this.turnEndedAt.delete(sKey);
+        return;
+      }
+      log.debug("late notification drained", {
+        agentId,
+        sessionId,
+        kind: update.sessionUpdate,
+        elapsedMs: elapsed,
+      });
+      // Process as a no-op state update — forward to webview but skip
+      // tool call buffering (no active turn to attribute them to).
+      this.deps.emit("sessionUpdate", { agentId, sessionId, notification });
       return;
     }
 
@@ -329,7 +359,7 @@ export class ProtocolHandler {
     const tcDiff = extractDiffContent(u.content as ToolCallContent[] | undefined);
 
     const inputSummary = truncateForLog(
-      typeof u.rawInput === "string" ? u.rawInput as string : JSON.stringify(u.rawInput),
+      typeof u.rawInput === "string" ? u.rawInput as string : safeJsonStringify(u.rawInput),
       200,
     );
 
@@ -338,9 +368,9 @@ export class ProtocolHandler {
       title: (u.title as string) ?? "",
       status: normalizeToolStatus(u.status as string | null | undefined),
       kind: (u.kind as string) ?? "",
-      input: typeof u.rawInput === "string" ? u.rawInput as string : JSON.stringify(u.rawInput),
+      input: typeof u.rawInput === "string" ? u.rawInput as string : safeJsonStringify(u.rawInput),
       output: u.rawOutput !== undefined
-        ? (typeof u.rawOutput === "string" ? u.rawOutput as string : JSON.stringify(u.rawOutput))
+        ? (typeof u.rawOutput === "string" ? u.rawOutput as string : safeJsonStringify(u.rawOutput))
         : undefined,
       locations: tcLocations,
       diffContent: tcDiff,
@@ -392,10 +422,10 @@ export class ProtocolHandler {
           if (u.status !== undefined) tc.status = normalizeToolStatus(u.status as string | null | undefined);
           if (u.kind !== undefined) tc.kind = (u.kind as string) ?? "";
           if (u.rawInput !== undefined) {
-            tc.input = typeof u.rawInput === "string" ? u.rawInput as string : JSON.stringify(u.rawInput);
+            tc.input = typeof u.rawInput === "string" ? u.rawInput as string : safeJsonStringify(u.rawInput);
           }
           if (u.rawOutput !== undefined) {
-            tc.output = typeof u.rawOutput === "string" ? u.rawOutput as string : JSON.stringify(u.rawOutput);
+            tc.output = typeof u.rawOutput === "string" ? u.rawOutput as string : safeJsonStringify(u.rawOutput);
           }
           if (u.locations) {
             tc.locations = (u.locations as Array<{ path: string; line?: number }>).map((loc) => ({ path: loc.path, line: loc.line ?? undefined }));
@@ -405,7 +435,7 @@ export class ProtocolHandler {
 
           const outputSummary = u.rawOutput !== undefined
             ? truncateForLog(
-                typeof u.rawOutput === "string" ? u.rawOutput as string : JSON.stringify(u.rawOutput),
+                typeof u.rawOutput === "string" ? u.rawOutput as string : safeJsonStringify(u.rawOutput),
                 200,
               )
             : undefined;
@@ -565,6 +595,25 @@ export class ProtocolHandler {
   resetStepTracking(agentId: string, sessionId: string): void {
     const sKey = sessionKey(agentId, sessionId);
     this.lastSeenMessageId.delete(sKey);
+    // Record turn end time so late notifications within the drain window
+    // are forwarded instead of silently dropped.
+    this.turnEndedAt.set(sKey, Date.now());
+  }
+}
+
+/**
+ * Safe JSON.stringify — catches circular references, BigInt, and other
+ * non-serializable values that would throw.  Falls back to String(value).
+ */
+function safeJsonStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    try {
+      return String(value);
+    } catch {
+      return "[unserializable]";
+    }
   }
 }
 

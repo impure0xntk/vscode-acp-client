@@ -178,7 +178,6 @@ export const Message = React.memo(function Message({
     resolvedToolCalls !== undefined && resolvedToolCalls.length > 0;
   const hasAttachments = isUser && attachments.length > 0;
   const hasContent = content.trim().length > 0;
-  const isToolOnlyAgent = isAgent && hasToolCalls && !hasContent;
 
   const handleMarkdownClick = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
@@ -201,7 +200,7 @@ export const Message = React.memo(function Message({
       data-message-id={item.key}
     >
       {(isFirstOfTurn || forceHeader) && (
-        <div className={`flex items-center gap-2 text-[11px] text-fg-muted mb-1 px-0.5 ${isUser ? "justify-end" : ""}`}>
+        <div className={`flex items-center gap-2 text-[11px] text-fg-muted px-0.5 ${isUser ? "justify-end" : ""} mb-1`}>
           <span className="font-medium text-fg-secondary">
             {isSystem ? "System" : isUser ? "You" : "Agent"}
           </span>
@@ -219,7 +218,7 @@ export const Message = React.memo(function Message({
             />
           </div>
         )}
-        {!isToolOnlyAgent && (
+        {hasContent && (
           <div className={`max-w-full ${isUser ? "bg-[color-mix(in_srgb,var(--user-bubble)_10%,transparent)] text-fg-primary px-3 py-2 rounded-lg border border-[color-mix(in_srgb,var(--user-bubble)_15%,transparent)] self-end max-w-[70%]" : "text-fg-primary"}`}>
             {isUser ? (
               <div className="message-text whitespace-pre-wrap break-words text-[13px] leading-[1.5]">{content}</div>

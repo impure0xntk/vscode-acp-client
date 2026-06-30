@@ -256,6 +256,19 @@
           "default": false,
           "description": "Log protocol traffic to Output Channel"
         },
+        "acp.logLevel": {
+          "type": "string",
+          "enum": [
+            "trace",
+            "debug",
+            "info",
+            "warn",
+            "error",
+            "silent"
+          ],
+          "default": "debug",
+          "description": "Minimum log level for the ACP Client Output Channel"
+        },
         "acp.autoOpenChat": {
           "type": "boolean",
           "default": true,

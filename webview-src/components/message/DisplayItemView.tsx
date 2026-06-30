@@ -30,7 +30,7 @@ function RenderChat(
   agentId?: string,
   forceHeader?: boolean,
   isNew?: boolean,
-  dimmed?: boolean
+  dimmed?: boolean,
 ) {
   return (
     <Message

@@ -42,6 +42,7 @@ function StepViewInner({
   onAttachDiff,
   externalFileEditEntries,
 }: StepViewProps): React.ReactElement {
+  // Collect tool calls from step.toolCalls (tool items with role="tool")
   const allToolCalls = step.toolCalls.flatMap(
     (tc) => (tc as ChatDisplayItem).resolvedToolCalls ?? []
   );

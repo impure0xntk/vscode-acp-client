@@ -2,7 +2,6 @@ import * as assert from "assert";
 import { describe, it } from "mocha";
 import { classifyMessage } from "../../pipeline/stages/classify";
 import { filterMessages } from "../../pipeline/stages/filter";
-import { mergeToolBatches } from "../../pipeline/stages/merge";
 import { annotateMessages } from "../../pipeline/stages/annotate";
 import { MessagePipeline } from "../../pipeline/pipeline";
 import type {
@@ -45,7 +44,6 @@ const defaultConfig: PipelineConfig = {
     hideModeChange: false,
     hideErrorNotices: false,
   },
-  merge: { enabled: true, maxGap: 0 },
   annotate: { resolveAttachments: true, detectInlinePaths: true },
 };
 
@@ -440,151 +438,6 @@ describe("filterMessages", () => {
   });
 });
 
-// ── mergeToolBatches ────────────────────────────────────────────────────────
-
-describe("mergeToolBatches", () => {
-  const config = defaultConfig.merge;
-
-  it("passes through non-tool messages unchanged", () => {
-    const input = [
-      classifyMessage(msg({ role: "user", content: "hello" })),
-      classifyMessage(msg({ role: "agent", content: "hi" })),
-    ];
-    const result = mergeToolBatches(input, config);
-    assert.strictEqual(result.length, 2);
-    assert.strictEqual(result[0].role, "user");
-    assert.strictEqual(result[1].role, "agent");
-  });
-
-  it("absorbs tool message into preceding agent message", () => {
-    // Tool messages are absorbed into the preceding agent message's toolCalls.
-    // This implements "merge tokens after tool until interrupted" semantics.
-    const input = [
-      classifyMessage(
-        msg({
-          role: "agent",
-          agentId: "a1",
-          content: "thinking",
-          toolCalls: [toolCall("tc-1")],
-        })
-      ),
-      classifyMessage(
-        msg({
-          role: "tool",
-          agentId: "a1",
-          content: "result",
-          toolCalls: [toolCall("tc-2")],
-        })
-      ),
-    ];
-    const result = mergeToolBatches(input, config);
-    assert.strictEqual(result.length, 1);
-    assert.strictEqual(result[0].role, "agent");
-    // Both tool calls are absorbed into the agent message
-    assert.strictEqual(result[0].toolCalls!.length, 2);
-    assert.strictEqual(result[0].toolCalls![0].id, "tc-1");
-    assert.strictEqual(result[0].toolCalls![1].id, "tc-2");
-  });
-
-  it("tool without preceding agent is emitted as standalone", () => {
-    const input = [
-      classifyMessage(msg({ role: "user", content: "hello" })),
-      classifyMessage(
-        msg({
-          role: "tool",
-          agentId: "a1",
-          content: "result",
-          toolCalls: [toolCall("tc-1")],
-        })
-      ),
-    ];
-    const result = mergeToolBatches(input, config);
-    assert.strictEqual(result.length, 2);
-    assert.strictEqual(result[0].role, "user");
-    // Tool without preceding agent → emitted as-is (role="tool")
-    assert.strictEqual(result[1].role, "tool");
-  });
-
-  it("tool without preceding agent before system boundary", () => {
-    const input = [
-      classifyMessage(msg({ role: "user", content: "hello" })),
-      classifyMessage(
-        msg({
-          role: "tool",
-          agentId: "a1",
-          content: "result",
-          toolCalls: [toolCall("tc-1")],
-        })
-      ),
-      classifyMessage(
-        msg({
-          role: "system",
-          content: "compressed",
-          compressionInfo: { contextWindowMax: 100, usedTokens: 80 },
-        })
-      ),
-    ];
-    const result = mergeToolBatches(input, config);
-    // user, tool (no preceding agent), compression
-    assert.strictEqual(result.length, 3);
-    assert.strictEqual(result[1].role, "tool");
-    assert.strictEqual(result[1].toolCalls!.length, 1);
-  });
-
-  it("absorbs multiple tool messages into preceding agent", () => {
-    const input = [
-      classifyMessage(
-        msg({
-          role: "agent",
-          agentId: "a1",
-          content: "thinking",
-          toolCalls: [toolCall("tc-1")],
-        })
-      ),
-      classifyMessage(
-        msg({
-          role: "tool",
-          agentId: "a1",
-          content: "result1",
-          toolCalls: [toolCall("tc-2")],
-        })
-      ),
-      classifyMessage(
-        msg({
-          role: "tool",
-          agentId: "a1",
-          content: "result2",
-          toolCalls: [toolCall("tc-3")],
-        })
-      ),
-    ];
-    const result = mergeToolBatches(input, config);
-    // All tool calls absorbed into the single agent message
-    assert.strictEqual(result.length, 1);
-    assert.strictEqual(result[0].role, "agent");
-    assert.strictEqual(result[0].toolCalls!.length, 3);
-  });
-
-  it("tool after user without preceding agent is standalone", () => {
-    const input = [
-      classifyMessage(msg({ role: "user", content: "hello" })),
-      classifyMessage(
-        msg({
-          role: "tool",
-          agentId: "a1",
-          content: "result",
-          toolCalls: [toolCall("tc-1")],
-        })
-      ),
-    ];
-    const result = mergeToolBatches(input, config);
-    assert.strictEqual(result.length, 2);
-    const last = result[result.length - 1];
-    // Tool without preceding agent → emitted as-is
-    assert.strictEqual(last.role, "tool");
-    assert.ok(last.toolCalls);
-  });
-});
 
 // ── annotateMessages ────────────────────────────────────────────────────────
 
@@ -846,7 +699,7 @@ describe("MessagePipeline", () => {
     pipeline.process([msg({ role: "agent", content: "a" })], defaultCtx);
     assert.ok(pipeline.cached.length > 0);
 
-    pipeline.updateConfig({ merge: { enabled: false, maxGap: 0 } });
+    pipeline.updateConfig({ annotate: { resolveAttachments: false, detectInlinePaths: false } });
     assert.strictEqual(pipeline.cached.length, 0);
   });
 
@@ -1379,9 +1232,8 @@ describe("MessagePipeline", () => {
   // ── Pipeline integration: tool calls & attachments end-to-end ────────────
 
   describe("pipeline integration: tool calls & attachments", () => {
-    it("pipeline absorbs tool calls into preceding agent message", () => {
-      // NEW behavior: tool calls are absorbed into the preceding agent message.
-      // The merge stage merges tool messages into the agent's toolCalls array.
+    it("pipeline keeps tool messages as standalone items", () => {
+      // Without merge: tool messages are standalone ChatDisplayItems.
       const pipeline = new MessagePipeline(defaultConfig);
       const messages: RawMessage[] = [
         msg({ role: "agent", agentId: "a1", content: "working" }),
@@ -1407,11 +1259,16 @@ describe("MessagePipeline", () => {
       ];
       const result = pipeline.process(messages, defaultCtx);
       const chatItems = result.filter((r) => r.type === "chat");
-      // Tool absorbed into agent → 1 chat item with resolvedToolCalls
-      assert.strictEqual(chatItems.length, 1);
+      // Tool is standalone → 2 chat items
+      assert.strictEqual(chatItems.length, 2);
       if (chatItems[0].type === "chat") {
         assert.strictEqual(chatItems[0].content, "working");
-        const calls = chatItems[0].resolvedToolCalls;
+        // Agent message does NOT have resolvedToolCalls (tool calls are on the tool message)
+        assert.strictEqual(chatItems[0].resolvedToolCalls, undefined);
+      }
+      if (chatItems[1].type === "chat") {
+        assert.strictEqual(chatItems[1].role, "tool");
+        const calls = chatItems[1].resolvedToolCalls;
         assert.ok(calls);
         assert.strictEqual(calls!.length, 2);
         assert.strictEqual(calls![0].id, "tc-1");
@@ -1823,6 +1680,151 @@ describe("MessagePipeline", () => {
     });
   });
 
+  // ── Regression: merge elimination invariants ───────────────────────────
+  // These verify that the redesigned pipeline (no merge stage) produces
+  // the correct item structure. The old merge stage caused two bugs:
+  //   Bug 1: blank line between AgentMessageHeader and ToolBatchSummary
+  //   Bug 2: tool calls not merged into ToolBatchSummary in final steps
+
+  describe("regression: pipeline does NOT absorb tool calls into agent", () => {
+    it("agent message followed by tool: agent.resolvedToolCalls is undefined", () => {
+      // Old bug: merge stage would absorb tool calls into the agent message's
+      // resolvedToolCalls, creating dual-source (agent + step.toolCalls).
+      // After merge elimination, tool calls stay on the tool message only.
+      const pipeline = new MessagePipeline(defaultConfig);
+      const messages: RawMessage[] = [
+        msg({ role: "agent", agentId: "a1", content: "working" }),
+        msg({
+          role: "tool",
+          agentId: "a1",
+          content: "result",
+          toolCalls: [
+            { id: "tc-1", title: "Bash", status: "completed", kind: "bash" } as ToolCall,
+          ],
+        }),
+      ];
+      const result = pipeline.process(messages, defaultCtx);
+      const chatItems = result.filter((r) => r.type === "chat");
+      assert.strictEqual(chatItems.length, 2);
+      // Agent: NO resolvedToolCalls (tool calls are NOT absorbed)
+      if (chatItems[0].type === "chat") {
+        assert.strictEqual(chatItems[0].resolvedToolCalls, undefined);
+      }
+      // Tool message: carries resolvedToolCalls
+      if (chatItems[1].type === "chat") {
+        assert.strictEqual(chatItems[1].role, "tool");
+        assert.ok(chatItems[1].resolvedToolCalls);
+        assert.strictEqual(chatItems[1].resolvedToolCalls!.length, 1);
+        assert.strictEqual(chatItems[1].resolvedToolCalls![0].id, "tc-1");
+      }
+    });
+
+    it("tool message with multiple toolCalls: all stay on tool item", () => {
+      const pipeline = new MessagePipeline(defaultConfig);
+      const messages: RawMessage[] = [
+        msg({ role: "agent", agentId: "a1", content: "analyzing" }),
+        msg({
+          role: "tool",
+          agentId: "a1",
+          content: "results...",
+          toolCalls: [
+            { id: "tc-1", title: "Read", status: "completed", kind: "read" } as ToolCall,
+            { id: "tc-2", title: "Grep", status: "completed", kind: "search" } as ToolCall,
+            { id: "tc-3", title: "Edit", status: "completed", kind: "edit" } as ToolCall,
+          ],
+        }),
+      ];
+      const result = pipeline.process(messages, defaultCtx);
+      const toolItem = result.filter((r) => r.type === "chat" && r.role === "tool");
+      assert.strictEqual(toolItem.length, 1);
+      if (toolItem[0].type === "chat") {
+        assert.strictEqual(toolItem[0].resolvedToolCalls!.length, 3);
+      }
+      // Agent item has no tool calls
+      const agentItem = result.filter((r) => r.type === "chat" && r.role === "agent");
+      if (agentItem[0].type === "chat") {
+        assert.strictEqual(agentItem[0].resolvedToolCalls, undefined);
+      }
+    });
+
+    it("tool message before any agent: standalone tool (no absorption possible)", () => {
+      const pipeline = new MessagePipeline(defaultConfig);
+      const messages: RawMessage[] = [
+        msg({ role: "user", content: "run command" }),
+        msg({
+          role: "tool",
+          agentId: "a1",
+          content: "output",
+          toolCalls: [
+            { id: "tc-1", title: "Bash", status: "completed", kind: "bash" } as ToolCall,
+          ],
+        }),
+        msg({ role: "agent", agentId: "a1", content: "done" }),
+      ];
+      const result = pipeline.process(messages, defaultCtx);
+      const chatItems = result.filter((r) => r.type === "chat");
+      assert.strictEqual(chatItems.length, 3);
+      // Tool is standalone (role="tool") — not absorbed into any agent
+      if (chatItems[1].type === "chat") {
+        assert.strictEqual(chatItems[1].role, "tool");
+        assert.ok(chatItems[1].resolvedToolCalls);
+      }
+      // Agent after tool does NOT inherit tool calls
+      if (chatItems[2].type === "chat") {
+        assert.strictEqual(chatItems[2].role, "agent");
+        assert.strictEqual(chatItems[2].resolvedToolCalls, undefined);
+      }
+    });
+
+    it("full flow: agent → tool → tool → agent (no tool absorption across items)", () => {
+      const pipeline = new MessagePipeline(defaultConfig);
+      const messages: RawMessage[] = [
+        msg({ role: "user", content: "analyze project" }),
+        msg({ role: "agent", agentId: "a1", content: "let me look..." }),
+        msg({
+          role: "tool",
+          agentId: "a1",
+          content: "file list",
+          toolCalls: [
+            { id: "tc-1", title: "Bash", status: "completed", kind: "bash" } as ToolCall,
+          ],
+        }),
+        msg({
+          role: "tool",
+          agentId: "a1",
+          content: "file content",
+          toolCalls: [
+            { id: "tc-2", title: "Read", status: "completed", kind: "read" } as ToolCall,
+          ],
+        }),
+        msg({ role: "agent", agentId: "a1", content: "analysis complete", stopReason: "end_turn" }),
+      ];
+      const result = pipeline.process(messages, defaultCtx);
+      const chatItems = result.filter((r) => r.type === "chat");
+      assert.strictEqual(chatItems.length, 5);
+      // First agent: no tool calls
+      if (chatItems[1].type === "chat") {
+        assert.strictEqual(chatItems[1].resolvedToolCalls, undefined);
+      }
+      // Tool 1: has own tool call
+      if (chatItems[2].type === "chat") {
+        assert.strictEqual(chatItems[2].role, "tool");
+        assert.strictEqual(chatItems[2].resolvedToolCalls!.length, 1);
+        assert.strictEqual(chatItems[2].resolvedToolCalls![0].id, "tc-1");
+      }
+      // Tool 2: has own tool call
+      if (chatItems[3].type === "chat") {
+        assert.strictEqual(chatItems[3].role, "tool");
+        assert.strictEqual(chatItems[3].resolvedToolCalls!.length, 1);
+        assert.strictEqual(chatItems[3].resolvedToolCalls![0].id, "tc-2");
+      }
+      // Final agent: no tool calls
+      if (chatItems[4].type === "chat") {
+        assert.strictEqual(chatItems[4].resolvedToolCalls, undefined);
+      }
+    });
+  });
+
   describe("header omission patterns (annotateMessages)", () => {
     const cfg = defaultConfig.annotate;
 
@@ -1903,39 +1905,27 @@ describe("MessagePipeline", () => {
       assert.strictEqual(result[2].isFirstOfTurn, false); // agent (different role from tool)
     });
 
-    it("User → Agent(1) → Tool → Agent(2): agent(2) is new step via __stepBoundary", () => {
+    it("User → Agent(1) → Tool → Agent(2): agent(2) is new turn after tool", () => {
+      // Without merge, tool messages are standalone. Agent(2) after tool
+      // is a new turn because role changes from tool to agent.
       const merged: ClassifiedMessage[] = [
         classifyMessage(msg({ role: "user", content: "q" })),
         classifyMessage(
-          msg({ role: "agent", agentId: "a1", content: "thinking", __stepBoundary: true, toolCalls: [toolCall("tc-1")] })
+          msg({ role: "agent", agentId: "a1", content: "thinking" })
+        ),
+        classifyMessage(
+          msg({ role: "tool", agentId: "a1", content: "tool result", toolCalls: [toolCall("tc-1")] })
         ),
         classifyMessage(
           msg({ role: "agent", agentId: "a1", content: "answer" })
         ),
       ];
       const result = chatFirstOfTurn(merged);
-      assert.strictEqual(result.length, 3);
+      assert.strictEqual(result.length, 4);
       assert.strictEqual(result[0].isFirstOfTurn, false); // user
       assert.strictEqual(result[1].isFirstOfTurn, true); // agent(1) first agent after user
-      assert.strictEqual(result[2].isFirstOfTurn, true); // agent(2) — __stepBoundary makes this a new turn
-    });
-
-    it("User → Agent(1) → Tool → System → Agent(2): system boundary resets", () => {
-      const merged: ClassifiedMessage[] = [
-        classifyMessage(msg({ role: "user", content: "q" })),
-        classifyMessage(
-          msg({ role: "agent", agentId: "a1", content: "thinking", __stepBoundary: true, toolCalls: [toolCall("tc-1")] })
-        ),
-        classifyMessage(msg({ role: "system", content: "mode switched" })),
-        classifyMessage(
-          msg({ role: "agent", agentId: "a1", content: "answer" })
-        ),
-      ];
-      const result = chatFirstOfTurn(merged);
-      assert.strictEqual(result.length, 3);
-      assert.strictEqual(result[0].isFirstOfTurn, false); // user
-      assert.strictEqual(result[1].isFirstOfTurn, true); // agent(1) first agent after user
-      assert.strictEqual(result[2].isFirstOfTurn, true); // agent(2) after system boundary
+      assert.strictEqual(result[2].isFirstOfTurn, false) // tool (different role from agent but not first-of-turn since prev was agent)
+      assert.strictEqual(result[3].isFirstOfTurn, false); // agent(2) — different role from tool but prev was not user/system
     });
   });
 
@@ -2001,39 +1991,41 @@ describe("MessagePipeline", () => {
       if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, false); // agent (different role)
     });
 
-    it("User → Agent(1) → Tool → Agent(2): agent(2) is new step via __stepBoundary", () => {
+    it("User → Agent(1) → Tool → Agent(2): agent(2) after tool is not first-of-turn", () => {
       const pipeline = new MessagePipeline(defaultConfig);
       const messages: RawMessage[] = [
         msg({ role: "user", content: "q" }),
-        msg({ role: "agent", agentId: "a1", content: "thinking", __stepBoundary: true }),
+        msg({ role: "agent", agentId: "a1", content: "thinking" }),
         msg({ role: "tool", agentId: "a1", content: "tool result", toolCalls: [toolCall("tc-1")] }),
         msg({ role: "agent", agentId: "a1", content: "answer" }),
       ];
       const result = pipeline.process(messages, defaultCtx);
       const chatItems = result.filter((r) => r.type === "chat");
-      // user, agent(1) [with tool absorbed], agent(2)
-      assert.strictEqual(chatItems.length, 3);
+      // user, agent(1), tool (standalone), agent(2)
+      assert.strictEqual(chatItems.length, 4);
       if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
       if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, true); // agent(1) first agent after user
-      if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, true); // agent(2) — __stepBoundary
+      if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, false) // tool (after agent)
+      if (chatItems[3].type === "chat") assert.strictEqual(chatItems[3].isFirstOfTurn, false); // agent(2) — after tool
     });
 
     it("User → Agent(1) → Tool → System → Agent(2): system boundary resets", () => {
       const pipeline = new MessagePipeline(defaultConfig);
       const messages: RawMessage[] = [
         msg({ role: "user", content: "q" }),
-        msg({ role: "agent", agentId: "a1", content: "thinking", __stepBoundary: true }),
+        msg({ role: "agent", agentId: "a1", content: "thinking" }),
         msg({ role: "tool", agentId: "a1", content: "tool result", toolCalls: [toolCall("tc-1")] }),
         msg({ role: "system", content: "mode switched" }),
         msg({ role: "agent", agentId: "a1", content: "answer" }),
       ];
       const result = pipeline.process(messages, defaultCtx);
       const chatItems = result.filter((r) => r.type === "chat");
-      // user, agent(1) [with tool absorbed], agent(2)
-      assert.strictEqual(chatItems.length, 3);
+      // user, agent(1), tool (standalone), agent(2)
+      assert.strictEqual(chatItems.length, 4);
       if (chatItems[0].type === "chat") assert.strictEqual(chatItems[0].isFirstOfTurn, false); // user
       if (chatItems[1].type === "chat") assert.strictEqual(chatItems[1].isFirstOfTurn, true); // agent(1) first agent after user
-      if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, true); // agent(2) after system boundary
+      if (chatItems[2].type === "chat") assert.strictEqual(chatItems[2].isFirstOfTurn, false); // tool (after agent)
+      if (chatItems[3].type === "chat") assert.strictEqual(chatItems[3].isFirstOfTurn, true); // agent(2) after system boundary
     });
   });
 });

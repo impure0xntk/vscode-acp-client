@@ -28,6 +28,22 @@ import type {
 
 const log = getLogger("webview.messageHandler");
 
+/**
+ * Safe JSON.stringify — catches circular references, BigInt, and other
+ * non-serializable values that would throw.  Falls back to String(value).
+ */
+function safeJsonStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    try {
+      return String(value);
+    } catch {
+      return "[unserializable]";
+    }
+  }
+}
+
 // Guard key: set to the session key the webview just requested to switch to.
 // When a session/switch response arrives, the key is compared:
 // - if null → no pending switch (e.g. direct extension call), apply normally
@@ -826,11 +842,8 @@ function handleSessionTurnEnded(data: SessionTurnEnded): void {
   // Stamp stopReason onto the last agent message in the message store so
   // the pipeline's groupByUserBoundary can use it as the authoritative
   // signal for the final response boundary.
-  // Clear __stepBoundary on the message that receives stopReason — it is
-  // the final response of the turn, not an intermediate step.
   useMessageStore.getState().updateLastAgentMessage(key, {
     stopReason: data.stopReason,
-    __stepBoundary: false,
   });
 
   // Clear the messageStore streaming flag so the blinking cursor in
@@ -1314,9 +1327,9 @@ function handleSessionNotification(data: SessionNotificationMessage): void {
       title: tcTitle,
       status: tcStatus,
       kind: tcKind,
-      input: typeof rawInput === "string" ? rawInput : JSON.stringify(rawInput),
+      input: typeof rawInput === "string" ? rawInput : safeJsonStringify(rawInput),
       output: rawOutput !== undefined
-        ? typeof rawOutput === "string" ? rawOutput : JSON.stringify(rawOutput)
+        ? typeof rawOutput === "string" ? rawOutput : safeJsonStringify(rawOutput)
         : undefined,
       locations: tcLocations,
       diffContent: tcDiff,
@@ -1342,19 +1355,6 @@ function handleSessionNotification(data: SessionNotificationMessage): void {
         return;
       }
     }
-
-    // NEW step boundary logic: when a new tool_call arrives, close the
-    // current agent message so subsequent stream chunks form a new step.
-    // This implements "once a tool call comes, merge tokens after it until
-    // interrupted; after interruption, subsequent tokens form the next step".
-    // The tool call itself becomes a separate message that the merge stage
-    // will promote and pair with the preceding agent message as one step.
-    log.debug("handleSessionNotification: tool_call — closing current agent message", {
-      msgKey,
-      tcId,
-      tcKind,
-    });
-    useMessageStore.getState().closeCurrentAgentMessage(msgKey);
 
     // Each tool_call notification creates its own tool message.
     // This ensures that tool calls arriving between different agent messages
@@ -1394,10 +1394,10 @@ function handleSessionNotification(data: SessionNotificationMessage): void {
             status: normalizeToolStatus((update.status as string) ?? tc.status),
             kind: (update.kind as string) ?? tc.kind,
             input: rawInput !== undefined
-              ? typeof rawInput === "string" ? rawInput : JSON.stringify(rawInput)
+              ? typeof rawInput === "string" ? rawInput : safeJsonStringify(rawInput)
               : tc.input,
             output: rawOutput !== undefined
-              ? typeof rawOutput === "string" ? rawOutput : JSON.stringify(rawOutput)
+              ? typeof rawOutput === "string" ? rawOutput : safeJsonStringify(rawOutput)
               : tc.output,
             locations:
               (update.locations as Array<{ path: string; line?: number }> | undefined)?.map(

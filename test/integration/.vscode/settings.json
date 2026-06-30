@@ -52,5 +52,9 @@
         ]
       }
     }
-  }
+  },
+  "acp.meshProtocol": {
+    "enabled": true
+  },
+  "acp.logLevel": "silent"
 }

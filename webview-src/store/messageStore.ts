@@ -34,13 +34,6 @@ export interface MessageState {
     messageId?: string | null
   ) => void;
   /**
-   * Mark the last agent message as a step boundary.
-   * Called when a tool_call completes — prevents subsequent stream chunks
-   * from merging into the prior agent message, forcing a new ChatMessage
-   * (and thus a new intermediate step) for the next text segment.
-   */
-  closeCurrentAgentMessage: (key: string) => void;
-  /**
    * Update the last agent/tool message with turn-end metadata.
    * Used by session/turnEnded to stamp stopReason onto the final response
    * so the pipeline can use it as the authoritative boundary signal.
@@ -98,10 +91,8 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>((set
    * Append multiple streaming chunks to the message store.
    *
    * Merge priority:
-   * 1. Same messageId (ACP SDK) — always merge, even across __stepBoundary.
-   *    When a tool_call interrupts streaming, subsequent chunks with the
-   *    same messageId belong to the same logical message.
-   * 2. Last message is directly mergeable (same agent, no boundary).
+   * 1. Same messageId (ACP SDK) — always merge.
+   * 2. Last message is directly mergeable (same agent).
    * 3. Look back past tool messages for an in-progress agent message.
    * 4. Otherwise, create a new ChatMessage.
    */
@@ -111,8 +102,7 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>((set
       const existing = state.perSession[key] ?? [];
       const lastMsg = existing.length > 0 ? existing[existing.length - 1] : null;
 
-      // 1. messageId-based merge: find the agent message with matching id,
-      //    even if __stepBoundary is set (tool interrupted the stream).
+      // 1. messageId-based merge: find the agent message with matching id
       let messageIdTargetIdx = -1;
       if (messageId != null) {
         for (let i = existing.length - 1; i >= 0; i--) {
@@ -132,8 +122,7 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>((set
         lastMsg !== null &&
         lastMsg.role === "agent" &&
         lastMsg.agentId === agentId &&
-        (lastMsg.stopReason == null || lastMsg.stopReason === "") &&
-        !lastMsg.__stepBoundary;
+        (lastMsg.stopReason == null || lastMsg.stopReason === "");
 
       // 3. If not directly mergeable, look back past tool messages to find
       //    an in-progress agent message to merge into.
@@ -144,15 +133,13 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>((set
           if (
             m.role === "agent" &&
             m.agentId === agentId &&
-            (m.stopReason == null || m.stopReason === "") &&
-            !m.__stepBoundary
+            (m.stopReason == null || m.stopReason === "")
           ) {
             mergeTargetIdx = i;
             break;
           }
           if (m.role === "user" || m.role === "system") break;
           if (m.role === "agent" && m.stopReason != null && m.stopReason !== "") break;
-          if (m.__stepBoundary) break;
         }
       }
 
@@ -199,8 +186,7 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>((set
       const existing = state.perSession[key] ?? [];
       const lastMsg = existing.length > 0 ? existing[existing.length - 1] : null;
 
-      // 1. messageId-based merge: find agent message with matching id,
-      //    even across __stepBoundary (tool interrupted the stream).
+      // 1. messageId-based merge: find agent message with matching id
       let messageIdTargetIdx = -1;
       if (messageId != null) {
         for (let i = existing.length - 1; i >= 0; i--) {
@@ -214,13 +200,12 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>((set
         }
       }
 
-      // 2. Direct merge: last message is same-agent, in-progress, no boundary
+      // 2. Direct merge: last message is same-agent, in-progress
       const shouldAppend =
         lastMsg !== null &&
         lastMsg.role === "agent" &&
         lastMsg.agentId === agentId &&
-        (lastMsg.stopReason == null || lastMsg.stopReason === "") &&
-        !lastMsg.__stepBoundary;
+        (lastMsg.stopReason == null || lastMsg.stopReason === "");
 
       // 3. Look back past tool messages for an in-progress agent message
       let mergeTargetIdx = -1;
@@ -230,15 +215,13 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>((set
           if (
             m.role === "agent" &&
             m.agentId === agentId &&
-            (m.stopReason == null || m.stopReason === "") &&
-            !m.__stepBoundary
+            (m.stopReason == null || m.stopReason === "")
           ) {
             mergeTargetIdx = i;
             break;
           }
           if (m.role === "user" || m.role === "system") break;
           if (m.role === "agent" && m.stopReason != null && m.stopReason !== "") break;
-          if (m.__stepBoundary) break;
         }
       }
 
@@ -282,47 +265,16 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>((set
       };
     }),
 
-  closeCurrentAgentMessage: (key) =>
-    set((state) => {
-      const existing = state.perSession[key];
-      if (!existing || existing.length === 0) return state;
-      // Find the last agent message without __stepBoundary or stopReason,
-      // and mark it as a step boundary.  This forces subsequent stream
-      // chunks to create a NEW ChatMessage (new intermediate step).
-      for (let i = existing.length - 1; i >= 0; i--) {
-        const m = existing[i];
-        if (m.role === "agent" && !m.__stepBoundary && (m.stopReason == null || m.stopReason === "")) {
-          const updated = { ...m, __stepBoundary: true };
-          const next = [...existing];
-          next[i] = updated;
-          log.debug("closeCurrentAgentMessage", { key, msgId: m.id, idx: i });
-          return {
-            ...state,
-            perSession: { ...state.perSession, [key]: next },
-          };
-        }
-      }
-      return state;
-    }),
-
   updateLastAgentMessage: (key, update) =>
     set((state) => {
       const existing = state.perSession[key];
       if (!existing || existing.length === 0) return state;
       // Find the last agent message (skip tool messages so stopReason
       // is always stamped on the text response, not a tool-only message).
-      // Also skip messages with __stepBoundary — stopReason belongs on
-      // the FINAL agent message of the turn, not on intermediate steps.
       // Also skip messages with stopReason — they belong to a PREVIOUS turn
-      // and must not be mutated by subsequent turn events (e.g. writeSeq
-      // stamping in handleSessionStreamStart would corrupt the previous
-      // turn's writeSeq, breaking fileEditSummary partitioning).
-      // selectFinalResponse in SessionChatContainer uses stopReason as
-      // the primary signal for the final response boundary — stamping it
-      // on a tool message causes the text response to be hidden.
-      // Fall back to the last tool message if no agent message exists.
+      // and must not be mutated by subsequent turn events.
       for (let i = existing.length - 1; i >= 0; i--) {
-        if (existing[i].role === "agent" && !existing[i].__stepBoundary && (existing[i].stopReason == null || existing[i].stopReason === "")) {
+        if (existing[i].role === "agent" && (existing[i].stopReason == null || existing[i].stopReason === "")) {
           const updated = { ...existing[i], ...update };
           const next = [...existing];
           next[i] = updated;
@@ -351,12 +303,10 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>((set
     const state = useMessageStore.getState();
     const existing: ChatMessage[] | undefined = state.perSession[key];
     if (!existing || existing.length === 0) return null;
-    // Return the last agent message that is NOT a step boundary and has
-    // no stopReason — this is the "current" agent message that is still
-    // accepting chunks.  Messages with stopReason belong to a completed
-    // turn and must not be returned as merge/writeSeq targets.
+    // Return the last agent message that has no stopReason — this is the
+    // "current" agent message that is still accepting chunks.
     for (let i = existing.length - 1; i >= 0; i--) {
-      if (existing[i].role === "agent" && !existing[i].__stepBoundary && (existing[i].stopReason == null || existing[i].stopReason === "")) return existing[i];
+      if (existing[i].role === "agent" && (existing[i].stopReason == null || existing[i].stopReason === "")) return existing[i];
     }
     return null;
   },

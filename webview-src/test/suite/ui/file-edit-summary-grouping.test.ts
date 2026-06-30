@@ -564,11 +564,11 @@ describe("groupByUserBoundary — per-step file edit summary", () => {
 
     const items: PipelineItem[] = [
       userMsg("setup"),
-      // Pre-agent tool call (originalRole="tool", promoted to agent)
-      { type: "chat", role: "agent", agentId: "a1", sessionId: "s1",
+      // Pre-agent tool call (role="tool")
+      { type: "chat", role: "tool", agentId: "a1", sessionId: "s1",
         content: "", key: "tool-1", timestamp: Date.now(),
         isFirstOfTurn: true, attachments: [],
-        thinking: undefined, originalRole: "tool",
+        thinking: undefined,
         resolvedToolCalls: [{ id: "tc-1", title: "Write", kind: "write",
           status: "completed", input: undefined, output: undefined,
           durationMs: undefined, locations: undefined, diffContent: undefined }],

@@ -28,16 +28,8 @@ export type SystemKind =
 /** Classified message — systemKind assigned */
 export interface ClassifiedMessage extends RawMessage {
   systemKind: SystemKind;
-  /** Original role before merge promotion (set by mergeToolBatches when tool → agent) */
-  originalRole?: "user" | "agent" | "system" | "tool";
   /** ACP stopReason from session/prompt response — signals end of turn */
   stopReason?: string;
-  /**
-   * Set by the message store / merge stage when a tool_call interrupts the
-   * stream — signals that the next agent message is a new step and must
-   * show its header.
-   */
-  __stepBoundary?: boolean;
 }
 
 export interface ResolvedToolCall {
@@ -99,7 +91,7 @@ export interface ChatDisplayItem {
    * the same step (same messageId) or starts a new step (different messageId).
    */
   messageId?: string;
-  /** Resolved tool calls carried over from merge stage */
+  /** Resolved tool calls (populated by annotate from raw msg.toolCalls) */
   resolvedToolCalls?: ResolvedToolCall[];
   /** Resolved context attachments */
   attachments: ResolvedAttachment[];
@@ -109,10 +101,8 @@ export interface ChatDisplayItem {
   key: string;
   /** Original timestamp */
   timestamp: number | undefined;
-  /** Role for styling (may be "agent" for tool messages promoted by merge) */
+  /** Role for styling */
   role: "user" | "agent" | "system" | "tool";
-  /** Original role before merge promotion — "tool" when a tool message was promoted to agent */
-  originalRole?: "user" | "agent" | "system" | "tool";
   /** ACP stopReason from session/prompt — marks this message as the final response of a turn */
   stopReason?: string;
   /** Thinking content if present */
@@ -165,16 +155,15 @@ export interface CustomSystemDisplayItem {
  *
  * Each step consists of an optional agent message followed by tool calls.
  * - Pre-agent tool calls (no agent message yet) → agentMessage is null
- * - Agent step → agentMessage is the chat message, toolCalls are subsequent promoted tools
+ * - Agent step → agentMessage is the chat message, toolCalls are subsequent tool items
  *
  * Rendering: when a step has both agentMessage and toolCalls, the agent
- * message header is shown and tool calls are rendered as consecutive
- * (merged header via isConsecutive=true on the ToolBatchSummary).
+ * message header is shown and tool calls are rendered as a single batch.
  */
 export interface IntermediateStep {
   /** The agent message for this step (null for pre-agent tool calls) */
   agentMessage: ChatDisplayItem | null;
-  /** Tool calls in this step (promoted tool messages) */
+  /** Tool calls in this step (ChatDisplayItem with role="tool") */
   toolCalls: ChatDisplayItem[];
   /** Pre-agent tool calls have no agent message yet */
   readonly isPreAgent: boolean;
@@ -208,11 +197,6 @@ export interface FilterConfig {
   customPredicate?: (msg: ClassifiedMessage) => boolean;
 }
 
-export interface MergeConfig {
-  enabled: boolean;
-  maxGap: number;
-}
-
 export interface AnnotateConfig {
   resolveAttachments: boolean;
   /** Extract path candidates from inline code for speculative linking */
@@ -221,6 +205,5 @@ export interface AnnotateConfig {
 
 export interface PipelineConfig {
   filter: FilterConfig;
-  merge: MergeConfig;
   annotate: AnnotateConfig;
 }

@@ -10,10 +10,6 @@ export const DEFAULT_CONFIG: PipelineConfig = {
     hideModeChange: false,
     hideErrorNotices: false,
   },
-  merge: {
-    enabled: true,
-    maxGap: 10,
-  },
   annotate: {
     resolveAttachments: true,
     detectInlinePaths: true,
