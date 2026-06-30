@@ -524,6 +524,66 @@ function sessionOfItems(items: PipelineItem[]): {
 }
 
 /**
+ * Extract agentId and sessionId for a turn.  If the turn's own groupItems
+ * don't carry session info (e.g. pre-agent steps only), fall back to the
+ * sessions of adjacent groups so file writes can still be resolved.
+ */
+function sessionOfTurn(
+  groupItems: PipelineItem[],
+  prevGroupItems: PipelineItem[],
+  nextGroupItems: PipelineItem[],
+  afterLastUser: PipelineItem[],
+  leading: PipelineItem[]
+): { agentId: string; sessionId: string } {
+  // 1. Try the turn's own items
+  const own = sessionOfItems(groupItems);
+  if (own.agentId && own.sessionId) return own;
+
+  // 2. Try previous group (then its predecessor, up to 3 hops)
+  const prevSources = [
+    prevGroupItems,
+    nextGroupItems,
+    afterLastUser,
+    leading,
+  ];
+  for (const src of prevSources) {
+    const s = sessionOfItems(src);
+    if (s.agentId && s.sessionId) return s;
+  }
+
+  return { agentId: "", sessionId: "" };
+}
+
+/**
+ * Walk each completed group and the leading section to find the first one
+ * that carries session info (agentId/sessionId).  Used as a last-resort
+ * fallback when afterLastUser is empty right after a new user message.
+ */
+function sessionOfGroups(
+  items: PipelineItem[],
+  userIndices: number[],
+  leading: PipelineItem[]
+): { session: { agentId: string; sessionId: string }; found: boolean } {
+  // leading items may contain an agentId/sessionId (early session notices)
+  const leadSession = sessionOfItems(leading);
+  if (leadSession.agentId && leadSession.sessionId) {
+    return { session: leadSession, found: true };
+  }
+  // Walk groups from newest to oldest
+  for (let g = userIndices.length - 2; g >= 0; g--) {
+    const groupItems =
+      g + 1 < userIndices.length
+        ? items.slice(userIndices[g] + 1, userIndices[g + 1])
+        : items.slice(userIndices[g] + 1);
+    const s = sessionOfItems(groupItems);
+    if (s.agentId && s.sessionId) {
+      return { session: s, found: true };
+    }
+  }
+  return { session: { agentId: "", sessionId: "" }, found: false };
+}
+
+/**
  * IntermediateStepGrouper groups PipelineItems by user-message boundaries
  * and organizes each group into steps.
  *
@@ -549,27 +609,65 @@ export class IntermediateStepGrouper {
  * The final response is the agent message the user sees outside the banner.
  *
  * Priority:
- * 1. stopReason — message carrying stopReason is the definitive final response.
- * 2. Last agent chat that is first-of-turn (i.e., starts a new step).
- * 3. Fallback — last non-promoted agent chat.
+ * 1. stopReason="end_turn" — definitive turn-ending message.
+ * 2. Any other stopReason (e.g. "tool_use") — only if no "end_turn" exists.
+ * 3. Last agent chat that is first-of-turn (i.e., starts a new step).
+ * 4. Fallback — last non-promoted agent chat.
  */
+/**
+ * Like Array#findIndex, but searches from the end (last to first).
+ * Returns the index of the last matching element, or -1 if none match.
+ */
+function reverseFindIndex<T>(
+  arr: T[],
+  predicate: (item: T, index: number, arr: T[]) => boolean
+): number {
+  for (let i = arr.length - 1; i >= 0; i--) {
+    if (predicate(arr[i], i, arr)) return i;
+  }
+  return -1;
+}
+
 export function selectFinalResponse(
   agentChats: PipelineItem[]
 ): FinalResponse | null {
   if (agentChats.length === 0) return null;
 
-  // 1. stopReason-based
-  const stopReasonIdx = agentChats.findIndex(
-    (item) => item.type === "chat" && item.stopReason != null
+  // 1. Prefer stopReason="end_turn" — the definitive turn-ending message.
+  //    Only agent messages carry meaningful stopReason; tool items are excluded.
+  const endTurnIdx = reverseFindIndex(
+    agentChats,
+    (item) =>
+      isRealAgentChat(item) &&
+      (item as ChatDisplayItem).stopReason === "end_turn"
+  );
+  if (endTurnIdx !== -1) {
+    return { item: agentChats[endTurnIdx], index: endTurnIdx };
+  }
+
+  // 2. Fallback to any other stopReason (tool_use, cancelled, etc.)
+  //    Use reverseFindIndex so the LAST non-end_turn stopReason wins,
+  //    not the first one (which might be an intermediate).
+  //    Guard against end_turn: step 1 would have returned it, so reaching
+  //    here means no end_turn exists.
+  const stopReasonIdx = reverseFindIndex(
+    agentChats,
+    (item) =>
+      isRealAgentChat(item) &&
+      (item as ChatDisplayItem).stopReason != null &&
+      (item as ChatDisplayItem).stopReason !== "end_turn"
   );
   if (stopReasonIdx !== -1) {
     return { item: agentChats[stopReasonIdx], index: stopReasonIdx };
   }
 
-  // 2. Last agent chat that is first-of-turn (starts a new step)
+  // 3. Last real agent chat that is first-of-turn (starts a new step).
+  //    Tool items are explicitly excluded — they may have isFirstOfTurn=true
+  //    due to incremental annotation (processIncremental), but only agent
+  //    messages should serve as the final response boundary.
   for (let i = agentChats.length - 1; i >= 0; i--) {
     const item = agentChats[i];
-    if (item.type === "chat" && (item as ChatDisplayItem).isFirstOfTurn) {
+    if (isRealAgentChat(item) && (item as ChatDisplayItem).isFirstOfTurn) {
       return { item, index: i };
     }
   }
@@ -771,7 +869,15 @@ export function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
     return rest;
   };
   const partitionedLatestSteps = latestSteps.map(stripFES);
-  const latestSession = sessionOfItems(afterLastUser);
+  let latestSession = sessionOfItems(afterLastUser);
+  if (!latestSession.agentId || !latestSession.sessionId) {
+    // afterLastUser is empty (no agent reply yet) — fall back to any
+    // group that has session info so file writes remain resolvable.
+    const fallback = sessionOfGroups(items, userIndices, leading);
+    if (fallback.found) {
+      latestSession = fallback.session;
+    }
+  }
   const allLatestWrites = [
     ...useFileWriteStore
       .getState()
@@ -847,9 +953,9 @@ export function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
     finalResponse: latestFinal,
     currentStep:
       latestCurrentStep ??
-      (finalStepSummary
+      (finalStepSummary && latestFinal?.item
         ? {
-            agentMessage: latestFinal!.item as ChatDisplayItem,
+            agentMessage: latestFinal.item as ChatDisplayItem,
             toolCalls: [],
             isPreAgent: false,
             fileEditSummary: finalStepSummary,
@@ -873,17 +979,28 @@ export function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
       ? turnAgentChats.findIndex((item) => item.key === final.item.key)
       : -1;
     const intermediateItems =
-      finalIdx >= 0
+      finalIdx >= 0 && final
         ? groupItems.filter(
             (item) =>
-              item.key !== final!.item.key &&
+              item.key !== final.item.key &&
               turnAgentChats.findIndex((ac) => ac.key === item.key) < finalIdx
           )
         : groupItems;
     const steps = splitIntoSteps(intermediateItems, null);
 
+    const nextGroupItems =
+      g + 1 < userIndices.length - 1
+        ? items.slice(userIndices[g + 1] + 1, userIndices[g + 2])
+        : afterLastUser;
+
     // Attach per-step file edit summaries
-    const turnSession = sessionOfItems(groupItems);
+    const turnSession = sessionOfTurn(
+      groupItems,
+      g > 0 ? items.slice(userIndices[g - 1] + 1, userIndices[g]) : [],
+      nextGroupItems,
+      afterLastUser,
+      leading
+    );
     // Per-step file edit summaries moved to useFileEditSummaryMap hook.
     // Skipped here to keep step objects immutable for React.memo.
 
@@ -894,15 +1011,11 @@ export function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
         .getWritesForSession(turnSession.agentId, turnSession.sessionId),
     ].sort((a, b) => a.seq - b.seq);
     const turnFirstWriteSeq = firstWriteSeqOfItems(groupItems);
-    const nextGroupItems =
-      g + 1 < userIndices.length - 1
-        ? items.slice(userIndices[g + 1] + 1, userIndices[g + 2])
-        : afterLastUser;
     const nextTurnFirstWriteSeq = firstWriteSeqOfItems(nextGroupItems);
     const scopedTurnWrites = getWritesForTurn(
       allTurnWrites,
       turnFirstWriteSeq,
-      nextTurnFirstWriteSeq
+      nextTurnFirstWriteSeq === 0 ? null : nextTurnFirstWriteSeq
     );
     const turnSummary = buildSummaryFromWrites(scopedTurnWrites) ?? undefined;
 
@@ -911,10 +1024,10 @@ export function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
     // because splitIntoSteps only emits IntermediateStep for chat-agent/tool items.
     // Collect them as passthrough so they render between groups.
     const passthrough =
-      finalIdx >= 0
+      finalIdx >= 0 && final
         ? groupItems.filter(
             (item) =>
-              item.key !== final!.item.key &&
+              item.key !== final.item.key &&
               !turnAgentChats.find((ac) => ac.key === item.key)
           )
         : groupItems.filter((item) => !isAgentOrTool(item));

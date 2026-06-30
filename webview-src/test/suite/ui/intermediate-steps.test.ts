@@ -829,6 +829,130 @@ describe("Regression: same messageId does NOT merge across isFirstOfTurn boundar
   });
 });
 
+// ── Exhaustive messageId interleaving: chunks & tools in any order ─────────
+// The splitIntoSteps messageId merge must correctly pair tool calls with
+// the right step even when chunks and tools arrive in complex interleaved
+// patterns.  All chunks of the same logical message (same messageId) must
+// be merged into a single step, and ALL tool calls that arrive between
+// chunks of that message must be attributed to that step.
+
+describe("messageId interleaving: chunks + tools in complex patterns", () => {
+  it("chunk → chain of tools → chunk (same msgId): 1 step, all tools captured", () => {
+    const a1 = agentMsg("start ", { isFirstOfTurn: false, messageId: "M" });
+    const t1 = rawToolMsg("read");
+    const t2 = rawToolMsg("grep");
+    const t3 = rawToolMsg("bash");
+    const a2 = agentMsg("end", { isFirstOfTurn: true, messageId: "M" });
+    const steps = splitIntoSteps([a1, t1, t2, t3, a2], null);
+    assert.strictEqual(steps.length, 1);
+    assert.strictEqual(steps[0].agentMessage?.content, "start end");
+    assert.strictEqual(steps[0].toolCalls.length, 3);
+  });
+
+  it("chunk → tool → chunk → tool → chunk (same msgId): 1 step, 2 tools", () => {
+    const a1 = agentMsg("a", { isFirstOfTurn: false, messageId: "X" });
+    const t1 = rawToolMsg("r1");
+    const a2 = agentMsg("b", { isFirstOfTurn: true, messageId: "X" });
+    const t2 = rawToolMsg("r2");
+    const a3 = agentMsg("c", { isFirstOfTurn: true, messageId: "X" });
+    const steps = splitIntoSteps([a1, t1, a2, t2, a3], null);
+    assert.strictEqual(steps.length, 1);
+    assert.strictEqual(steps[0].agentMessage?.content, "abc");
+    assert.strictEqual(steps[0].toolCalls.length, 2);
+  });
+
+  it("msgA(chunk) → toolA → msgB(chunk) → msgA(chunk): msgA splits across steps", () => {
+    // When msgA chunks are separated by a different messageId, they cannot
+    // merge back — splitIntoSteps is a sequential single-pass algorithm.
+    // This is the correct behavior: the protocol guarantees chunks of the
+    // same message arrive contiguously (or with only that message's tool
+    // calls in between).  Interleaving of different messages is not a
+    // supported pattern.
+    const a1 = agentMsg("A1", {
+      isFirstOfTurn: false,
+      messageId: "msgA",
+      stopReason: "tool_use",
+    });
+    const t1 = rawToolMsg("tool-for-A");
+    const b1 = agentMsg("B1", {
+      isFirstOfTurn: true,
+      messageId: "msgB",
+      stopReason: "end_turn",
+    });
+    const a2 = agentMsg("A2", { isFirstOfTurn: true, messageId: "msgA" });
+    const steps = splitIntoSteps([a1, t1, b1, a2], null);
+    // Sequential pass: step1=msgA(c1)+tool, step2=msgB, step3=msgA(c2)
+    assert.strictEqual(steps.length, 3);
+    assert.strictEqual(steps[0].agentMessage?.content, "A1");
+    assert.strictEqual(steps[0].toolCalls.length, 1);
+    assert.strictEqual(steps[1].agentMessage?.content, "B1");
+    assert.strictEqual(steps[2].agentMessage?.content, "A2");
+  });
+
+  it("tool-only items before any agent (no messageId): pre-agent step unchanged", () => {
+    // Tool items don't carry messageId, so they never trigger merge logic.
+    // They form pre-agent steps as usual.
+    const t1 = rawToolMsg("ls");
+    const t2 = rawToolMsg("pwd");
+    const a1 = agentMsg("result", { isFirstOfTurn: false, messageId: "M" });
+    const steps = splitIntoSteps([t1, t2, a1], null);
+    assert.strictEqual(steps.length, 2);
+    assert.strictEqual(steps[0].isPreAgent, true);
+    assert.strictEqual(steps[0].toolCalls.length, 2);
+    assert.strictEqual(steps[0].agentMessage, null);
+    assert.strictEqual(steps[1].agentMessage?.content, "result");
+  });
+
+  it("consecutive agent chunks (no tools, same msgId): merged into 1 step", () => {
+    const a1 = agentMsg("a", { isFirstOfTurn: false, messageId: "M" });
+    const a2 = agentMsg("b", { isFirstOfTurn: false, messageId: "M" });
+    const a3 = agentMsg("c", { isFirstOfTurn: false, messageId: "M" });
+    const steps = splitIntoSteps([a1, a2, a3], null);
+    assert.strictEqual(steps.length, 1);
+    assert.strictEqual(steps[0].agentMessage?.content, "abc");
+  });
+
+  it("consecutive agent chunks (different msgId): each becomes separate step", () => {
+    const a1 = agentMsg("A", { isFirstOfTurn: false, messageId: "1" });
+    const a2 = agentMsg("B", { isFirstOfTurn: false, messageId: "2" });
+    const a3 = agentMsg("C", { isFirstOfTurn: false, messageId: "3" });
+    const steps = splitIntoSteps([a1, a2, a3], null);
+    assert.strictEqual(steps.length, 3);
+  });
+
+  it("same msgId but separated by message with stopReason → new step", () => {
+    // Same messageId, but the first agent has stopReason (logical boundary).
+    // This simulates: Agent sends chunk with stopReason, then continues
+    // with same messageId in a new turn — should NOT merge.
+    const a1 = agentMsg("done", {
+      isFirstOfTurn: false,
+      messageId: "M",
+      stopReason: "end_turn",
+    });
+    const a2 = agentMsg("more", { isFirstOfTurn: true, messageId: "M" });
+    const steps = splitIntoSteps([a1, a2], null);
+    assert.strictEqual(steps.length, 2);
+    assert.strictEqual(steps[0].agentMessage?.content, "done");
+    assert.strictEqual(steps[1].agentMessage?.content, "more");
+  });
+
+  it("complex: chunk1 → t1 → chunk2 → t2 → t3 → chunk3 (same msgId): 1 step, 3 tools", () => {
+    const a1 = agentMsg("P1", { isFirstOfTurn: false, messageId: "Z" });
+    const t1 = rawToolMsg("task1");
+    const a2 = agentMsg("P2", { isFirstOfTurn: true, messageId: "Z" });
+    const t2 = rawToolMsg("task2");
+    const t3 = rawToolMsg("task3");
+    const a3 = agentMsg("P3", { isFirstOfTurn: true, messageId: "Z" });
+    const steps = splitIntoSteps([a1, t1, a2, t2, t3, a3], null);
+    assert.strictEqual(steps.length, 1);
+    assert.strictEqual(steps[0].agentMessage?.content, "P1P2P3");
+    assert.strictEqual(steps[0].toolCalls.length, 3);
+    assert.strictEqual(steps[0].toolCalls[0].content, "[tool result: task1]");
+    assert.strictEqual(steps[0].toolCalls[1].content, "[tool result: task2]");
+    assert.strictEqual(steps[0].toolCalls[2].content, "[tool result: task3]");
+  });
+});
+
 describe("Regression: end-to-end IntermediateStepGrouper with same messageId across boundary", () => {
   it("User → Agent1(msgX, isFirstOfTurn) → Tool → Agent2(msgX, stopReason): 2 intermediate steps", () => {
     // The original bug: Agent2 was merged into Agent1's step instead of
@@ -895,6 +1019,20 @@ describe("Regression: end-to-end IntermediateStepGrouper with same messageId acr
 describe("selectFinalResponse", () => {
   it("returns null for empty input", () => {
     assert.strictEqual(selectFinalResponse([]), null);
+  });
+
+  it("end_turn takes priority over other stopReason values", () => {
+    // When multiple messages carry stopReason, the LAST with "end_turn" wins.
+    // Intermediate agent with tool_use MUST NOT be selected.
+    const items: PipelineItem[] = [
+      agentMsg("intermediate", { stopReason: "tool_use" }),
+      rawToolMsg("tool output"),
+      agentMsg("final", { stopReason: "end_turn" }),
+    ];
+    const result = selectFinalResponse(items);
+    assert.ok(result);
+    assert.strictEqual((result.item as ChatDisplayItem).content, "final");
+    assert.strictEqual(result.index, 2);
   });
 
   it("stopReason takes priority over everything", () => {

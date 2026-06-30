@@ -96,6 +96,28 @@ export function IntermediateStepsBanner({
   const [animatingCollapsed, setAnimatingCollapsed] = useState(false);
   const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Auto-expand when new steps appear so that a step promoted from
+  // currentStep → olderSteps isn't silently hidden inside a collapsed
+  // banner.  The user can still collapse manually; collapse state is
+  // preserved across re-renders as long as steps don't grow.
+  const prevStepCount = useRef(steps.length);
+  useEffect(() => {
+    if (steps.length > prevStepCount.current) {
+      prevStepCount.current = steps.length;
+      if (isCollapsed) {
+        setAnimatingCollapsed(false);
+        setIsCollapsed(false);
+        onExpandSettled?.();
+      }
+      return;
+    }
+    prevStepCount.current = steps.length;
+  }, [steps.length, isCollapsed, onExpandSettled]);
+
+  const toggle = useCallback(() => {
+    onToggle?.();
+  }, [onToggle]);
+
   const prevForceExpanded = useRef(forceExpanded);
   useEffect(() => {
     if (forceExpanded && !prevForceExpanded.current) {
@@ -127,10 +149,6 @@ export function IntermediateStepsBanner({
       if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
     };
   }, []);
-
-  const toggle = useCallback(() => {
-    onToggle?.();
-  }, [onToggle]);
 
   if (steps.length === 0) return null;
 

@@ -6,6 +6,9 @@
     "Goose CLI": {
       "args": ["acp"],
       "command": "goose",
+      "env": {
+        "GOOSE_MODEL": "nemotoron-3-ultra"
+      },
       "autoConnect": [
         { "workspace": "../../", "sessionName": "1" },
         { "workspace": "../../", "sessionName": "2" }
@@ -13,13 +16,25 @@
       "openChat": true
     },
     "Goose(deepseek-v4-pro-think)": {
-      "args": [
-        "acp"
-      ],
+      "args": ["acp"],
       "command": "goose",
       "env": {
         "GOOSE_MODEL": "deepseek-v4-pro-think"
-      },
+      }
+    },
+    "Copilot": {
+      "command": "nix",
+      "args": [
+        "shell",
+        "--impure",
+        "nixpkgs#github-copilot-cli",
+        "-c",
+        "copilot",
+        "--acp"
+      ],
+      "env": {
+        "NIXPKGS_ALLOW_UNFREE": "1"
+      }
     }
   },
   "acp.presets": {

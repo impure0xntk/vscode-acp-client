@@ -62,7 +62,22 @@ export class MessagePipeline {
 
     if (annotated.length > 0) {
       if (this.cache.length > 0) {
-        this.cache[this.cache.length - 1] = annotated[0];
+        const newItem = annotated[0];
+        const prevItem = this.cache[this.cache.length - 1];
+        // Preserve isFirstOfTurn from the original annotation.
+        // refreshLast processes a single message in isolation, so
+        // annotateMessages loses the turn-boundary context and would
+        // incorrectly set isFirstOfTurn=true for any agent/tool message.
+        // The flag was correctly computed during full-batch processing
+        // and must not be changed by in-place streaming updates.
+        if (
+          prevItem.type === "chat" &&
+          newItem.type === "chat" &&
+          prevItem.role === newItem.role
+        ) {
+          newItem.isFirstOfTurn = prevItem.isFirstOfTurn;
+        }
+        this.cache[this.cache.length - 1] = newItem;
       } else {
         this.cache = annotated;
       }

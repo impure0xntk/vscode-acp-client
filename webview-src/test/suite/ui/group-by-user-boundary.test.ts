@@ -74,6 +74,25 @@ function thinkingItem(
   };
 }
 
+function toolMsg(
+  toolCallId: string,
+  overrides: Partial<ChatDisplayItem> = {}
+): ChatDisplayItem {
+  return {
+    type: "chat",
+    role: "tool",
+    agentId: "a1",
+    content: `[tool result: ${toolCallId}]`,
+    key: nextKey("tool"),
+    timestamp: Date.now(),
+    isFirstOfTurn: false,
+    attachments: [],
+    thinking: undefined,
+    resolvedToolCalls: [{ id: toolCallId, title: toolCallId, kind: "generic", status: "completed" }],
+    ...overrides,
+  };
+}
+
 function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
   return new IntermediateStepGrouper(items).compute();
 }
@@ -685,5 +704,286 @@ describe("groupByUserBoundary", () => {
       (result.latestGroup.finalResponse?.item as ChatDisplayItem).content,
       "a2"
     );
+  });
+
+  // ── selectFinalResponse must not select tool items ─────────────────────
+
+  describe("selectFinalResponse rejects tool items", () => {
+    it("tool item with isFirstOfTurn=true is NOT selected as finalResponse", () => {
+      const items: PipelineItem[] = [
+        userMsg("hello"),
+        agentMsg("I'll check", {
+          isFirstOfTurn: true,
+          stopReason: "tool_use",
+        }),
+        toolMsg("call-1", { isFirstOfTurn: true }),
+      ];
+      const result = groupByUserBoundary(items);
+      assert.ok(result.latestGroup);
+      assert.ok(result.latestGroup.finalResponse);
+      // Must NOT be the tool item
+      const fr = result.latestGroup.finalResponse.item as ChatDisplayItem;
+      assert.strictEqual(fr.role, "agent");
+      assert.strictEqual(fr.content, "I'll check");
+      assert.strictEqual(fr.stopReason, "tool_use");
+    });
+
+    it("only tool items after agent → no finalResponse from tools selected", () => {
+      const items: PipelineItem[] = [
+        userMsg("q"),
+        toolMsg("call-1", { isFirstOfTurn: true }),
+        toolMsg("call-2", { isFirstOfTurn: true }),
+      ];
+      const result = groupByUserBoundary(items);
+      assert.ok(result.latestGroup);
+      // No agent message → no finalResponse (pre-agent steps only)
+      assert.strictEqual(result.latestGroup.finalResponse, null);
+      // But steps should capture both tool calls as pre-agent
+      assert.strictEqual(result.latestGroup.steps.length, 1);
+      assert.strictEqual(result.latestGroup.steps[0].isPreAgent, true);
+      assert.strictEqual(result.latestGroup.steps[0].toolCalls.length, 2);
+    });
+  });
+
+  // ── Tool calls after final agent message → currentStep ──────────────────
+
+  describe("tool calls after final response belong to currentStep", () => {
+    it("one tool call after agent-stopReason → currentStep holds it", () => {
+      const items: PipelineItem[] = [
+        userMsg("do it"),
+        agentMsg("result", { isFirstOfTurn: true, stopReason: "end_turn" }),
+        toolMsg("call-1", { isFirstOfTurn: false }),
+      ];
+      const result = groupByUserBoundary(items);
+      assert.ok(result.latestGroup);
+      assert.ok(result.latestGroup.finalResponse);
+      assert.strictEqual(
+        (result.latestGroup.finalResponse.item as ChatDisplayItem).content,
+        "result"
+      );
+      // currentStep carries the tool call alongside the final agent message
+      assert.ok(result.latestGroup.currentStep);
+      assert.strictEqual(result.latestGroup.currentStep.agentMessage?.content, "result");
+      assert.strictEqual(result.latestGroup.currentStep.toolCalls.length, 1);
+      assert.strictEqual(result.latestGroup.currentStep.toolCalls[0].role, "tool");
+    });
+
+    it("multiple tool calls after agent → all in currentStep", () => {
+      const items: PipelineItem[] = [
+        userMsg("go"),
+        agentMsg("done", { isFirstOfTurn: true, stopReason: "end_turn" }),
+        toolMsg("c1"),
+        toolMsg("c2"),
+        toolMsg("c3"),
+      ];
+      const result = groupByUserBoundary(items);
+      assert.ok(result.latestGroup?.currentStep);
+      assert.strictEqual(
+        result.latestGroup.currentStep.agentMessage?.content,
+        "done"
+      );
+      assert.strictEqual(
+        result.latestGroup.currentStep.toolCalls.length,
+        3
+      );
+    });
+
+    it("tool calls before any agent message → pre-agent step", () => {
+      const items: PipelineItem[] = [
+        userMsg("go"),
+        toolMsg("c1", { isFirstOfTurn: true }),
+        toolMsg("c2", { isFirstOfTurn: true }),
+        agentMsg("got it", { isFirstOfTurn: true, stopReason: "end_turn" }),
+      ];
+      const result = groupByUserBoundary(items);
+      assert.ok(result.latestGroup);
+      assert.ok(result.latestGroup.finalResponse);
+      assert.strictEqual(
+        (result.latestGroup.finalResponse.item as ChatDisplayItem).content,
+        "got it"
+      );
+      // Pre-agent tool calls → intermediate steps (no agentMessage)
+      assert.strictEqual(result.latestGroup.steps.length, 1);
+      assert.strictEqual(result.latestGroup.steps[0].isPreAgent, true);
+      assert.strictEqual(result.latestGroup.steps[0].toolCalls.length, 2);
+      // No currentStep because no tool calls after the final agent
+      assert.strictEqual(result.latestGroup.currentStep, null);
+    });
+  });
+
+  // ── New agent message shifts previous step into intermediate ────────────
+
+  describe("new agent message shifts previous into intermediate steps", () => {
+    it("agent → tool → agent: first pair becomes intermediate, last agent is final", () => {
+      const items: PipelineItem[] = [
+        userMsg("task"),
+        agentMsg("step1", { isFirstOfTurn: true, stopReason: "tool_use" }),
+        toolMsg("c1"),
+        agentMsg("step2", { isFirstOfTurn: true, stopReason: "end_turn" }),
+      ];
+      const result = groupByUserBoundary(items);
+      assert.ok(result.latestGroup);
+      // finalResponse = step2
+      assert.ok(result.latestGroup.finalResponse);
+      assert.strictEqual(
+        (result.latestGroup.finalResponse.item as ChatDisplayItem).content,
+        "step2"
+      );
+      // step1 + tool c1 → folded into intermediate steps
+      assert.strictEqual(result.latestGroup.steps.length, 1);
+      const inter = result.latestGroup.steps[0];
+      assert.strictEqual(inter.agentMessage?.content, "step1");
+      assert.strictEqual(inter.toolCalls.length, 1);
+      assert.strictEqual(inter.toolCalls[0].role, "tool");
+      // Final response has no trailing tool calls
+      assert.strictEqual(result.latestGroup.currentStep, null);
+    });
+
+    it("agent → tool → agent → tool: intermediate captures first pair, currentStep captures last pair", () => {
+      const items: PipelineItem[] = [
+        userMsg("task"),
+        agentMsg("s1", { isFirstOfTurn: true, stopReason: "tool_use" }),
+        toolMsg("c1"),
+        agentMsg("s2", { isFirstOfTurn: true, stopReason: "end_turn" }),
+        toolMsg("c2"),
+      ];
+      const result = groupByUserBoundary(items);
+      assert.ok(result.latestGroup);
+      // finalResponse = s2
+      assert.strictEqual(
+        (result.latestGroup.finalResponse.item as ChatDisplayItem).content,
+        "s2"
+      );
+      // s1 + c1 → intermediate
+      assert.strictEqual(result.latestGroup.steps.length, 1);
+      assert.strictEqual(result.latestGroup.steps[0].agentMessage?.content, "s1");
+      assert.strictEqual(result.latestGroup.steps[0].toolCalls.length, 1);
+      // s2 + c2 → currentStep
+      assert.ok(result.latestGroup.currentStep);
+      assert.strictEqual(
+        result.latestGroup.currentStep.agentMessage?.content,
+        "s2"
+      );
+      assert.strictEqual(result.latestGroup.currentStep.toolCalls.length, 1);
+    });
+
+    it("two complete pairs in single turn → first intermediate, second final+currentStep", () => {
+      const items: PipelineItem[] = [
+        userMsg("do it"),
+        thinkingItem("hmm"),
+        agentMsg("checking...", {
+          isFirstOfTurn: true,
+          stopReason: "tool_use",
+        }),
+        toolMsg("read"),
+        toolMsg("search"),
+        agentMsg("result", { isFirstOfTurn: true, stopReason: "end_turn" }),
+        toolMsg("write"),
+      ];
+      const result = groupByUserBoundary(items);
+      assert.ok(result.latestGroup);
+      assert.strictEqual(
+        (result.latestGroup.finalResponse.item as ChatDisplayItem).content,
+        "result"
+      );
+      // Intermediate: thinking + checking + read + search
+      assert.strictEqual(result.latestGroup.steps.length, 2);
+      assert.strictEqual(
+        result.latestGroup.steps[0].isPreAgent,
+        true
+      ); // thinking
+      assert.strictEqual(
+        result.latestGroup.steps[1].agentMessage?.content,
+        "checking..."
+      );
+      assert.strictEqual(result.latestGroup.steps[1].toolCalls.length, 2);
+      // currentStep: result + write
+      assert.ok(result.latestGroup.currentStep);
+      assert.strictEqual(
+        result.latestGroup.currentStep.agentMessage?.content,
+        "result"
+      );
+      assert.strictEqual(result.latestGroup.currentStep.toolCalls.length, 1);
+    });
+  });
+
+  // ── messageId-boundary: streaming chunks with same messageId merge ───────
+
+  describe("messageId boundary: same-messageId chunks merge", () => {
+    it("chunk → tool → chunk (same messageId) → single step", () => {
+      const items: PipelineItem[] = [
+        userMsg("go"),
+        agentMsg("chunk1", {
+          isFirstOfTurn: true,
+          messageId: "msg-A",
+          stopReason: "tool_use",
+        }),
+        toolMsg("c1"),
+        agentMsg("chunk2", { isFirstOfTurn: true, messageId: "msg-A" }),
+      ];
+      const result = groupByUserBoundary(items);
+      assert.ok(result.latestGroup);
+      // All three (chunk1+chunk2 + tool c1) in one intermediate step
+      assert.strictEqual(result.latestGroup.steps.length, 1);
+      const step = result.latestGroup.steps[0];
+      assert.strictEqual(step.agentMessage?.content, "chunk1chunk2");
+      assert.strictEqual(step.toolCalls.length, 1);
+    });
+
+    it("different messageId → separate steps", () => {
+      const items: PipelineItem[] = [
+        userMsg("go"),
+        agentMsg("msg1", {
+          isFirstOfTurn: true,
+          messageId: "id-1",
+          stopReason: "tool_use",
+        }),
+        toolMsg("c1"),
+        agentMsg("msg2", {
+          isFirstOfTurn: true,
+          messageId: "id-2",
+          stopReason: "end_turn",
+        }),
+      ];
+      const result = groupByUserBoundary(items);
+      assert.ok(result.latestGroup);
+      // msg1 + c1 → intermediate, msg2 → final
+      assert.strictEqual(result.latestGroup.steps.length, 1);
+      assert.strictEqual(
+        result.latestGroup.steps[0].agentMessage?.messageId,
+        "id-1"
+      );
+      assert.strictEqual(
+        (result.latestGroup.finalResponse.item as ChatDisplayItem).messageId,
+        "id-2"
+      );
+    });
+  });
+
+  // ── selectFinalResponse isolates stopReason to agent items ──────────────
+
+  describe("selectFinalResponse isolates stopReason to agent items", () => {
+    it("agent with end_turn selected, ignoring tool items", () => {
+      const agent = agentMsg("end", { stopReason: "end_turn" });
+      const tool = toolMsg("t");
+      const result = selectFinalResponse([tool, agent, tool]);
+      assert.ok(result);
+      assert.strictEqual(result.item, agent);
+    });
+
+    it("no agent with stopReason, tools with isFirstOfTurn ignored", () => {
+      const t1 = toolMsg("t1", { isFirstOfTurn: true });
+      const t2 = toolMsg("t2", { isFirstOfTurn: true });
+      const result = selectFinalResponse([t1, t2]);
+      assert.strictEqual(result, null);
+    });
+
+    it("agent with non-end_turn stopReason selected over tools", () => {
+      const agent = agentMsg("mid", { stopReason: "tool_use" });
+      const tool = toolMsg("t", { isFirstOfTurn: true });
+      const result = selectFinalResponse([tool, agent]);
+      assert.ok(result);
+      assert.strictEqual(result.item, agent);
+    });
   });
 });

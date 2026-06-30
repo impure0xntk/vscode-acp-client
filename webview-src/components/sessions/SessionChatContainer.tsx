@@ -10,6 +10,7 @@ import { DisplayItemView } from "../message/DisplayItemView";
 import { IntermediateStepsBanner } from "../message/IntermediateStepsBanner";
 import { StepView } from "../message/StepView";
 import { FileEditSummary } from "../message/FileEditSummary";
+import { ToolBatchSummary } from "../message/ToolBatchSummary";
 import { useMessages } from "../../hooks/useMessages";
 import { useMessagePipeline } from "../../hooks/useMessagePipeline";
 import { useFileEditSummaryMap } from "../../hooks/useFileEditSummaryMap";
@@ -694,52 +695,86 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                           fileEditSummaryMap={fileEditSummaryMap}
                         />
                       )}
-                      {currentStep && (
-                        <StepView
-                          step={currentStep}
-                          sessionId={sessionId}
-                          agentId={agentId}
-                          isNew={true}
-                          forceHeader={true}
-                          isAgentNew={
-                            currentStep.agentMessage
-                              ? newKeys.has(currentStep.agentMessage.key)
-                              : false
-                          }
-                          onAttachDiff={onAttachDiff}
-                          externalFileEditEntries={fileEditSummaryMap?.get(
-                            olderSteps.length
-                          )}
-                        />
-                      )}
-                      {!currentStep && latestGroup.finalResponse && (
-                        <DisplayItemView
-                          item={latestGroup.finalResponse.item}
-                          idx={0}
-                          items={[latestGroup.finalResponse.item]}
-                          sessionId={sessionId}
-                          agentId={agentId}
-                          forceHeader={true}
-                          isNew={newKeys.has(
-                            latestGroup.finalResponse.item.key
-                          )}
-                        />
-                      )}
-
-                      {/* Cumulative file edit summary — shown after turn completes (finalResponse exists).
-                        Per-step file edits are shown via StepView for each step (including intermediate).
-                        When currentStep exists, its StepView already shows the fileEditSummary,
-                        so we suppress the turn-level aggregate to avoid duplication. */}
-                      {!currentStep &&
-                        latestGroup.finalResponse &&
-                        latestGroup.turnFileEditSummary &&
-                        latestGroup.turnFileEditSummary.length > 0 && (
-                          <FileEditSummary
-                            entries={latestGroup.turnFileEditSummary}
-                            sessionId={sessionId}
-                            agentId={agentId}
-                            onAttachDiff={onAttachDiff}
-                          />
+                      {currentStep &&
+                        currentStep.agentMessage?.key ===
+                          latestGroup.finalResponse?.item.key ? (
+                          <>
+                            <DisplayItemView
+                              item={latestGroup.finalResponse.item}
+                              idx={0}
+                              items={[latestGroup.finalResponse.item]}
+                              sessionId={sessionId}
+                              agentId={agentId}
+                              forceHeader={true}
+                              isNew={newKeys.has(
+                                latestGroup.finalResponse.item.key
+                              )}
+                            />
+                            {currentStep.toolCalls.length > 0 && (
+                              <div className="ml-4 mr-1 mb-[2px]">
+                                <ToolBatchSummary
+                                  calls={currentStep.toolCalls.flatMap(
+                                    (tc) => tc.resolvedToolCalls ?? []
+                                  )}
+                                  isNew={true}
+                                />
+                              </div>
+                            )}
+                            {currentStep.fileEditSummary &&
+                              currentStep.fileEditSummary.length > 0 && (
+                                <FileEditSummary
+                                  entries={currentStep.fileEditSummary}
+                                  sessionId={sessionId}
+                                  agentId={agentId}
+                                  onAttachDiff={onAttachDiff}
+                                />
+                              )}
+                          </>
+                        ) : (
+                          <>
+                            {currentStep && (
+                              <StepView
+                                step={currentStep}
+                                sessionId={sessionId}
+                                agentId={agentId}
+                                isNew={true}
+                                forceHeader={true}
+                                isAgentNew={
+                                  currentStep.agentMessage
+                                    ? newKeys.has(currentStep.agentMessage.key)
+                                    : false
+                                }
+                                onAttachDiff={onAttachDiff}
+                                externalFileEditEntries={fileEditSummaryMap?.get(
+                                  olderSteps.length
+                                )}
+                              />
+                            )}
+                            {!currentStep && latestGroup.finalResponse && (
+                              <DisplayItemView
+                                item={latestGroup.finalResponse.item}
+                                idx={0}
+                                items={[latestGroup.finalResponse.item]}
+                                sessionId={sessionId}
+                                agentId={agentId}
+                                forceHeader={true}
+                                isNew={newKeys.has(
+                                  latestGroup.finalResponse.item.key
+                                )}
+                              />
+                            )}
+                            {!currentStep &&
+                              latestGroup.finalResponse &&
+                              latestGroup.turnFileEditSummary &&
+                              latestGroup.turnFileEditSummary.length > 0 && (
+                                <FileEditSummary
+                                  entries={latestGroup.turnFileEditSummary}
+                                  sessionId={sessionId}
+                                  agentId={agentId}
+                                  onAttachDiff={onAttachDiff}
+                                />
+                              )}
+                          </>
                         )}
                     </React.Fragment>
                   );

@@ -1,0 +1,94 @@
+
+=== DIRECTORY TREE (max depth 3, source files only) ===
+.vscode
+.vscode/settings.json
+docs
+docs/codebase
+docs/codebase/.codebase-scan.txt
+
+=== STACK DETECTION (manifest files) ===
+No recognized manifest files found in project root.
+
+=== ENTRY POINTS ===
+No common entry points found. Check 'main' or 'scripts.start' in manifest files above.
+
+=== LINTING AND FORMATTING CONFIG ===
+No linting or formatting config files found in project root.
+
+=== ENVIRONMENT VARIABLE TEMPLATES ===
+No .env.example or .env.template found. Identify required environment variables by searching the code and config for environment variable reads.
+
+=== TODO / FIXME / HACK (production code only, test dirs excluded) ===
+None found.
+
+=== GIT RECENT COMMITS (last 20) ===
+bfccf71 (HEAD -> main) perf: file edit
+be1a5ed feat: ui wip
+cb8f2a1 fix: ui
+0e15f38 fix: tool call ui and diff
+7db70c3 refactor: perf
+1d0a272 docs: remove redudunt comments
+7bce127 refactor: fileicon
+7434b90 fix: some
+6543037 feat: file edit ui
+3cc24a3 feat( file edit ui wip
+fe732da feat: file edit ui
+454ce2e feat: file edit
+9ff9b9c feat: file edit
+20aa4d5 feat: file edit
+bbd441e feat: file edit summary
+283c721 (origin/main, origin/HEAD) fix: ui
+eb68762 fix: intermediate step: wip
+2369b8c fix: streaming for copilot and etc
+985af68 fix: streaming
+30fcc30 fix: intermediate steps
+
+=== HIGH-CHURN FILES (last 90 days, top 20) ===
+  44 webview-src/styles/globals.css
+  37 webview-src/webviewMessageHandler.ts
+  37 webview-src/containers/AppContainer.tsx
+  29 webview-src/components/sessions/SessionChatContainer.tsx
+  29 src/application/session/orchestrator.ts
+  27 src/infrastructure/vscode/commands/prompt.ts
+  27 webview-src/store/sessionStore.ts
+  25 webview-src/types.ts
+  24 src/infrastructure/vscode/vscode-ui/chatPanel.ts
+  24 webview-src/components/ChatContainer.tsx
+  23 src/infrastructure/vscode/extension.ts
+  20 webview-src/store/messageStore.ts
+  20 src/application/handlers/message-events.ts
+  20 src/application/handlers/session-events.ts
+  20 webview-src/components/Message.tsx
+  18 package.json
+  17 webview-src/components/composer/Composer.tsx
+  17 webview-src/components/message/ToolBatchSummary.tsx
+  16 webview-src/components/message/ToolCallCard.tsx
+  16 webview-src/components/message/Message.tsx
+
+=== MONOREPO SIGNALS ===
+No monorepo signals detected.
+
+=== CODE METRICS ===
+Total files scanned: 2
+Total lines of code: 73
+
+Files by language:
+  Other: 2
+
+Top 10 largest files:
+.vscode/settings.json: 1.6KB
+docs/codebase/.codebase-scan.txt: 0.0KB
+
+=== CI/CD PIPELINES ===
+No CI/CD pipelines detected.
+
+=== CONTAINERS & ORCHESTRATION ===
+No containerization configs detected.
+
+=== SECURITY & COMPLIANCE ===
+No security configs detected.
+
+=== PERFORMANCE & TESTING ===
+No performance testing configs detected.
+
+=== SCAN COMPLETE ===

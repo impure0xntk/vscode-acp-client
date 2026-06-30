@@ -16,6 +16,12 @@ interface PipelineEntry {
    * pick up the updated content/stopReason in the correct messages.
    */
   contentHash: string;
+  /**
+   * Per-message hashes from the last processed batch.
+   * Used to detect whether only the last message changed (safe for refreshLast)
+   * vs. a non-last message changed (requires full re-process).
+   */
+  perMessageHashes: string[];
   /** Reference count: number of mounted consumers */
   refCount: number;
 }
@@ -24,27 +30,12 @@ interface PipelineEntry {
  * Compute a fast hash of mutable fields across all raw messages.
  * Detects in-place mutations (streaming content append, stopReason stamp,
  * toolCalls insertion/update) that don't change the array length.
- *
- * Optimization: Only the last few messages can mutate in-place during
- * normal operation (streaming appends to the last agent message, tool
- * updates via updateMessage). We hash the last 3 messages fully and
- * only length/content-length for the rest. This avoids O(n) scanning
- * of all messages on every streaming chunk.
  */
 function computeContentHash(msgs: RawMessage[]): string {
   const len = msgs.length;
   let hash = len.toString(36) + ":";
 
-  // Hash prefix: all messages except last 3 — only content length
-  const fastBound = Math.max(0, len - 3);
-  for (let i = 0; i < fastBound; i++) {
-    const m = msgs[i] as unknown as Record<string, unknown>;
-    hash +=
-      (typeof m.content === "string" ? m.content.length : 0).toString(36) + ";";
-  }
-
-  // Hash suffix: last 3 messages — full mutable fields
-  for (let i = fastBound; i < len; i++) {
+  for (let i = 0; i < len; i++) {
     const m = msgs[i] as unknown as Record<string, unknown>;
     hash +=
       (typeof m.content === "string" ? m.content.length : 0).toString(36) + ";";
@@ -64,40 +55,33 @@ function computeContentHash(msgs: RawMessage[]): string {
 }
 
 /**
- * Compute a hash of only the prefix (all messages except last 3).
- * Used to detect whether only the last few messages were mutated,
- * enabling the use of refreshLast instead of full re-process.
+ * Compute a hash of a single raw message's mutable fields.
+ * Used to detect whether only the last message changed.
  */
-function computePrefixHash(msgs: RawMessage[]): string {
-  const len = msgs.length;
-  const fastBound = Math.max(0, len - 3);
-  let hash = len.toString(36) + ":";
-  for (let i = 0; i < fastBound; i++) {
-    const m = msgs[i] as unknown as Record<string, unknown>;
-    hash +=
-      (typeof m.content === "string" ? m.content.length : 0).toString(36) + ";";
+function computeMessageHash(msg: RawMessage): string {
+  const m = msg as unknown as Record<string, unknown>;
+  let hash = "";
+  hash += (typeof m.content === "string" ? m.content.length : 0).toString(36) + ";";
+  if (m.stopReason !== undefined && m.stopReason !== null) {
+    hash += String(m.stopReason) + ";";
+  }
+  const tcs = m.toolCalls as unknown[] | undefined;
+  if (tcs && tcs.length > 0) {
+    hash += tcs.length.toString(36) + ":";
+    for (let j = 0; j < tcs.length; j++) {
+      const tc = tcs[j] as Record<string, unknown>;
+      hash += (tc.id ?? "") + ":" + (tc.status ?? "") + ";";
+    }
   }
   return hash;
 }
 
 /**
- * Extract the prefix portion from a previously computed content hash.
- * The hash format is `len:prefix;prefix;suffix_fields` where prefix
- * segments are separated by `;` and matched to the message count.
+ * Compute per-message hashes for all messages.
+ * Stored alongside contentHash to enable last-message-only change detection.
  */
-function extractPrefixFromHash(hash: string, msgCount: number): string {
-  const fastBound = Math.max(0, msgCount - 3);
-  const parts = hash.split(":");
-  if (parts.length < 1) return "";
-  const lenPart = parts[0];
-  const rest = parts.slice(1).join(":");
-  const segs = rest.split(";");
-  // segs[0..fastBound-1] = prefix content-lengths, segs[fastBound..] = suffix
-  // We need the prefix segments (length fastBound) after the ":" delimiter
-  // Reconstruct: "len:" + first fastBound segments joined by ";"
-  if (fastBound === 0) return lenPart + ":";
-  const prefixSegs = segs.slice(0, fastBound);
-  return lenPart + ":" + prefixSegs.join(";");
+function computePerMessageHashes(msgs: RawMessage[]): string[] {
+  return msgs.map(computeMessageHash);
 }
 
 /**
@@ -155,6 +139,7 @@ function getOrCreatePipeline(sessionKey: string): PipelineEntry {
       pipeline: createDefaultPipeline(),
       processedRawCount: 0,
       contentHash: "",
+      perMessageHashes: [],
       refCount: 0,
     };
     pipelineCache.set(sessionKey, entry);
@@ -279,34 +264,46 @@ export function useMessagePipeline(
       entry.processedRawCount = dedupedMessages.length;
       entry.contentHash =
         dedupedMessages.length > 0 ? computeContentHash(dedupedMessages) : "";
+      entry.perMessageHashes =
+        dedupedMessages.length > 0
+          ? computePerMessageHashes(dedupedMessages)
+          : [];
       return result;
     }
 
     // In-place update detection: when the message count hasn't changed
-    // but mutable fields (content, stopReason) have been modified.
-    // Use refreshLast (cheap) when only the last few messages were mutated,
-    // fall back to full re-process when earlier messages changed.
+    // but mutable fields (content, stopReason, toolCalls) have been modified.
+    // Use refreshLast (cheap) ONLY when the last message is the only one that changed.
+    // Fall back to full re-process when any non-last message changed — refreshLast
+    // only re-processes the last message, so a change in a non-last message
+    // (e.g. tool_call_update on an earlier tool message) would leave the
+    // corresponding PipelineItem stale in the cache.
     if (dedupedMessages.length === processedRawCount) {
       if (dedupedMessages.length > 0) {
         const currentHash = computeContentHash(dedupedMessages);
         if (currentHash !== entry.contentHash) {
-          // Capture previous hash BEFORE overwriting
-          const prevHash = entry.contentHash;
           entry.contentHash = currentHash;
 
-          // If the prefix hash (messages except last 3) is unchanged,
-          // only the suffix changed → use refreshLast for O(1) update
-          if (
-            prevHash.length > 0 &&
-            computePrefixHash(dedupedMessages) ===
-              extractPrefixFromHash(prevHash, dedupedMessages.length)
-          ) {
+          // Check if ONLY the last message changed by comparing per-message hashes.
+          const currentHashes = computePerMessageHashes(dedupedMessages);
+          const prevHashes = entry.perMessageHashes;
+          const lastIdx = dedupedMessages.length - 1;
+
+          const onlyLastChanged =
+            prevHashes.length === currentHashes.length &&
+            currentHashes.every(
+              (h, i) => i === lastIdx || h === prevHashes[i]
+            );
+
+          if (onlyLastChanged) {
             const result = pipeline.refreshLast(dedupedMessages, ctx);
             entry.processedRawCount = dedupedMessages.length;
+            entry.perMessageHashes = currentHashes;
             return result;
           }
           const result = pipeline.process(dedupedMessages, ctx);
           entry.processedRawCount = dedupedMessages.length;
+          entry.perMessageHashes = currentHashes;
           return result;
         }
       }
@@ -319,6 +316,10 @@ export function useMessagePipeline(
     entry.processedRawCount = dedupedMessages.length;
     entry.contentHash =
       dedupedMessages.length > 0 ? computeContentHash(dedupedMessages) : "";
+    entry.perMessageHashes =
+      dedupedMessages.length > 0
+        ? computePerMessageHashes(dedupedMessages)
+        : [];
     return result;
   }, [dedupedMessages, pipeline, sessionId, agentId, processedRawCount, entry]);
 }
