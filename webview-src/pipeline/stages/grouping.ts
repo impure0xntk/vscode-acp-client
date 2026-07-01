@@ -540,12 +540,7 @@ function sessionOfTurn(
   if (own.agentId && own.sessionId) return own;
 
   // 2. Try previous group (then its predecessor, up to 3 hops)
-  const prevSources = [
-    prevGroupItems,
-    nextGroupItems,
-    afterLastUser,
-    leading,
-  ];
+  const prevSources = [prevGroupItems, nextGroupItems, afterLastUser, leading];
   for (const src of prevSources) {
     const s = sessionOfItems(src);
     if (s.agentId && s.sessionId) return s;
@@ -614,72 +609,55 @@ export class IntermediateStepGrouper {
  * 3. Last agent chat that is first-of-turn (i.e., starts a new step).
  * 4. Fallback — last non-promoted agent chat.
  */
-/**
- * Like Array#findIndex, but searches from the end (last to first).
- * Returns the index of the last matching element, or -1 if none match.
- */
-function reverseFindIndex<T>(
-  arr: T[],
-  predicate: (item: T, index: number, arr: T[]) => boolean
-): number {
-  for (let i = arr.length - 1; i >= 0; i--) {
-    if (predicate(arr[i], i, arr)) return i;
-  }
-  return -1;
-}
-
 export function selectFinalResponse(
   agentChats: PipelineItem[]
 ): FinalResponse | null {
-  if (agentChats.length === 0) return null;
+  // Only consider items with type="chat" and role="agent" — tool items
+  // must never be selected as the final response, even if they carry
+  // stopReason or isFirstOfTurn (which can happen when updateLastAgentMessage
+  // falls back to a tool message, or when incremental annotation resets
+  // the turn-boundary state).
+  const agentOnly: Array<{ item: PipelineItem; originalIndex: number }> = [];
+  for (let i = 0; i < agentChats.length; i++) {
+    if (isRealAgentChat(agentChats[i])) {
+      agentOnly.push({ item: agentChats[i], originalIndex: i });
+    }
+  }
+
+  if (agentOnly.length === 0) return null;
+
+  const items = agentOnly.map((a) => a.item);
+  const toResult = (idx: number): FinalResponse => ({
+    item: items[idx],
+    index: agentOnly[idx].originalIndex,
+  });
 
   // 1. Prefer stopReason="end_turn" — the definitive turn-ending message.
-  //    Only agent messages carry meaningful stopReason; tool items are excluded.
-  const endTurnIdx = reverseFindIndex(
-    agentChats,
-    (item) =>
-      isRealAgentChat(item) &&
-      (item as ChatDisplayItem).stopReason === "end_turn"
-  );
-  if (endTurnIdx !== -1) {
-    return { item: agentChats[endTurnIdx], index: endTurnIdx };
+  for (let i = items.length - 1; i >= 0; i--) {
+    const item = items[i];
+    if ((item as ChatDisplayItem).stopReason === "end_turn") {
+      return toResult(i);
+    }
   }
 
   // 2. Fallback to any other stopReason (tool_use, cancelled, etc.)
-  //    Use reverseFindIndex so the LAST non-end_turn stopReason wins,
-  //    not the first one (which might be an intermediate).
-  //    Guard against end_turn: step 1 would have returned it, so reaching
-  //    here means no end_turn exists.
-  const stopReasonIdx = reverseFindIndex(
-    agentChats,
-    (item) =>
-      isRealAgentChat(item) &&
-      (item as ChatDisplayItem).stopReason != null &&
-      (item as ChatDisplayItem).stopReason !== "end_turn"
-  );
-  if (stopReasonIdx !== -1) {
-    return { item: agentChats[stopReasonIdx], index: stopReasonIdx };
+  for (let i = items.length - 1; i >= 0; i--) {
+    const item = items[i];
+    const sr = (item as ChatDisplayItem).stopReason;
+    if (sr != null && sr !== "end_turn") {
+      return toResult(i);
+    }
   }
 
   // 3. Last real agent chat that is first-of-turn (starts a new step).
-  //    Tool items are explicitly excluded — they may have isFirstOfTurn=true
-  //    due to incremental annotation (processIncremental), but only agent
-  //    messages should serve as the final response boundary.
-  for (let i = agentChats.length - 1; i >= 0; i--) {
-    const item = agentChats[i];
-    if (isRealAgentChat(item) && (item as ChatDisplayItem).isFirstOfTurn) {
-      return { item, index: i };
+  for (let i = items.length - 1; i >= 0; i--) {
+    if ((items[i] as ChatDisplayItem).isFirstOfTurn) {
+      return toResult(i);
     }
   }
 
-  // 3. Fallback: last non-promoted agent chat
-  for (let i = agentChats.length - 1; i >= 0; i--) {
-    if (isRealAgentChat(agentChats[i])) {
-      return { item: agentChats[i], index: i };
-    }
-  }
-
-  return null;
+  // 4. Fallback: last agent chat.
+  return toResult(items.length - 1);
 }
 
 /**

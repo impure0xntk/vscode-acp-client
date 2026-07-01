@@ -116,10 +116,43 @@ describe("integration: messageStore → pipeline → grouping full flow", () => 
     const store = useMessageStore.getState();
 
     // Simulate message arrival sequence
-    store.appendMessage(key, msg({ role: "user", content: "analyze this file" }));
-    store.appendMessage(key, msg({ id: "m1", role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "Let me read the file..." }));
-    store.appendMessage(key, msg({ role: "tool", agentId: "agent-1", sessionId: "sess-1", content: "file content here", toolCalls: [{ id: "tc-1", title: "Read", status: "completed", kind: "read" }] }));
-    store.appendMessage(key, msg({ id: "m2", role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "The analysis shows...", stopReason: "end_turn" }));
+    store.appendMessage(
+      key,
+      msg({ role: "user", content: "analyze this file" })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        id: "m1",
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "Let me read the file...",
+      })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        role: "tool",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "file content here",
+        toolCalls: [
+          { id: "tc-1", title: "Read", status: "completed", kind: "read" },
+        ],
+      })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        id: "m2",
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "The analysis shows...",
+        stopReason: "end_turn",
+      })
+    );
 
     const rawMessages = useMessageStore.getState().perSession[key];
     assert.strictEqual(rawMessages.length, 4); // user + agent + tool + agent(final)
@@ -146,11 +179,28 @@ describe("integration: messageStore → pipeline → grouping full flow", () => 
 
     // Turn 1
     store.appendMessage(key, msg({ role: "user", content: "first question" }));
-    store.appendMessage(key, msg({ role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "first answer", stopReason: "end_turn" }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "first answer",
+        stopReason: "end_turn",
+      })
+    );
 
     // Turn 2
     store.appendMessage(key, msg({ role: "user", content: "second question" }));
-    store.appendMessage(key, msg({ role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "second answer" }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "second answer",
+      })
+    );
 
     const rawMessages = useMessageStore.getState().perSession[key];
     const pipeline = new MessagePipeline(defaultConfig);
@@ -160,8 +210,14 @@ describe("integration: messageStore → pipeline → grouping full flow", () => 
     assert.strictEqual(grouped.groups.length, 1, "one past group");
     assert.ok(grouped.latestGroup, "latestGroup exists");
     assert.strictEqual(grouped.groups[0].finalResponse?.item.type, "chat");
-    assert.strictEqual((grouped.groups[0].finalResponse?.item as ChatDisplayItem).content, "first answer");
-    assert.strictEqual((grouped.latestGroup!.finalResponse?.item as ChatDisplayItem).content, "second answer");
+    assert.strictEqual(
+      (grouped.groups[0].finalResponse?.item as ChatDisplayItem).content,
+      "first answer"
+    );
+    assert.strictEqual(
+      (grouped.latestGroup!.finalResponse?.item as ChatDisplayItem).content,
+      "second answer"
+    );
   });
 
   it("agent message with tool calls followed by final agent: tool calls attributed to intermediate step", () => {
@@ -169,10 +225,50 @@ describe("integration: messageStore → pipeline → grouping full flow", () => 
     const store = useMessageStore.getState();
 
     store.appendMessage(key, msg({ role: "user", content: "run analysis" }));
-    store.appendMessage(key, msg({ id: "m1", role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "running tools..." }));
-    store.appendMessage(key, msg({ role: "tool", agentId: "agent-1", sessionId: "sess-1", content: "grep result", toolCalls: [{ id: "tc-1", title: "Grep", status: "completed", kind: "search" }] }));
-    store.appendMessage(key, msg({ role: "tool", agentId: "agent-1", sessionId: "sess-1", content: "read result", toolCalls: [{ id: "tc-2", title: "Read", status: "completed", kind: "read" }] }));
-    store.appendMessage(key, msg({ role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "done", stopReason: "end_turn" }));
+    store.appendMessage(
+      key,
+      msg({
+        id: "m1",
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "running tools...",
+      })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        role: "tool",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "grep result",
+        toolCalls: [
+          { id: "tc-1", title: "Grep", status: "completed", kind: "search" },
+        ],
+      })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        role: "tool",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "read result",
+        toolCalls: [
+          { id: "tc-2", title: "Read", status: "completed", kind: "read" },
+        ],
+      })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "done",
+        stopReason: "end_turn",
+      })
+    );
 
     const rawMessages = useMessageStore.getState().perSession[key];
     const pipeline = new MessagePipeline(defaultConfig);
@@ -187,7 +283,11 @@ describe("integration: messageStore → pipeline → grouping full flow", () => 
     // Find the step with tool calls
     const stepWithTools = steps.find((s) => s.toolCalls.length > 0);
     assert.ok(stepWithTools, "a step should have tool calls");
-    assert.strictEqual(stepWithTools!.toolCalls.length, 2, "two tool calls in the step");
+    assert.strictEqual(
+      stepWithTools!.toolCalls.length,
+      2,
+      "two tool calls in the step"
+    );
   });
 });
 
@@ -212,7 +312,10 @@ describe("integration: streaming chunks → pipeline → Step conversion", () =>
     const store = useMessageStore.getState();
 
     // User message first
-    store.appendMessage(key, msg({ role: "user", content: "explain recursion" }));
+    store.appendMessage(
+      key,
+      msg({ role: "user", content: "explain recursion" })
+    );
 
     // Streaming chunks with same messageId
     store.appendStreamChunk(key, "agent-1", "sess-1", "Recursion is", "m1");
@@ -222,8 +325,15 @@ describe("integration: streaming chunks → pipeline → Step conversion", () =>
 
     const rawMessages = useMessageStore.getState().perSession[key];
     // Should be 2 messages: user + 1 merged agent message
-    assert.strictEqual(rawMessages.length, 2, "chunks merge into single message");
-    assert.strictEqual(rawMessages[1].content, "Recursion is a function that calls itself.");
+    assert.strictEqual(
+      rawMessages.length,
+      2,
+      "chunks merge into single message"
+    );
+    assert.strictEqual(
+      rawMessages[1].content,
+      "Recursion is a function that calls itself."
+    );
   });
 
   it("streaming chunks interrupted by tool call: same messageId merges back correctly", () => {
@@ -236,26 +346,44 @@ describe("integration: streaming chunks → pipeline → Step conversion", () =>
     store.appendStreamChunk(key, "agent-1", "sess-1", "Let me read ", "m1");
 
     // Tool call arrives (separate message)
-    store.appendMessage(key, msg({
-      role: "tool",
-      agentId: "agent-1",
-      sessionId: "sess-1",
-      content: "file content...",
-      toolCalls: [{ id: "tc-1", title: "Read", status: "completed", kind: "read" }],
-    }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "tool",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "file content...",
+        toolCalls: [
+          { id: "tc-1", title: "Read", status: "completed", kind: "read" },
+        ],
+      })
+    );
 
     // More chunks with same messageId m1 → should merge into the first agent message
     store.appendStreamChunk(key, "agent-1", "sess-1", "the file.", "m1");
-    store.appendStreamChunk(key, "agent-1", "sess-1", " The analysis shows...", "m1");
+    store.appendStreamChunk(
+      key,
+      "agent-1",
+      "sess-1",
+      " The analysis shows...",
+      "m1"
+    );
 
     const rawMessages = useMessageStore.getState().perSession[key];
     // user + agent(m1 merged) + tool = 3 messages
-    assert.strictEqual(rawMessages.length, 3, "same messageId merges across tool boundary");
+    assert.strictEqual(
+      rawMessages.length,
+      3,
+      "same messageId merges across tool boundary"
+    );
 
     // The agent message should have all chunks merged
     const agentMsg = rawMessages.find((m) => m.role === "agent");
     assert.ok(agentMsg);
-    assert.strictEqual(agentMsg!.content, "Let me read the file. The analysis shows...");
+    assert.strictEqual(
+      agentMsg!.content,
+      "Let me read the file. The analysis shows..."
+    );
   });
 
   it("streaming with stopReason stamp via updateLastAgentMessage", () => {
@@ -276,11 +404,18 @@ describe("integration: streaming chunks → pipeline → Step conversion", () =>
     // Process through pipeline — stopReason should be on the ChatDisplayItem
     const pipeline = new MessagePipeline(defaultConfig);
     const items = pipeline.process(rawMessages, defaultCtx);
-    const agentItem = items.find((i) => i.type === "chat" && (i as ChatDisplayItem).role === "agent") as ChatDisplayItem;
+    const agentItem = items.find(
+      (i) => i.type === "chat" && (i as ChatDisplayItem).role === "agent"
+    ) as ChatDisplayItem;
     assert.strictEqual(agentItem.stopReason, "end_turn");
 
     // selectFinalResponse should pick it
-    const agentChats = items.filter((i) => i.type === "chat" && ((i as ChatDisplayItem).role === "agent" || (i as ChatDisplayItem).role === "tool")) as ChatDisplayItem[];
+    const agentChats = items.filter(
+      (i) =>
+        i.type === "chat" &&
+        ((i as ChatDisplayItem).role === "agent" ||
+          (i as ChatDisplayItem).role === "tool")
+    ) as ChatDisplayItem[];
     const final = selectFinalResponse(agentChats);
     assert.ok(final);
     assert.strictEqual(final!.item.key, agentItem.key);
@@ -290,9 +425,24 @@ describe("integration: streaming chunks → pipeline → Step conversion", () =>
     const key = sessionKey("agent-1", "sess-1");
     const store = useMessageStore.getState();
 
-    store.appendMessage(key, msg({ role: "user", content: "long explanation" }));
-    store.appendStreamChunks(key, "agent-1", "sess-1", ["This ", "is ", "a "], "m1");
-    store.appendStreamChunks(key, "agent-1", "sess-1", ["long ", "explanation."], "m1");
+    store.appendMessage(
+      key,
+      msg({ role: "user", content: "long explanation" })
+    );
+    store.appendStreamChunks(
+      key,
+      "agent-1",
+      "sess-1",
+      ["This ", "is ", "a "],
+      "m1"
+    );
+    store.appendStreamChunks(
+      key,
+      "agent-1",
+      "sess-1",
+      ["long ", "explanation."],
+      "m1"
+    );
 
     const rawMessages = useMessageStore.getState().perSession[key];
     assert.strictEqual(rawMessages.length, 2);
@@ -324,13 +474,43 @@ describe("integration: fileWriteStore → fileEditSummary → Step attribution",
 
     // Turn: user → agent(writeSeq=0) → tool → agent(writeSeq=1, final)
     // File write happens between the two agent messages
-    store.appendMessage(key, msg({ role: "user", content: "edit file", writeSeq: 0 }));
-    store.appendMessage(key, msg({ role: "agent", agentId, sessionId, content: "editing...", writeSeq: 0 }));
+    store.appendMessage(
+      key,
+      msg({ role: "user", content: "edit file", writeSeq: 0 })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        role: "agent",
+        agentId,
+        sessionId,
+        content: "editing...",
+        writeSeq: 0,
+      })
+    );
 
     // File write arrives
-    useFileWriteStore.getState().addWrite(agentId, sessionId, "/src/foo.ts", "new content", "old content");
+    useFileWriteStore
+      .getState()
+      .addWrite(
+        agentId,
+        sessionId,
+        "/src/foo.ts",
+        "new content",
+        "old content"
+      );
 
-    store.appendMessage(key, msg({ role: "agent", agentId, sessionId, content: "done", stopReason: "end_turn", writeSeq: 1 }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "agent",
+        agentId,
+        sessionId,
+        content: "done",
+        stopReason: "end_turn",
+        writeSeq: 1,
+      })
+    );
 
     const rawMessages = useMessageStore.getState().perSession[key];
     const pipeline = new MessagePipeline(defaultConfig);
@@ -340,16 +520,36 @@ describe("integration: fileWriteStore → fileEditSummary → Step attribution",
     // The file write should be attributed to the step
     assert.ok(grouped.latestGroup);
     // Verify file write store has the write
-    const writes = useFileWriteStore.getState().getWritesForSession(agentId, sessionId);
+    const writes = useFileWriteStore
+      .getState()
+      .getWritesForSession(agentId, sessionId);
     assert.strictEqual(writes.length, 1);
     assert.strictEqual(writes[0].path, "/src/foo.ts");
   });
 
   it("buildSummaryFromWrites merges multiple writes to same path", () => {
     const writes: FileWriteRecord[] = [
-      { path: "/a.ts", content: "v2", originalContent: "v1", seq: 0, contentHash: "h2" },
-      { path: "/a.ts", content: "v3", originalContent: "v1", seq: 1, contentHash: "h3" },
-      { path: "/b.ts", content: "new", originalContent: null, seq: 2, contentHash: "hb" },
+      {
+        path: "/a.ts",
+        content: "v2",
+        originalContent: "v1",
+        seq: 0,
+        contentHash: "h2",
+      },
+      {
+        path: "/a.ts",
+        content: "v3",
+        originalContent: "v1",
+        seq: 1,
+        contentHash: "h3",
+      },
+      {
+        path: "/b.ts",
+        content: "new",
+        originalContent: null,
+        seq: 2,
+        contentHash: "hb",
+      },
     ];
 
     const summary = buildSummaryFromWrites(writes);
@@ -368,10 +568,34 @@ describe("integration: fileWriteStore → fileEditSummary → Step attribution",
 
   it("lowerBound finds correct insertion point", () => {
     const writes: FileWriteRecord[] = [
-      { path: "/a.ts", content: "", originalContent: null, seq: 0, contentHash: "" },
-      { path: "/b.ts", content: "", originalContent: null, seq: 5, contentHash: "" },
-      { path: "/c.ts", content: "", originalContent: null, seq: 10, contentHash: "" },
-      { path: "/d.ts", content: "", originalContent: null, seq: 15, contentHash: "" },
+      {
+        path: "/a.ts",
+        content: "",
+        originalContent: null,
+        seq: 0,
+        contentHash: "",
+      },
+      {
+        path: "/b.ts",
+        content: "",
+        originalContent: null,
+        seq: 5,
+        contentHash: "",
+      },
+      {
+        path: "/c.ts",
+        content: "",
+        originalContent: null,
+        seq: 10,
+        contentHash: "",
+      },
+      {
+        path: "/d.ts",
+        content: "",
+        originalContent: null,
+        seq: 15,
+        contentHash: "",
+      },
     ];
 
     assert.strictEqual(lowerBound(writes, 0), 0);
@@ -389,17 +613,51 @@ describe("integration: fileWriteStore → fileEditSummary → Step attribution",
 
     // Simulate: agent1(writeSeq=0) → file write(seq=0) → agent2(writeSeq=1) → file write(seq=1)
     store.appendMessage(key, msg({ role: "user", content: "edit two files" }));
-    store.appendMessage(key, msg({ role: "agent", agentId, sessionId, content: "first edit", writeSeq: 0 }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "agent",
+        agentId,
+        sessionId,
+        content: "first edit",
+        writeSeq: 0,
+      })
+    );
 
-    useFileWriteStore.getState().addWrite(agentId, sessionId, "/file1.ts", "content1", "old1");
+    useFileWriteStore
+      .getState()
+      .addWrite(agentId, sessionId, "/file1.ts", "content1", "old1");
 
-    store.appendMessage(key, msg({ role: "agent", agentId, sessionId, content: "second edit", writeSeq: 1 }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "agent",
+        agentId,
+        sessionId,
+        content: "second edit",
+        writeSeq: 1,
+      })
+    );
 
-    useFileWriteStore.getState().addWrite(agentId, sessionId, "/file2.ts", "content2", "old2");
+    useFileWriteStore
+      .getState()
+      .addWrite(agentId, sessionId, "/file2.ts", "content2", "old2");
 
-    store.appendMessage(key, msg({ role: "agent", agentId, sessionId, content: "done", stopReason: "end_turn", writeSeq: 2 }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "agent",
+        agentId,
+        sessionId,
+        content: "done",
+        stopReason: "end_turn",
+        writeSeq: 2,
+      })
+    );
 
-    const writes = useFileWriteStore.getState().getWritesForSession(agentId, sessionId);
+    const writes = useFileWriteStore
+      .getState()
+      .getWritesForSession(agentId, sessionId);
     assert.strictEqual(writes.length, 2);
     assert.strictEqual(writes[0].seq, 0);
     assert.strictEqual(writes[1].seq, 1);
@@ -428,15 +686,41 @@ describe("integration: multi-turn → AgentResponseGroup splitting", () => {
 
     // Turn 1
     store.appendMessage(key, msg({ role: "user", content: "q1" }));
-    store.appendMessage(key, msg({ role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "a1", stopReason: "end_turn" }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "a1",
+        stopReason: "end_turn",
+      })
+    );
 
     // Turn 2
     store.appendMessage(key, msg({ role: "user", content: "q2" }));
-    store.appendMessage(key, msg({ role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "a2", stopReason: "end_turn" }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "a2",
+        stopReason: "end_turn",
+      })
+    );
 
     // Turn 3 (in progress)
     store.appendMessage(key, msg({ role: "user", content: "q3" }));
-    store.appendMessage(key, msg({ role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "a3" }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "a3",
+      })
+    );
 
     const rawMessages = useMessageStore.getState().perSession[key];
     const pipeline = new MessagePipeline(defaultConfig);
@@ -447,11 +731,20 @@ describe("integration: multi-turn → AgentResponseGroup splitting", () => {
     assert.ok(grouped.latestGroup, "latestGroup exists");
 
     // Past groups have final responses
-    assert.strictEqual((grouped.groups[0].finalResponse?.item as ChatDisplayItem).content, "a1");
-    assert.strictEqual((grouped.groups[1].finalResponse?.item as ChatDisplayItem).content, "a2");
+    assert.strictEqual(
+      (grouped.groups[0].finalResponse?.item as ChatDisplayItem).content,
+      "a1"
+    );
+    assert.strictEqual(
+      (grouped.groups[1].finalResponse?.item as ChatDisplayItem).content,
+      "a2"
+    );
 
     // Latest group is in progress (no stopReason)
-    assert.strictEqual((grouped.latestGroup!.finalResponse?.item as ChatDisplayItem).content, "a3");
+    assert.strictEqual(
+      (grouped.latestGroup!.finalResponse?.item as ChatDisplayItem).content,
+      "a3"
+    );
   });
 
   it("turn with intermediate steps: steps go into banner, final response outside", () => {
@@ -461,15 +754,64 @@ describe("integration: multi-turn → AgentResponseGroup splitting", () => {
     store.appendMessage(key, msg({ role: "user", content: "complex task" }));
 
     // Intermediate step 1: agent + tool
-    store.appendMessage(key, msg({ id: "s1", role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "step 1 thinking" }));
-    store.appendMessage(key, msg({ role: "tool", agentId: "agent-1", sessionId: "sess-1", content: "tool result 1", toolCalls: [{ id: "tc-1", title: "Search", status: "completed", kind: "search" }] }));
+    store.appendMessage(
+      key,
+      msg({
+        id: "s1",
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "step 1 thinking",
+      })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        role: "tool",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "tool result 1",
+        toolCalls: [
+          { id: "tc-1", title: "Search", status: "completed", kind: "search" },
+        ],
+      })
+    );
 
     // Intermediate step 2: agent + tool
-    store.appendMessage(key, msg({ id: "s2", role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "step 2 thinking" }));
-    store.appendMessage(key, msg({ role: "tool", agentId: "agent-1", sessionId: "sess-1", content: "tool result 2", toolCalls: [{ id: "tc-2", title: "Read", status: "completed", kind: "read" }] }));
+    store.appendMessage(
+      key,
+      msg({
+        id: "s2",
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "step 2 thinking",
+      })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        role: "tool",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "tool result 2",
+        toolCalls: [
+          { id: "tc-2", title: "Read", status: "completed", kind: "read" },
+        ],
+      })
+    );
 
     // Final response
-    store.appendMessage(key, msg({ role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "final answer", stopReason: "end_turn" }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "final answer",
+        stopReason: "end_turn",
+      })
+    );
 
     const rawMessages = useMessageStore.getState().perSession[key];
     const pipeline = new MessagePipeline(defaultConfig);
@@ -478,11 +820,18 @@ describe("integration: multi-turn → AgentResponseGroup splitting", () => {
 
     assert.ok(grouped.latestGroup);
     // Two intermediate steps (step 1 and step 2)
-    assert.strictEqual(grouped.latestGroup!.steps.length, 2, "two intermediate steps");
+    assert.strictEqual(
+      grouped.latestGroup!.steps.length,
+      2,
+      "two intermediate steps"
+    );
 
     // Final response exists
     assert.ok(grouped.latestGroup!.finalResponse);
-    assert.strictEqual((grouped.latestGroup!.finalResponse?.item as ChatDisplayItem).content, "final answer");
+    assert.strictEqual(
+      (grouped.latestGroup!.finalResponse?.item as ChatDisplayItem).content,
+      "final answer"
+    );
 
     // splitLatestSteps: olderSteps go to banner, currentStep is null (has final)
     const { olderSteps, currentStep } = splitLatestSteps(
@@ -490,25 +839,76 @@ describe("integration: multi-turn → AgentResponseGroup splitting", () => {
       grouped.latestGroup!.finalResponse != null,
       grouped.latestGroup!.currentStep
     );
-    assert.strictEqual(olderSteps.length, 2, "both intermediate steps in banner");
-    assert.strictEqual(currentStep, null, "no currentStep when final exists without post-final tools");
+    assert.strictEqual(
+      olderSteps.length,
+      2,
+      "both intermediate steps in banner"
+    );
+    assert.strictEqual(
+      currentStep,
+      null,
+      "no currentStep when final exists without post-final tools"
+    );
   });
 
   it("turn with tool calls after final response: currentStep captures them", () => {
     const key = sessionKey("agent-1", "sess-1");
     const store = useMessageStore.getState();
 
-    store.appendMessage(key, msg({ role: "user", content: "task with follow-up tools" }));
+    store.appendMessage(
+      key,
+      msg({ role: "user", content: "task with follow-up tools" })
+    );
 
     // Intermediate step
-    store.appendMessage(key, msg({ id: "s1", role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "thinking" }));
-    store.appendMessage(key, msg({ role: "tool", agentId: "agent-1", sessionId: "sess-1", content: "result", toolCalls: [{ id: "tc-1", title: "Bash", status: "completed", kind: "bash" }] }));
+    store.appendMessage(
+      key,
+      msg({
+        id: "s1",
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "thinking",
+      })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        role: "tool",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "result",
+        toolCalls: [
+          { id: "tc-1", title: "Bash", status: "completed", kind: "bash" },
+        ],
+      })
+    );
 
     // Final response (with stopReason)
-    store.appendMessage(key, msg({ role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "answer", stopReason: "end_turn" }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "answer",
+        stopReason: "end_turn",
+      })
+    );
 
     // Tool calls AFTER final response (edge case — some agents do this)
-    store.appendMessage(key, msg({ role: "tool", agentId: "agent-1", sessionId: "sess-1", content: "cleanup result", toolCalls: [{ id: "tc-2", title: "Cleanup", status: "completed", kind: "bash" }] }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "tool",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "cleanup result",
+        toolCalls: [
+          { id: "tc-2", title: "Cleanup", status: "completed", kind: "bash" },
+        ],
+      })
+    );
 
     const rawMessages = useMessageStore.getState().perSession[key];
     const pipeline = new MessagePipeline(defaultConfig);
@@ -517,14 +917,19 @@ describe("integration: multi-turn → AgentResponseGroup splitting", () => {
 
     assert.ok(grouped.latestGroup);
     // currentStep should capture the final response + post-final tool calls
-    assert.ok(grouped.latestGroup!.currentStep, "currentStep exists for post-final tools");
-    assert.strictEqual(grouped.latestGroup!.currentStep!.toolCalls.length, 1, "one post-final tool call");
+    assert.ok(
+      grouped.latestGroup!.currentStep,
+      "currentStep exists for post-final tools"
+    );
+    assert.strictEqual(
+      grouped.latestGroup!.currentStep!.toolCalls.length,
+      1,
+      "one post-final tool call"
+    );
   });
 
   it("empty session (no user messages) produces leading items only", () => {
-    const items: PipelineItem[] = [
-      chatItem("agent", "system notice"),
-    ];
+    const items: PipelineItem[] = [chatItem("agent", "system notice")];
     const grouped = new IntermediateStepGrouper(items).compute();
 
     assert.strictEqual(grouped.leading.length, 1);
@@ -536,7 +941,10 @@ describe("integration: multi-turn → AgentResponseGroup splitting", () => {
     const key = sessionKey("agent-1", "sess-1");
     const store = useMessageStore.getState();
 
-    store.appendMessage(key, msg({ role: "user", content: "just sent, no reply yet" }));
+    store.appendMessage(
+      key,
+      msg({ role: "user", content: "just sent, no reply yet" })
+    );
 
     const rawMessages = useMessageStore.getState().perSession[key];
     const pipeline = new MessagePipeline(defaultConfig);
@@ -546,7 +954,10 @@ describe("integration: multi-turn → AgentResponseGroup splitting", () => {
     assert.ok(grouped.latestGroup);
     assert.strictEqual(grouped.latestGroup!.steps.length, 0);
     assert.strictEqual(grouped.latestGroup!.finalResponse, null);
-    assert.strictEqual((grouped.latestGroup!.userItem as ChatDisplayItem).content, "just sent, no reply yet");
+    assert.strictEqual(
+      (grouped.latestGroup!.userItem as ChatDisplayItem).content,
+      "just sent, no reply yet"
+    );
   });
 });
 
@@ -575,49 +986,88 @@ describe("integration: full session scenario with toolBatchSummary", () => {
     // Build a complete session scenario using discrete messages (simulating
     // the post-merge state that the pipeline receives).
     // 1. User sends a message
-    store.appendMessage(key, msg({ role: "user", content: "refactor the auth module", writeSeq: 0 }));
+    store.appendMessage(
+      key,
+      msg({ role: "user", content: "refactor the auth module", writeSeq: 0 })
+    );
 
     // 2. Agent message (already merged from streaming chunks with m1)
-    store.appendMessage(key, msg({
-      id: "m1",
-      role: "agent",
-      agentId,
-      sessionId,
-      content: "I'll analyze the auth module. The code needs refactoring.",
-      writeSeq: 0,
-    }));
+    store.appendMessage(
+      key,
+      msg({
+        id: "m1",
+        role: "agent",
+        agentId,
+        sessionId,
+        content: "I'll analyze the auth module. The code needs refactoring.",
+        writeSeq: 0,
+      })
+    );
 
     // 3. Tool call result (Read file)
-    store.appendMessage(key, msg({
-      role: "tool",
-      agentId,
-      sessionId,
-      content: "export function authenticate() { ... }",
-      toolCalls: [{ id: "tc-read", title: "Read auth.ts", status: "completed", kind: "read", locations: [{ path: "/src/auth.ts", line: 1 }] }],
-    }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "tool",
+        agentId,
+        sessionId,
+        content: "export function authenticate() { ... }",
+        toolCalls: [
+          {
+            id: "tc-read",
+            title: "Read auth.ts",
+            status: "completed",
+            kind: "read",
+            locations: [{ path: "/src/auth.ts", line: 1 }],
+          },
+        ],
+      })
+    );
 
     // 4. Another tool call (test)
-    store.appendMessage(key, msg({
-      role: "tool",
-      agentId,
-      sessionId,
-      content: "All 12 tests passed",
-      toolCalls: [{ id: "tc-test", title: "Run tests", status: "completed", kind: "bash", output: "All 12 tests passed" }],
-    }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "tool",
+        agentId,
+        sessionId,
+        content: "All 12 tests passed",
+        toolCalls: [
+          {
+            id: "tc-test",
+            title: "Run tests",
+            status: "completed",
+            kind: "bash",
+            output: "All 12 tests passed",
+          },
+        ],
+      })
+    );
 
     // 5. File write happens
-    useFileWriteStore.getState().addWrite(agentId, sessionId, "/src/auth.ts", "refactored code", "export function authenticate() { ... }");
+    useFileWriteStore
+      .getState()
+      .addWrite(
+        agentId,
+        sessionId,
+        "/src/auth.ts",
+        "refactored code",
+        "export function authenticate() { ... }"
+      );
 
     // 6. Final agent answer (separate messageId m2)
-    store.appendMessage(key, msg({
-      id: "m2",
-      role: "agent",
-      agentId,
-      sessionId,
-      content: "Refactoring complete.",
-      stopReason: "end_turn",
-      writeSeq: 1,
-    }));
+    store.appendMessage(
+      key,
+      msg({
+        id: "m2",
+        role: "agent",
+        agentId,
+        sessionId,
+        content: "Refactoring complete.",
+        stopReason: "end_turn",
+        writeSeq: 1,
+      })
+    );
 
     // ── Verify the full pipeline output ──
 
@@ -636,17 +1086,32 @@ describe("integration: full session scenario with toolBatchSummary", () => {
     // The intermediate step should have the agent message + tool calls
     const intermediateStep = grouped.latestGroup!.steps[0];
     assert.ok(intermediateStep, "at least one intermediate step");
-    assert.strictEqual(intermediateStep.agentMessage?.content, "I'll analyze the auth module. The code needs refactoring.", "intermediate step has merged m1 content");
-    assert.strictEqual(intermediateStep.toolCalls.length, 2, "intermediate step has 2 tool calls (Read + Run tests)");
+    assert.strictEqual(
+      intermediateStep.agentMessage?.content,
+      "I'll analyze the auth module. The code needs refactoring.",
+      "intermediate step has merged m1 content"
+    );
+    assert.strictEqual(
+      intermediateStep.toolCalls.length,
+      2,
+      "intermediate step has 2 tool calls (Read + Run tests)"
+    );
     assert.strictEqual(intermediateStep.toolCalls[0].role, "tool");
 
     // Final response
     assert.ok(grouped.latestGroup!.finalResponse, "finalResponse exists");
-    const finalContent = (grouped.latestGroup!.finalResponse?.item as ChatDisplayItem).content;
-    assert.ok(finalContent.includes("Refactoring"), "final response contains streamed content");
+    const finalContent = (
+      grouped.latestGroup!.finalResponse?.item as ChatDisplayItem
+    ).content;
+    assert.ok(
+      finalContent.includes("Refactoring"),
+      "final response contains streamed content"
+    );
 
     // File write attribution
-    const writes = useFileWriteStore.getState().getWritesForSession(agentId, sessionId);
+    const writes = useFileWriteStore
+      .getState()
+      .getWritesForSession(agentId, sessionId);
     assert.strictEqual(writes.length, 1);
     assert.strictEqual(writes[0].path, "/src/auth.ts");
   });
@@ -657,18 +1122,38 @@ describe("integration: full session scenario with toolBatchSummary", () => {
 
     // Turn 1
     store.appendMessage(key, msg({ role: "user", content: "q1" }));
-    store.appendMessage(key, msg({ role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "a1", stopReason: "end_turn" }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "a1",
+        stopReason: "end_turn",
+      })
+    );
 
     // Compression notice
-    store.appendMessage(key, msg({
-      role: "system",
-      content: "compressed",
-      compressionInfo: { contextWindowMax: 100000, usedTokens: 80000 },
-    }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "system",
+        content: "compressed",
+        compressionInfo: { contextWindowMax: 100000, usedTokens: 80000 },
+      })
+    );
 
     // Turn 2
     store.appendMessage(key, msg({ role: "user", content: "q2" }));
-    store.appendMessage(key, msg({ role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "a2" }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "a2",
+      })
+    );
 
     const rawMessages = useMessageStore.getState().perSession[key];
     const pipeline = new MessagePipeline(defaultConfig);
@@ -697,28 +1182,49 @@ describe("integration: full session scenario with toolBatchSummary", () => {
     }
 
     // Tool interrupts
-    store.appendMessage(key, msg({
-      role: "tool",
-      agentId,
-      sessionId,
-      content: "done",
-      toolCalls: [{ id: "tc-1", title: "Bash", status: "completed", kind: "bash" }],
-    }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "tool",
+        agentId,
+        sessionId,
+        content: "done",
+        toolCalls: [
+          { id: "tc-1", title: "Bash", status: "completed", kind: "bash" },
+        ],
+      })
+    );
 
     // More streaming with same messageId
-    store.appendStreamChunks(key, agentId, sessionId, ["final ", "words."], "m1");
+    store.appendStreamChunks(
+      key,
+      agentId,
+      sessionId,
+      ["final ", "words."],
+      "m1"
+    );
 
     store.updateLastAgentMessage(key, { stopReason: "end_turn" });
 
     const rawMessages = useMessageStore.getState().perSession[key];
 
     // Should be: user + agent(m1) + tool = 3 messages
-    assert.strictEqual(rawMessages.length, 3, "streaming chunks merge into one agent message");
+    assert.strictEqual(
+      rawMessages.length,
+      3,
+      "streaming chunks merge into one agent message"
+    );
 
     const agentMsg = rawMessages.find((m) => m.role === "agent");
     assert.ok(agentMsg);
-    assert.ok(agentMsg!.content.startsWith("chunk0"), "content starts with first chunk");
-    assert.ok(agentMsg!.content.endsWith("words."), "content ends with last chunk");
+    assert.ok(
+      agentMsg!.content.startsWith("chunk0"),
+      "content starts with first chunk"
+    );
+    assert.ok(
+      agentMsg!.content.endsWith("words."),
+      "content ends with last chunk"
+    );
     assert.ok(agentMsg!.stopReason === "end_turn", "stopReason stamped");
   });
 });
@@ -745,24 +1251,88 @@ describe("integration: natural chat view behaviors", () => {
 
     // User → Agent(1) → Tool → Agent(2) → Tool → Agent(3, final)
     store.appendMessage(key, msg({ role: "user", content: "analyze this" }));
-    store.appendMessage(key, msg({ id: "a1", role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "step 1" }));
-    store.appendMessage(key, msg({ role: "tool", agentId: "agent-1", sessionId: "sess-1", content: "tool1", toolCalls: [{ id: "tc-1", title: "grep", status: "completed", kind: "search" }] }));
-    store.appendMessage(key, msg({ id: "a2", role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "step 2" }));
-    store.appendMessage(key, msg({ role: "tool", agentId: "agent-1", sessionId: "sess-1", content: "tool2", toolCalls: [{ id: "tc-2", title: "read", status: "completed", kind: "read" }] }));
-    store.appendMessage(key, msg({ id: "a3", role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "final", stopReason: "end_turn" }));
+    store.appendMessage(
+      key,
+      msg({
+        id: "a1",
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "step 1",
+      })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        role: "tool",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "tool1",
+        toolCalls: [
+          { id: "tc-1", title: "grep", status: "completed", kind: "search" },
+        ],
+      })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        id: "a2",
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "step 2",
+      })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        role: "tool",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "tool2",
+        toolCalls: [
+          { id: "tc-2", title: "read", status: "completed", kind: "read" },
+        ],
+      })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        id: "a3",
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "final",
+        stopReason: "end_turn",
+      })
+    );
 
     const rawMessages = useMessageStore.getState().perSession[key];
     const pipeline = new MessagePipeline(defaultConfig);
     const items = pipeline.process(rawMessages, defaultCtx);
 
-    const agentItems = items.filter((i) => i.type === "chat" && (i as ChatDisplayItem).role === "agent") as ChatDisplayItem[];
+    const agentItems = items.filter(
+      (i) => i.type === "chat" && (i as ChatDisplayItem).role === "agent"
+    ) as ChatDisplayItem[];
     assert.strictEqual(agentItems.length, 3);
 
     // First agent after user → isFirstOfTurn=true
-    assert.strictEqual(agentItems[0].isFirstOfTurn, true, "first agent after user should be isFirstOfTurn");
+    assert.strictEqual(
+      agentItems[0].isFirstOfTurn,
+      true,
+      "first agent after user should be isFirstOfTurn"
+    );
     // Subsequent agents in the same turn → isFirstOfTurn=false
-    assert.strictEqual(agentItems[1].isFirstOfTurn, false, "second agent should not be isFirstOfTurn");
-    assert.strictEqual(agentItems[2].isFirstOfTurn, false, "third agent with stopReason should not be isFirstOfTurn");
+    assert.strictEqual(
+      agentItems[1].isFirstOfTurn,
+      false,
+      "second agent should not be isFirstOfTurn"
+    );
+    assert.strictEqual(
+      agentItems[2].isFirstOfTurn,
+      false,
+      "third agent with stopReason should not be isFirstOfTurn"
+    );
   });
 
   it("isFirstOfTurn=true for the first agent after a system message (system resets boundary)", () => {
@@ -770,16 +1340,44 @@ describe("integration: natural chat view behaviors", () => {
     const store = useMessageStore.getState();
 
     store.appendMessage(key, msg({ role: "user", content: "q1" }));
-    store.appendMessage(key, msg({ id: "a1", role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "a1", stopReason: "end_turn" }));
-    store.appendMessage(key, msg({ role: "system", content: "mode switched", compressionInfo: { contextWindowMax: 100000, usedTokens: 50000 } }));
+    store.appendMessage(
+      key,
+      msg({
+        id: "a1",
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "a1",
+        stopReason: "end_turn",
+      })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        role: "system",
+        content: "mode switched",
+        compressionInfo: { contextWindowMax: 100000, usedTokens: 50000 },
+      })
+    );
     store.appendMessage(key, msg({ role: "user", content: "q2" }));
-    store.appendMessage(key, msg({ id: "a2", role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "a2" }));
+    store.appendMessage(
+      key,
+      msg({
+        id: "a2",
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "a2",
+      })
+    );
 
     const rawMessages = useMessageStore.getState().perSession[key];
     const pipeline = new MessagePipeline(defaultConfig);
     const items = pipeline.process(rawMessages, defaultCtx);
 
-    const agentItems = items.filter((i) => i.type === "chat" && (i as ChatDisplayItem).role === "agent") as ChatDisplayItem[];
+    const agentItems = items.filter(
+      (i) => i.type === "chat" && (i as ChatDisplayItem).role === "agent"
+    ) as ChatDisplayItem[];
     assert.strictEqual(agentItems.length, 2);
     // First agent after q1 → isFirstOfTurn=true
     assert.strictEqual(agentItems[0].isFirstOfTurn, true);
@@ -794,14 +1392,29 @@ describe("integration: natural chat view behaviors", () => {
     const store = useMessageStore.getState();
 
     store.appendMessage(key, msg({ role: "user", content: "hello" }));
-    store.appendMessage(key, msg({ id: "a1", role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "Hi" }));
+    store.appendMessage(
+      key,
+      msg({
+        id: "a1",
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "Hi",
+      })
+    );
 
     // Full pipeline processing
     const rawMessages = useMessageStore.getState().perSession[key];
     let pipeline = new MessagePipeline(defaultConfig);
     let items = pipeline.process(rawMessages, defaultCtx);
-    const initialAgent = items.find((i) => i.type === "chat" && (i as ChatDisplayItem).role === "agent") as ChatDisplayItem;
-    assert.strictEqual(initialAgent.isFirstOfTurn, true, "initial: first agent after user");
+    const initialAgent = items.find(
+      (i) => i.type === "chat" && (i as ChatDisplayItem).role === "agent"
+    ) as ChatDisplayItem;
+    assert.strictEqual(
+      initialAgent.isFirstOfTurn,
+      true,
+      "initial: first agent after user"
+    );
 
     // Simulate streaming: append chunk to the last message (modifies in-place)
     const msgs = useMessageStore.getState().perSession[key];
@@ -809,8 +1422,14 @@ describe("integration: natural chat view behaviors", () => {
 
     // refreshLast should re-process the last message WITHOUT toggling isFirstOfTurn
     items = pipeline.refreshLast(rawMessages, defaultCtx);
-    const updatedAgent = items.find((i) => i.type === "chat" && (i as ChatDisplayItem).role === "agent") as ChatDisplayItem;
-    assert.strictEqual(updatedAgent.isFirstOfTurn, true, "after refreshLast: isFirstOfTurn preserved");
+    const updatedAgent = items.find(
+      (i) => i.type === "chat" && (i as ChatDisplayItem).role === "agent"
+    ) as ChatDisplayItem;
+    assert.strictEqual(
+      updatedAgent.isFirstOfTurn,
+      true,
+      "after refreshLast: isFirstOfTurn preserved"
+    );
     assert.strictEqual(updatedAgent.content, "Hi there, how can I help?");
   });
 
@@ -819,9 +1438,39 @@ describe("integration: natural chat view behaviors", () => {
     const store = useMessageStore.getState();
 
     store.appendMessage(key, msg({ role: "user", content: "run test" }));
-    store.appendMessage(key, msg({ id: "a1", role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "running..." }));
-    store.appendMessage(key, msg({ role: "tool", agentId: "agent-1", sessionId: "sess-1", content: "Error: command not found", toolCalls: [{ id: "tc-1", title: "Bash", status: "failed", kind: "bash" }] }));
-    store.appendMessage(key, msg({ id: "a2", role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "command failed", stopReason: "end_turn" }));
+    store.appendMessage(
+      key,
+      msg({
+        id: "a1",
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "running...",
+      })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        role: "tool",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "Error: command not found",
+        toolCalls: [
+          { id: "tc-1", title: "Bash", status: "failed", kind: "bash" },
+        ],
+      })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        id: "a2",
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "command failed",
+        stopReason: "end_turn",
+      })
+    );
 
     const rawMessages = useMessageStore.getState().perSession[key];
     const pipeline = new MessagePipeline(defaultConfig);
@@ -845,10 +1494,37 @@ describe("integration: natural chat view behaviors", () => {
     const store = useMessageStore.getState();
 
     store.appendMessage(key, msg({ role: "user", content: "q1" }));
-    store.appendMessage(key, msg({ id: "a1", role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "a1", stopReason: "end_turn" }));
-    store.appendMessage(key, msg({ role: "system", content: "", compressionInfo: { contextWindowMax: 100000, usedTokens: 80000 } }));
+    store.appendMessage(
+      key,
+      msg({
+        id: "a1",
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "a1",
+        stopReason: "end_turn",
+      })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        role: "system",
+        content: "",
+        compressionInfo: { contextWindowMax: 100000, usedTokens: 80000 },
+      })
+    );
     store.appendMessage(key, msg({ role: "user", content: "q2" }));
-    store.appendMessage(key, msg({ id: "a2", role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "a2", stopReason: "end_turn" }));
+    store.appendMessage(
+      key,
+      msg({
+        id: "a2",
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "a2",
+        stopReason: "end_turn",
+      })
+    );
 
     const rawMessages = useMessageStore.getState().perSession[key];
     const pipeline = new MessagePipeline(defaultConfig);
@@ -858,11 +1534,19 @@ describe("integration: natural chat view behaviors", () => {
     // Two turns → two groups
     assert.strictEqual(grouped.groups.length, 1, "q1→a1 is a past group");
     assert.ok(grouped.latestGroup, "q2→a2 is the latest group");
-    assert.strictEqual((grouped.groups[0].finalResponse?.item as ChatDisplayItem).content, "a1");
-    assert.strictEqual((grouped.latestGroup!.finalResponse?.item as ChatDisplayItem).content, "a2");
+    assert.strictEqual(
+      (grouped.groups[0].finalResponse?.item as ChatDisplayItem).content,
+      "a1"
+    );
+    assert.strictEqual(
+      (grouped.latestGroup!.finalResponse?.item as ChatDisplayItem).content,
+      "a2"
+    );
 
     // Compression notice should be in passthrough of the first group
-    const compression = grouped.groups[0].passthrough.find((i) => i.type === "compression");
+    const compression = grouped.groups[0].passthrough.find(
+      (i) => i.type === "compression"
+    );
     assert.ok(compression, "compression notice in passthrough");
   });
 
@@ -873,27 +1557,134 @@ describe("integration: natural chat view behaviors", () => {
     const store = useMessageStore.getState();
 
     // Turn 1: Simple Q&A
-    store.appendMessage(key, msg({ role: "user", content: "what does analyze() do?" }));
-    store.appendMessage(key, msg({ id: "a1", role: "agent", agentId, sessionId, content: "The analyze() function parses code structure.", stopReason: "end_turn" }));
+    store.appendMessage(
+      key,
+      msg({ role: "user", content: "what does analyze() do?" })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        id: "a1",
+        role: "agent",
+        agentId,
+        sessionId,
+        content: "The analyze() function parses code structure.",
+        stopReason: "end_turn",
+      })
+    );
 
     // Turn 2: Complex task with multiple steps
-    store.appendMessage(key, msg({ role: "user", content: "refactor analyze() to handle edge cases", writeSeq: 0 }));
-    store.appendMessage(key, msg({ id: "a2", role: "agent", agentId, sessionId, content: "Let me read the file first.", writeSeq: 0 }));
-    store.appendMessage(key, msg({ role: "tool", agentId, sessionId, content: "export function analyze() { ... }", toolCalls: [{ id: "tc-read", title: "Read src/analyze.ts", status: "completed", kind: "read", locations: [{ path: "src/analyze.ts", line: 1 }] }] }));
-    store.appendMessage(key, msg({ id: "a3", role: "agent", agentId, sessionId, content: "Now I'll check the edge cases." }));
-    store.appendMessage(key, msg({ role: "tool", agentId, sessionId, content: "3 edge cases found", toolCalls: [{ id: "tc-grep", title: "Grep edge case", status: "completed", kind: "search" }] }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "user",
+        content: "refactor analyze() to handle edge cases",
+        writeSeq: 0,
+      })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        id: "a2",
+        role: "agent",
+        agentId,
+        sessionId,
+        content: "Let me read the file first.",
+        writeSeq: 0,
+      })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        role: "tool",
+        agentId,
+        sessionId,
+        content: "export function analyze() { ... }",
+        toolCalls: [
+          {
+            id: "tc-read",
+            title: "Read src/analyze.ts",
+            status: "completed",
+            kind: "read",
+            locations: [{ path: "src/analyze.ts", line: 1 }],
+          },
+        ],
+      })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        id: "a3",
+        role: "agent",
+        agentId,
+        sessionId,
+        content: "Now I'll check the edge cases.",
+      })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        role: "tool",
+        agentId,
+        sessionId,
+        content: "3 edge cases found",
+        toolCalls: [
+          {
+            id: "tc-grep",
+            title: "Grep edge case",
+            status: "completed",
+            kind: "search",
+          },
+        ],
+      })
+    );
 
     // File write between steps
-    useFileWriteStore.getState().addWrite(agentId, sessionId, "src/analyze.ts", "export function analyze(input: string) { ... }", "export function analyze() { ... }");
+    useFileWriteStore
+      .getState()
+      .addWrite(
+        agentId,
+        sessionId,
+        "src/analyze.ts",
+        "export function analyze(input: string) { ... }",
+        "export function analyze() { ... }"
+      );
 
-    store.appendMessage(key, msg({ id: "a4", role: "agent", agentId, sessionId, content: "Refactoring complete. Added input validation.", stopReason: "end_turn", writeSeq: 1 }));
+    store.appendMessage(
+      key,
+      msg({
+        id: "a4",
+        role: "agent",
+        agentId,
+        sessionId,
+        content: "Refactoring complete. Added input validation.",
+        stopReason: "end_turn",
+        writeSeq: 1,
+      })
+    );
 
     // Compression
-    store.appendMessage(key, msg({ role: "system", content: "", compressionInfo: { contextWindowMax: 100000, usedTokens: 90000 } }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "system",
+        content: "",
+        compressionInfo: { contextWindowMax: 100000, usedTokens: 90000 },
+      })
+    );
 
     // Turn 3: Follow-up
     store.appendMessage(key, msg({ role: "user", content: "add tests" }));
-    store.appendMessage(key, msg({ id: "a5", role: "agent", agentId, sessionId, content: "Writing tests..." }));
+    store.appendMessage(
+      key,
+      msg({
+        id: "a5",
+        role: "agent",
+        agentId,
+        sessionId,
+        content: "Writing tests...",
+      })
+    );
 
     const rawMessages = useMessageStore.getState().perSession[key];
     const pipeline = new MessagePipeline(defaultConfig);
@@ -901,19 +1692,32 @@ describe("integration: natural chat view behaviors", () => {
     const grouped = new IntermediateStepGrouper(items).compute();
 
     // Structure verification
-    assert.strictEqual(grouped.groups.length, 2, "turns 1 and 2 are past groups");
+    assert.strictEqual(
+      grouped.groups.length,
+      2,
+      "turns 1 and 2 are past groups"
+    );
     assert.ok(grouped.latestGroup, "turn 3 is latest group");
 
     // Turn 1: simple, no steps
     assert.strictEqual(grouped.groups[0].steps.length, 0);
-    assert.strictEqual((grouped.groups[0].finalResponse?.item as ChatDisplayItem).content, "The analyze() function parses code structure.");
+    assert.strictEqual(
+      (grouped.groups[0].finalResponse?.item as ChatDisplayItem).content,
+      "The analyze() function parses code structure."
+    );
 
     // Turn 2: complex, has intermediate steps
     const turn2 = grouped.groups[1];
     assert.ok(turn2.steps.length >= 1, "turn 2 has intermediate steps");
     assert.ok(turn2.finalResponse, "turn 2 has final response");
-    assert.strictEqual((turn2.finalResponse!.item as ChatDisplayItem).content, "Refactoring complete. Added input validation.");
-    assert.strictEqual((turn2.finalResponse!.item as ChatDisplayItem).stopReason, "end_turn");
+    assert.strictEqual(
+      (turn2.finalResponse!.item as ChatDisplayItem).content,
+      "Refactoring complete. Added input validation."
+    );
+    assert.strictEqual(
+      (turn2.finalResponse!.item as ChatDisplayItem).stopReason,
+      "end_turn"
+    );
 
     // Turn 2 compression in passthrough
     const comp = turn2.passthrough.find((i) => i.type === "compression");
@@ -922,11 +1726,20 @@ describe("integration: natural chat view behaviors", () => {
     // Turn 3: in progress
     assert.ok(grouped.latestGroup);
     assert.strictEqual(grouped.latestGroup!.steps.length, 0, "no steps yet");
-    assert.strictEqual((grouped.latestGroup!.finalResponse?.item as ChatDisplayItem)?.content, "Writing tests...");
-    assert.strictEqual((grouped.latestGroup!.finalResponse?.item as ChatDisplayItem)?.stopReason, undefined, "no stopReason yet");
+    assert.strictEqual(
+      (grouped.latestGroup!.finalResponse?.item as ChatDisplayItem)?.content,
+      "Writing tests..."
+    );
+    assert.strictEqual(
+      (grouped.latestGroup!.finalResponse?.item as ChatDisplayItem)?.stopReason,
+      undefined,
+      "no stopReason yet"
+    );
 
     // File writes verification
-    const writes = useFileWriteStore.getState().getWritesForSession(agentId, sessionId);
+    const writes = useFileWriteStore
+      .getState()
+      .getWritesForSession(agentId, sessionId);
     assert.strictEqual(writes.length, 1);
     assert.strictEqual(writes[0].path, "src/analyze.ts");
   });
@@ -938,9 +1751,45 @@ describe("integration: natural chat view behaviors", () => {
     const store = useMessageStore.getState();
 
     store.appendMessage(key, msg({ role: "user", content: "list files" }));
-    store.appendMessage(key, msg({ role: "tool", agentId: "agent-1", sessionId: "sess-1", content: "file1.ts\nfile2.ts\nfile3.ts", toolCalls: [{ id: "tc-1", title: "Bash ls", status: "completed", kind: "bash" }] }));
-    store.appendMessage(key, msg({ role: "tool", agentId: "agent-1", sessionId: "sess-1", content: "README.md", toolCalls: [{ id: "tc-2", title: "Find readme", status: "completed", kind: "search" }] }));
-    store.appendMessage(key, msg({ role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "Found 4 files in the directory.", stopReason: "end_turn" }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "tool",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "file1.ts\nfile2.ts\nfile3.ts",
+        toolCalls: [
+          { id: "tc-1", title: "Bash ls", status: "completed", kind: "bash" },
+        ],
+      })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        role: "tool",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "README.md",
+        toolCalls: [
+          {
+            id: "tc-2",
+            title: "Find readme",
+            status: "completed",
+            kind: "search",
+          },
+        ],
+      })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "Found 4 files in the directory.",
+        stopReason: "end_turn",
+      })
+    );
 
     const rawMessages = useMessageStore.getState().perSession[key];
     const pipeline = new MessagePipeline(defaultConfig);
@@ -953,10 +1802,19 @@ describe("integration: natural chat view behaviors", () => {
     assert.strictEqual(grouped.latestGroup!.steps[0].isPreAgent, true);
     assert.strictEqual(grouped.latestGroup!.steps[0].agentMessage, null);
     assert.strictEqual(grouped.latestGroup!.steps[0].toolCalls.length, 2);
-    assert.strictEqual(grouped.latestGroup!.steps[0].toolCalls[0].resolvedToolCalls![0].title, "Bash ls");
-    assert.strictEqual(grouped.latestGroup!.steps[0].toolCalls[1].resolvedToolCalls![0].title, "Find readme");
+    assert.strictEqual(
+      grouped.latestGroup!.steps[0].toolCalls[0].resolvedToolCalls![0].title,
+      "Bash ls"
+    );
+    assert.strictEqual(
+      grouped.latestGroup!.steps[0].toolCalls[1].resolvedToolCalls![0].title,
+      "Find readme"
+    );
     // Final response is the agent message
-    assert.strictEqual((grouped.latestGroup!.finalResponse?.item as ChatDisplayItem).content, "Found 4 files in the directory.");
+    assert.strictEqual(
+      (grouped.latestGroup!.finalResponse?.item as ChatDisplayItem).content,
+      "Found 4 files in the directory."
+    );
   });
 
   it("cancelled turn: stopReason=cancelled marks turn boundary correctly", () => {
@@ -964,13 +1822,52 @@ describe("integration: natural chat view behaviors", () => {
     const store = useMessageStore.getState();
 
     store.appendMessage(key, msg({ role: "user", content: "long analysis" }));
-    store.appendMessage(key, msg({ id: "a1", role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "analyzing..." }));
-    store.appendMessage(key, msg({ role: "tool", agentId: "agent-1", sessionId: "sess-1", content: "partial result", toolCalls: [{ id: "tc-1", title: "Read", status: "completed", kind: "read" }] }));
-    store.appendMessage(key, msg({ id: "a2", role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "(cancelled by user)", stopReason: "cancelled" }));
+    store.appendMessage(
+      key,
+      msg({
+        id: "a1",
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "analyzing...",
+      })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        role: "tool",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "partial result",
+        toolCalls: [
+          { id: "tc-1", title: "Read", status: "completed", kind: "read" },
+        ],
+      })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        id: "a2",
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "(cancelled by user)",
+        stopReason: "cancelled",
+      })
+    );
 
     // Next turn
     store.appendMessage(key, msg({ role: "user", content: "try again" }));
-    store.appendMessage(key, msg({ id: "a3", role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "ok, let me try again" }));
+    store.appendMessage(
+      key,
+      msg({
+        id: "a3",
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "ok, let me try again",
+      })
+    );
 
     const rawMessages = useMessageStore.getState().perSession[key];
     const pipeline = new MessagePipeline(defaultConfig);
@@ -980,12 +1877,21 @@ describe("integration: natural chat view behaviors", () => {
     // Turn 1 should be a completed group with finalResponse (cancelled)
     assert.strictEqual(grouped.groups.length, 1);
     assert.ok(grouped.groups[0].finalResponse);
-    assert.strictEqual((grouped.groups[0].finalResponse!.item as ChatDisplayItem).stopReason, "cancelled");
-    assert.strictEqual((grouped.groups[0].finalResponse!.item as ChatDisplayItem).content, "(cancelled by user)");
+    assert.strictEqual(
+      (grouped.groups[0].finalResponse!.item as ChatDisplayItem).stopReason,
+      "cancelled"
+    );
+    assert.strictEqual(
+      (grouped.groups[0].finalResponse!.item as ChatDisplayItem).content,
+      "(cancelled by user)"
+    );
 
     // Latest group has the new turn
     assert.ok(grouped.latestGroup);
-    assert.strictEqual((grouped.latestGroup!.userItem as ChatDisplayItem).content, "try again");
+    assert.strictEqual(
+      (grouped.latestGroup!.userItem as ChatDisplayItem).content,
+      "try again"
+    );
   });
 });
 
@@ -1011,15 +1917,29 @@ describe("integration: edge cases and regression guards", () => {
 
     store.appendMessage(key, msg({ role: "user", content: "run ls" }));
     // Tool arrives before any agent message (some agents do this)
-    store.appendMessage(key, msg({
-      role: "tool",
-      agentId: "agent-1",
-      sessionId: "sess-1",
-      content: "file1.ts\nfile2.ts",
-      toolCalls: [{ id: "tc-1", title: "Bash", status: "completed", kind: "bash" }],
-    }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "tool",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "file1.ts\nfile2.ts",
+        toolCalls: [
+          { id: "tc-1", title: "Bash", status: "completed", kind: "bash" },
+        ],
+      })
+    );
     // Then agent responds
-    store.appendMessage(key, msg({ role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "I see two files", stopReason: "end_turn" }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "I see two files",
+        stopReason: "end_turn",
+      })
+    );
 
     const rawMessages = useMessageStore.getState().perSession[key];
     const pipeline = new MessagePipeline(defaultConfig);
@@ -1040,7 +1960,15 @@ describe("integration: edge cases and regression guards", () => {
 
     store.appendMessage(key, msg({ role: "user", content: "q1" }));
     store.appendMessage(key, msg({ role: "user", content: "q2" }));
-    store.appendMessage(key, msg({ role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "answer" }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "answer",
+      })
+    );
 
     const rawMessages = useMessageStore.getState().perSession[key];
     const pipeline = new MessagePipeline(defaultConfig);
@@ -1049,7 +1977,11 @@ describe("integration: edge cases and regression guards", () => {
 
     // First user message creates an empty group
     assert.strictEqual(grouped.groups.length, 1);
-    assert.strictEqual(grouped.groups[0].steps.length, 0, "empty group between consecutive user messages");
+    assert.strictEqual(
+      grouped.groups[0].steps.length,
+      0,
+      "empty group between consecutive user messages"
+    );
   });
 
   it("stopReason on intermediate agent does not break final selection", () => {
@@ -1062,17 +1994,42 @@ describe("integration: edge cases and regression guards", () => {
     store.appendMessage(key, msg({ role: "user", content: "multi-step task" }));
 
     // Intermediate agent message with stopReason (some agents send stopReason on intermediate)
-    store.appendMessage(key, msg({ id: "int1", role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "intermediate", stopReason: "tool_use" }));
-    store.appendMessage(key, msg({
-      role: "tool",
-      agentId: "agent-1",
-      sessionId: "sess-1",
-      content: "result",
-      toolCalls: [{ id: "tc-1", title: "Bash", status: "completed", kind: "bash" }],
-    }));
+    store.appendMessage(
+      key,
+      msg({
+        id: "int1",
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "intermediate",
+        stopReason: "tool_use",
+      })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        role: "tool",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "result",
+        toolCalls: [
+          { id: "tc-1", title: "Bash", status: "completed", kind: "bash" },
+        ],
+      })
+    );
 
     // Final agent message (different id, with stopReason)
-    store.appendMessage(key, msg({ id: "fin1", role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "final answer", stopReason: "end_turn" }));
+    store.appendMessage(
+      key,
+      msg({
+        id: "fin1",
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "final answer",
+        stopReason: "end_turn",
+      })
+    );
 
     const rawMessages = useMessageStore.getState().perSession[key];
     const pipeline = new MessagePipeline(defaultConfig);
@@ -1083,10 +2040,22 @@ describe("integration: edge cases and regression guards", () => {
     assert.ok(grouped.latestGroup!.finalResponse);
 
     // "end_turn" message MUST be the final response, not the intermediate "tool_use"
-    const finalContent = (grouped.latestGroup!.finalResponse?.item as ChatDisplayItem).content;
-    assert.strictEqual(finalContent, "final answer", "final response must be the end_turn message, not intermediate");
-    const finalStopReason = (grouped.latestGroup!.finalResponse?.item as ChatDisplayItem).stopReason;
-    assert.strictEqual(finalStopReason, "end_turn", "final response stopReason must be end_turn");
+    const finalContent = (
+      grouped.latestGroup!.finalResponse?.item as ChatDisplayItem
+    ).content;
+    assert.strictEqual(
+      finalContent,
+      "final answer",
+      "final response must be the end_turn message, not intermediate"
+    );
+    const finalStopReason = (
+      grouped.latestGroup!.finalResponse?.item as ChatDisplayItem
+    ).stopReason;
+    assert.strictEqual(
+      finalStopReason,
+      "end_turn",
+      "final response stopReason must be end_turn"
+    );
   });
 
   it("pipeline incremental processing produces correct items", () => {
@@ -1095,19 +2064,41 @@ describe("integration: edge cases and regression guards", () => {
 
     // Batch 1: user + agent
     store.appendMessage(key, msg({ role: "user", content: "question" }));
-    store.appendMessage(key, msg({ role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "partial answer" }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "partial answer",
+      })
+    );
 
     const raw1 = useMessageStore.getState().perSession[key];
 
     // Batch 2: tool + final agent
-    store.appendMessage(key, msg({
-      role: "tool",
-      agentId: "agent-1",
-      sessionId: "sess-1",
-      content: "tool result",
-      toolCalls: [{ id: "tc-1", title: "Bash", status: "completed", kind: "bash" }],
-    }));
-    store.appendMessage(key, msg({ role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "final answer", stopReason: "end_turn" }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "tool",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "tool result",
+        toolCalls: [
+          { id: "tc-1", title: "Bash", status: "completed", kind: "bash" },
+        ],
+      })
+    );
+    store.appendMessage(
+      key,
+      msg({
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "final answer",
+        stopReason: "end_turn",
+      })
+    );
 
     const raw2 = useMessageStore.getState().perSession[key];
 
@@ -1124,15 +2115,21 @@ describe("integration: edge cases and regression guards", () => {
     );
 
     // Both should produce the same number of items
-    assert.strictEqual(result2Full.length, result2Incremental.length,
-      "incremental and full re-process produce same item count");
+    assert.strictEqual(
+      result2Full.length,
+      result2Incremental.length,
+      "incremental and full re-process produce same item count"
+    );
 
     // Both should have the same content for each item
     for (let i = 0; i < result2Full.length; i++) {
       const fullItem = result2Full[i] as ChatDisplayItem;
       const incrItem = result2Incremental[i] as ChatDisplayItem;
-      assert.strictEqual(fullItem.content, incrItem.content,
-        `item ${i} content matches (full="${fullItem.content}" vs incr="${incrItem.content}")`);
+      assert.strictEqual(
+        fullItem.content,
+        incrItem.content,
+        `item ${i} content matches (full="${fullItem.content}" vs incr="${incrItem.content}")`
+      );
     }
   });
 
@@ -1142,7 +2139,15 @@ describe("integration: edge cases and regression guards", () => {
 
     // Turn 1 complete
     store.appendMessage(key, msg({ role: "user", content: "q1" }));
-    store.appendMessage(key, msg({ role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "a1" }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "a1",
+      })
+    );
     store.updateLastAgentMessage(key, { stopReason: "end_turn" });
 
     // Turn 2 starts
@@ -1158,8 +2163,16 @@ describe("integration: edge cases and regression guards", () => {
 
     assert.ok(turn1Agent);
     assert.ok(turn2Agent);
-    assert.strictEqual(turn1Agent!.stopReason, "end_turn", "turn 1 stopReason preserved");
-    assert.strictEqual(turn1Agent!.writeSeq, undefined, "turn 1 writeSeq NOT mutated");
+    assert.strictEqual(
+      turn1Agent!.stopReason,
+      "end_turn",
+      "turn 1 stopReason preserved"
+    );
+    assert.strictEqual(
+      turn1Agent!.writeSeq,
+      undefined,
+      "turn 1 writeSeq NOT mutated"
+    );
     assert.strictEqual(turn2Agent!.writeSeq, 5, "turn 2 writeSeq updated");
   });
 
@@ -1179,7 +2192,15 @@ describe("integration: edge cases and regression guards", () => {
     const store = useMessageStore.getState();
 
     store.appendMessage(key, msg({ role: "user", content: "" }));
-    store.appendMessage(key, msg({ role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "" }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "",
+      })
+    );
 
     const rawMessages = useMessageStore.getState().perSession[key];
     const pipeline = new MessagePipeline(defaultConfig);
@@ -1187,7 +2208,10 @@ describe("integration: edge cases and regression guards", () => {
     const grouped = new IntermediateStepGrouper(items).compute();
 
     assert.ok(grouped.latestGroup);
-    assert.strictEqual((grouped.latestGroup!.userItem as ChatDisplayItem).content, "");
+    assert.strictEqual(
+      (grouped.latestGroup!.userItem as ChatDisplayItem).content,
+      ""
+    );
   });
 
   it("after a turn finishes, new messages correctly extend the latestGroup", () => {
@@ -1195,16 +2219,32 @@ describe("integration: edge cases and regression guards", () => {
     const store = useMessageStore.getState();
 
     store.appendMessage(key, msg({ role: "user", content: "q1" }));
-    store.appendMessage(key, msg({ role: "agent", agentId: "agent-1", sessionId: "sess-1", content: "a1", stopReason: "end_turn" }));
+    store.appendMessage(
+      key,
+      msg({
+        role: "agent",
+        agentId: "agent-1",
+        sessionId: "sess-1",
+        content: "a1",
+        stopReason: "end_turn",
+      })
+    );
 
     let rawMessages = useMessageStore.getState().perSession[key];
     let pipeline = new MessagePipeline(defaultConfig);
     let items = pipeline.process(rawMessages, defaultCtx);
     let grouped = new IntermediateStepGrouper(items).compute();
 
-    assert.strictEqual(grouped.groups.length, 0, "single turn → no past groups");
+    assert.strictEqual(
+      grouped.groups.length,
+      0,
+      "single turn → no past groups"
+    );
     assert.ok(grouped.latestGroup);
-    assert.strictEqual((grouped.latestGroup!.finalResponse?.item as ChatDisplayItem).content, "a1");
+    assert.strictEqual(
+      (grouped.latestGroup!.finalResponse?.item as ChatDisplayItem).content,
+      "a1"
+    );
 
     // Now user sends another message — this should push previous turn into past groups
     store.appendMessage(key, msg({ role: "user", content: "q2" }));
@@ -1214,9 +2254,20 @@ describe("integration: edge cases and regression guards", () => {
     items = pipeline.process(rawMessages, defaultCtx);
     grouped = new IntermediateStepGrouper(items).compute();
 
-    assert.strictEqual(grouped.groups.length, 1, "previous turn moved to past groups");
-    assert.strictEqual((grouped.groups[0].finalResponse?.item as ChatDisplayItem).content, "a1");
+    assert.strictEqual(
+      grouped.groups.length,
+      1,
+      "previous turn moved to past groups"
+    );
+    assert.strictEqual(
+      (grouped.groups[0].finalResponse?.item as ChatDisplayItem).content,
+      "a1"
+    );
     assert.ok(grouped.latestGroup, "latestGroup exists for pending turn");
-    assert.strictEqual(grouped.latestGroup!.finalResponse, null, "no agent reply yet for latest turn");
+    assert.strictEqual(
+      grouped.latestGroup!.finalResponse,
+      null,
+      "no agent reply yet for latest turn"
+    );
   });
 });

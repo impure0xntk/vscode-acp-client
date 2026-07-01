@@ -61,7 +61,8 @@ function computeContentHash(msgs: RawMessage[]): string {
 function computeMessageHash(msg: RawMessage): string {
   const m = msg as unknown as Record<string, unknown>;
   let hash = "";
-  hash += (typeof m.content === "string" ? m.content.length : 0).toString(36) + ";";
+  hash +=
+    (typeof m.content === "string" ? m.content.length : 0).toString(36) + ";";
   if (m.stopReason !== undefined && m.stopReason !== null) {
     hash += String(m.stopReason) + ";";
   }
@@ -291,9 +292,7 @@ export function useMessagePipeline(
 
           const onlyLastChanged =
             prevHashes.length === currentHashes.length &&
-            currentHashes.every(
-              (h, i) => i === lastIdx || h === prevHashes[i]
-            );
+            currentHashes.every((h, i) => i === lastIdx || h === prevHashes[i]);
 
           if (onlyLastChanged) {
             const result = pipeline.refreshLast(dedupedMessages, ctx);

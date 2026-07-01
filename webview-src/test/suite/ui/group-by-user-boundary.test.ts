@@ -88,7 +88,19 @@ function toolMsg(
     isFirstOfTurn: false,
     attachments: [],
     thinking: undefined,
-    resolvedToolCalls: [{ id: toolCallId, title: toolCallId, kind: "generic", status: "completed" }],
+    resolvedToolCalls: [
+      {
+        id: toolCallId,
+        title: toolCallId,
+        kind: "generic",
+        status: "completed" as const,
+        input: undefined,
+        output: undefined,
+        durationMs: undefined,
+        locations: undefined,
+        diffContent: undefined,
+      },
+    ],
     ...overrides,
   };
 }
@@ -763,9 +775,15 @@ describe("groupByUserBoundary", () => {
       );
       // currentStep carries the tool call alongside the final agent message
       assert.ok(result.latestGroup.currentStep);
-      assert.strictEqual(result.latestGroup.currentStep.agentMessage?.content, "result");
+      assert.strictEqual(
+        result.latestGroup.currentStep.agentMessage?.content,
+        "result"
+      );
       assert.strictEqual(result.latestGroup.currentStep.toolCalls.length, 1);
-      assert.strictEqual(result.latestGroup.currentStep.toolCalls[0].role, "tool");
+      assert.strictEqual(
+        result.latestGroup.currentStep.toolCalls[0].role,
+        "tool"
+      );
     });
 
     it("multiple tool calls after agent → all in currentStep", () => {
@@ -782,10 +800,7 @@ describe("groupByUserBoundary", () => {
         result.latestGroup.currentStep.agentMessage?.content,
         "done"
       );
-      assert.strictEqual(
-        result.latestGroup.currentStep.toolCalls.length,
-        3
-      );
+      assert.strictEqual(result.latestGroup.currentStep.toolCalls.length, 3);
     });
 
     it("tool calls before any agent message → pre-agent step", () => {
@@ -856,7 +871,10 @@ describe("groupByUserBoundary", () => {
       );
       // s1 + c1 → intermediate
       assert.strictEqual(result.latestGroup.steps.length, 1);
-      assert.strictEqual(result.latestGroup.steps[0].agentMessage?.content, "s1");
+      assert.strictEqual(
+        result.latestGroup.steps[0].agentMessage?.content,
+        "s1"
+      );
       assert.strictEqual(result.latestGroup.steps[0].toolCalls.length, 1);
       // s2 + c2 → currentStep
       assert.ok(result.latestGroup.currentStep);
@@ -888,10 +906,7 @@ describe("groupByUserBoundary", () => {
       );
       // Intermediate: thinking + checking + read + search
       assert.strictEqual(result.latestGroup.steps.length, 2);
-      assert.strictEqual(
-        result.latestGroup.steps[0].isPreAgent,
-        true
-      ); // thinking
+      assert.strictEqual(result.latestGroup.steps[0].isPreAgent, true); // thinking
       assert.strictEqual(
         result.latestGroup.steps[1].agentMessage?.content,
         "checking..."

@@ -524,8 +524,9 @@ describe("messageStore", () => {
     });
 
     it("appendStreamChunk merges when messageId differs but no tool in between", () => {
-      // Without __stepBoundary, the store merges consecutive agent chunks.
-      // Step boundaries are determined at grouping stage by tool messages between items.
+      // Different messageId (m1 vs m2) with same agent and no tool in between
+      // should create a NEW message (different messageId = different logical message/step).
+      // Step boundaries are determined by ACP messageId, not by tool messages.
       const msg = makeMessage({
         role: "agent",
         agentId: "agent-1",
@@ -534,17 +535,16 @@ describe("messageStore", () => {
       });
       useMessageStore.getState().setMessages("session-1", [msg]);
 
-      // Different messageId but same agent, no tool in between → merges into last agent
+      // Different messageId → new message (new step)
       useMessageStore
         .getState()
         .appendStreamChunk("session-1", "agent-1", "sess-A", " second", "m2");
 
       const state = useMessageStore.getState();
-      assert.strictEqual(state.perSession["session-1"].length, 1);
-      assert.strictEqual(
-        state.perSession["session-1"][0].content,
-        "first second"
-      );
+      assert.strictEqual(state.perSession["session-1"].length, 2);
+      assert.strictEqual(state.perSession["session-1"][0].content, "first");
+      assert.strictEqual(state.perSession["session-1"][1].content, " second");
+      assert.strictEqual(state.perSession["session-1"][1].id, "m2");
     });
 
     it("appendStreamChunk creates new message when messageId differs and last is different agent", () => {

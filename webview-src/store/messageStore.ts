@@ -130,8 +130,12 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
           }
         }
 
-        // 2. Check if the last message is directly mergeable
+        // 2. Check if the last message is directly mergeable.
+        // IMPORTANT: If messageId was explicitly provided but didn't match any
+        // existing message (messageIdTargetIdx < 0), we must NOT merge — the
+        // messageId is an explicit ACP signal that this is a NEW logical message.
         const shouldMergeIntoLast =
+          messageId == null &&
           lastMsg !== null &&
           lastMsg.role === "agent" &&
           lastMsg.agentId === agentId &&
@@ -139,11 +143,15 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
 
         // 3. If not directly mergeable, look back past tool messages to find
         //    an in-progress agent message to merge into.
+        // IMPORTANT: Only look back if messageId was NOT explicitly provided.
+        // If messageId was provided but didn't match, it's an explicit ACP signal
+        // for a NEW message — we must NOT merge with any previous message.
         let mergeTargetIdx = -1;
         if (
           !shouldMergeIntoLast &&
           lastMsg !== null &&
-          messageIdTargetIdx < 0
+          messageIdTargetIdx < 0 &&
+          messageId == null
         ) {
           for (let i = existing.length - 1; i >= 0; i--) {
             const m = existing[i];
@@ -240,15 +248,27 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
         }
 
         // 2. Direct merge: last message is same-agent, in-progress
+        // IMPORTANT: If messageId was explicitly provided but didn't match any
+        // existing message (messageIdTargetIdx < 0), we must NOT merge — the
+        // messageId is an explicit ACP signal that this is a NEW logical message.
         const shouldAppend =
+          messageId == null &&
           lastMsg !== null &&
           lastMsg.role === "agent" &&
           lastMsg.agentId === agentId &&
           (lastMsg.stopReason == null || lastMsg.stopReason === "");
 
         // 3. Look back past tool messages for an in-progress agent message
+        // IMPORTANT: Only look back if messageId was NOT explicitly provided.
+        // If messageId was provided but didn't match, it's an explicit ACP signal
+        // for a NEW message — we must NOT merge with any previous message.
         let mergeTargetIdx = -1;
-        if (!shouldAppend && lastMsg !== null && messageIdTargetIdx < 0) {
+        if (
+          !shouldAppend &&
+          lastMsg !== null &&
+          messageIdTargetIdx < 0 &&
+          messageId == null
+        ) {
           for (let i = existing.length - 1; i >= 0; i--) {
             const m = existing[i];
             if (
