@@ -829,7 +829,9 @@ describe("restoreSession — error handling", () => {
     await assert.rejects(
       () =>
         orchestrator.restoreSession("nonexistent-agent", "sess-1", messages),
-      /not connected/
+      (err: any) =>
+        err._tag === "ACP.ConnectionFailed" ||
+        /not connected/i.test(err.message ?? "")
     );
   });
 });

@@ -5,6 +5,7 @@ import type { ChatMessage } from "../../domain/models/chat";
 import { SessionState, sessionKey } from "./session-state";
 import type { PersistentHistoryStore } from "./persistentHistory";
 import { getLogger } from "../../platform/backends";
+import { buildPromptContent } from "../../adapter/acp/content";
 
 const log = getLogger("prompt-execution");
 
@@ -112,10 +113,12 @@ export class PromptExecution {
     sessionInfo.updatedAt = new Date();
     sessionInfo.isStreaming = true;
 
-    const promptBlocks: ContentBlock[] = [
-      ...(context ?? []),
-      { type: "text", text: finalText },
-    ];
+    // When callers provide raw ContentBlock[] as context (e.g. from
+    // ContextAttachment → ContentBlock conversion), use it directly.
+    // Otherwise, fall back to buildPromptContent for a plain text prompt.
+    const promptBlocks: ContentBlock[] = context
+      ? [...context, { type: "text", text: finalText }]
+      : buildPromptContent(finalText);
 
     let stopReason: StopReason | undefined;
     try {

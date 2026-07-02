@@ -13,6 +13,11 @@ import { sessionKey } from "./session-state";
 import type { PromptExecution } from "./prompt-execution";
 import type { UIAPI } from "../../platform/ui";
 import { getLogger } from "../../platform/backends";
+import { mapToolKind } from "../../adapter/acp/tool-utils";
+import {
+  getStandardPermissionOptions,
+  requestPermissionViaQuickPick,
+} from "../../adapter/acp/permissions";
 
 const log = getLogger("protocol-handler");
 
@@ -397,11 +402,12 @@ export class ProtocolHandler {
       u.content as ToolCallContent[] | undefined
     );
 
+    const toolName = (u.title as string) ?? "";
     const newCall: ToolCall = {
       id: u.toolCallId as string,
-      title: (u.title as string) ?? "",
+      title: toolName,
       status: normalizeToolStatus(u.status as string | null | undefined),
-      kind: (u.kind as string) ?? "",
+      kind: (u.kind as string) ?? mapToolKind(toolName),
       input:
         typeof u.rawInput === "string"
           ? (u.rawInput as string)
@@ -572,40 +578,11 @@ export class ProtocolHandler {
     agentId: string,
     request: RequestPermissionRequest
   ): Promise<RequestPermissionResponse> {
-    const qpItems = request.options.map((o) => ({
-      label: o.name ?? o.optionId,
-      description: o.kind ?? undefined,
-      picked: false,
-    }));
-
-    const kindLabel =
-      request.toolCall.kind === "edit"
-        ? "Edit"
-        : request.toolCall.kind === "execute"
-          ? "Execute"
-          : request.toolCall.kind === "fetch"
-            ? "Fetch"
-            : (request.toolCall.kind ?? "Action");
-
-    const title = `[${agentId}] ${kindLabel}: ${request.toolCall.title ?? "(no title)"}`;
-
-    const result = await this.deps.ui.showQuickPick(qpItems, {
-      placeHolder: title,
-    });
-
-    if (!result) {
-      return { outcome: { outcome: "cancelled" } };
-    }
-
-    const label = (result as { label: string }).label;
-    const matchedOption = request.options.find(
-      (o) => (o.name ?? o.optionId) === label
+    return requestPermissionViaQuickPick(
+      { ui: this.deps.ui },
+      agentId,
+      request
     );
-    const optionId = matchedOption?.optionId;
-    if (!optionId) {
-      return { outcome: { outcome: "cancelled" } };
-    }
-    return { outcome: { outcome: "selected", optionId } };
   }
 
   private flushPendingToolCalls(agentId: string, sessionId: string): void {

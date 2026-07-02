@@ -96,15 +96,19 @@ export function IntermediateStepsBanner({
   const [animatingCollapsed, setAnimatingCollapsed] = useState(false);
   const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Track whether the user has manually toggled this banner.
+  // Once the user interacts, suppress auto-expand on new steps.
+  // Reset when forceExpanded becomes true (parent takes control).
+  const userToggledRef = useRef(false);
+
   // Auto-expand when new steps appear so that a step promoted from
   // currentStep → olderSteps isn't silently hidden inside a collapsed
-  // banner.  The user can still collapse manually; collapse state is
-  // preserved across re-renders as long as steps don't grow.
+  // banner.  Skip if the user has manually collapsed.
   const prevStepCount = useRef(steps.length);
   useEffect(() => {
     if (steps.length > prevStepCount.current) {
       prevStepCount.current = steps.length;
-      if (isCollapsed) {
+      if (isCollapsed && !userToggledRef.current) {
         setAnimatingCollapsed(false);
         setIsCollapsed(false);
         onExpandSettled?.();
@@ -115,12 +119,16 @@ export function IntermediateStepsBanner({
   }, [steps.length, isCollapsed, onExpandSettled]);
 
   const toggle = useCallback(() => {
+    userToggledRef.current = true;
     onToggle?.();
   }, [onToggle]);
 
+  // Reset userToggled when forceExpanded transitions to true:
+  // the parent is taking control, so the banner should follow.
   const prevForceExpanded = useRef(forceExpanded);
   useEffect(() => {
     if (forceExpanded && !prevForceExpanded.current) {
+      userToggledRef.current = false;
       if (collapseTimerRef.current) {
         clearTimeout(collapseTimerRef.current);
         collapseTimerRef.current = null;

@@ -8,6 +8,7 @@ import {
   InitializeResponse,
 } from "@agentclientprotocol/sdk";
 import { PlatformAcpClient } from "../../adapter/acp/client";
+import { TrafficLogger } from "../../adapter/acp/traffic-logger";
 import { getLogger } from "../../platform/backends";
 import type { UIAPI } from "../../platform/ui";
 import type { FileSystemAPI } from "../../platform/filesystem";
@@ -28,21 +29,54 @@ export interface AgentConnectionDeps {
     request: import("@agentclientprotocol/sdk").RequestPermissionRequest
   ) => Promise<import("@agentclientprotocol/sdk").RequestPermissionResponse>;
   onAgentDisconnected: (agentId: string) => void;
-  /** Called when the agent writes a file via ACP fs/write_text_file */
   onFileWrite: (
     event: import("../../adapter/acp/client").FileWriteEvent
   ) => void;
 }
 
+/**
+ * Read the acp.logTraffic setting from VS Code configuration.
+ */
+function getTrafficLogEnabled(): boolean {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const vscode = require("vscode");
+    const config = vscode.workspace.getConfiguration("acp");
+    return (config.get("logTraffic", false) as boolean) || false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Attach a side-channel listener to a Node.js Readable stream that extracts
+ * NDJSON lines without interfering with the original stream flow.
+ */
+function attachLineListener(
+  stream: NodeJS.ReadableStream,
+  onLine: (line: string) => void
+): void {
+  let buffer = "";
+  stream.on("data", (chunk: Buffer) => {
+    buffer += chunk.toString("utf8");
+    let newlineIdx: number;
+    while ((newlineIdx = buffer.indexOf("\n")) !== -1) {
+      const line = buffer.slice(0, newlineIdx);
+      buffer = buffer.slice(newlineIdx + 1);
+      if (line.length > 0) {
+        onLine(line);
+      }
+    }
+  });
+}
+
 export class AgentConnection {
-  // agentId → ClientSideConnection
   private connections: Map<string, ClientSideConnection> = new Map();
-  // agentId → child process
   private processes: Map<string, child_process.ChildProcess> = new Map();
-  // agentId → AgentInfo
   private agentInfoMap: Map<string, AgentInfo> = new Map();
-  // agentId → AgentConfig
   private agentConfigs: Map<string, AgentConfig> = new Map();
+  /** agentId → TrafficLogger */
+  private trafficLoggers: Map<string, TrafficLogger> = new Map();
 
   private deps: AgentConnectionDeps;
 
@@ -68,6 +102,63 @@ export class AgentConnection {
 
     log.debug("agent process spawned", { agentId, pid: proc.pid });
     this.processes.set(agentId, proc);
+
+    // stderr logging: monitor agent stderr output
+    if (proc.stderr) {
+      const stderrLog = getLogger(`acp.agent.${agentId}.stderr`);
+      let stderrBuffer = "";
+      proc.stderr.on("data", (chunk: Buffer) => {
+        stderrBuffer += chunk.toString("utf8");
+        let newlineIdx: number;
+        while ((newlineIdx = stderrBuffer.indexOf("\n")) !== -1) {
+          const line = stderrBuffer.slice(0, newlineIdx);
+          stderrBuffer = stderrBuffer.slice(newlineIdx + 1);
+          if (line.length > 0) {
+            stderrLog.debug(line);
+          }
+        }
+      });
+    }
+
+    // traffic logger setup
+    const trafficLogEnabled = getTrafficLogEnabled();
+    const trafficLogger = new TrafficLogger(1000, trafficLogEnabled);
+    this.trafficLoggers.set(agentId, trafficLogger);
+
+    // NDJSON line logging: attach side-channel listeners to Node.js streams
+    if (trafficLogEnabled && proc.stdout) {
+      attachLineListener(proc.stdout, (line) => {
+        trafficLogger.logReceive(line);
+      });
+    }
+    if (trafficLogEnabled && proc.stdin) {
+      // stdin writes can only be observed via Pipeable, so use
+      // ndJsonStream internal wrapper. Log output to be implemented in follow-up.
+      const origWrite = proc.stdin.write.bind(proc.stdin);
+      const originalWrite = proc.stdin.write.bind(proc.stdin);
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      proc.stdin.write = function (
+        chunk: unknown,
+        encoding?: unknown,
+        cb?: unknown
+      ): boolean {
+        const str =
+          typeof chunk === "string" ? chunk : Buffer.isBuffer(chunk) ? chunk.toString("utf8") : String(chunk);
+        // log each NDJSON line
+        let newlineIdx: number;
+        let searchIdx = 0;
+        while (
+          (newlineIdx = str.indexOf("\n", searchIdx)) !== -1
+        ) {
+          const line = str.slice(searchIdx, newlineIdx);
+          searchIdx = newlineIdx + 1;
+          if (line.length > 0) {
+            trafficLogger.logSend(line);
+          }
+        }
+        return originalWrite(chunk as Buffer, encoding as BufferEncoding, cb as (error: Error | null | undefined) => void);
+      };
+    }
 
     const stdinWritable = Writable.toWeb(
       proc.stdin
@@ -139,8 +230,18 @@ export class AgentConnection {
 
     this.agentInfoMap.delete(agentId);
     this.agentConfigs.delete(agentId);
+    this.trafficLoggers.delete(agentId);
 
     log.info("agent disconnected", { agentId });
+  }
+
+  /**
+   * Get the traffic logger for the specified agent.
+   *
+   * @returns The traffic logger, or undefined if the agent is not connected
+   */
+  getTrafficLogger(agentId: string): TrafficLogger | undefined {
+    return this.trafficLoggers.get(agentId);
   }
 
   private storeAgentInfo(agentId: string, response: InitializeResponse): void {
@@ -209,6 +310,7 @@ export class AgentConnection {
     this.connections.delete(agentId);
     this.processes.delete(agentId);
     this.agentInfoMap.delete(agentId);
+    this.trafficLoggers.delete(agentId);
     this.deps.onAgentDisconnected(agentId);
   }
 
@@ -220,5 +322,6 @@ export class AgentConnection {
     this.processes.clear();
     this.agentInfoMap.clear();
     this.agentConfigs.clear();
+    this.trafficLoggers.clear();
   }
 }

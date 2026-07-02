@@ -176,6 +176,10 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
         ) {
           for (let i = existing.length - 1; i >= 0; i--) {
             const m = existing[i];
+            // Stop at tool messages: each tool_call starts a new step.
+            // Without this, post-tool agent chunks merge into the pre-tool
+            // agent message, causing splitIntoSteps to see only one perpetual step.
+            if (m.role === "tool") break;
             if (
               m.role === "agent" &&
               m.agentId === agentId &&
@@ -312,6 +316,10 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
         ) {
           for (let i = existing.length - 1; i >= 0; i--) {
             const m = existing[i];
+            // Stop at tool messages: each tool_call starts a new step.
+            // Without this, post-tool agent chunks merge into the pre-tool
+            // agent message, causing splitIntoSteps to see only one perpetual step.
+            if (m.role === "tool") break;
             if (
               m.role === "agent" &&
               m.agentId === agentId &&
