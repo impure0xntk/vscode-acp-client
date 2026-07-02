@@ -12,6 +12,8 @@ export interface MessageState {
   streaming: Record<string, boolean>;
   /** sessionKey → queued prompts */
   promptQueue: Record<string, QueuedPrompt[]>;
+  /** sessionKey + agentId → last seen sessionUpdate type (for boundary detection when no messageId) */
+  lastSessionUpdateType: Record<string, string>;
   setMessages: (key: string, msgs: ChatMessage[]) => void;
   appendMessage: (key: string, msg: ChatMessage) => void;
   /** Replace message at index — used by session/notification handler for tool_call updates */
@@ -23,7 +25,8 @@ export interface MessageState {
     agentId: string,
     sessionId: string,
     chunk: string,
-    messageId?: string | null
+    messageId?: string | null,
+    sessionUpdate?: string | null
   ) => void;
   /** Append multiple streaming chunks at once to reduce store updates */
   appendStreamChunks: (
@@ -31,7 +34,8 @@ export interface MessageState {
     agentId: string,
     sessionId: string,
     chunks: string[],
-    messageId?: string | null
+    messageId?: string | null,
+    sessionUpdate?: string | null
   ) => void;
   /**
    * Update the last agent/tool message with turn-end metadata.
@@ -50,6 +54,7 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
     perSession: {},
     streaming: {},
     promptQueue: {},
+    lastSessionUpdateType: {},
 
     setMessages: (key, msgs) =>
       set((state) => {
@@ -93,22 +98,34 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
      *
      * Merge priority:
      * 1. Same messageId (ACP SDK) — always merge.
-     * 2. Last message is directly mergeable (same agent).
-     * 3. Look back past tool messages for an in-progress agent message.
-     * 4. Otherwise, create a new ChatMessage.
+     * 2. sessionUpdate type boundary — when messageId is not provided, a change
+     *    in sessionUpdate type (e.g., agent_message_chunk → agent_thought_chunk)
+     *    creates a new message boundary. This mirrors Zed's fallback behavior.
+     * 3. Last message is directly mergeable (same agent).
+     * 4. Look back past tool messages for an in-progress agent message.
+     * 5. Otherwise, create a new ChatMessage.
      */
     appendStreamChunks: (
       key,
       agentId,
       sessionId,
       chunks: string[],
-      messageId?: string | null
+      messageId?: string | null,
+      sessionUpdate?: string | null
     ) =>
       set((state) => {
         if (chunks.length === 0) return state;
         const existing = state.perSession[key] ?? [];
         const lastMsg =
           existing.length > 0 ? existing[existing.length - 1] : null;
+
+        // Track sessionUpdate type for boundary detection when no messageId
+        const sessionUpdateKey = `${key}:${agentId}`;
+        const lastSessionUpdate = state.lastSessionUpdateType[sessionUpdateKey];
+        const sessionUpdateChanged =
+          sessionUpdate != null &&
+          lastSessionUpdate != null &&
+          sessionUpdate !== lastSessionUpdate;
 
         // 1. messageId-based merge: find the agent message with matching id
         let messageIdTargetIdx = -1;
@@ -134,8 +151,10 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
         // IMPORTANT: If messageId was explicitly provided but didn't match any
         // existing message (messageIdTargetIdx < 0), we must NOT merge — the
         // messageId is an explicit ACP signal that this is a NEW logical message.
+        // Also, if sessionUpdate type changed, we must NOT merge.
         const shouldMergeIntoLast =
           messageId == null &&
+          !sessionUpdateChanged &&
           lastMsg !== null &&
           lastMsg.role === "agent" &&
           lastMsg.agentId === agentId &&
@@ -143,7 +162,8 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
 
         // 3. If not directly mergeable, look back past tool messages to find
         //    an in-progress agent message to merge into.
-        // IMPORTANT: Only look back if messageId was NOT explicitly provided.
+        // IMPORTANT: Only look back if messageId was NOT explicitly provided
+        // AND sessionUpdate type didn't change.
         // If messageId was provided but didn't match, it's an explicit ACP signal
         // for a NEW message — we must NOT merge with any previous message.
         let mergeTargetIdx = -1;
@@ -151,7 +171,8 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
           !shouldMergeIntoLast &&
           lastMsg !== null &&
           messageIdTargetIdx < 0 &&
-          messageId == null
+          messageId == null &&
+          !sessionUpdateChanged
         ) {
           for (let i = existing.length - 1; i >= 0; i--) {
             const m = existing[i];
@@ -191,7 +212,7 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
           newMessages = [...existing];
           newMessages[effectiveMergeTarget] = updatedTarget;
         } else {
-          // 4. No merge target — create a new ChatMessage.
+          // 4/5. No merge target — create a new ChatMessage.
           const writeSeq = useFileWriteStore.getState().currentSeq();
           const id = messageId ?? crypto.randomUUID();
           const merged = chunks.join("");
@@ -209,10 +230,17 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
           ];
         }
 
+        // Update last sessionUpdate type for next boundary check
+        const updatedLastSessionUpdate = {
+          ...state.lastSessionUpdateType,
+          [sessionUpdateKey]: sessionUpdate ?? lastSessionUpdate ?? "",
+        };
+
         return {
           ...state,
           perSession: { ...state.perSession, [key]: newMessages },
           streaming: { ...state.streaming, [key]: true },
+          lastSessionUpdateType: updatedLastSessionUpdate,
         };
       }),
 
@@ -221,12 +249,21 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
       agentId,
       sessionId,
       chunk,
-      messageId?: string | null
+      messageId?: string | null,
+      sessionUpdate?: string | null
     ) =>
       set((state) => {
         const existing = state.perSession[key] ?? [];
         const lastMsg =
           existing.length > 0 ? existing[existing.length - 1] : null;
+
+        // Track sessionUpdate type for boundary detection when no messageId
+        const sessionUpdateKey = `${key}:${agentId}`;
+        const lastSessionUpdate = state.lastSessionUpdateType[sessionUpdateKey];
+        const sessionUpdateChanged =
+          sessionUpdate != null &&
+          lastSessionUpdate != null &&
+          sessionUpdate !== lastSessionUpdate;
 
         // 1. messageId-based merge: find agent message with matching id
         let messageIdTargetIdx = -1;
@@ -251,15 +288,18 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
         // IMPORTANT: If messageId was explicitly provided but didn't match any
         // existing message (messageIdTargetIdx < 0), we must NOT merge — the
         // messageId is an explicit ACP signal that this is a NEW logical message.
+        // Also, if sessionUpdate type changed, we must NOT merge.
         const shouldAppend =
           messageId == null &&
+          !sessionUpdateChanged &&
           lastMsg !== null &&
           lastMsg.role === "agent" &&
           lastMsg.agentId === agentId &&
           (lastMsg.stopReason == null || lastMsg.stopReason === "");
 
         // 3. Look back past tool messages for an in-progress agent message
-        // IMPORTANT: Only look back if messageId was NOT explicitly provided.
+        // IMPORTANT: Only look back if messageId was NOT explicitly provided
+        // AND sessionUpdate type didn't change.
         // If messageId was provided but didn't match, it's an explicit ACP signal
         // for a NEW message — we must NOT merge with any previous message.
         let mergeTargetIdx = -1;
@@ -267,7 +307,8 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
           !shouldAppend &&
           lastMsg !== null &&
           messageIdTargetIdx < 0 &&
-          messageId == null
+          messageId == null &&
+          !sessionUpdateChanged
         ) {
           for (let i = existing.length - 1; i >= 0; i--) {
             const m = existing[i];
@@ -322,6 +363,13 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
             },
           ];
         }
+
+        // Update last sessionUpdate type for next boundary check
+        const updatedLastSessionUpdate = {
+          ...state.lastSessionUpdateType,
+          [sessionUpdateKey]: sessionUpdate ?? lastSessionUpdate ?? "",
+        };
+
         const newStreaming =
           state.streaming[key] === true
             ? state.streaming
@@ -335,6 +383,7 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
           ...state,
           perSession: { ...state.perSession, [key]: newMessages },
           streaming: newStreaming,
+          lastSessionUpdateType: updatedLastSessionUpdate,
         };
       }),
 

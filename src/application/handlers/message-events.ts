@@ -113,11 +113,12 @@ export function wireMessageEvents(deps: MessageEventDeps): void {
       sessionId: string;
       chunk: string;
       messageId?: string;
+      sessionUpdate?: string;
     }) => {
-      const { agentId, sessionId, chunk, messageId } = event;
+      const { agentId, sessionId, chunk, messageId, sessionUpdate } = event;
       const cp = getChatPanel();
       if (cp) {
-        cp.pushStreamChunk(agentId, sessionId, chunk, messageId);
+        cp.pushStreamChunk(agentId, sessionId, chunk, messageId, sessionUpdate);
       }
     }
   );

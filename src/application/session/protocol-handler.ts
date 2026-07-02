@@ -114,6 +114,7 @@ export class ProtocolHandler {
       sessionId,
       chunk: text,
       messageId: batchMessageId,
+      sessionUpdate: "agent_message_chunk",
     });
     sessionInfo.lastResponseAt = new Date().toISOString();
   }
@@ -319,6 +320,7 @@ export class ProtocolHandler {
       sessionId,
       chunk: buffered,
       messageId: entry.messageId ?? undefined,
+      sessionUpdate: "agent_thought_chunk",
     });
     sessionInfo.lastResponseAt = new Date().toISOString();
   }

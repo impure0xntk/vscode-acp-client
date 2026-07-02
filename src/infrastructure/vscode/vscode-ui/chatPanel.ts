@@ -282,7 +282,8 @@ export class ChatPanel {
     agentId: string,
     sessionId: string,
     chunk: string,
-    messageId?: string
+    messageId?: string,
+    sessionUpdate?: string
   ): void {
     this.postMessage({
       type: "session/stream",
@@ -290,6 +291,7 @@ export class ChatPanel {
       sessionId,
       chunk,
       messageId,
+      sessionUpdate,
     });
   }
 

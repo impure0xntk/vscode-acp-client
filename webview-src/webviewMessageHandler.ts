@@ -61,6 +61,7 @@ interface StreamBatch {
   chunks: string[];
   rafId: number | null;
   messageId?: string | null;
+  sessionUpdate?: string | null;
 }
 
 const streamBatchMap = new Map<string, StreamBatch>();
@@ -95,11 +96,12 @@ function scheduleStreamFlush(
   agentId: string,
   sessionId: string,
   chunk: string,
-  messageId?: string
+  messageId?: string,
+  sessionUpdate?: string
 ): void {
   let batch = streamBatchMap.get(msgKey);
   if (!batch) {
-    batch = { chunks: [], rafId: null, messageId: messageId ?? null };
+    batch = { chunks: [], rafId: null, messageId: messageId ?? null, sessionUpdate: sessionUpdate ?? null };
     streamBatchMap.set(msgKey, batch);
   } else if (batch.messageId == null && messageId != null) {
     // Persist messageId for this batch window if not yet set.
@@ -114,10 +116,25 @@ function scheduleStreamFlush(
     // under the first messageId and subsequent logical messages are merged
     // into the first agent message, preventing intermediate steps.
     flushBatch(msgKey, agentId, sessionId);
-    batch = { chunks: [], rafId: null, messageId };
+    batch = { chunks: [], rafId: null, messageId, sessionUpdate };
+    streamBatchMap.set(msgKey, batch);
+  } else if (
+    sessionUpdate != null &&
+    batch.sessionUpdate != null &&
+    sessionUpdate !== batch.sessionUpdate
+  ) {
+    // sessionUpdate type changed — flush the current batch to create a boundary
+    // between different types of content (e.g., agent_message_chunk → agent_thought_chunk).
+    // This implements Zed-equivalent fallback boundary detection when messageId is not provided.
+    flushBatch(msgKey, agentId, sessionId);
+    batch = { chunks: [], rafId: null, messageId: batch.messageId, sessionUpdate };
     streamBatchMap.set(msgKey, batch);
   }
   batch.chunks.push(chunk);
+  // Persist sessionUpdate if not yet set
+  if (batch.sessionUpdate == null && sessionUpdate != null) {
+    batch.sessionUpdate = sessionUpdate;
+  }
 
   if (batch.rafId == null) {
     batch.rafId = requestAnimationFrame(() => {
@@ -135,7 +152,8 @@ function scheduleStreamFlush(
           agentId,
           sessionId,
           accumulated,
-          b.messageId
+          b.messageId,
+          b.sessionUpdate
         );
       const store = useSessionStore.getState();
       const existing = store.sessionInfoMap[msgKey];
@@ -178,6 +196,8 @@ interface SessionStream {
   chunk: string;
   /** ACP SDK messageId — identifies the logical message this chunk belongs to. */
   messageId?: string;
+  /** ACP sessionUpdate type — identifies the type of session update (agent_message_chunk, agent_thought_chunk, user_message_chunk) */
+  sessionUpdate?: string;
 }
 
 interface SessionStreamStart {
@@ -707,7 +727,8 @@ function handleSessionStream(data: SessionStream): void {
     data.agentId,
     data.sessionId,
     data.chunk,
-    data.messageId
+    data.messageId,
+    data.sessionUpdate
   );
 }
 

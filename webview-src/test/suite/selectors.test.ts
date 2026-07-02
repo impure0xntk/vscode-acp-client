@@ -25,6 +25,7 @@ function makeState(perSession: Record<string, ChatMessage[]>): MessageState {
     perSession,
     streaming: {},
     promptQueue: {},
+    lastSessionUpdateType: {},
     setMessages: () => {},
     appendMessage: () => {},
     setStreaming: () => {},
