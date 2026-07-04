@@ -315,3 +315,31 @@ describe("buildSummary", () => {
     assert.strictEqual(buildSummary(items), "Thinking, Read");
   });
 });
+
+// ── ThinkingBlock getDisplayContent trailing newline logic ───────────────────
+
+function getDisplayContent(content: string): string {
+  return content.endsWith("\n") ? content : content + "\n";
+}
+
+describe("ThinkingBlock getDisplayContent", () => {
+  it("adds trailing newline when content does not end with one", () => {
+    assert.strictEqual(getDisplayContent("hello"), "hello\n");
+  });
+
+  it("preserves existing trailing newline", () => {
+    assert.strictEqual(getDisplayContent("hello\n"), "hello\n");
+  });
+
+  it("preserves multiple trailing newlines", () => {
+    assert.strictEqual(getDisplayContent("hello\n\n"), "hello\n\n");
+  });
+
+  it("handles empty content by adding newline", () => {
+    assert.strictEqual(getDisplayContent(""), "\n");
+  });
+
+  it("handles whitespace-only content", () => {
+    assert.strictEqual(getDisplayContent("   "), "   \n");
+  });
+});

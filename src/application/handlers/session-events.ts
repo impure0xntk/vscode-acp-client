@@ -325,7 +325,7 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
       if (cp) {
         cp.postMessage({
           type: "session/streamStart",
-          agentId: event.sessionId,
+          agentId: event.agentId,
           sessionId: event.sessionId,
         });
       }

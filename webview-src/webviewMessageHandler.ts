@@ -57,6 +57,13 @@ let pendingSwitchGuard: string | null = null;
 // active session).  Cleared after first use in handleSetTabs.
 let pendingSnapshotKey: string | null = null;
 
+/**
+ * Track the currently streaming agent message ID per session.
+ * Set when the first streaming chunk arrives with a messageId.
+ * Used by handleSessionTurnEnded to stamp stopReason on the correct message.
+ */
+const streamingMessageIdMap = new Map<string, string>();
+
 interface StreamBatch {
   chunks: string[];
   rafId: number | null;
@@ -134,6 +141,11 @@ function scheduleStreamFlush(
   // Persist sessionUpdate if not yet set
   if (batch.sessionUpdate == null && sessionUpdate != null) {
     batch.sessionUpdate = sessionUpdate;
+  }
+
+  // Track streaming message ID for turn-end stopReason stamping
+  if (messageId != null && !streamingMessageIdMap.has(msgKey)) {
+    streamingMessageIdMap.set(msgKey, messageId);
   }
 
   if (batch.rafId == null) {
@@ -888,6 +900,36 @@ function handleSessionTurnEnded(data: SessionTurnEnded): void {
     sessionId: data.sessionId,
     stopReason: data.stopReason,
   });
+
+  // Flush any pending stream batch before the turn ends.
+  // session/turnEnded is the authoritative turn-end signal and may arrive
+  // without a preceding streamEnd (e.g. non-streaming agents or agent-side
+  // truncation). Without this flush, batched chunks in streamBatchMap
+  // would be lost, causing the response to appear truncated.
+  const msgKey = key;
+  const batch = streamBatchMap.get(msgKey);
+  if (batch && batch.chunks.length > 0) {
+    if (batch.rafId != null) {
+      cancelAnimationFrame(batch.rafId);
+      batch.rafId = null;
+    }
+    const accumulated = batch.chunks;
+    const messageId = batch.messageId;
+    streamBatchMap.delete(msgKey);
+    batch.chunks = [];
+
+    useMessageStore
+      .getState()
+      .appendStreamChunks(msgKey, data.agentId, data.sessionId, accumulated, messageId);
+    const store = useSessionStore.getState();
+    const existing = store.sessionInfoMap[msgKey];
+    if (existing && existing.status === "running") {
+      store.setSessionInfo(data.agentId, data.sessionId, {
+        ...existing,
+        lastResponseAt: new Date().toISOString(),
+      });
+    }
+  }
 
   // Clear the diff cache — turn is complete, cached diffs for this turn's
   // file contents are no longer needed.  Without this, the module-level

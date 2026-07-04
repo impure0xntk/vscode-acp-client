@@ -47,6 +47,8 @@ export interface MessageState {
   clearSession: (key: string) => void;
   /** Add a queued prompt entry */
   addQueuedPrompt: (key: string, entry: QueuedPrompt) => void;
+  /** Update a message by messageId (for streaming message stopReason stamping) */
+  updateMessageByMessageId: (key: string, messageId: string, update: Partial<ChatMessage>) => void;
 }
 
 export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
@@ -480,6 +482,25 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
           ...state,
           promptQueue: { ...state.promptQueue, [key]: [...existing, entry] },
         };
+      }),
+
+    updateMessageByMessageId: (key, messageId, update) =>
+      set((state) => {
+        const existing = state.perSession[key];
+        if (!existing || existing.length === 0) return state;
+        // Find the agent message with the matching messageId
+        for (let i = existing.length - 1; i >= 0; i--) {
+          if (existing[i].role === "agent" && existing[i].id === messageId) {
+            const updated = { ...existing[i], ...update };
+            const next = [...existing];
+            next[i] = updated;
+            return {
+              ...state,
+              perSession: { ...state.perSession, [key]: next },
+            };
+          }
+        }
+        return state;
       }),
   })
 );

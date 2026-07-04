@@ -195,6 +195,7 @@ function toPipelineItem(
         thinking,
         isFirstOfTurn,
         stopReason: msg.stopReason,
+        writeSeq: msg.writeSeq,
       } satisfies ChatDisplayItem;
     }
   }
