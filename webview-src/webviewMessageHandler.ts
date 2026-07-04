@@ -5,6 +5,7 @@ import { useMeshStore } from "./store/meshStore";
 import { usePathResolutionStore } from "./store/pathResolutionStore";
 import { useFileWriteStore } from "./store/fileWriteStore";
 import { clearDiffCache } from "./pipeline/stages/grouping";
+import { removePipelineCache } from "./hooks/useMessagePipeline";
 import { getVsCodeApi } from "./lib/vscodeApi";
 import { getLogger } from "./lib/logger";
 import { toSessionInfoDTO } from "./store/mappers";
@@ -719,7 +720,11 @@ function handleSessionStreamStart(data: SessionStreamStart): void {
     hasLastAgentMsg: !!lastAgentMsg,
     lastAgentMsgWriteSeq: lastAgentMsg?.writeSeq,
   });
-  useMessageStore.getState().updateLastAgentMessage(msgKey, { writeSeq });
+  // DO NOT stamp writeSeq on the last agent message here.
+  // The new agent message will be created by the first session/stream chunk
+  // via appendStreamChunks, which assigns the correct writeSeq at creation time.
+  // Stamping the previous message here incorrectly shifts the writeSeq boundary,
+  // causing tool calls from the NEW step to be attributed to the PREVIOUS step.
   const batch = streamBatchMap.get(msgKey);
   if (batch && batch.chunks.length > 0) {
     if (batch.rafId != null) {
@@ -951,6 +956,13 @@ function handleSessionTurnEnded(data: SessionTurnEnded): void {
   // file contents are no longer needed.  Without this, the module-level
   // cache grows unbounded across turns (memory leak).
   clearDiffCache();
+
+  // Invalidate the pipeline cache for this session so that the next
+  // re-render (triggered by the stopReason update) re-processes the
+  // entire message list with the new stopReason. Without this, the
+  // pipeline's refreshLast path may not correctly propagate the
+  // stopReason to the final response boundary logic in grouping.ts.
+  removePipelineCache(key);
 
   // Stamp stopReason onto the last agent message in the message store so
   // the pipeline's groupByUserBoundary can use it as the authoritative

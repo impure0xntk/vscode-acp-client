@@ -84,15 +84,22 @@ export function IntermediateStepsBanner({
   sessionId,
   agentId,
   autoCollapse = false,
-  forceExpanded = false,
+  forceExpanded,
   onToggle,
   onExpandSettled,
   onAttachDiff,
   fileEditSummaryMap,
 }: IntermediateStepsBannerProps): React.ReactElement | null {
-  const [isCollapsed, setIsCollapsed] = useState(
-    autoCollapse ? true : forceExpanded ? false : defaultCollapsed
-  );
+  // Determine initial collapsed state: forceExpanded (parent control) takes
+  // priority over autoCollapse. When forceExpanded is explicitly passed
+  // (including false), it overrides autoCollapse/defaultCollapsed.
+  const initialCollapsed = forceExpanded !== undefined
+    ? !forceExpanded
+    : autoCollapse
+    ? true
+    : defaultCollapsed;
+
+  const [isCollapsed, setIsCollapsed] = useState(initialCollapsed);
   const [animatingCollapsed, setAnimatingCollapsed] = useState(false);
   const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
