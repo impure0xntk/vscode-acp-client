@@ -108,7 +108,12 @@ function scheduleStreamFlush(
 ): void {
   let batch = streamBatchMap.get(msgKey);
   if (!batch) {
-    batch = { chunks: [], rafId: null, messageId: messageId ?? null, sessionUpdate: sessionUpdate ?? null };
+    batch = {
+      chunks: [],
+      rafId: null,
+      messageId: messageId ?? null,
+      sessionUpdate: sessionUpdate ?? null,
+    };
     streamBatchMap.set(msgKey, batch);
   } else if (batch.messageId == null && messageId != null) {
     // Persist messageId for this batch window if not yet set.
@@ -134,7 +139,12 @@ function scheduleStreamFlush(
     // between different types of content (e.g., agent_message_chunk → agent_thought_chunk).
     // This implements Zed-equivalent fallback boundary detection when messageId is not provided.
     flushBatch(msgKey, agentId, sessionId);
-    batch = { chunks: [], rafId: null, messageId: batch.messageId, sessionUpdate };
+    batch = {
+      chunks: [],
+      rafId: null,
+      messageId: batch.messageId,
+      sessionUpdate,
+    };
     streamBatchMap.set(msgKey, batch);
   }
   batch.chunks.push(chunk);
@@ -920,7 +930,13 @@ function handleSessionTurnEnded(data: SessionTurnEnded): void {
 
     useMessageStore
       .getState()
-      .appendStreamChunks(msgKey, data.agentId, data.sessionId, accumulated, messageId);
+      .appendStreamChunks(
+        msgKey,
+        data.agentId,
+        data.sessionId,
+        accumulated,
+        messageId
+      );
     const store = useSessionStore.getState();
     const existing = store.sessionInfoMap[msgKey];
     if (existing && existing.status === "running") {

@@ -143,20 +143,26 @@ export class AgentConnection {
         cb?: unknown
       ): boolean {
         const str =
-          typeof chunk === "string" ? chunk : Buffer.isBuffer(chunk) ? chunk.toString("utf8") : String(chunk);
+          typeof chunk === "string"
+            ? chunk
+            : Buffer.isBuffer(chunk)
+              ? chunk.toString("utf8")
+              : String(chunk);
         // log each NDJSON line
         let newlineIdx: number;
         let searchIdx = 0;
-        while (
-          (newlineIdx = str.indexOf("\n", searchIdx)) !== -1
-        ) {
+        while ((newlineIdx = str.indexOf("\n", searchIdx)) !== -1) {
           const line = str.slice(searchIdx, newlineIdx);
           searchIdx = newlineIdx + 1;
           if (line.length > 0) {
             trafficLogger.logSend(line);
           }
         }
-        return originalWrite(chunk as Buffer, encoding as BufferEncoding, cb as (error: Error | null | undefined) => void);
+        return originalWrite(
+          chunk as Buffer,
+          encoding as BufferEncoding,
+          cb as (error: Error | null | undefined) => void
+        );
       };
     }
 

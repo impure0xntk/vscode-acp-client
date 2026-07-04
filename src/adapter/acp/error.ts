@@ -28,10 +28,7 @@ export interface AcpError {
 // Factory functions
 // ---------------------------------------------------------------------------
 
-export function sessionNotFound(
-  sessionId: string,
-  cause?: unknown
-): AcpError {
+export function sessionNotFound(sessionId: string, cause?: unknown): AcpError {
   return {
     _tag: "ACP.SessionNotFound",
     message: `Session not found: ${sessionId}`,
@@ -40,10 +37,7 @@ export function sessionNotFound(
   };
 }
 
-export function connectionFailed(
-  agentId: string,
-  cause?: unknown
-): AcpError {
+export function connectionFailed(agentId: string, cause?: unknown): AcpError {
   return {
     _tag: "ACP.ConnectionFailed",
     message: `Failed to connect to agent: ${agentId}`,
@@ -52,10 +46,7 @@ export function connectionFailed(
   };
 }
 
-export function initializeFailed(
-  agentId: string,
-  reason?: string
-): AcpError {
+export function initializeFailed(agentId: string, reason?: string): AcpError {
   return {
     _tag: "ACP.InitializeFailed",
     message: reason
@@ -121,34 +112,16 @@ export function isAcpError(value: unknown): value is AcpError {
 export function toRequestError(error: AcpError): RequestError {
   switch (error._tag) {
     case "ACP.SessionNotFound":
-      return RequestError.internalError(
-        undefined,
-        error.message
-      );
+      return RequestError.internalError(undefined, error.message);
     case "ACP.ConnectionFailed":
-      return RequestError.internalError(
-        undefined,
-        error.message
-      );
+      return RequestError.internalError(undefined, error.message);
     case "ACP.InitializeFailed":
-      return RequestError.internalError(
-        undefined,
-        error.message
-      );
+      return RequestError.internalError(undefined, error.message);
     case "ACP.PermissionDenied":
-      return RequestError.internalError(
-        undefined,
-        error.message
-      );
+      return RequestError.internalError(undefined, error.message);
     case "ACP.ToolExecutionFailed":
-      return RequestError.internalError(
-        undefined,
-        error.message
-      );
+      return RequestError.internalError(undefined, error.message);
     default:
-      return RequestError.internalError(
-        undefined,
-        error.message
-      );
+      return RequestError.internalError(undefined, error.message);
   }
 }

@@ -10,10 +10,7 @@ import type { SessionHistoryStore, HistoryEntry } from "./historyStore";
 import type { RestoreResult } from "./types";
 import { abbreviatePath } from "../../shared/util/path";
 import { getLogger } from "../../platform/backends";
-import {
-  sessionNotFound,
-  connectionFailed,
-} from "../../adapter/acp/error";
+import { sessionNotFound, connectionFailed } from "../../adapter/acp/error";
 
 const log = getLogger("session-lifecycle");
 
@@ -59,7 +56,10 @@ export class SessionLifecycle {
   async createSession(agentId: string, cwd?: string): Promise<string> {
     const connection = this.deps.agentConnection.getConnection(agentId);
     if (!connection) {
-      throw connectionFailed(agentId, new Error("createSession requires an active connection"));
+      throw connectionFailed(
+        agentId,
+        new Error("createSession requires an active connection")
+      );
     }
 
     const effectiveCwd = cwd ?? process.cwd();
@@ -213,7 +213,11 @@ export class SessionLifecycle {
 
     if (agentInfo?.capabilities?.loadSession) {
       const connection = this.deps.agentConnection.getConnection(agentId);
-      if (!connection) throw connectionFailed(agentId, new Error("restoreSession requires an active connection"));
+      if (!connection)
+        throw connectionFailed(
+          agentId,
+          new Error("restoreSession requires an active connection")
+        );
 
       await connection.loadSession({
         sessionId: sourceSessionId,

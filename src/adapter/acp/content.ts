@@ -51,11 +51,15 @@ function blockToAttachment(block: ContentBlock): ContextAttachmentDTO | null {
         };
       }
       // Blob resource — just use URI as label
-      return resourceLinkToAttachment(res.uri, extractFilePath(res.uri) || "file");
+      return resourceLinkToAttachment(
+        res.uri,
+        extractFilePath(res.uri) || "file"
+      );
     }
 
     case "image": {
-      const uri = "uri" in block ? (block.uri as string | undefined) : undefined;
+      const uri =
+        "uri" in block ? (block.uri as string | undefined) : undefined;
       const dataUri = uri ?? `data:${block.mimeType};base64,${block.data}`;
       return {
         id: `ctx-${hashStr(dataUri)}`,

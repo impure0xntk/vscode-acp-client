@@ -98,17 +98,19 @@ export function IntermediateStepsBanner({
 
   // Track whether the user has manually toggled this banner.
   // Once the user interacts, suppress auto-expand on new steps.
-  // Reset when forceExpanded becomes true (parent takes control).
+  // Reset when forceExpanded becomes true due to PARENT-initiated change.
   const userToggledRef = useRef(false);
+  const userInitiatedToggleRef = useRef(false);
 
   // Auto-expand when new steps appear so that a step promoted from
   // currentStep → olderSteps isn't silently hidden inside a collapsed
-  // banner.  Skip if the user has manually collapsed.
+  // banner.  Skip if the user has manually collapsed, or if parent
+  // explicitly forces collapse (forceExpanded === false).
   const prevStepCount = useRef(steps.length);
   useEffect(() => {
     if (steps.length > prevStepCount.current) {
       prevStepCount.current = steps.length;
-      if (isCollapsed && !userToggledRef.current) {
+      if (isCollapsed && !userToggledRef.current && forceExpanded !== false) {
         setAnimatingCollapsed(false);
         setIsCollapsed(false);
         onExpandSettled?.();
@@ -116,19 +118,26 @@ export function IntermediateStepsBanner({
       return;
     }
     prevStepCount.current = steps.length;
-  }, [steps.length, isCollapsed, onExpandSettled]);
+  }, [steps.length, isCollapsed, forceExpanded, onExpandSettled]);
 
   const toggle = useCallback(() => {
     userToggledRef.current = true;
+    userInitiatedToggleRef.current = true;
     onToggle?.();
   }, [onToggle]);
 
-  // Reset userToggled when forceExpanded transitions to true:
-  // the parent is taking control, so the banner should follow.
+  // Sync internal state with forceExpanded (parent control).
+  // Only reset userToggledRef when the change is NOT user-initiated.
   const prevForceExpanded = useRef(forceExpanded);
   useEffect(() => {
+    const isUserInitiated = userInitiatedToggleRef.current;
+    userInitiatedToggleRef.current = false; // consume the flag
+
     if (forceExpanded && !prevForceExpanded.current) {
-      userToggledRef.current = false;
+      // Parent forces expand
+      if (!isUserInitiated) {
+        userToggledRef.current = false;
+      }
       if (collapseTimerRef.current) {
         clearTimeout(collapseTimerRef.current);
         collapseTimerRef.current = null;
@@ -139,6 +148,7 @@ export function IntermediateStepsBanner({
         requestAnimationFrame(() => onExpandSettled?.());
       });
     } else if (!forceExpanded && prevForceExpanded.current) {
+      // Parent forces collapse
       setAnimatingCollapsed(true);
       setIsCollapsed(true);
       if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);

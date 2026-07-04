@@ -7,9 +7,7 @@ import {
 
 describe("contentBlocksToAttachments", () => {
   it("returns empty for text-only blocks", () => {
-    const blocks: ContentBlock[] = [
-      { type: "text", text: "Hello, world!" },
-    ];
+    const blocks: ContentBlock[] = [{ type: "text", text: "Hello, world!" }];
     const result = contentBlocksToAttachments(blocks);
     assert.deepStrictEqual(result, []);
   });
@@ -128,9 +126,7 @@ describe("buildPromptContent", () => {
     ]);
     assert.strictEqual(blocks.length, 2);
     assert.strictEqual(blocks[0].type, "resource_link");
-    assert.ok(
-      (blocks[0] as any).uri.includes("main.ts")
-    );
+    assert.ok((blocks[0] as any).uri.includes("main.ts"));
     assert.strictEqual(blocks[1].type, "text");
   });
 

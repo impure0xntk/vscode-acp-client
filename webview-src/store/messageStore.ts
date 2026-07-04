@@ -48,7 +48,11 @@ export interface MessageState {
   /** Add a queued prompt entry */
   addQueuedPrompt: (key: string, entry: QueuedPrompt) => void;
   /** Update a message by messageId (for streaming message stopReason stamping) */
-  updateMessageByMessageId: (key: string, messageId: string, update: Partial<ChatMessage>) => void;
+  updateMessageByMessageId: (
+    key: string,
+    messageId: string,
+    update: Partial<ChatMessage>
+  ) => void;
 }
 
 export const useMessageStore: StoreApi<MessageState> = create<MessageState>(

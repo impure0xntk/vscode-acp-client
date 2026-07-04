@@ -1,14 +1,15 @@
 import { strict as assert } from "assert";
-import { NdjsonParser, serializeMessage, parseLine } from "../../adapter/acp/framing";
+import {
+  NdjsonParser,
+  serializeMessage,
+  parseLine,
+} from "../../adapter/acp/framing";
 
 describe("serializeMessage", () => {
   it("serializes a JSON-RPC message with newline terminator", () => {
     const msg = { jsonrpc: "2.0", id: 1, method: "initialize", params: {} };
     const result = serializeMessage(msg);
-    assert.strictEqual(
-      result,
-      JSON.stringify(msg) + "\n"
-    );
+    assert.strictEqual(result, JSON.stringify(msg) + "\n");
   });
 
   it("accepts objects with newline-escaped strings (JSON.stringify handles escaping)", () => {
@@ -26,7 +27,10 @@ describe("serializeMessage", () => {
     const msg = {
       jsonrpc: "2.0",
       method: "session/prompt",
-      params: { sessionId: "abc", messages: [{ role: "user", content: "hello" }] },
+      params: {
+        sessionId: "abc",
+        messages: [{ role: "user", content: "hello" }],
+      },
     };
     const result = serializeMessage(msg);
     const parsed = JSON.parse(result.trim());
@@ -76,7 +80,7 @@ describe("NdjsonParser", () => {
     assert.strictEqual(lines.length, 0);
     assert.strictEqual(parser.pendingLength, 5);
 
-    parser.feed('1}\n', onLine);
+    parser.feed("1}\n", onLine);
     assert.strictEqual(lines.length, 1);
     assert.deepStrictEqual(lines, ['{"a":1}']);
     assert.strictEqual(parser.pendingLength, 0);
@@ -92,7 +96,7 @@ describe("NdjsonParser", () => {
     assert.deepStrictEqual(lines[0], '{"a":1}');
     assert.strictEqual(parser.pendingLength, 5);
 
-    parser.feed('2}\n', onLine);
+    parser.feed("2}\n", onLine);
     assert.strictEqual(lines.length, 2);
     assert.deepStrictEqual(lines[1], '{"b":2}');
     assert.strictEqual(parser.pendingLength, 0);
@@ -111,13 +115,31 @@ describe("NdjsonParser", () => {
     const onLine = (line: string) => lines.push(line);
 
     // typical streaming scenario: multiple session/update notifications
-    const msg1 = JSON.stringify({ jsonrpc: "2.0", method: "session/update", params: { update: { messagePartial: { role: "assistant", content: "Hello" } } } });
-    const msg2 = JSON.stringify({ jsonrpc: "2.0", method: "session/update", params: { update: { messagePartial: { role: "assistant", content: "World" } } } });
+    const msg1 = JSON.stringify({
+      jsonrpc: "2.0",
+      method: "session/update",
+      params: {
+        update: { messagePartial: { role: "assistant", content: "Hello" } },
+      },
+    });
+    const msg2 = JSON.stringify({
+      jsonrpc: "2.0",
+      method: "session/update",
+      params: {
+        update: { messagePartial: { role: "assistant", content: "World" } },
+      },
+    });
 
     parser.feed(`${msg1}\n${msg2}\n`, onLine);
     assert.strictEqual(lines.length, 2);
-    assert.deepStrictEqual(JSON.parse(lines[0]).params.update.messagePartial.content, "Hello");
-    assert.deepStrictEqual(JSON.parse(lines[1]).params.update.messagePartial.content, "World");
+    assert.deepStrictEqual(
+      JSON.parse(lines[0]).params.update.messagePartial.content,
+      "Hello"
+    );
+    assert.deepStrictEqual(
+      JSON.parse(lines[1]).params.update.messagePartial.content,
+      "World"
+    );
   });
 
   it("reset clears internal buffer", () => {

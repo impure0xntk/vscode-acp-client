@@ -98,7 +98,8 @@ function formatToolInput(toolName: string, input: unknown): string {
   // Shell → show the command (truncated)
   const command = stringValue(obj.command);
   if (command) {
-    const truncated = command.length > 60 ? command.slice(0, 60) + "…" : command;
+    const truncated =
+      command.length > 60 ? command.slice(0, 60) + "…" : command;
     return truncated;
   }
 
