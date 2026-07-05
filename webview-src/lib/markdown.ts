@@ -2,6 +2,7 @@ import MarkdownIt from "markdown-it";
 import hljs from "highlight.js";
 import DOMPurify from "dompurify";
 import type {} from "trusted-types";
+import plantumlPlugin from "markdown-it-plantuml";
 
 type PurifyConfig = Parameters<typeof DOMPurify.sanitize>[1];
 import { IconFile } from "./icons";
@@ -113,6 +114,18 @@ function codeBlockTemplate(
   );
 }
 
+/**
+ * Check if code block is a mermaid diagram.
+ * Supports: ```mermaid, graph TD/LR/RL/BT, sequenceDiagram, gantt, flowchart
+ */
+function isMermaidBlock(info: string, firstLine: string): boolean {
+  if (info === "mermaid") return true;
+  if (firstLine === "gantt" || firstLine === "sequenceDiagram") return true;
+  // flowchart diagrams start with graph (various directions) or flowchart
+  if (firstLine.match(/^(graph|flowchart)\s+(?:TB|BT|RL|LR|TD);?$/)) return true;
+  return false;
+}
+
 const md = new MarkdownIt({
   html: true,
   linkify: true,
@@ -136,6 +149,33 @@ const md = new MarkdownIt({
     }
     return codeBlockTemplate(labelAttr, escapedLabel, md.utils.escapeHtml(str));
   },
+});
+
+// Custom mermaid fence renderer - wraps in <div class="mermaid"> for client-side rendering
+const defaultFence = md.renderer.rules.fence;
+md.renderer.rules.fence = (tokens, idx, options, env, slf) => {
+  const token = tokens[idx];
+  const firstLine = token.content.split(/\n/)[0].trim();
+  
+  if (isMermaidBlock(token.info, firstLine)) {
+    // Wrap in mermaid div for client-side rendering (handled by useMermaid hook)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return `<div class="mermaid">${md.utils.escapeHtml(token.content)}</div>`;
+  }
+  
+  // Fall back to default fence renderer
+  if (defaultFence) {
+    return defaultFence(tokens, idx, options, env, slf);
+  }
+  return `<pre${token.info ? ` data-lang="${md.utils.escapeHtml(token.info)}"` : ""}><code>${md.utils.escapeHtml(token.content)}</code></pre>`;
+};
+
+// Register plantuml plugin (uses @startuml/@enduml blocks)
+md.use(plantumlPlugin, {
+  imageFormat: "svg",
+  diagramName: "uml",
+  // Use a public PlantUML server for rendering
+  server: "https://www.plantuml.com/plantuml",
 });
 
 // code_block uses the same wrapper as fence but without a language label
@@ -164,7 +204,7 @@ md.renderer.rules.code_inline = (tokens, idx, options, env, self) => {
 };
 
 const PURIFY_OPTS: PurifyConfig = {
-  ADD_TAGS: ["a", "span", "div", "button", "svg", "path"],
+  ADD_TAGS: ["a", "span", "div", "button", "svg", "path", "img", "pre", "code"],
   ADD_ATTR: [
     "class",
     "data-action",
@@ -184,6 +224,11 @@ const PURIFY_OPTS: PurifyConfig = {
     "stroke-linecap",
     "stroke-linejoin",
     "d",
+    "src",
+    "alt",
+    "width",
+    "height",
+    "style",
   ],
 };
 

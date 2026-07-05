@@ -14,6 +14,7 @@ import { ToolBatchSummary } from "../message/ToolBatchSummary";
 import { useMessages } from "../../hooks/useMessages";
 import { useMessagePipeline } from "../../hooks/useMessagePipeline";
 import { useFileEditSummaryMap } from "../../hooks/useFileEditSummaryMap";
+import { useGroupFileEditSummaryMaps } from "../../hooks/useGroupFileEditSummaryMap";
 import { useScrollController } from "../../hooks/useScrollController";
 import { useSessionUnreadCount } from "../../hooks/useSessionUnreadCount";
 import { useScrollStateStore } from "../../store/scrollStateStore";
@@ -193,38 +194,13 @@ export const SessionChatContainer = memo(function SessionChatContainer({
     [items]
   );
 
-  // Per-step file edit summaries via dedicated hook (O(W log W + S)).
-  // This replaces the pipeline's attachStepFileEditSummaries (O(S*W)).
-  const stepsWithSeq = useMemo(() => {
-    if (!latestGroup) return [];
-    return latestGroup.steps.map((s) => ({
-      writeSeq: s.agentMessage?.writeSeq ?? 0,
-    }));
-  }, [latestGroup]);
-  const finalWriteSeq = useMemo(() => {
-    if (!latestGroup?.finalResponse) return null;
-    return (latestGroup.finalResponse.item as ChatDisplayItem).writeSeq ?? null;
-  }, [latestGroup]);
-  // Step boundaries: each step's [lo, hi), plus a virtual final step [finalWriteSeq, ∞)
-  const summaryBoundaries = useMemo(() => {
-    const b: { lo: number; hi: number }[] = stepsWithSeq.map((s, i) => ({
-      lo: s.writeSeq,
-      hi: i + 1 < stepsWithSeq.length ? stepsWithSeq[i + 1].writeSeq : Infinity,
-    }));
-    if (finalWriteSeq != null) {
-      b.push({ lo: finalWriteSeq, hi: Infinity });
-      // Shrink preceding boundary to avoid overlap
-      if (b.length >= 2) {
-        const prev = b[b.length - 2];
-        if (prev.hi > finalWriteSeq) prev.hi = finalWriteSeq;
-      }
-    }
-    return b;
-  }, [stepsWithSeq, finalWriteSeq]);
-  const fileEditSummaryMap = useFileEditSummaryMap(
+  // Per-group file edit summaries via dedicated hook (O(W log W + S)).
+  // Computes separate file edit summaries for each group's steps + finalResponse.
+  const groupFileEditSummaryMaps = useGroupFileEditSummaryMaps(
     agentId ?? "",
     sessionId ?? "",
-    summaryBoundaries
+    groups,
+    latestGroup
   );
 
   const collapsedMap = useIntermediateStepsCollapseMap(sessionKey ?? null);
@@ -692,7 +668,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                           }
                           onExpandSettled={recomputeScrollState}
                           onAttachDiff={onAttachDiff}
-                          fileEditSummaryMap={fileEditSummaryMap}
+                          fileEditSummaryMap={groupFileEditSummaryMaps.get(latestGroup.userItem.key)}
                         />
                       )}
                       {currentStep &&
@@ -746,9 +722,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                                   : false
                               }
                               onAttachDiff={onAttachDiff}
-                              externalFileEditEntries={fileEditSummaryMap?.get(
-                                olderSteps.length
-                              )}
+                              externalFileEditEntries={groupFileEditSummaryMaps.get(latestGroup.userItem.key)?.get(olderSteps.length)}
                             />
                           )}
                           {!currentStep && latestGroup.finalResponse && (

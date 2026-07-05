@@ -8,6 +8,7 @@ import { MessageActions } from "./MessageActions";
 import { usePathResolutionStore } from "../../store/pathResolutionStore";
 import { sessionKeyOf } from "../../store/sessionStore";
 import type { ChatDisplayItem } from "../../pipeline";
+import { useMermaidRenderer } from "../../hooks/useMermaid";
 
 export interface MessageProps {
   /** Chat-type PipelineItem — only standard chat messages reach this component */
@@ -196,6 +197,16 @@ export const Message = React.memo(function Message({
     },
     []
   );
+
+  // Re-render mermaid diagrams after content changes
+  const renderMermaid = useMermaidRenderer();
+  React.useEffect(() => {
+    // Small delay to allow DOM to update
+    const timer = setTimeout(() => {
+      renderMermaid();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [content, renderMermaid]);
 
   const animationClass = isNew ? "animate-message-appear" : "";
 
