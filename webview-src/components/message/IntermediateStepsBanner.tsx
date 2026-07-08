@@ -93,11 +93,12 @@ export function IntermediateStepsBanner({
   // Determine initial collapsed state: forceExpanded (parent control) takes
   // priority over autoCollapse. When forceExpanded is explicitly passed
   // (including false), it overrides autoCollapse/defaultCollapsed.
-  const initialCollapsed = forceExpanded !== undefined
-    ? !forceExpanded
-    : autoCollapse
-    ? true
-    : defaultCollapsed;
+  const initialCollapsed =
+    forceExpanded !== undefined
+      ? !forceExpanded
+      : autoCollapse
+        ? true
+        : defaultCollapsed;
 
   const [isCollapsed, setIsCollapsed] = useState(initialCollapsed);
   const [animatingCollapsed, setAnimatingCollapsed] = useState(false);

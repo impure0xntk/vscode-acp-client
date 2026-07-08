@@ -122,7 +122,8 @@ function isMermaidBlock(info: string, firstLine: string): boolean {
   if (info === "mermaid") return true;
   if (firstLine === "gantt" || firstLine === "sequenceDiagram") return true;
   // flowchart diagrams start with graph (various directions) or flowchart
-  if (firstLine.match(/^(graph|flowchart)\s+(?:TB|BT|RL|LR|TD);?$/)) return true;
+  if (firstLine.match(/^(graph|flowchart)\s+(?:TB|BT|RL|LR|TD);?$/))
+    return true;
   return false;
 }
 
@@ -156,13 +157,13 @@ const defaultFence = md.renderer.rules.fence;
 md.renderer.rules.fence = (tokens, idx, options, env, slf) => {
   const token = tokens[idx];
   const firstLine = token.content.split(/\n/)[0].trim();
-  
+
   if (isMermaidBlock(token.info, firstLine)) {
     // Wrap in mermaid div for client-side rendering (handled by useMermaid hook)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return `<div class="mermaid">${md.utils.escapeHtml(token.content)}</div>`;
   }
-  
+
   // Fall back to default fence renderer
   if (defaultFence) {
     return defaultFence(tokens, idx, options, env, slf);

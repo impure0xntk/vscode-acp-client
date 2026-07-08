@@ -35,7 +35,8 @@ export function useMermaid(): void {
             edgeLabelBackground: "var(--vscode-editor-background, #1e1e1e)",
           },
           securityLevel: "loose",
-          fontFamily: 'var(--vscode-editor-font-family, "JetBrains Mono", "Fira Code", monospace)',
+          fontFamily:
+            'var(--vscode-editor-font-family, "JetBrains Mono", "Fira Code", monospace)',
           flowchart: {
             useMaxWidth: true,
             htmlLabels: true,
@@ -86,7 +87,9 @@ export function useMermaidRenderer(): () => Promise<void> {
       const m = mermaid.default;
 
       // Find all unrendered mermaid elements
-      const elements = document.querySelectorAll(".mermaid:not([data-processed])");
+      const elements = document.querySelectorAll(
+        ".mermaid:not([data-processed])"
+      );
 
       if (elements.length === 0) {
         pendingRef.current = false;

@@ -668,7 +668,9 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                           }
                           onExpandSettled={recomputeScrollState}
                           onAttachDiff={onAttachDiff}
-                          fileEditSummaryMap={groupFileEditSummaryMaps.get(latestGroup.userItem.key)}
+                          fileEditSummaryMap={groupFileEditSummaryMaps.get(
+                            latestGroup.userItem.key
+                          )}
                         />
                       )}
                       {currentStep &&
@@ -722,7 +724,9 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                                   : false
                               }
                               onAttachDiff={onAttachDiff}
-                              externalFileEditEntries={groupFileEditSummaryMaps.get(latestGroup.userItem.key)?.get(olderSteps.length)}
+                              externalFileEditEntries={groupFileEditSummaryMaps
+                                .get(latestGroup.userItem.key)
+                                ?.get(olderSteps.length)}
                             />
                           )}
                           {!currentStep && latestGroup.finalResponse && (

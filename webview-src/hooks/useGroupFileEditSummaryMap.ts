@@ -14,22 +14,26 @@ const EMPTY_WRITES: readonly FileWriteRecord[] = [];
  * Compute write-seq boundaries for a group's steps, plus a final boundary
  * for the final response if present.
  */
-function computeGroupBoundaries(group: AgentResponseGroup): { lo: number; hi: number }[] {
+function computeGroupBoundaries(
+  group: AgentResponseGroup
+): { lo: number; hi: number }[] {
   const boundaries: { lo: number; hi: number }[] = [];
 
   // Boundaries for each step in the group
   for (let i = 0; i < group.steps.length; i++) {
     const step = group.steps[i];
     const lo = step.agentMessage?.writeSeq ?? 0;
-    const hi = i + 1 < group.steps.length
-      ? group.steps[i + 1].agentMessage?.writeSeq ?? Infinity
-      : Infinity;
+    const hi =
+      i + 1 < group.steps.length
+        ? (group.steps[i + 1].agentMessage?.writeSeq ?? Infinity)
+        : Infinity;
     boundaries.push({ lo, hi });
   }
 
   // If there's a finalResponse, add a virtual boundary for it
   if (group.finalResponse) {
-    const finalWriteSeq = (group.finalResponse.item as { writeSeq?: number | null }).writeSeq ?? 0;
+    const finalWriteSeq =
+      (group.finalResponse.item as { writeSeq?: number | null }).writeSeq ?? 0;
     boundaries.push({ lo: finalWriteSeq, hi: Infinity });
 
     // Shrink preceding boundary to avoid overlap
@@ -120,7 +124,10 @@ export function useGroupFileEditSummaryMaps(
             if (summary) groupMap.set(i, summary);
           }
         }
-        result.set(latestGroup.userItem.key, groupMap.size > 0 ? groupMap : undefined);
+        result.set(
+          latestGroup.userItem.key,
+          groupMap.size > 0 ? groupMap : undefined
+        );
       }
     }
 
