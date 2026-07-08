@@ -3,6 +3,7 @@ import React, {
   memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useState,
   useMemo,
 } from "react";
@@ -206,42 +207,28 @@ export const SessionChatContainer = memo(function SessionChatContainer({
   const collapsedMap = useIntermediateStepsCollapseMap(sessionKey ?? null);
   const toggleIntermediateSteps = useToggleIntermediateSteps();
 
-  const prevStreamingRef = useRef(isStreaming);
-  const prevRawLenRef = useRef(rawMessages.length);
-
   const collapsedMapRef = useRef(collapsedMap);
   collapsedMapRef.current = collapsedMap;
   const toggleRef = useRef(toggleIntermediateSteps);
   toggleRef.current = toggleIntermediateSteps;
 
-  const [latestAutoCollapse, setLatestAutoCollapse] = useState(false);
-  const prevHasFinalRef = useRef(false);
-  const latestGroupRef = useRef(latestGroup);
-  latestGroupRef.current = latestGroup;
-
-  useEffect(() => {
-    const prev = prevStreamingRef.current;
-    prevStreamingRef.current = isStreaming;
-    const group = latestGroupRef.current;
-    const hasFinal = group?.finalResponse != null;
-
-    // When a new final response appears (turn completes), set autoCollapse
-    // so that newly-completed intermediate steps start collapsed.
-    // The user can still manually expand/collapse via the banner toggle.
-    if (hasFinal && !prevHasFinalRef.current && !isStreaming) {
-      setLatestAutoCollapse(true);
+  // When the current turn completes (its final response appears), collapse
+  // the intermediate-steps banner if it was open — so the final message is
+  // revealed with the steps already folded.  A layout effect runs before
+  // paint, so the banner is already collapsed in the same frame the final
+  // message appears (no open-banner flash before collapse).
+  const latestFinalKey = latestGroup?.finalResponse?.item.key ?? null;
+  const prevLatestFinalKeyRef = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    const prev = prevLatestFinalKeyRef.current;
+    prevLatestFinalKeyRef.current = latestFinalKey;
+    if (latestFinalKey == null || latestFinalKey === prev) return;
+    const gid = latestGroup?.userItem.key;
+    if (!gid || !sessionKey) return;
+    if (collapsedMapRef.current[gid] === false) {
+      toggleRef.current(sessionKey, gid);
     }
-    prevHasFinalRef.current = hasFinal;
-  }, [isStreaming, sessionKey]);
-
-  useEffect(() => {
-    const currentLen = rawMessages.length;
-    const prevLen = prevRawLenRef.current;
-    prevRawLenRef.current = currentLen;
-    if (currentLen > prevLen) {
-      setLatestAutoCollapse(false);
-    }
-  }, [rawMessages.length]);
+  }, [latestFinalKey, sessionKey]);
 
   const isGroupExpanded = useCallback(
     (group: AgentResponseGroup): boolean => {
@@ -659,7 +646,6 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                           forceExpanded={expanded}
                           sessionId={sessionId}
                           agentId={agentId}
-                          autoCollapse={latestAutoCollapse}
                           onToggle={() =>
                             toggleIntermediateSteps(
                               sessionKey!,
