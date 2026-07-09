@@ -188,7 +188,7 @@ function toPipelineItem(
         timestamp: ts,
         agentId: msg.agentId,
         sessionId: msg.sessionId,
-        messageId: msg.id,
+        messageId: msg.messageId ?? msg.id,
         resolvedToolCalls: resolveToolCalls(msg),
         attachments: resolveAttachments(msg, _config),
         renderContext,

@@ -14,6 +14,7 @@ import type {
   SessionStoreState,
   SlashCommand,
 } from "../../../store/sessionStore";
+import { useUiStateStore } from "../../../store/uiStateStore";
 import { useMessageStore } from "../../../store/messageStore";
 import { getVsCodeApi } from "../../../lib/vscodeApi";
 import { useLogger } from "../../../hooks/useLogger";
@@ -83,6 +84,8 @@ export const UnifiedMode = React.memo(function UnifiedMode({
   onAttachDiff,
 }: UnifiedModeProps): React.ReactElement {
   const log = useLogger("UnifiedMode");
+
+  const splitDirection = useUiStateStore((s) => s.splitDirection);
   const {
     activeSessionKey,
     pinnedSessionKeys,
@@ -194,6 +197,13 @@ export const UnifiedMode = React.memo(function UnifiedMode({
     [handleClose]
   );
 
+  const handleSplitDirectionChange = useCallback(
+    (direction: "horizontal" | "vertical") => {
+      useUiStateStore.getState().setSplitDirection(direction);
+    },
+    []
+  );
+
   // Read activeSessionKey from store at call time to avoid stale closure.
   // The closure value may be stale when the store updates (e.g., tab switch)
   // but React hasn't re-rendered yet — causing "Sending…" to appear on
@@ -290,11 +300,14 @@ export const UnifiedMode = React.memo(function UnifiedMode({
         onRenameSession={onRenameSession}
         pinnedSessionKeys={pinnedSessionKeys}
         onTogglePin={handleTogglePin}
+        splitDirection={splitDirection}
+        onSplitDirectionChange={handleSplitDirectionChange}
       />
       <SessionView
         sessionKey={activeSessionKey}
         disabled={disabled}
         pinnedKeys={pinnedSessionKeys}
+        splitDirection={splitDirection}
         onSend={handleSendWithTurnTracking}
         onCancel={onCancel}
         onFocusChange={handleFocusChange}

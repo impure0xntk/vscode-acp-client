@@ -19,6 +19,7 @@ interface SessionSectionInnerProps {
   splitIndex: number;
   splitTotal: number;
   splitRatios: number[];
+  splitDirection: "horizontal" | "vertical";
   messages: ChatMessage[];
   tabTitles: Record<string, string>;
   onFocusChange: (key: string) => void;
@@ -47,6 +48,7 @@ const SessionSectionInner = React.memo(function SessionSectionInner({
   splitIndex,
   splitTotal,
   splitRatios,
+  splitDirection,
   messages,
   tabTitles,
   onFocusChange,
@@ -118,9 +120,17 @@ const SessionSectionInner = React.memo(function SessionSectionInner({
   const pct = ratio * 100;
   const sectionStyle: React.CSSProperties = {
     flex: `0 0 ${pct}%`,
-    width: `${pct}%`,
-    maxWidth: `${pct}%`,
-    minWidth: "10%",
+    ...(splitDirection === "vertical"
+      ? {
+          height: `${pct}%`,
+          maxHeight: `${pct}%`,
+          minHeight: "10%",
+        }
+      : {
+          width: `${pct}%`,
+          maxWidth: `${pct}%`,
+          minWidth: "10%",
+        }),
   };
 
   const title = tabTitles[sessionKey] ?? info.sessionId.slice(0, 8);
@@ -201,6 +211,7 @@ export interface SplitSessionLayoutProps {
   focusKey: string | null;
   pinnedKeys: string[];
   splitRatios: number[];
+  splitDirection: "horizontal" | "vertical";
   onFocusChange: (key: string) => void;
   onPin: (key: string) => void;
   onUnpin: (key: string) => void;
@@ -225,6 +236,7 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
   focusKey,
   pinnedKeys,
   splitRatios,
+  splitDirection,
   onFocusChange,
   onPin,
   onUnpin,
@@ -261,6 +273,8 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
     startRatios: number[];
   } | null>(null);
 
+  const isVertical = splitDirection === "vertical";
+
   const handleDividerMouseDown = useCallback(
     (dividerIndex: number) => (e: React.MouseEvent) => {
       e.preventDefault();
@@ -272,14 +286,14 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
           : Array(visibleKeys.length).fill(1 / visibleKeys.length);
       dragStateRef.current = {
         dividerIndex,
-        startPos: e.clientX,
+        startPos: isVertical ? e.clientY : e.clientX,
         startRatios: currentRatios,
       };
-      document.body.style.cursor = "col-resize";
+      document.body.style.cursor = isVertical ? "row-resize" : "col-resize";
       document.body.style.userSelect = "none";
-      log.debug("divider drag start", { dividerIndex });
+      log.debug("divider drag start", { dividerIndex, isVertical });
     },
-    [splitRatios, visibleKeys.length]
+    [splitRatios, visibleKeys.length, isVertical]
   );
 
   useEffect(() => {
@@ -289,7 +303,10 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
       const container = containerRef.current;
       if (!container) return;
       const rect = container.getBoundingClientRect();
-      const delta = (e.clientX - drag.startPos) / rect.width;
+      const startPos = drag.startPos;
+      const delta = isVertical
+        ? (e.clientY - startPos) / rect.height
+        : (e.clientX - startPos) / rect.width;
 
       const newRatios = [...drag.startRatios];
       const i = drag.dividerIndex;
@@ -322,7 +339,7 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [onSplitRatiosChange]);
+  }, [onSplitRatiosChange, isVertical]);
 
   if (visibleKeys.length === 0) {
     log.debug("no visible sessions — rendering empty state");
@@ -352,7 +369,7 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden h-full">
       <div
-        className="flex flex-col flex-1 min-h-0 overflow-hidden h-full flex-row items-stretch"
+        className={`flex flex-col flex-1 min-h-0 overflow-hidden h-full items-stretch${isVertical ? " flex-col" : " flex-row"}`}
         ref={containerRef}
       >
         {visibleKeys.map((key, i) => {
@@ -366,6 +383,7 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
               splitIndex={visibleKeys.indexOf(key)}
               splitTotal={visibleKeys.length}
               splitRatios={effectiveRatios}
+              splitDirection={splitDirection}
               messages={allMessages[key] ?? []}
               tabTitles={tabTitles}
               turnStartedAtMap={turnStartedAtMap}
@@ -388,7 +406,7 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
             <React.Fragment key={key}>
               {section}
               <div
-                className="shrink-0 w-[4px] h-auto cursor-col-resize self-stretch transition-colors duration-150 hover:bg-accent"
+                className={`shrink-0 transition-colors duration-150 hover:bg-accent${isVertical ? " h-[4px] w-auto cursor-row-resize" : " w-[4px] h-auto cursor-col-resize self-stretch"}`}
                 onMouseDown={handleDividerMouseDown(i)}
               />
             </React.Fragment>

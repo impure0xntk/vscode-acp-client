@@ -71,6 +71,7 @@ export interface SessionViewProps {
   disabled: boolean;
   pinnedKeys?: string[];
   splitRatios?: number[];
+  splitDirection?: "vertical" | "horizontal";
   onSplitRatiosChange?: (ratios: number[]) => void;
   onSend: (
     text: string,
@@ -145,6 +146,7 @@ export const SessionView = React.memo(function SessionView({
   disabled,
   pinnedKeys = [],
   splitRatios = [],
+  splitDirection = "horizontal",
   onSplitRatiosChange,
   onSend,
   onCancel,
@@ -168,6 +170,7 @@ export const SessionView = React.memo(function SessionView({
         focusKey={sessionKey}
         pinnedKeys={pinnedKeys}
         splitRatios={splitRatios}
+        splitDirection={splitDirection}
         onFocusChange={onFocusChange ?? (() => {})}
         onPin={onPin ?? (() => {})}
         onUnpin={onUnpin ?? (() => {})}

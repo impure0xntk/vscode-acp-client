@@ -7,7 +7,7 @@ import { sessionKeyOf } from "../../store/sessionStore";
 import { StatusIcon } from "../primitives/StatusIcon";
 import type { StatusIconType, TurnOutcome } from "../primitives/StatusIcon";
 import { UnreadBadge } from "../primitives/UnreadBadge";
-import { IconClose, IconPin, IconPinFilled } from "../../lib/icons";
+import { IconClose, IconPin, IconPinFilled, IconRows, IconColumns } from "../../lib/icons";
 import { useSessionInfo } from "../../hooks/useSessionInfo";
 
 export interface SessionTabBarProps {
@@ -20,6 +20,8 @@ export interface SessionTabBarProps {
   onRenameSession?: (agentId: string, sessionId: string, title: string) => void;
   pinnedSessionKeys?: string[];
   onTogglePin?: (key: string) => void;
+  splitDirection?: "horizontal" | "vertical";
+  onSplitDirectionChange?: (direction: "horizontal" | "vertical") => void;
 }
 
 interface UnifiedTabProps {
@@ -194,6 +196,8 @@ export const SessionTabBar = React.memo(function SessionTabBar({
   onRenameSession,
   pinnedSessionKeys = [],
   onTogglePin = () => {},
+  splitDirection = "horizontal",
+  onSplitDirectionChange = () => {},
 }: SessionTabBarProps): React.ReactElement {
   return (
     <div className="flex shrink-0 items-center gap-1 p-[4px 8px] overflow-x-auto bg-bg-secondary border-b border-border">
@@ -219,6 +223,29 @@ export const SessionTabBar = React.memo(function SessionTabBar({
             />
           );
         })}
+      </div>
+
+      {/* Split direction toggle — only meaningful when multiple sessions are
+          visible (pinned + focused). Shown as a small segmented control. */}
+      <div className="shrink-0 flex items-center border border-border rounded-sm overflow-hidden">
+        <button
+          className={`flex items-center justify-center w-7 h-7 border-none bg-transparent cursor-pointer transition-colors duration-150${splitDirection === "horizontal" ? " bg-[color-mix(in_srgb,var(--accent)_22%,transparent)] text-fg-primary" : " text-fg-muted hover:bg-accent-hover"}`}
+          onClick={() => onSplitDirectionChange("horizontal")}
+          type="button"
+          title="Split side by side (horizontal)"
+          aria-pressed={splitDirection === "horizontal"}
+        >
+          <IconColumns size={14} />
+        </button>
+        <button
+          className={`flex items-center justify-center w-7 h-7 border-none bg-transparent cursor-pointer transition-colors duration-150 border-l border-border${splitDirection === "vertical" ? " bg-[color-mix(in_srgb,var(--accent)_22%,transparent)] text-fg-primary" : " text-fg-muted hover:bg-accent-hover"}`}
+          onClick={() => onSplitDirectionChange("vertical")}
+          type="button"
+          title="Split top and bottom (vertical)"
+          aria-pressed={splitDirection === "vertical"}
+        >
+          <IconRows size={14} />
+        </button>
       </div>
 
       <button

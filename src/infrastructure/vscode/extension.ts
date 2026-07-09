@@ -773,6 +773,26 @@ function registerCommands(context: vscode.ExtensionContext): void {
     }
   );
 
+  const splitVerticalCmd = vscode.commands.registerCommand(
+    "acp.splitVertical",
+    () => {
+      chatPanel?.postMessage({
+        type: "unifiedChat:setSplitDirection",
+        direction: "vertical",
+      });
+    }
+  );
+
+  const splitHorizontalCmd = vscode.commands.registerCommand(
+    "acp.splitHorizontal",
+    () => {
+      chatPanel?.postMessage({
+        type: "unifiedChat:setSplitDirection",
+        direction: "horizontal",
+      });
+    }
+  );
+
   for (const d of [
     ...connectDisposables,
     ...sessionDisposables,
@@ -780,6 +800,8 @@ function registerCommands(context: vscode.ExtensionContext): void {
     showTrafficCmd,
     toggleOverviewCmd,
     startTeamCmd,
+    splitVerticalCmd,
+    splitHorizontalCmd,
     clearLogsCmd,
     exportDebugLogCmd,
   ]) {

@@ -117,6 +117,10 @@ export interface ThinkingContent {
 
 export interface ChatMessage {
   id: string;
+  /** Raw ACP messageId. Distinct from `id`: some agents reuse the same
+   * messageId across different turns, so `id` is kept unique (suffixed when
+   * needed) while this field preserves the agent's logical message id. */
+  messageId?: string;
   role: "user" | "agent" | "system" | "tool";
   content: string;
   timestamp: number;

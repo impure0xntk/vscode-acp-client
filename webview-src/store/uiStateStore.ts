@@ -8,6 +8,10 @@ import type { SessionOverviewFilter, SessionOverviewState } from "../types";
 interface UiStateStore {
   panelMode: "unified" | "supervisor";
 
+  /** Direction the pinned sessions are split: side-by-side (horizontal) or
+   * stacked top-bottom (vertical). Defaults to horizontal. */
+  splitDirection: "horizontal" | "vertical";
+
   overviewVisible: boolean;
   overviewWidth: number;
   overviewPosition: "right" | "left";
@@ -17,6 +21,8 @@ interface UiStateStore {
   overviewSelectionMode: boolean;
 
   setPanelMode: (mode: "unified" | "supervisor") => void;
+
+  setSplitDirection: (direction: "horizontal" | "vertical") => void;
 
   setOverviewVisible: (v: boolean) => void;
   setOverviewWidth: (w: number) => void;
@@ -33,6 +39,13 @@ interface UiStateStore {
 
 export const useUiStateStore = create<UiStateStore>((set) => ({
   panelMode: "unified",
+
+  splitDirection: "horizontal",
+
+  setSplitDirection: (direction) =>
+    set((state) =>
+      state.splitDirection === direction ? state : { splitDirection: direction }
+    ),
 
   setPanelMode: (mode) =>
     set((state) => (state.panelMode === mode ? state : { panelMode: mode })),

@@ -122,6 +122,16 @@
       {
         "command": "acp.exportDebugLog",
         "title": "ACP: Export Debug Log"
+      },
+      {
+        "command": "acp.splitVertical",
+        "title": "ACP: Split Sessions Vertically (Top/Bottom)",
+        "icon": "$(split-vertical)"
+      },
+      {
+        "command": "acp.splitHorizontal",
+        "title": "ACP: Split Sessions Horizontally (Side by Side)",
+        "icon": "$(split-horizontal)"
       }
     ],
     "keybindings": [

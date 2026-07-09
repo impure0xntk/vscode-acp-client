@@ -393,6 +393,11 @@ interface SessionOverviewPositionMessage {
   payload: { position: "right" | "left" };
 }
 
+interface UnifiedChatSetSplitDirectionMessage {
+  type: "unifiedChat:setSplitDirection";
+  direction: "horizontal" | "vertical";
+}
+
 interface SessionOverviewStateMessage {
   type: "sessionOverview:state";
   payload: SessionOverviewState;
@@ -591,6 +596,7 @@ type WebviewMessage =
   | SessionOverviewToggleMessage
   | SessionOverviewPositionMessage
   | SessionOverviewStateMessage
+  | UnifiedChatSetSplitDirectionMessage
   | MeshStatusMessage
   | MeshTaskBoardMessage
   | MeshMessageMessage
@@ -1207,6 +1213,14 @@ function handleSessionOverviewPosition(
   useUiStateStore.getState().setOverviewPosition(data.payload.position);
 }
 
+function handleUnifiedChatSetSplitDirection(
+  data: UnifiedChatSetSplitDirectionMessage
+): void {
+  if (data.direction !== "horizontal" && data.direction !== "vertical") return;
+  log.info("unifiedChat:setSplitDirection", { direction: data.direction });
+  useUiStateStore.getState().setSplitDirection(data.direction);
+}
+
 function handleMeshStatus(data: MeshStatusMessage): void {
   useMeshStore.getState().setAgentStatuses(data.agents);
   if (data.teams) {
@@ -1697,6 +1711,9 @@ export function setupMessageHandlers(): void {
         break;
       case "sessionOverview:position":
         handleSessionOverviewPosition(data);
+        break;
+      case "unifiedChat:setSplitDirection":
+        handleUnifiedChatSetSplitDirection(data);
         break;
       case "mesh:status":
         handleMeshStatus(data);

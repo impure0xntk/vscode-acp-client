@@ -5,6 +5,33 @@ import { useFileWriteStore } from "./fileWriteStore";
 
 const log = getLogger("webview.store.message");
 
+/**
+ * Match a stored message against a raw ACP messageId.
+ * Prefers the dedicated `messageId` field (set by streaming chunk handlers
+ * for cross-turn uniqueness); falls back to `id` for legacy messages that
+ * predate the field (e.g. snapshot restores).
+ */
+function messageIdMatches(m: ChatMessage, messageId: string): boolean {
+  if (m.messageId != null) return m.messageId === messageId;
+  return m.id === messageId;
+}
+
+/**
+ * Produce a session-unique id for a new streaming message.
+ * When an ACP `messageId` is reused across turns (some agents do this), the
+ * bare messageId would collide with a previous turn's message.  Suffix it
+ * with `__N` so every message keeps a distinct `id` (React keys, dedup).
+ */
+function ensureUniqueMessageId(
+  existing: ChatMessage[],
+  messageId: string
+): string {
+  if (!existing.some((m) => m.id === messageId)) return messageId;
+  let n = 1;
+  while (existing.some((m) => m.id === `${messageId}__${n}`)) n++;
+  return `${messageId}__${n}`;
+}
+
 export interface MessageState {
   /** sessionKey → messages */
   perSession: Record<string, ChatMessage[]>;

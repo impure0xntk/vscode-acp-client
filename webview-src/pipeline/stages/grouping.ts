@@ -681,6 +681,24 @@ export function selectFinalResponse(
  * - If the messageId differs (or either is missing), a new step is created
  *   as before.
  */
+/**
+ * Whether a stopReason marks the END of an agent turn (vs. mid-turn
+ * continuation).  "tool_use" is the only mid-turn stopReason that continues
+ * the SAME logical message (the agent invokes a tool then keeps streaming
+ * the same messageId); everything else ends the turn.
+ *
+ * Used by splitIntoSteps to decide whether a same-messageId chunk may be
+ * merged into an in-progress / previous message.  Cross-turn messageId reuse
+ * (some agents repeat the same id for a brand-new turn) must NOT be merged.
+ */
+function isTurnEndingStopReason(
+  stopReason: string | null | undefined
+): boolean {
+  return (
+    stopReason != null && stopReason !== "" && stopReason !== "tool_use"
+  );
+}
+
 export function splitIntoSteps(
   items: PipelineItem[],
   _finalResponse: FinalResponse | null
@@ -744,13 +762,22 @@ export function splitIntoSteps(
         !lastStep.isPreAgent &&
         lastStep.agentMessage != null &&
         !lastStepIsBoundary &&
+        !isTurnEndingStopReason(lastStep.agentMessage.stopReason) &&
         agentItem.messageId != null &&
         agentItem.messageId === lastStep.agentMessage.messageId;
 
       if (
         currentAgent != null &&
         agentItem.messageId != null &&
-        agentItem.messageId === currentAgent.messageId
+        agentItem.messageId === currentAgent.messageId &&
+        // Do NOT merge a new chunk into a message whose turn already ended
+        // (end_turn / cancelled / max_tokens / etc.).  Some ACP agents reuse
+        // the same messageId across distinct turns; merging would concatenate
+        // a previous turn's text into the new turn's response, making
+        // intermediate-step content reappear in the final step.  "tool_use" is
+        // the only mid-turn stopReason that continues the same logical
+        // message, so it is explicitly allowed to merge.
+        !isTurnEndingStopReason(currentAgent.stopReason)
       ) {
         // Same messageId as in-progress agent → merge into current step
         const merged: ChatDisplayItem = {

@@ -93,9 +93,17 @@ export class ProtocolHandler {
     const batchMessageId = batch.messageId ?? undefined;
     if (!text) {
       this.pendingTextBatch.delete(sKey);
+      // Drop any buffered thought text — it was already delivered via the
+      // text batch (thoughts are preemptively appended to pendingTextBatch),
+      // so re-emitting it later would duplicate content in the webview.
+      this.pendingThoughts.delete(sKey);
       return;
     }
     this.pendingTextBatch.delete(sKey);
+    // Thoughts are delivered as part of the text batch (as agent_message_chunk).
+    // Clear the redundant thought buffer here so a later flushThoughts call
+    // cannot re-emit the same content as a separate agent_thought_chunk.
+    this.pendingThoughts.delete(sKey);
 
     const sessionInfo = this.deps.sessionState.getSessionInfo(
       agentId,
