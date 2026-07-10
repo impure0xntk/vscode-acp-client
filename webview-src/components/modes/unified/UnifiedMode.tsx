@@ -86,6 +86,7 @@ export const UnifiedMode = React.memo(function UnifiedMode({
   const log = useLogger("UnifiedMode");
 
   const splitDirection = useUiStateStore((s) => s.splitDirection);
+  const splitRatios = useUiStateStore((s) => s.splitRatios);
   const {
     activeSessionKey,
     pinnedSessionKeys,
@@ -204,6 +205,14 @@ export const UnifiedMode = React.memo(function UnifiedMode({
     []
   );
 
+  // Persist split ratios so dragging a divider actually resizes the layout.
+  // Without this the drag handler had nowhere to write the new ratios
+  // (SessionView's onSplitRatiosChange defaulted to a no-op), so the
+  // SessionChatContainer never changed size.
+  const handleSplitRatiosChange = useCallback((ratios: number[]) => {
+    useUiStateStore.getState().setSplitRatios(ratios);
+  }, []);
+
   // Read activeSessionKey from store at call time to avoid stale closure.
   // The closure value may be stale when the store updates (e.g., tab switch)
   // but React hasn't re-rendered yet — causing "Sending…" to appear on
@@ -308,6 +317,8 @@ export const UnifiedMode = React.memo(function UnifiedMode({
         disabled={disabled}
         pinnedKeys={pinnedSessionKeys}
         splitDirection={splitDirection}
+        splitRatios={splitRatios}
+        onSplitRatiosChange={handleSplitRatiosChange}
         onSend={handleSendWithTurnTracking}
         onCancel={onCancel}
         onFocusChange={handleFocusChange}

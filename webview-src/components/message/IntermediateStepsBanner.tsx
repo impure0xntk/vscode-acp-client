@@ -54,12 +54,19 @@ function formatDuration(ms: number): string {
   return `${m}m ${rem.toFixed(0)}s`;
 }
 
-function stepLabel(step: IntermediateStep): string {
+export function stepLabel(step: IntermediateStep): string {
+  // A thinking-only message (role="agent", thinking set, no text content)
+  // is folded into the banner as a "Thinking" step, just like any other
+  // intermediate step.  It may arrive as a pre-agent step (agentMessage=null)
+  // with the thinking item carried in toolCalls.
+  const hasThinking =
+    step.agentMessage?.thinking != null ||
+    step.toolCalls.some((tc) => tc.thinking != null);
+  if (hasThinking) {
+    return "Thinking";
+  }
   if (step.isPreAgent && step.agentMessage == null) {
     return "Tool call";
-  }
-  if (step.agentMessage?.thinking) {
-    return "Thinking";
   }
   if (step.toolCalls.length > 0) {
     return "Tool call";

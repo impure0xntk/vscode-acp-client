@@ -907,8 +907,12 @@ export function groupByUserBoundary(items: PipelineItem[]): GroupedItems {
     const postFinalItems = latestAgentChats.slice(latestFinalIdx + 1);
     const toolCallsAfterFinal: ChatDisplayItem[] = [];
     for (const item of postFinalItems) {
-      if (isRealAgentChat(item)) {
-        // New agent message starts a new step — stop collecting
+      // A real-text agent message starts a new step — stop collecting.
+      // Thinking items (role="agent", thinking set) are NOT real-text
+      // agent messages: they belong to the final step and render as their
+      // own block (not merged into the final response), so they are
+      // collected into the final step's toolCalls instead of breaking.
+      if (isRealAgentChat(item) && !isThinking(item)) {
         break;
       }
       toolCallsAfterFinal.push(item as ChatDisplayItem);

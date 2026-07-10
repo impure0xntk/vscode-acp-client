@@ -281,7 +281,7 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
       const container = containerRef.current;
       if (!container) return;
       const currentRatios =
-        splitRatios.length >= visibleKeys.length
+        splitRatios.length === visibleKeys.length
           ? [...splitRatios]
           : Array(visibleKeys.length).fill(1 / visibleKeys.length);
       dragStateRef.current = {

@@ -4,6 +4,7 @@ import { classifyMessage } from "../../pipeline/stages/classify";
 import { filterMessages } from "../../pipeline/stages/filter";
 import { annotateMessages } from "../../pipeline/stages/annotate";
 import { MessagePipeline } from "../../pipeline/pipeline";
+import { IntermediateStepGrouper } from "../../pipeline/stages/grouping";
 import type {
   RawMessage,
   PipelineConfig,
@@ -136,6 +137,7 @@ function makeChat(
     timestamp: Date.now(),
     isFirstOfTurn: false,
     attachments: [],
+    thinking: undefined,
   } as ChatDisplayItem;
 }
 

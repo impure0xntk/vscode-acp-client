@@ -22,14 +22,15 @@ export function ThinkingBlock({
         className="flex items-center gap-1.5 px-2 py-0.5 cursor-pointer select-none text-fg-muted text-[11px] hover:bg-accent-hover"
         onClick={toggle}
       >
+        <span
+          className={`flex-shrink-0 text-[9px] opacity-60 transition-transform duration-150${isOpen ? " rotate-90" : ""}`}
+          aria-hidden="true"
+        >
+          ▶
+        </span>
         <IconBrain size={14} className="flex-shrink-0 opacity-70" />
         <span className="flex-1 italic">
           {isStreaming ? "Thinking…" : "Thought"}
-        </span>
-        <span
-          className={`flex-shrink-0 text-[10px] transition-transform duration-150${isOpen ? " rotate-90" : ""}`}
-        >
-          ▼
         </span>
       </div>
       <div

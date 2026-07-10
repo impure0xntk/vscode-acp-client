@@ -675,12 +675,33 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                               latestGroup.finalResponse.item.key
                             )}
                           />
-                          {currentStep.toolCalls.length > 0 && (
+                          {/* Thinking blocks carried alongside the final step
+                            render as their own message blocks (not merged into
+                            the final response body). */}
+                          {currentStep.toolCalls
+                            .filter((tc) => tc.thinking != null)
+                            .map((ti) => (
+                              <DisplayItemView
+                                key={ti.key}
+                                item={{ ...ti, isFirstOfTurn: false }}
+                                idx={0}
+                                items={[ti]}
+                                sessionId={sessionId}
+                                agentId={agentId}
+                                isNew={true}
+                                forceHeader={false}
+                              />
+                            ))}
+                          {currentStep.toolCalls.some(
+                            (tc) => tc.thinking == null
+                          ) && (
                             <div className="ml-4 mr-1 mb-[2px]">
                               <ToolBatchSummary
-                                calls={currentStep.toolCalls.flatMap(
-                                  (tc) => tc.resolvedToolCalls ?? []
-                                )}
+                                calls={currentStep.toolCalls
+                                  .filter((tc) => tc.thinking == null)
+                                  .flatMap(
+                                    (tc) => tc.resolvedToolCalls ?? []
+                                  )}
                                 isNew={true}
                               />
                             </div>

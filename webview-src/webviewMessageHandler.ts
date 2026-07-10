@@ -1229,11 +1229,32 @@ function handleMeshStatus(data: MeshStatusMessage): void {
   useMeshStore.getState().setAgentStatuses(data.agents);
   if (data.teams) {
     useMeshStore.getState().setTeams(data.teams);
+    // Sync team sessions to sessionStore for all teams
+    for (const team of data.teams) {
+      const sessionKeys = [
+        sessionKeyOf(team.lead.agentId, team.lead.sessionId),
+        ...team.members.map((m) => sessionKeyOf(m.agentId, m.sessionId)),
+      ];
+      useSessionStore.getState().setTeamSessions(team.id, sessionKeys);
+    }
+    log.debug("handleMeshStatus: synced team sessions", {
+      teamCount: data.teams.length,
+    });
   }
 }
 
 function handleMeshTeamCreated(data: MeshTeamCreatedMessage): void {
   useMeshStore.getState().addTeam(data.team);
+  // Sync team sessions to sessionStore so SupervisorTabBar and SessionOverviewGrid can render them
+  const sessionKeys = [
+    sessionKeyOf(data.team.lead.agentId, data.team.lead.sessionId),
+    ...data.team.members.map((m) => sessionKeyOf(m.agentId, m.sessionId)),
+  ];
+  useSessionStore.getState().setTeamSessions(data.team.id, sessionKeys);
+  log.debug("handleMeshTeamCreated: synced team sessions", {
+    teamId: data.team.id,
+    sessionCount: sessionKeys.length,
+  });
 }
 
 function handleMeshTaskBoard(data: MeshTaskBoardMessage): void {
@@ -1262,6 +1283,16 @@ function handleMeshPanelToggle(data: MeshPanelToggleMessage): void {
 
 function handleMeshTeamUpdated(data: MeshTeamUpdatedMessage): void {
   useMeshStore.getState().updateTeam(data.team.id, data.team);
+  // Sync team sessions to sessionStore
+  const sessionKeys = [
+    sessionKeyOf(data.team.lead.agentId, data.team.lead.sessionId),
+    ...data.team.members.map((m) => sessionKeyOf(m.agentId, m.sessionId)),
+  ];
+  useSessionStore.getState().setTeamSessions(data.team.id, sessionKeys);
+  log.debug("handleMeshTeamUpdated: synced team sessions", {
+    teamId: data.team.id,
+    sessionCount: sessionKeys.length,
+  });
 }
 
 function handlePathsResolved(data: PathsResolvedMessage): void {

@@ -42,16 +42,45 @@ function StepViewInner({
   onAttachDiff,
   externalFileEditEntries,
 }: StepViewProps): React.ReactElement {
-  // Collect tool calls from step.toolCalls (tool items with role="tool")
-  const allToolCalls = step.toolCalls.flatMap(
-    (tc) => (tc as ChatDisplayItem).resolvedToolCalls ?? []
+  // Thinking items are carried as pre-agent step "tool calls" (role="agent",
+  // thinking set, no resolvedToolCalls).  They render as normal agent
+  // messages via DisplayItemView → Message → ThinkingBlock, so they appear
+  // folded inside the IntermediateStepsBanner exactly like a real agent
+  // message step.  This keeps a thinking block from being silently dropped.
+  const thinkingItems = step.toolCalls.filter(
+    (tc) => (tc as ChatDisplayItem).thinking != null
   );
+  const hasThinking = thinkingItems.length > 0;
+
+  // Real tool calls (exclude thinking items, which have no resolvedToolCalls)
+  const allToolCalls = step.toolCalls
+    .filter((tc) => (tc as ChatDisplayItem).thinking == null)
+    .flatMap((tc) => (tc as ChatDisplayItem).resolvedToolCalls ?? []);
   const hasToolCalls = allToolCalls.length > 0;
   const fileEditEntries = externalFileEditEntries ?? step.fileEditSummary ?? [];
   const hasFileEdits = fileEditEntries.length > 0;
 
-  // Pre-agent step with only tool calls (no agent message) — show header
-  if (!step.agentMessage && hasToolCalls) {
+  // Render a single thinking item as a normal message block.  Force
+  // isFirstOfTurn off (clone) so the Message component does not draw its own
+  // header — the step header above already provides the Agent / time label.
+  const renderThinking = (ti: ChatDisplayItem) => (
+    <DisplayItemView
+      key={ti.key}
+      item={{ ...ti, isFirstOfTurn: false }}
+      idx={0}
+      items={[ti]}
+      sessionId={sessionId}
+      agentId={agentId}
+      isNew={isNew}
+      forceHeader={false}
+    />
+  );
+
+  // Pre-agent step (no agent message) — header + thinking + tool calls
+  if (!step.agentMessage) {
+    if (!hasThinking && !hasToolCalls && !hasFileEdits) {
+      return <div />;
+    }
     const firstTs = step.toolCalls[0]?.timestamp;
     const timeStr = firstTs ? new Date(firstTs).toLocaleTimeString() : "";
     return (
@@ -62,9 +91,13 @@ function StepViewInner({
             <span className="text-[10px] opacity-50">{timeStr}</span>
           </div>
         )}
-        <div className="ml-4 mr-1 mb-[2px]">
-          <ToolBatchSummary calls={allToolCalls} isNew={isNew} />
-        </div>
+        {hasThinking &&
+          thinkingItems.map((ti) => renderThinking(ti as ChatDisplayItem))}
+        {hasToolCalls && (
+          <div className="ml-4 mr-1 mb-[2px]">
+            <ToolBatchSummary calls={allToolCalls} isNew={isNew} />
+          </div>
+        )}
         {hasFileEdits && (
           <FileEditSummary
             entries={fileEditEntries}
@@ -90,6 +123,8 @@ function StepViewInner({
           forceHeader={forceHeader}
         />
       )}
+      {hasThinking &&
+        thinkingItems.map((ti) => renderThinking(ti as ChatDisplayItem))}
       {hasToolCalls && (
         <div className="ml-4 mr-1 mb-[2px]">
           <ToolBatchSummary calls={allToolCalls} isNew={isNew} />

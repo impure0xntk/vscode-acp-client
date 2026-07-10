@@ -1001,4 +1001,84 @@ describe("groupByUserBoundary", () => {
       assert.strictEqual(result.item, agent);
     });
   });
+
+  // ── Thinking items are folded into intermediate steps / currentStep ──────
+
+  describe("thinking items handled like normal messages", () => {
+    it("thinking before agent text becomes a pre-agent step carrying the thinking item", () => {
+      const items: PipelineItem[] = [
+        userMsg("do something"),
+        thinkingItem("let me think"),
+        agentMsg("done!", { isFirstOfTurn: true }),
+      ];
+      const result = groupByUserBoundary(items);
+      assert.ok(result.latestGroup);
+      // final response is the text message; thinking becomes an intermediate step
+      assert.ok(result.latestGroup.finalResponse);
+      assert.strictEqual(
+        (result.latestGroup.finalResponse.item as ChatDisplayItem).content,
+        "done!"
+      );
+      assert.strictEqual(result.latestGroup.steps.length, 1);
+      const step = result.latestGroup.steps[0];
+      assert.strictEqual(step.isPreAgent, true);
+      assert.strictEqual(step.agentMessage, null);
+      // The thinking item is carried in the step so it can be rendered
+      // (not silently dropped)
+      assert.strictEqual(step.toolCalls.length, 1);
+      assert.strictEqual(
+        (step.toolCalls[0] as ChatDisplayItem).thinking?.content,
+        "let me think"
+      );
+    });
+
+    it("thinking after final response is collected into currentStep (renders as its own block)", () => {
+      const items: PipelineItem[] = [
+        userMsg("go"),
+        agentMsg("result", { isFirstOfTurn: true, stopReason: "end_turn" }),
+        thinkingItem("post-final thought"),
+      ];
+      const result = groupByUserBoundary(items);
+      assert.ok(result.latestGroup);
+      assert.ok(result.latestGroup.finalResponse);
+      assert.strictEqual(
+        (result.latestGroup.finalResponse.item as ChatDisplayItem).content,
+        "result"
+      );
+      assert.ok(result.latestGroup.currentStep);
+      assert.strictEqual(
+        result.latestGroup.currentStep.agentMessage?.content,
+        "result"
+      );
+      // thinking after final is NOT merged into the final message; it is
+      // carried in the final step's toolCalls as its own block
+      const thinkingInStep = result.latestGroup.currentStep.toolCalls.filter(
+        (tc) => (tc as ChatDisplayItem).thinking != null
+      );
+      assert.strictEqual(thinkingInStep.length, 1);
+      assert.strictEqual(
+        (thinkingInStep[0] as ChatDisplayItem).thinking?.content,
+        "post-final thought"
+      );
+    });
+
+    it("thinking + tool after final: both collected into currentStep", () => {
+      const items: PipelineItem[] = [
+        userMsg("go"),
+        agentMsg("result", { isFirstOfTurn: true, stopReason: "end_turn" }),
+        thinkingItem("post-final thought"),
+        toolMsg("c1"),
+      ];
+      const result = groupByUserBoundary(items);
+      assert.ok(result.latestGroup?.currentStep);
+      const step = result.latestGroup.currentStep;
+      assert.strictEqual(step.agentMessage?.content, "result");
+      assert.strictEqual(step.toolCalls.length, 2);
+      assert.strictEqual(
+        step.toolCalls.filter((tc) => (tc as ChatDisplayItem).thinking != null)
+          .length,
+        1
+      );
+    });
+  });
 });

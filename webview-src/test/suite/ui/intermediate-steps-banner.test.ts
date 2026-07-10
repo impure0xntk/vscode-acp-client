@@ -4,7 +4,9 @@ import type {
   PipelineItem,
   ChatDisplayItem,
   ResolvedToolCall,
+  IntermediateStep,
 } from "../../../pipeline/types";
+import { stepLabel } from "../../../components/message/IntermediateStepsBanner";
 
 function resolvedTC(
   overrides: Partial<ResolvedToolCall> & { id: string; kind: string }
@@ -341,5 +343,52 @@ describe("ThinkingBlock getDisplayContent", () => {
 
   it("handles whitespace-only content", () => {
     assert.strictEqual(getDisplayContent("   "), "   \n");
+  });
+});
+
+// ── stepLabel (real implementation from IntermediateStepsBanner) ────────────
+
+describe("stepLabel", () => {
+  it("returns 'Thinking' for a pre-agent step whose toolCalls carry a thinking item", () => {
+    const think: ChatDisplayItem = chatItem({
+      role: "agent",
+      content: "",
+      thinking: { content: "let me think", isStreaming: false },
+    });
+    const step: IntermediateStep = {
+      agentMessage: null,
+      toolCalls: [think],
+      isPreAgent: true,
+    };
+    assert.strictEqual(stepLabel(step), "Thinking");
+  });
+
+  it("returns 'Thinking' when the agent message itself carries thinking", () => {
+    const agentWithThinking: ChatDisplayItem = chatItem({
+      role: "agent",
+      content: "answer",
+      thinking: { content: "reasoning", isStreaming: false },
+    });
+    const step: IntermediateStep = {
+      agentMessage: agentWithThinking,
+      toolCalls: [],
+      isPreAgent: false,
+    };
+    assert.strictEqual(stepLabel(step), "Thinking");
+  });
+
+  it("returns 'Tool call' for a pre-agent step with only tool calls", () => {
+    const tool: ChatDisplayItem = chatItem({
+      role: "tool",
+      resolvedToolCalls: [
+        resolvedTC({ id: "t", kind: "read", title: "Read" }),
+      ],
+    });
+    const step: IntermediateStep = {
+      agentMessage: null,
+      toolCalls: [tool],
+      isPreAgent: true,
+    };
+    assert.strictEqual(stepLabel(step), "Tool call");
   });
 });
