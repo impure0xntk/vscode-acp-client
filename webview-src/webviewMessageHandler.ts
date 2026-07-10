@@ -788,6 +788,8 @@ function handleSessionStreamEnd(data: SessionStreamEnd): void {
       );
   }
   useMessageStore.getState().setStreaming(msgKey, false);
+  // Finalize any still-streaming thinking blocks so they show "Thought".
+  useMessageStore.getState().finalizeThinking(msgKey);
   const existing = useSessionStore.getState().sessionInfoMap[msgKey];
   if (existing && existing.status === "running") {
     useSessionStore.getState().setSessionInfo(data.agentId, data.sessionId, {
@@ -976,6 +978,8 @@ function handleSessionTurnEnded(data: SessionTurnEnded): void {
   useMessageStore.getState().updateLastAgentMessage(key, {
     stopReason: data.stopReason,
   });
+  // Finalize any still-streaming thinking blocks so they show "Thought".
+  useMessageStore.getState().finalizeThinking(key);
 
   // Clear the messageStore streaming flag so the blinking cursor in
   // SessionChatContainer disappears.  handleSessionStreamEnd also clears

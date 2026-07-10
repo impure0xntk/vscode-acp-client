@@ -37,6 +37,7 @@ function makeState(perSession: Record<string, ChatMessage[]>): MessageState {
     clearSession: () => {},
     addQueuedPrompt: () => {},
     updateMessageByMessageId: () => {},
+    finalizeThinking: () => {},
   };
 }
 

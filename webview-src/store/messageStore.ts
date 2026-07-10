@@ -32,6 +32,73 @@ function ensureUniqueMessageId(
   return `${messageId}__${n}`;
 }
 
+/**
+ * Append thought text into a dedicated thinking message.
+ *
+ * Thought chunks (agent_thought_chunk) are kept separate from the agent's
+ * message body so they render in a ThinkingBlock instead of being
+ * concatenated with the response.  We merge into the most recent
+ * still-streaming thinking message (same turn); otherwise a new thinking
+ * message is created.  A finalized (isStreaming === false) thinking message
+ * from a previous turn is never reused — the search stops at it so a fresh
+ * thinking block is started for the new turn.
+ */
+function appendThinkingText(
+  existing: ChatMessage[],
+  merged: string,
+  agentId: string,
+  sessionId: string,
+  messageId?: string | null
+): ChatMessage[] {
+  let thinkTargetIdx = -1;
+  for (let i = existing.length - 1; i >= 0; i--) {
+    const m = existing[i];
+    if (m.role !== "agent") break;
+    if (m.thinking != null && m.thinking.isStreaming === true) {
+      thinkTargetIdx = i;
+      break;
+    }
+    // Any other agent message (content message or finalized thinking)
+    // terminates the search — a new thinking message must be created.
+    break;
+  }
+
+  if (thinkTargetIdx >= 0) {
+    const target = existing[thinkTargetIdx];
+    const updatedTarget: ChatMessage = {
+      ...target,
+      thinking: {
+        type: "thinking",
+        content: target.thinking!.content + merged,
+        isStreaming: true,
+      },
+    };
+    const next = [...existing];
+    next[thinkTargetIdx] = updatedTarget;
+    return next;
+  }
+
+  const writeSeq = useFileWriteStore.getState().currentSeq();
+  const id = messageId ?? crypto.randomUUID();
+  return [
+    ...existing,
+    {
+      id,
+      role: "agent",
+      content: "",
+      timestamp: Date.now(),
+      agentId,
+      sessionId,
+      writeSeq,
+      thinking: {
+        type: "thinking",
+        content: merged,
+        isStreaming: true,
+      },
+    },
+  ];
+}
+
 export interface MessageState {
   /** sessionKey → messages */
   perSession: Record<string, ChatMessage[]>;
@@ -70,6 +137,8 @@ export interface MessageState {
    * so the pipeline can use it as the authoritative boundary signal.
    */
   updateLastAgentMessage: (key: string, update: Partial<ChatMessage>) => void;
+  /** Mark any still-streaming thinking blocks in a session as complete. */
+  finalizeThinking: (key: string) => void;
   getLastAgentMessage: (key: string) => ChatMessage | null;
   clearSession: (key: string) => void;
   /** Add a queued prompt entry */
@@ -159,6 +228,28 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
           sessionUpdate != null &&
           lastSessionUpdate != null &&
           sessionUpdate !== lastSessionUpdate;
+
+        // Thoughts are kept in their own message so they render as a thinking
+        // block and are never concatenated with the agent's message body.
+        if (sessionUpdate === "agent_thought_chunk") {
+          const merged = chunks.join("");
+          const newMessages = appendThinkingText(
+            existing,
+            merged,
+            agentId,
+            sessionId,
+            messageId
+          );
+          return {
+            ...state,
+            perSession: { ...state.perSession, [key]: newMessages },
+            streaming: { ...state.streaming, [key]: true },
+            lastSessionUpdateType: {
+              ...state.lastSessionUpdateType,
+              [sessionUpdateKey]: sessionUpdate,
+            },
+          };
+        }
 
         // 1. messageId-based merge: find the agent message with matching id
         let messageIdTargetIdx = -1;
@@ -302,6 +393,27 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
           lastSessionUpdate != null &&
           sessionUpdate !== lastSessionUpdate;
 
+        // Thoughts are kept in their own message so they render as a thinking
+        // block and are never concatenated with the agent's message body.
+        if (sessionUpdate === "agent_thought_chunk") {
+          const newMessages = appendThinkingText(
+            existing,
+            chunk,
+            agentId,
+            sessionId,
+            messageId
+          );
+          return {
+            ...state,
+            perSession: { ...state.perSession, [key]: newMessages },
+            streaming: { ...state.streaming, [key]: true },
+            lastSessionUpdateType: {
+              ...state.lastSessionUpdateType,
+              [sessionUpdateKey]: sessionUpdate,
+            },
+          };
+        }
+
         // 1. messageId-based merge: find agent message with matching id
         let messageIdTargetIdx = -1;
         if (messageId != null) {
@@ -439,6 +551,7 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
         for (let i = existing.length - 1; i >= 0; i--) {
           if (
             existing[i].role === "agent" &&
+            !existing[i].thinking &&
             (existing[i].stopReason == null || existing[i].stopReason === "")
           ) {
             const updated = { ...existing[i], ...update };
@@ -463,6 +576,29 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
           }
         }
         return state;
+      }),
+
+    finalizeThinking: (key) =>
+      set((state) => {
+        const existing = state.perSession[key];
+        if (!existing || existing.length === 0) return state;
+        let changed = false;
+        const next = existing.map((m) => {
+          if (
+            m.role === "agent" &&
+            m.thinking != null &&
+            m.thinking.isStreaming === true
+          ) {
+            changed = true;
+            return { ...m, thinking: { ...m.thinking, isStreaming: false } };
+          }
+          return m;
+        });
+        if (!changed) return state;
+        return {
+          ...state,
+          perSession: { ...state.perSession, [key]: next },
+        };
       }),
 
     getLastAgentMessage: (key: string): ChatMessage | null => {

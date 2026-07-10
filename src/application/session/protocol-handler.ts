@@ -52,10 +52,14 @@ export class ProtocolHandler {
   private deps: ProtocolHandlerDeps;
   // sessionKey → AvailableCommand[]
   private sessionCommands: Map<string, AvailableCommand[]> = new Map();
-  // sessionKey → buffered thought text + ACP messageId (flushed on turn end or message chunk)
+  // sessionKey → buffered thought chunk + timer (flushed as agent_thought_chunk)
   private pendingThoughts: Map<
     string,
-    { text: string; messageId?: string | null }
+    {
+      text: string;
+      messageId?: string | null;
+      timer: ReturnType<typeof setTimeout> | null;
+    }
   > = new Map();
   // sessionKey → micro-batch for agent_message_chunk text
   private pendingTextBatch: Map<string, TextBatch> = new Map();
@@ -93,17 +97,9 @@ export class ProtocolHandler {
     const batchMessageId = batch.messageId ?? undefined;
     if (!text) {
       this.pendingTextBatch.delete(sKey);
-      // Drop any buffered thought text — it was already delivered via the
-      // text batch (thoughts are preemptively appended to pendingTextBatch),
-      // so re-emitting it later would duplicate content in the webview.
-      this.pendingThoughts.delete(sKey);
       return;
     }
     this.pendingTextBatch.delete(sKey);
-    // Thoughts are delivered as part of the text batch (as agent_message_chunk).
-    // Clear the redundant thought buffer here so a later flushThoughts call
-    // cannot re-emit the same content as a separate agent_thought_chunk.
-    this.pendingThoughts.delete(sKey);
 
     const sessionInfo = this.deps.sessionState.getSessionInfo(
       agentId,
@@ -210,34 +206,37 @@ export class ProtocolHandler {
             messageId?: string | null;
           };
           const delta = u.content?.text ?? "";
-          // Append to text batch so thought + text flush together on timer
-          const existingBatch = this.pendingTextBatch.get(sKey);
-          if (existingBatch) {
-            existingBatch.text += delta;
-          } else {
-            const batch: TextBatch = {
-              text: delta,
-              timer: null,
-              messageId: u.messageId ?? null,
-            };
-            batch.timer = setTimeout(() => {
-              this.flushTextBatch(agentId, sessionId);
-            }, TEXT_BATCH_FLUSH_MS);
-            this.pendingTextBatch.set(sKey, batch);
-          }
-          // Also keep pendingThoughts for backward compat (tests check it)
+          if (!delta) break;
+          // Buffer thoughts in their own batch, separate from message text.
+          // They are flushed as distinct agent_thought_chunk stream events
+          // (see flushThoughts) so the webview renders them in a dedicated
+          // thinking block instead of concatenating them into the message body.
           const existingThought = this.pendingThoughts.get(sKey);
           if (existingThought) {
             existingThought.text += delta;
+            if (u.messageId != null && existingThought.messageId == null) {
+              existingThought.messageId = u.messageId;
+            }
           } else {
-            this.pendingThoughts.set(sKey, {
+            const thought: {
+              text: string;
+              messageId?: string | null;
+              timer: ReturnType<typeof setTimeout> | null;
+            } = {
               text: delta,
               messageId: u.messageId ?? null,
-            });
+              timer: null,
+            };
+            thought.timer = setTimeout(() => {
+              this.flushThoughts(agentId, sessionId);
+            }, TEXT_BATCH_FLUSH_MS);
+            this.pendingThoughts.set(sKey, thought);
           }
         }
         break;
       case "tool_call":
+        // Flush any pending thoughts first so they appear before the tool call.
+        this.flushThoughts(agentId, sessionId, true);
         this.flushTextBatch(agentId, sessionId);
         this.handleToolCall(agentId, sessionId, sessionInfo, update);
         break;
@@ -280,8 +279,11 @@ export class ProtocolHandler {
     }
 
     if (kind === "session_info_update" || kind === "usage_update") {
-      this.flushTextBatch(agentId, sessionId, true);
+      // Flush pending thoughts and message text. Thoughts are now buffered
+      // separately and emitted as agent_thought_chunk, so flushing both keeps
+      // the webview in sync without duplicating content.
       this.flushThoughts(agentId, sessionId, true);
+      this.flushTextBatch(agentId, sessionId, true);
     }
 
     this.deps.emit("sessionUpdate", { agentId, sessionId, notification });
@@ -294,11 +296,13 @@ export class ProtocolHandler {
   ): void {
     const sKey = sessionKey(agentId, sessionId);
     const entry = this.pendingThoughts.get(sKey);
-    if (!entry || entry.text.length === 0) {
-      this.pendingThoughts.delete(sKey);
-      return;
+    if (!entry) return;
+    if (entry.timer) {
+      clearTimeout(entry.timer);
+      entry.timer = null;
     }
     this.pendingThoughts.delete(sKey);
+    if (entry.text.length === 0) return;
 
     const sessionInfo = this.deps.sessionState.getSessionInfo(
       agentId,
@@ -306,19 +310,18 @@ export class ProtocolHandler {
     );
     if (!sessionInfo) return;
 
-    this.flushTextBatch(agentId, sessionId, silent);
-
     if (!silent && !sessionInfo.isStreaming) {
       sessionInfo.isStreaming = true;
       this.deps.emit("sessionStreamStart", { agentId, sessionId });
     }
 
     const buffered = entry.text;
+    // Track the streaming thought text on the session state so a late
+    // message_chunk with the same ACP messageId can be merged correctly.
     const existing = this.deps.sessionState.getStreamMsgRef(sKey);
     if (existing) {
       this.deps.sessionState.appendStreamText(sKey, buffered);
     } else {
-      // Use ACP messageId when available; fall back to random UUID.
       const msgId =
         entry.messageId ?? `stream-${sessionId}-${crypto.randomUUID()}`;
       this.deps.sessionState.setStreamMsgRef(sKey, {
@@ -328,6 +331,7 @@ export class ProtocolHandler {
       });
       this.deps.sessionState.setStreamText(sKey, buffered);
     }
+    // Emitted as its own update type so the webview renders a thinking block.
     this.deps.emit("sessionStreamChunk", {
       agentId,
       sessionId,
@@ -600,9 +604,9 @@ export class ProtocolHandler {
   }
 
   flushAllBatches(agentId: string, sessionId: string): void {
-    // Only flush text batch — thoughts are now preemptively appended to
-    // the text batch in handleAgentThoughtChunk and don't need separate flush.
-    // Calling flushThoughts here would double-emit the buffered text.
+    // Flush pending thoughts first (they precede the message text), then the
+    // message-text batch. Both are now distinct stream events.
+    this.flushThoughts(agentId, sessionId);
     this.flushTextBatch(agentId, sessionId);
   }
 

@@ -4,6 +4,7 @@ import { SessionOrchestrator } from "../../application/session/orchestrator";
 import type { SessionNotification } from "@agentclientprotocol/sdk";
 import type { AppSessionInfo } from "../../application/session/types";
 import type { ChatMessage } from "../../domain/models/chat";
+import { wireSessionEvents } from "../../application/handlers";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -406,15 +407,15 @@ describe("Streaming — edge cases", () => {
     assert.strictEqual(streamChunks.length, 0);
   });
 
-  it("handles agent_thought_chunk without creating a sessionMessage", () => {
+  it("delivers agent_thought_chunk as a separate stream event from agent_message_chunk", () => {
     const sessionMessages: ChatMessage[] = [];
-    const streamChunks: string[] = [];
+    const streamChunks: Array<{ chunk: string; sessionUpdate?: string }> = [];
     let streamStartEmitted = false;
     orch.on("sessionMessage", (evt: any) => {
       sessionMessages.push(evt.message);
     });
     orch.on("sessionStreamChunk", (evt: any) => {
-      streamChunks.push(evt.chunk);
+      streamChunks.push({ chunk: evt.chunk, sessionUpdate: evt.sessionUpdate });
     });
     orch.on("sessionStreamStart", () => {
       streamStartEmitted = true;
@@ -441,20 +442,25 @@ describe("Streaming — edge cases", () => {
       "thoughts buffered, no stream chunks yet"
     );
 
-    // Sending agent_message_chunk appends to text batch
+    // Sending agent_message_chunk appends to the (separate) text batch
     (orch as any).handleSessionUpdate(
       agentId,
       makeAgentMessageChunkNotification(sessionId, "hello")
     );
 
-    // Both text chunks are now in the batch — flush required
+    // Both are now buffered in distinct batches — flush required
     assert.strictEqual(streamChunks.length, 0);
     (orch as any)
       .getInternalState()
       .protocolHandler.flushAllBatches(agentId, sessionId);
-    // flushAllBatches calls flushTextBatch which emits combined text
-    assert.strictEqual(streamChunks.length, 1);
-    assert.strictEqual(streamChunks[0], "thinking...hello");
+    // flushAllBatches flushes thoughts (agent_thought_chunk) then message text
+    // (agent_message_chunk) as TWO distinct stream events. They must never be
+    // concatenated into the same message body.
+    assert.strictEqual(streamChunks.length, 2);
+    assert.strictEqual(streamChunks[0].sessionUpdate, "agent_thought_chunk");
+    assert.strictEqual(streamChunks[0].chunk, "thinking...");
+    assert.strictEqual(streamChunks[1].sessionUpdate, "agent_message_chunk");
+    assert.strictEqual(streamChunks[1].chunk, "hello");
   });
 
   it("handles different sessions independently", () => {
@@ -597,5 +603,106 @@ describe("Streaming — interaction with tool calls", () => {
     // The agent chunk emits sessionStreamChunk (NOT sessionMessage)
     assert.ok(updatedInfo.messages.length >= 1);
     assert.strictEqual(updatedInfo.messages[0].role, "tool");
+  });
+});
+
+// ============================================================================
+// Regression: wireSessionEvents must forward sessionUpdate to pushStreamChunk
+// ============================================================================
+
+describe("wireSessionEvents — sessionStreamChunk forwards sessionUpdate", () => {
+  let orch: SessionOrchestrator;
+
+  beforeEach(() => {
+    orch = createMockOrchestrator();
+    injectRunningSession(orch, "reg-agent", "reg-sess");
+  });
+
+  afterEach(() => {
+    orch.dispose();
+  });
+
+  it("forwards agent_thought_chunk sessionUpdate so the webview routes it to a ThinkingBlock", () => {
+    const pushed: Array<{
+      chunk: string;
+      messageId?: string;
+      sessionUpdate?: string;
+    }> = [];
+    const chatPanel = {
+      pushStreamChunk: (
+        _agentId: string,
+        _sessionId: string,
+        chunk: string,
+        messageId?: string,
+        sessionUpdate?: string
+      ) => {
+        pushed.push({ chunk, messageId, sessionUpdate });
+      },
+      pushStreamEnd: () => {},
+      postMessage: () => {},
+    } as any;
+
+    wireSessionEvents({
+      orchestrator: orch,
+      getChatPanel: () => chatPanel,
+      presenter: {} as any,
+      statusTracker: {} as any,
+      historyStore: { addEntry: () => {} } as any,
+      updateContext: () => {},
+      sendTabs: () => {},
+    });
+
+    // Exactly how ProtocolHandler.flushThoughts emits a thought chunk.
+    (orch as any).emit("sessionStreamChunk", {
+      agentId: "reg-agent",
+      sessionId: "reg-sess",
+      chunk: "内部で考え中…",
+      messageId: "m-thought",
+      sessionUpdate: "agent_thought_chunk",
+    });
+
+    assert.strictEqual(pushed.length, 1);
+    assert.strictEqual(pushed[0].sessionUpdate, "agent_thought_chunk");
+    assert.strictEqual(pushed[0].chunk, "内部で考え中…");
+    assert.strictEqual(pushed[0].messageId, "m-thought");
+  });
+
+  it("forwards agent_message_chunk sessionUpdate untouched", () => {
+    const pushed: Array<{ chunk: string; sessionUpdate?: string }> = [];
+    const chatPanel = {
+      pushStreamChunk: (
+        _agentId: string,
+        _sessionId: string,
+        chunk: string,
+        _messageId?: string,
+        sessionUpdate?: string
+      ) => {
+        pushed.push({ chunk, sessionUpdate });
+      },
+      pushStreamEnd: () => {},
+      postMessage: () => {},
+    } as any;
+
+    wireSessionEvents({
+      orchestrator: orch,
+      getChatPanel: () => chatPanel,
+      presenter: {} as any,
+      statusTracker: {} as any,
+      historyStore: { addEntry: () => {} } as any,
+      updateContext: () => {},
+      sendTabs: () => {},
+    });
+
+    (orch as any).emit("sessionStreamChunk", {
+      agentId: "reg-agent",
+      sessionId: "reg-sess",
+      chunk: "こんにちは。",
+      messageId: "m-msg",
+      sessionUpdate: "agent_message_chunk",
+    });
+
+    assert.strictEqual(pushed.length, 1);
+    assert.strictEqual(pushed[0].sessionUpdate, "agent_message_chunk");
+    assert.strictEqual(pushed[0].chunk, "こんにちは。");
   });
 });

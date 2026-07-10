@@ -12,6 +12,10 @@ interface UiStateStore {
    * stacked top-bottom (vertical). Defaults to horizontal. */
   splitDirection: "horizontal" | "vertical";
 
+  /** Per-section size fractions (0..1) for the unified split layout.
+   * Index aligns with the visible section order. Empty means "equal split". */
+  splitRatios: number[];
+
   overviewVisible: boolean;
   overviewWidth: number;
   overviewPosition: "right" | "left";
@@ -23,6 +27,8 @@ interface UiStateStore {
   setPanelMode: (mode: "unified" | "supervisor") => void;
 
   setSplitDirection: (direction: "horizontal" | "vertical") => void;
+
+  setSplitRatios: (ratios: number[]) => void;
 
   setOverviewVisible: (v: boolean) => void;
   setOverviewWidth: (w: number) => void;
@@ -42,10 +48,14 @@ export const useUiStateStore = create<UiStateStore>((set) => ({
 
   splitDirection: "horizontal",
 
+  splitRatios: [],
+
   setSplitDirection: (direction) =>
     set((state) =>
       state.splitDirection === direction ? state : { splitDirection: direction }
     ),
+
+  setSplitRatios: (ratios: number[]) => set({ splitRatios: ratios }),
 
   setPanelMode: (mode) =>
     set((state) => (state.panelMode === mode ? state : { panelMode: mode })),

@@ -339,15 +339,15 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
       sessionId: string;
       chunk: string;
       messageId?: string;
+      // Preserve the ACP sessionUpdate type (agent_message_chunk /
+      // agent_thought_chunk) so the webview can route thought chunks into a
+      // dedicated ThinkingBlock instead of appending them to the response body.
+      sessionUpdate?: string;
     }) => {
+      const { agentId, sessionId, chunk, messageId, sessionUpdate } = event;
       const cp = getChatPanel();
       if (cp) {
-        cp.pushStreamChunk(
-          event.agentId,
-          event.sessionId,
-          event.chunk,
-          event.messageId
-        );
+        cp.pushStreamChunk(agentId, sessionId, chunk, messageId, sessionUpdate);
       }
     }
   );
