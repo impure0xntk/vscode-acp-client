@@ -649,6 +649,64 @@ describe("messageStore", () => {
       assert.strictEqual(state.perSession["session-1"][0].id, "new-id");
       assert.strictEqual(state.perSession["session-1"][0].content, "Hello");
     });
+
+    it("keeps thought and response as separate messages when they share a messageId", () => {
+      // Regression: when an ACP agent emits an agent_thought_chunk and a
+      // subsequent agent_message_chunk with the SAME messageId (a single
+      // assistant turn with extended thinking), the response text must NOT
+      // be merged into the thinking message.  Merging would produce one
+      // message carrying both `thinking` and `content`, which Message.tsx
+      // renders mixed (thinking block + response body in one container).
+      const key = "session-shared";
+      const store = useMessageStore.getState();
+
+      // Thought chunk → dedicated thinking message (id == messageId)
+      store.appendStreamChunk(
+        key,
+        "agent-1",
+        "sess-A",
+        "reasoning about the problem",
+        "m1",
+        "agent_thought_chunk"
+      );
+
+      // Response chunk with the SAME messageId → its own response message.
+      store.appendStreamChunk(
+        key,
+        "agent-1",
+        "sess-A",
+        "here is the answer",
+        "m1",
+        "agent_message_chunk"
+      );
+
+      const msgs = useMessageStore.getState().perSession[key];
+      assert.strictEqual(msgs.length, 2, "two distinct messages");
+
+      const think = msgs.find((m) => m.thinking != null);
+      const resp = msgs.find((m) => m.thinking == null && m.role === "agent");
+      assert.ok(think, "thinking message exists");
+      assert.ok(resp, "response message exists");
+
+      assert.strictEqual(
+        think!.thinking!.content,
+        "reasoning about the problem",
+        "thinking content intact"
+      );
+      assert.strictEqual(
+        think!.content,
+        "",
+        "thinking message has no response content"
+      );
+      assert.strictEqual(
+        resp!.content,
+        "here is the answer",
+        "response content isolated from thinking"
+      );
+      assert.strictEqual(resp!.thinking, undefined, "response has no thinking");
+      // Distinct logical messages must keep distinct ids.
+      assert.notStrictEqual(think!.id, resp!.id, "distinct ids");
+    });
   });
 
   // ── Cross-session isolation ───────────────────────────────────────
@@ -728,6 +786,195 @@ describe("messageStore", () => {
       const state = useMessageStore.getState();
       assert.strictEqual("session-1" in state.perSession, false);
       assert.strictEqual(state.perSession["session-2"].length, 1);
+    });
+  });
+
+  // ── Thinking stream finalization (think → thought) ───────────────
+
+  describe("thinking stream finalization", () => {
+    it("finalizes a streaming think when a different think starts", () => {
+      const key = "session-1";
+      const store = useMessageStore.getState();
+      // Think #1
+      store.appendStreamChunk(
+        key,
+        "agent-1",
+        "sess-A",
+        "reasoning a",
+        "think-1",
+        "agent_thought_chunk"
+      );
+      // Think #2 (different messageId) → think #1 becomes a completed "Thought"
+      store.appendStreamChunk(
+        key,
+        "agent-1",
+        "sess-A",
+        "reasoning b",
+        "think-2",
+        "agent_thought_chunk"
+      );
+
+      const msgs = useMessageStore.getState().perSession[key];
+      const thinks = msgs.filter((m) => m.thinking != null);
+      assert.strictEqual(thinks.length, 2, "two separate thinking messages");
+      // Think #1 finalized (isStreaming=false); think #2 still streaming
+      assert.strictEqual(
+        thinks[0].thinking!.isStreaming,
+        false,
+        "think #1 is a completed thought"
+      );
+      assert.strictEqual(
+        thinks[1].thinking!.isStreaming,
+        true,
+        "think #2 still streaming"
+      );
+    });
+
+    it("keeps merging chunks of the same think (same messageId)", () => {
+      const key = "session-1";
+      const store = useMessageStore.getState();
+      store.appendStreamChunk(
+        key,
+        "agent-1",
+        "sess-A",
+        "part1 ",
+        "think-1",
+        "agent_thought_chunk"
+      );
+      store.appendStreamChunk(
+        key,
+        "agent-1",
+        "sess-A",
+        "part2",
+        "think-1",
+        "agent_thought_chunk"
+      );
+      const msgs = useMessageStore.getState().perSession[key];
+      const thinks = msgs.filter((m) => m.thinking != null);
+      assert.strictEqual(thinks.length, 1, "single thinking message");
+      assert.strictEqual(thinks[0].thinking!.content, "part1 part2");
+      assert.strictEqual(thinks[0].thinking!.isStreaming, true);
+    });
+
+    it("finalizes a streaming think when a non-thinking response follows a tool call", () => {
+      const key = "session-1";
+      const store = useMessageStore.getState();
+      store.appendMessage(key, makeMessage({ role: "user", content: "q" }));
+      store.appendStreamChunk(
+        key,
+        "agent-1",
+        "sess-A",
+        "thinking hard",
+        "think-1",
+        "agent_thought_chunk"
+      );
+      // Tool call separates the think from the response
+      store.appendMessage(
+        key,
+        makeMessage({
+          role: "tool",
+          content: "ran",
+          id: "t1",
+          toolCalls: [
+            { id: "tc1", title: "Bash", status: "completed", kind: "bash" },
+          ],
+        })
+      );
+      // Response text (different messageId, non-thinking chunk)
+      store.appendStreamChunk(
+        key,
+        "agent-1",
+        "sess-A",
+        "final answer",
+        "resp-1"
+      );
+
+      const msgs = useMessageStore.getState().perSession[key];
+      const thinks = msgs.filter((m) => m.thinking != null);
+      assert.strictEqual(thinks.length, 1);
+      assert.strictEqual(
+        thinks[0].thinking!.isStreaming,
+        false,
+        "think finalized before the response"
+      );
+      // Response is created as its own (non-thinking) agent message
+      const resp = msgs.find(
+        (m) =>
+          m.role === "agent" &&
+          m.thinking == null &&
+          m.content === "final answer"
+      );
+      assert.ok(resp, "response created as its own message");
+    });
+
+    it("separates think chunks across a tool call into distinct thinks", () => {
+      const key = "session-1";
+      const store = useMessageStore.getState();
+      store.appendStreamChunk(
+        key,
+        "agent-1",
+        "sess-A",
+        "before tool",
+        "think-1",
+        "agent_thought_chunk"
+      );
+      store.appendMessage(
+        key,
+        makeMessage({
+          role: "tool",
+          content: "ran",
+          id: "t1",
+          toolCalls: [
+            { id: "tc1", title: "Bash", status: "completed", kind: "bash" },
+          ],
+        })
+      );
+      store.appendStreamChunk(
+        key,
+        "agent-1",
+        "sess-A",
+        "after tool",
+        "think-2",
+        "agent_thought_chunk"
+      );
+
+      const msgs = useMessageStore.getState().perSession[key];
+      const thinks = msgs.filter((m) => m.thinking != null);
+      assert.strictEqual(thinks.length, 2);
+      // Think #1 (before the tool) must be finalized as a "Thought"
+      assert.strictEqual(thinks[0].thinking!.isStreaming, false);
+      assert.strictEqual(thinks[1].thinking!.isStreaming, true);
+    });
+
+    it("does not re-finalize an already-completed think from a previous turn", () => {
+      const key = "session-1";
+      const store = useMessageStore.getState();
+      store.appendStreamChunk(
+        key,
+        "agent-1",
+        "sess-A",
+        "past think",
+        "think-old",
+        "agent_thought_chunk"
+      );
+      // Turn ends → finalizeThinking marks it done
+      store.finalizeThinking(key);
+      // Next turn starts with a new think (distinct messageId)
+      store.appendStreamChunk(
+        key,
+        "agent-1",
+        "sess-A",
+        "new think",
+        "think-new",
+        "agent_thought_chunk"
+      );
+
+      const msgs = useMessageStore.getState().perSession[key];
+      const thinks = msgs.filter((m) => m.thinking != null);
+      assert.strictEqual(thinks.length, 2);
+      // The past think stays finalized; the new think is streaming
+      assert.strictEqual(thinks[0].thinking!.isStreaming, false);
+      assert.strictEqual(thinks[1].thinking!.isStreaming, true);
     });
   });
 });

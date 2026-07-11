@@ -529,6 +529,11 @@ interface ComposerFocusMessage {
   type: "composer:focus";
 }
 
+interface PanelModeSetMessage {
+  type: "panelMode:set";
+  mode: "unified" | "supervisor";
+}
+
 interface SessionFileWriteMessage {
   type: "session/webviewFileWrite";
   agentId: string;
@@ -614,6 +619,7 @@ type WebviewMessage =
   | SessionUnpinnedNotification
   | PathsResolvedMessage
   | ComposerFocusMessage
+  | PanelModeSetMessage
   | SessionNotificationMessage
   | SessionFileWriteMessage;
 
@@ -1225,6 +1231,12 @@ function handleUnifiedChatSetSplitDirection(
   useUiStateStore.getState().setSplitDirection(data.direction);
 }
 
+function handlePanelModeSet(data: PanelModeSetMessage): void {
+  if (data.mode !== "unified" && data.mode !== "supervisor") return;
+  log.info("panelMode:set", { mode: data.mode });
+  useUiStateStore.getState().setPanelMode(data.mode);
+}
+
 function handleMeshStatus(data: MeshStatusMessage): void {
   useMeshStore.getState().setAgentStatuses(data.agents);
   if (data.teams) {
@@ -1749,6 +1761,9 @@ export function setupMessageHandlers(): void {
         break;
       case "unifiedChat:setSplitDirection":
         handleUnifiedChatSetSplitDirection(data);
+        break;
+      case "panelMode:set":
+        handlePanelModeSet(data);
         break;
       case "mesh:status":
         handleMeshStatus(data);

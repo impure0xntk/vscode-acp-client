@@ -793,6 +793,20 @@ function registerCommands(context: vscode.ExtensionContext): void {
     }
   );
 
+  const setPanelModeUnifiedCmd = vscode.commands.registerCommand(
+    "acp.setPanelMode.unified",
+    () => {
+      chatPanel?.postMessage({ type: "panelMode:set", mode: "unified" });
+    }
+  );
+
+  const setPanelModeSupervisorCmd = vscode.commands.registerCommand(
+    "acp.setPanelMode.supervisor",
+    () => {
+      chatPanel?.postMessage({ type: "panelMode:set", mode: "supervisor" });
+    }
+  );
+
   for (const d of [
     ...connectDisposables,
     ...sessionDisposables,
@@ -802,6 +816,8 @@ function registerCommands(context: vscode.ExtensionContext): void {
     startTeamCmd,
     splitVerticalCmd,
     splitHorizontalCmd,
+    setPanelModeUnifiedCmd,
+    setPanelModeSupervisorCmd,
     clearLogsCmd,
     exportDebugLogCmd,
   ]) {
@@ -855,6 +871,11 @@ async function applyPreset(preset: PresetConfig): Promise<void> {
         if (info) info.title = title;
       }
 
+      // Pin auto-created sessions by default unless explicitly disabled.
+      if (entry.pinned !== false) {
+        orchestrator.pinSession(agentConfig.id, sessionId);
+      }
+
       connectedSessions.push({
         agentId: agentConfig.id,
         sessionId,
@@ -899,6 +920,21 @@ async function applyPreset(preset: PresetConfig): Promise<void> {
         splitRatio: preset.splitRatio,
       });
     }
+
+    // Re-emit pin state now that the chat panel exists. The orchestrator
+    // emits `sessionPinned` while sessions are created above, but chatPanel
+    // is still null at that point, so those `session.pinned` notifications are
+    // dropped. The webview reflects pin state only from those notifications,
+    // so without this re-emit the preset sessions would never appear pinned.
+    for (const s of connectedSessions) {
+      if (orchestrator.isSessionPinned(s.agentId, s.sessionId)) {
+        panel.postMessage({
+          type: "session.pinned",
+          agentId: s.agentId,
+          sessionId: s.sessionId,
+        });
+      }
+    }
   }
 
   void vscode.window.showInformationMessage(
@@ -939,6 +975,11 @@ async function cmdConnect(
     if (entry?.sessionName) {
       const info = orchestrator.getSessionInfo(config.id, sessionId);
       if (info) info.title = entry.sessionName;
+    }
+
+    // Pin auto-created sessions by default unless explicitly disabled.
+    if (entry?.pinned !== false) {
+      orchestrator.pinSession(config.id, sessionId);
     }
 
     if (autoOpenChat) {

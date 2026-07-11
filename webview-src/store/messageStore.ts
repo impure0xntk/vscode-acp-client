@@ -6,17 +6,6 @@ import { useFileWriteStore } from "./fileWriteStore";
 const log = getLogger("webview.store.message");
 
 /**
- * Match a stored message against a raw ACP messageId.
- * Prefers the dedicated `messageId` field (set by streaming chunk handlers
- * for cross-turn uniqueness); falls back to `id` for legacy messages that
- * predate the field (e.g. snapshot restores).
- */
-function messageIdMatches(m: ChatMessage, messageId: string): boolean {
-  if (m.messageId != null) return m.messageId === messageId;
-  return m.id === messageId;
-}
-
-/**
  * Produce a session-unique id for a new streaming message.
  * When an ACP `messageId` is reused across turns (some agents do this), the
  * bare messageId would collide with a previous turn's message.  Suffix it
@@ -33,15 +22,55 @@ function ensureUniqueMessageId(
 }
 
 /**
+ * Index of the last still-streaming thinking message, scanning backward.
+ * Stops at user/system boundaries; tool messages are skipped so a think that
+ * preceded a tool call can still be finalized when a new think starts.
+ * Returns -1 when no streaming thinking message exists.
+ */
+function findLastStreamingThinkingIndex(existing: ChatMessage[]): number {
+  for (let i = existing.length - 1; i >= 0; i--) {
+    const m = existing[i];
+    if (m.role === "user" || m.role === "system") return -1;
+    if (m.role === "tool") continue;
+    if (
+      m.role === "agent" &&
+      m.thinking != null &&
+      m.thinking.isStreaming === true
+    ) {
+      return i;
+    }
+    // A non-streaming agent message (response or finalized think) terminates.
+    return -1;
+  }
+  return -1;
+}
+
+/**
+ * Finalize the last streaming thinking message so it renders as a completed
+ * "Thought" (no blink). Returns the same array reference when nothing changed.
+ */
+function finalizeLastStreamingThinking(existing: ChatMessage[]): ChatMessage[] {
+  const idx = findLastStreamingThinkingIndex(existing);
+  if (idx < 0) return existing;
+  const target = existing[idx];
+  const next = [...existing];
+  next[idx] = {
+    ...target,
+    thinking: { ...target.thinking!, isStreaming: false },
+  };
+  return next;
+}
+
+/**
  * Append thought text into a dedicated thinking message.
  *
  * Thought chunks (agent_thought_chunk) are kept separate from the agent's
  * message body so they render in a ThinkingBlock instead of being
  * concatenated with the response.  We merge into the most recent
- * still-streaming thinking message (same turn); otherwise a new thinking
- * message is created.  A finalized (isStreaming === false) thinking message
- * from a previous turn is never reused — the search stops at it so a fresh
- * thinking block is started for the new turn.
+ * still-streaming thinking message when it is the SAME logical think
+ * (matching or absent messageId); otherwise a new thinking message is
+ * created and the previous streaming think is finalized — so a completed
+ * think becomes a "Thought" (no blink) the moment a new think begins.
  */
 function appendThinkingText(
   existing: ChatMessage[],
@@ -50,38 +79,61 @@ function appendThinkingText(
   sessionId: string,
   messageId?: string | null
 ): ChatMessage[] {
-  let thinkTargetIdx = -1;
-  for (let i = existing.length - 1; i >= 0; i--) {
-    const m = existing[i];
-    if (m.role !== "agent") break;
-    if (m.thinking != null && m.thinking.isStreaming === true) {
-      thinkTargetIdx = i;
-      break;
-    }
-    // Any other agent message (content message or finalized thinking)
-    // terminates the search — a new thinking message must be created.
-    break;
-  }
+  const thinkTargetIdx = findLastStreamingThinkingIndex(existing);
 
   if (thinkTargetIdx >= 0) {
     const target = existing[thinkTargetIdx];
-    const updatedTarget: ChatMessage = {
+    // Same logical think (matching or absent messageId) → append to it.
+    const sameThink =
+      messageId == null ||
+      target.messageId == null ||
+      target.messageId === messageId;
+    if (sameThink) {
+      const next = [...existing];
+      next[thinkTargetIdx] = {
+        ...target,
+        thinking: {
+          type: "thinking",
+          content: target.thinking!.content + merged,
+          isStreaming: true,
+        },
+      };
+      return next;
+    }
+    // A different think started: the previous streaming think is done →
+    // finalize it ("Thought") and create a fresh thinking message below.
+    const finalized = [...existing];
+    finalized[thinkTargetIdx] = {
       ...target,
-      thinking: {
-        type: "thinking",
-        content: target.thinking!.content + merged,
-        isStreaming: true,
-      },
+      thinking: { ...target.thinking!, isStreaming: false },
     };
-    const next = [...existing];
-    next[thinkTargetIdx] = updatedTarget;
-    return next;
+    return createThinkingMessage(
+      finalized,
+      merged,
+      agentId,
+      sessionId,
+      messageId
+    );
   }
 
+  return createThinkingMessage(existing, merged, agentId, sessionId, messageId);
+}
+
+/**
+ * Create a new streaming thinking message. Carries messageId so subsequent
+ * chunks (or a following distinct think) can be correctly attributed.
+ */
+function createThinkingMessage(
+  base: ChatMessage[],
+  content: string,
+  agentId: string,
+  sessionId: string,
+  messageId?: string | null
+): ChatMessage[] {
   const writeSeq = useFileWriteStore.getState().currentSeq();
   const id = messageId ?? crypto.randomUUID();
   return [
-    ...existing,
+    ...base,
     {
       id,
       role: "agent",
@@ -90,9 +142,10 @@ function appendThinkingText(
       agentId,
       sessionId,
       writeSeq,
+      messageId: messageId ?? undefined,
       thinking: {
         type: "thinking",
-        content: merged,
+        content,
         isStreaming: true,
       },
     },
@@ -217,9 +270,7 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
     ) =>
       set((state) => {
         if (chunks.length === 0) return state;
-        const existing = state.perSession[key] ?? [];
-        const lastMsg =
-          existing.length > 0 ? existing[existing.length - 1] : null;
+        let existing = state.perSession[key] ?? [];
 
         // Track sessionUpdate type for boundary detection when no messageId
         const sessionUpdateKey = `${key}:${agentId}`;
@@ -251,12 +302,33 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
           };
         }
 
+        // A non-thinking stream chunk (response text, tool output, etc.)
+        // supersedes any still-streaming thinking block — finalize it so it
+        // renders as a completed "Thought" (no blink) instead of a perpetual
+        // "Thinking…".  A completed think must not keep blinking once the
+        // agent has moved on to producing the response.
+        existing = finalizeLastStreamingThinking(existing);
+
+        const lastMsg =
+          existing.length > 0 ? existing[existing.length - 1] : null;
+
         // 1. messageId-based merge: find the agent message with matching id
         let messageIdTargetIdx = -1;
         if (messageId != null) {
           for (let i = existing.length - 1; i >= 0; i--) {
             const m = existing[i];
-            if (m.role === "agent" && m.id === messageId) {
+            // A thinking message carrying this id is a DISTINCT logical
+            // message (the thought block), not the response.  Never merge a
+            // response chunk into it — doing so would produce a single message
+            // holding both `thinking` and `content`, which Message.tsx renders
+            // mixed (thinking block + response body in one container).  When
+            // thought and response share an ACP messageId, the response must
+            // become its own message so they render as separate blocks.
+            if (
+              m.role === "agent" &&
+              m.thinking == null &&
+              m.id === messageId
+            ) {
               messageIdTargetIdx = i;
               break;
             }
@@ -342,7 +414,13 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
         } else {
           // 4/5. No merge target — create a new ChatMessage.
           const writeSeq = useFileWriteStore.getState().currentSeq();
-          const id = messageId ?? crypto.randomUUID();
+          // ensureUniqueMessageId suffixes the id when it collides with an
+          // existing message (e.g. a thinking message that shares this ACP
+          // messageId), so separate logical messages keep distinct ids.
+          const id = ensureUniqueMessageId(
+            existing,
+            messageId ?? crypto.randomUUID()
+          );
           const merged = chunks.join("");
           newMessages = [
             ...existing,
@@ -381,9 +459,7 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
       sessionUpdate?: string | null
     ) =>
       set((state) => {
-        const existing = state.perSession[key] ?? [];
-        const lastMsg =
-          existing.length > 0 ? existing[existing.length - 1] : null;
+        let existing = state.perSession[key] ?? [];
 
         // Track sessionUpdate type for boundary detection when no messageId
         const sessionUpdateKey = `${key}:${agentId}`;
@@ -414,12 +490,30 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
           };
         }
 
+        // A non-thinking stream chunk supersedes any still-streaming thinking
+        // block — finalize it so it renders as a completed "Thought" (no blink).
+        existing = finalizeLastStreamingThinking(existing);
+
+        const lastMsg =
+          existing.length > 0 ? existing[existing.length - 1] : null;
+
         // 1. messageId-based merge: find agent message with matching id
         let messageIdTargetIdx = -1;
         if (messageId != null) {
           for (let i = existing.length - 1; i >= 0; i--) {
             const m = existing[i];
-            if (m.role === "agent" && m.id === messageId) {
+            // A thinking message carrying this id is a DISTINCT logical
+            // message (the thought block), not the response.  Never merge a
+            // response chunk into it — doing so would produce a single message
+            // holding both `thinking` and `content`, which Message.tsx renders
+            // mixed (thinking block + response body in one container).  When
+            // thought and response share an ACP messageId, the response must
+            // become its own message so they render as separate blocks.
+            if (
+              m.role === "agent" &&
+              m.thinking == null &&
+              m.id === messageId
+            ) {
               messageIdTargetIdx = i;
               break;
             }
@@ -502,7 +596,13 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
         } else {
           // No merge target — create a new ChatMessage.
           const writeSeq = useFileWriteStore.getState().currentSeq();
-          const id = messageId ?? crypto.randomUUID();
+          // ensureUniqueMessageId suffixes the id when it collides with an
+          // existing message (e.g. a thinking message that shares this ACP
+          // messageId), so separate logical messages keep distinct ids.
+          const id = ensureUniqueMessageId(
+            existing,
+            messageId ?? crypto.randomUUID()
+          );
           newMessages = [
             ...existing,
             {

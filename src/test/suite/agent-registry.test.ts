@@ -266,6 +266,34 @@ describe("AgentRegistry — loadFromSettings", () => {
     // the guard in loadFromSettings that requires workspace to be a string.
     assert.strictEqual(agent!.autoConnect!.length, 1);
   });
+
+  it("parses autoConnect pinned flag (true / false / omitted)", () => {
+    const platform = makePlatform({
+      agents: {
+        a: {
+          command: "echo",
+          autoConnect: [
+            { workspace: "/pinned-true", pinned: true },
+            { workspace: "/pinned-false", pinned: false },
+            { workspace: "/pinned-omitted" },
+          ],
+        },
+      },
+    });
+    const registry = new AgentRegistry(platform);
+    const agent = registry.getAgent("a");
+    assert.ok(agent);
+    const entries = agent!.autoConnect!;
+    assert.strictEqual(entries.length, 3);
+    assert.strictEqual(entries[0].workspace, "/pinned-true");
+    assert.strictEqual(entries[0].pinned, true);
+    assert.strictEqual(entries[1].workspace, "/pinned-false");
+    assert.strictEqual(entries[1].pinned, false);
+    // Omitted pinned is preserved as undefined so the caller can apply
+    // the default (pin on) at session-creation time.
+    assert.strictEqual(entries[2].workspace, "/pinned-omitted");
+    assert.strictEqual(entries[2].pinned, undefined);
+  });
 });
 
 // ============================================================================
@@ -460,6 +488,31 @@ describe("AgentRegistry.loadPreset", () => {
     assert.strictEqual(preset!.sessions[1].workspace, "/absolute/path");
     assert.strictEqual(preset!.sessions[1].sessionName, "Frontend 1");
     assert.strictEqual(preset!.sessions[1].mode, "review");
+  });
+
+  it("preserves session-level pinned flag (true / false / omitted)", () => {
+    const platform = makePlatform({
+      presets: {
+        default: "dev",
+        configs: {
+          dev: {
+            label: "dev",
+            sessions: [
+              { agent: "claude", sessionName: "Pinned", pinned: true },
+              { agent: "goose", sessionName: "Unpinned", pinned: false },
+              { agent: "a", sessionName: "Default" },
+            ],
+          },
+        },
+      },
+    });
+    const registry = new AgentRegistry(platform);
+    const preset = registry.loadPreset(platform);
+    assert.ok(preset);
+    assert.strictEqual(preset!.sessions.length, 3);
+    assert.strictEqual(preset!.sessions[0].pinned, true);
+    assert.strictEqual(preset!.sessions[1].pinned, false);
+    assert.strictEqual(preset!.sessions[2].pinned, undefined);
   });
 
   it("uses defaultName as label when label is missing", () => {

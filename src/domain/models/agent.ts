@@ -14,6 +14,8 @@ export interface PresetSessionEntry {
   sessionName?: string;
   /** Agent mode to set after connection */
   mode?: string;
+  /** Whether the auto-created session should be pinned. Defaults to true. */
+  pinned?: boolean;
 }
 
 /** A named preset configuration */

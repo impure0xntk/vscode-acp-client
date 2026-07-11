@@ -496,26 +496,6 @@ export function AppContainer(): React.ReactElement {
         />
       )}
       <div className="flex flex-col h-full min-h-0 min-w-0 overflow-hidden relative">
-        {/* Panel mode toggle */}
-        <div className="flex items-center gap-1 px-4 py-[6px] bg-[var(--bg-secondary)] border-b border-[var(--border)] flex-shrink-0">
-          <button
-            className={`px-2 py-0.5 text-xs text-fg-muted bg-transparent border border-transparent rounded-sm cursor-pointer hover:text-fg-primary${panelMode === "unified" ? " text-fg-primary bg-bg-input border-border" : ""}`}
-            onClick={() => useUiStateStore.getState().setPanelMode("unified")}
-            type="button"
-          >
-            Unified
-          </button>
-          <button
-            className={`px-2 py-0.5 text-xs text-fg-muted bg-transparent border border-transparent rounded-sm cursor-pointer hover:text-fg-primary${panelMode === "supervisor" ? " text-fg-primary bg-bg-input border-border" : ""}`}
-            onClick={() =>
-              useUiStateStore.getState().setPanelMode("supervisor")
-            }
-            type="button"
-          >
-            Supervisor
-          </button>
-        </div>
-
         {panelMode === "supervisor" ? (
           <SupervisorMode
             onSendMessage={handleMeshSend}

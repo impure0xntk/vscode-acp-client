@@ -9,6 +9,8 @@ export interface PresetSessionEntry {
   workspace?: string;
   sessionName?: string;
   mode?: string;
+  /** Whether the auto-created session should be pinned. Defaults to true. */
+  pinned?: boolean;
 }
 
 export interface PresetConfig {
@@ -114,6 +116,8 @@ export class AgentRegistry {
           sessionName:
             typeof s.sessionName === "string" ? s.sessionName : undefined,
           mode: typeof s.mode === "string" ? s.mode : undefined,
+          pinned:
+            typeof s.pinned === "boolean" ? s.pinned : undefined,
         };
       }),
     };
@@ -155,6 +159,8 @@ export class AgentRegistry {
               typeof entry.sessionName === "string"
                 ? entry.sessionName
                 : undefined,
+            pinned:
+              typeof entry.pinned === "boolean" ? entry.pinned : undefined,
           }));
       }
       return {

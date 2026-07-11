@@ -66,6 +66,33 @@ function meshSend(
   }
 }
 
+/**
+ * Re-emit the current pin set to the webview.
+ *
+ * Pin state reaches the webview only via `session.pinned` notifications.
+ * Any such notification emitted before the webview finishes loading (and
+ * attaches its message listener) is dropped by VS Code — so preset /
+ * auto-connect pins only appeared intermittently on cold start. Calling
+ * this from the `sessionReady` / `ready` handshake (posted by the webview
+ * *after* its listener is attached) guarantees delivery. Manual pins live
+ * only in the webview, so re-emitting the extension's pin set is additive
+ * and never clobbers them.
+ */
+function reEmitPinnedSessions(
+  orchestrator: SessionOrchestrator,
+  chatPanel: ChatPanel | null
+): void {
+  for (const agent of orchestrator.getAllAgents()) {
+    for (const sessionId of orchestrator.getPinnedSessions(agent.agentId)) {
+      chatPanel?.postMessage({
+        type: "session.pinned",
+        agentId: agent.agentId,
+        sessionId,
+      });
+    }
+  }
+}
+
 export function wireChatPanelEvents(
   chatPanel: ChatPanel | null,
   orchestrator: SessionOrchestrator,
@@ -207,8 +234,13 @@ export function wireChatPanelEvents(
         }
         break;
       }
+      case "ready":
       case "sessionReady":
         sendTabs();
+        // Re-emit pin state now that the webview is confirmed listening.
+        // See reEmitPinnedSessions() for why this is needed for preset /
+        // auto-connect pins to appear reliably on cold start.
+        reEmitPinnedSessions(orchestrator, chatPanel);
         break;
       case "fetchFiles": {
         const query = data.query as string;

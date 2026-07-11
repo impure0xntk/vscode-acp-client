@@ -629,6 +629,11 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                     latestGroup.finalResponse != null,
                     latestGroup.currentStep
                   );
+                  // Thinking items carried alongside the final step — used to
+                  // expand only the latest one by default.
+                  const finalThinkingItems = currentStep
+                    ? currentStep.toolCalls.filter((tc) => tc.thinking != null)
+                    : [];
                   return (
                     <React.Fragment key="latest-group">
                       <DisplayItemView
@@ -677,13 +682,19 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                           />
                           {/* Thinking blocks carried alongside the final step
                             render as their own message blocks (not merged into
-                            the final response body). */}
-                          {currentStep.toolCalls
-                            .filter((tc) => tc.thinking != null)
-                            .map((ti) => (
+                            the final response body). The latest thinking block
+                            in the final step is expanded by default; earlier
+                            ones stay collapsed. */}
+                          {finalThinkingItems.map((ti, idx) => {
+                            const isLast =
+                              idx === finalThinkingItems.length - 1;
+                            const thinking = ti.thinking
+                              ? { ...ti.thinking, defaultExpanded: isLast }
+                              : ti.thinking;
+                            return (
                               <DisplayItemView
                                 key={ti.key}
-                                item={{ ...ti, isFirstOfTurn: false }}
+                                item={{ ...ti, isFirstOfTurn: false, thinking }}
                                 idx={0}
                                 items={[ti]}
                                 sessionId={sessionId}
@@ -691,7 +702,8 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                                 isNew={true}
                                 forceHeader={false}
                               />
-                            ))}
+                            );
+                          })}
                           {currentStep.toolCalls.some(
                             (tc) => tc.thinking == null
                           ) && (
@@ -721,6 +733,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                           {currentStep && (
                             <StepView
                               step={currentStep}
+                              isFinalStep={true}
                               sessionId={sessionId}
                               agentId={agentId}
                               isNew={true}

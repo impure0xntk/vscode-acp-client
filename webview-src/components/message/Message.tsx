@@ -285,6 +285,7 @@ export const Message = React.memo(function Message({
         <ThinkingBlock
           content={thinking.content}
           isStreaming={thinking.isStreaming}
+          defaultExpanded={thinking.defaultExpanded ?? false}
         />
       )}
     </div>

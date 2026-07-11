@@ -7,6 +7,9 @@ import type { ChatDisplayItem, FileEditEntry } from "../../pipeline/types";
 
 export interface StepViewProps {
   step: IntermediateStep;
+  /** True when this step is the latest/final step of the turn — thinking
+   * blocks inside it expand by default (only the latest one). */
+  isFinalStep?: boolean;
   sessionId?: string;
   agentId?: string;
   /** When true, apply appear animation to tool batch */
@@ -34,6 +37,7 @@ export interface StepViewProps {
  */
 function StepViewInner({
   step,
+  isFinalStep = false,
   sessionId,
   agentId,
   isNew = true,
@@ -63,18 +67,26 @@ function StepViewInner({
   // Render a single thinking item as a normal message block.  Force
   // isFirstOfTurn off (clone) so the Message component does not draw its own
   // header — the step header above already provides the Agent / time label.
-  const renderThinking = (ti: ChatDisplayItem) => (
-    <DisplayItemView
-      key={ti.key}
-      item={{ ...ti, isFirstOfTurn: false }}
-      idx={0}
-      items={[ti]}
-      sessionId={sessionId}
-      agentId={agentId}
-      isNew={isNew}
-      forceHeader={false}
-    />
-  );
+  // When this is the final step, only the latest thinking block is
+  // expanded by default; earlier ones stay collapsed.
+  const renderThinking = (ti: ChatDisplayItem, idx: number) => {
+    const isLast = idx === thinkingItems.length - 1;
+    const thinking: ChatDisplayItem["thinking"] = ti.thinking
+      ? { ...ti.thinking, defaultExpanded: isFinalStep && isLast }
+      : ti.thinking;
+    return (
+      <DisplayItemView
+        key={`${ti.key}-${isLast}`}
+        item={{ ...ti, isFirstOfTurn: false, thinking }}
+        idx={0}
+        items={[ti]}
+        sessionId={sessionId}
+        agentId={agentId}
+        isNew={isNew}
+        forceHeader={false}
+      />
+    );
+  };
 
   // Pre-agent step (no agent message) — header + thinking + tool calls
   if (!step.agentMessage) {
@@ -92,7 +104,9 @@ function StepViewInner({
           </div>
         )}
         {hasThinking &&
-          thinkingItems.map((ti) => renderThinking(ti as ChatDisplayItem))}
+          thinkingItems.map((ti, idx) =>
+            renderThinking(ti as ChatDisplayItem, idx)
+          )}
         {hasToolCalls && (
           <div className="ml-4 mr-1 mb-[2px]">
             <ToolBatchSummary calls={allToolCalls} isNew={isNew} />
@@ -124,7 +138,9 @@ function StepViewInner({
         />
       )}
       {hasThinking &&
-        thinkingItems.map((ti) => renderThinking(ti as ChatDisplayItem))}
+        thinkingItems.map((ti, idx) =>
+          renderThinking(ti as ChatDisplayItem, idx)
+        )}
       {hasToolCalls && (
         <div className="ml-4 mr-1 mb-[2px]">
           <ToolBatchSummary calls={allToolCalls} isNew={isNew} />
@@ -148,6 +164,7 @@ function areStepViewPropsEqual(
 ): boolean {
   return (
     prev.step === next.step &&
+    prev.isFinalStep === next.isFinalStep &&
     prev.sessionId === next.sessionId &&
     prev.agentId === next.agentId &&
     prev.isNew === next.isNew &&

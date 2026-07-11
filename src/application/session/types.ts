@@ -39,6 +39,8 @@ export interface AppSessionInfo extends SessionInfo {
 export interface AutoConnectEntry {
   workspace?: string;
   sessionName?: string;
+  /** Whether the auto-created session should be pinned. Defaults to true. */
+  pinned?: boolean;
 }
 
 export interface AgentConfig {
