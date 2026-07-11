@@ -25,6 +25,7 @@ import type { SendTarget } from "../../../domain/models/mesh";
 import type { MeshOrchestrator } from "../../../domain/services/mesh-orchestrator";
 import type { SupervisorOrchestrator } from "../../../domain/services/supervisor-orchestrator";
 import { getLogger } from "../../../platform/backends";
+import { getReviewPrompt } from "./review";
 
 const execAsync = promisify(exec);
 
@@ -320,6 +321,14 @@ export function wireChatPanelEvents(
               error: err.message,
             })
           );
+        break;
+      }
+      case "review:start": {
+        // Triggered from the "Files changed" header in the webview.
+        // Read the configured review prompt and forward it to the webview,
+        // which gathers the session's changed files and pre-fills the Composer.
+        const prompt = getReviewPrompt();
+        chatPanel?.postMessage({ type: "review:prepare", prompt });
         break;
       }
       case "attachExternalFile": {

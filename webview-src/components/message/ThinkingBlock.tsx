@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { IconBrain } from "../../lib/icons";
+import { IconThought } from "../../lib/icons";
 import { renderMarkdown } from "../../lib/markdown";
 import { getVsCodeApi } from "../../lib/vscodeApi";
 
@@ -78,7 +78,7 @@ export function ThinkingBlock({
         >
           ▶
         </span>
-        <IconBrain size={14} className="flex-shrink-0 opacity-70" />
+        <IconThought size={14} className="flex-shrink-0 opacity-70" />
         <span className="flex-1 italic">
           {isStreaming ? "Thinking…" : "Thought"}
         </span>

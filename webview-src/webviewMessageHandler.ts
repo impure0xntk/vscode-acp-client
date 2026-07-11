@@ -8,6 +8,7 @@ import { clearDiffCache } from "./pipeline/stages/grouping";
 import { removePipelineCache } from "./hooks/useMessagePipeline";
 import { getVsCodeApi } from "./lib/vscodeApi";
 import { getLogger } from "./lib/logger";
+import { buildReviewAttachment } from "./lib/review";
 import { toSessionInfoDTO } from "./store/mappers";
 import type { SessionInfoDTO } from "./store/sessionStore";
 import type {
@@ -530,6 +531,25 @@ interface ComposerFocusMessage {
   type: "composer:focus";
 }
 
+interface ReviewPrepareMessage {
+  type: "review:prepare";
+  /** Review instruction read from the `acp.review.prompt` setting. */
+  prompt: string;
+  /** Target session whose "Files changed" to aggregate. Falls back to the
+   * active session when omitted (e.g. triggered via the `acp.reviewChanges`
+   * command). */
+  agentId?: string;
+  sessionId?: string;
+}
+
+interface FixPrepareMessage {
+  type: "fix:prepare";
+  /** Pre-built selection attachment (resolved by the extension host). */
+  attachment: ContextAttachment;
+  /** Fix instruction read from the `acp.fix.prompt` setting. */
+  prompt: string;
+}
+
 interface PanelModeSetMessage {
   type: "panelMode:set";
   mode: "unified" | "supervisor";
@@ -573,6 +593,16 @@ interface SessionNotificationMessage {
 
 interface ResolvedExternalFileMessage {
   type: "resolvedExternalFile";
+  attachment: ContextAttachment;
+}
+
+/**
+ * Editor-driven context attach (acp.attachFile / acp.attachSelection /
+ * acp.attachDiff commands).  Carries a resolved attachment so the webview
+ * can inject it into the Composer (not display it as a chat message).
+ */
+interface AttachContextMessage {
+  type: "attachContext";
   attachment: ContextAttachment;
 }
 
@@ -625,10 +655,13 @@ type WebviewMessage =
   | SessionUnpinnedNotification
   | PathsResolvedMessage
   | ComposerFocusMessage
+  | ReviewPrepareMessage
+  | FixPrepareMessage
   | PanelModeSetMessage
   | SessionNotificationMessage
   | SessionFileWriteMessage
-  | ResolvedExternalFileMessage;
+  | ResolvedExternalFileMessage
+  | AttachContextMessage;
 
 function handleSetTabs(data: SetTabsMessage): void {
   log.info("handleSetTabs", {
@@ -1680,6 +1713,50 @@ function handleSessionNotification(data: SessionNotificationMessage): void {
 }
 
 /**
+ * Pre-fill the Composer with the active session's "Files changed" (as a
+ * single aggregated diff attachment) plus the configured review prompt, so
+ * the user can pick a target session and send them for review.
+ */
+function handleReviewPrepare(data: ReviewPrepareMessage): void {
+  const store = useSessionStore.getState();
+  let agentId: string | undefined;
+  let sessionId: string | undefined;
+  if (data.agentId && data.sessionId) {
+    agentId = data.agentId;
+    sessionId = data.sessionId;
+  } else {
+    const activeKey = store.activeSessionKey;
+    if (!activeKey) {
+      log.warn("handleReviewPrepare: no session specified");
+      return;
+    }
+    [agentId, sessionId] = activeKey.split(":");
+  }
+  const attachment = buildReviewAttachment(agentId, sessionId);
+  window.dispatchEvent(
+    new CustomEvent("acp:prepareReview", {
+      detail: { attachment, prompt: data.prompt },
+    })
+  );
+}
+
+/**
+ * Pre-fill the Composer with the editor selection (as a Composer attachment)
+ * plus a fix instruction, so the user can forward the selected word/sentence
+ * to an agent for correction. Reuses the Composer's `acp:prepareReview`
+ * listener since it already merges an attachment + prompt into the Composer.
+ */
+export function handleFixPrepare(data: FixPrepareMessage): void {
+  const attachment = data.attachment;
+  if (!attachment) return;
+  window.dispatchEvent(
+    new CustomEvent("acp:prepareReview", {
+      detail: { attachment, prompt: data.prompt },
+    })
+  );
+}
+
+/**
  * Configures the webview message handler.
  * Distributes messages from the extension host to each store.
  */
@@ -1908,6 +1985,12 @@ export function setupMessageHandlers(): void {
           }
         });
         break;
+      case "review:prepare":
+        handleReviewPrepare(data);
+        break;
+      case "fix:prepare":
+        handleFixPrepare(data);
+        break;
       case "session/notification":
         handleSessionNotification(data);
         break;
@@ -1921,6 +2004,20 @@ export function setupMessageHandlers(): void {
         if (attachment) {
           window.dispatchEvent(
             new CustomEvent("acp:attachExternalFile", {
+              detail: { attachment },
+            })
+          );
+        }
+        break;
+      }
+      case "attachContext": {
+        // Editor-driven attach (acp.attachFile / acp.attachSelection /
+        // acp.attachDiff). Inject the resolved attachment into the Composer
+        // instead of displaying it as a chat message.
+        const attachment = data.attachment;
+        if (attachment) {
+          window.dispatchEvent(
+            new CustomEvent("acp:attachContext", {
               detail: { attachment },
             })
           );

@@ -660,18 +660,21 @@ export function IconListTree({
   );
 }
 
-export function IconBrain({
+/**
+ * THOUGHT icon — a speech/thinking bubble with three dots, the universal
+ * "thinking / typing" indicator. Replaces the ambiguous brain glyph so the
+ * meaning of the thinking block is immediately clear.
+ */
+export function IconThought({
   className,
   size = 16,
 }: IconProps): React.ReactElement {
   return (
     <Svg className={className} size={size}>
-      <path d="M4 3.5a3.5 3.5 0 0 1 7 0c1 .5 1.5 1.5 1.5 2.5s-.5 2-1 2.5c1 .5 1.5 1.5 1.5 3a3.5 3.5 0 0 1-7 0 3.5 3.5 0 0 0 0-5 3 3 0 0 0-1.5-2.5c.5-.5.5-1 0-1z" />
-      <path d="M6.5 7v2M9.5 7v2" />
-      <path
-        d="M6.5 5.5c1 0 1.5.5 1.5.5M9.5 5.5c-1 0-1.5.5-1.5.5"
-        strokeWidth="0.8"
-      />
+      <path d="M3 5.5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H8.5L6 13.5V10.5h-1a2 2 0 0 1-2-2z" />
+      <circle cx="5.5" cy="7" r="0.8" fill="currentColor" stroke="none" />
+      <circle cx="8" cy="7" r="0.8" fill="currentColor" stroke="none" />
+      <circle cx="10.5" cy="7" r="0.8" fill="currentColor" stroke="none" />
     </Svg>
   );
 }

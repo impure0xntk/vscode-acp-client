@@ -12,6 +12,7 @@ import { getVsCodeApi } from "../../lib/vscodeApi";
 import { useFileWriteStore } from "../../store/fileWriteStore";
 import type { ContextAttachment } from "../../types";
 import { FileIcon } from "../primitives";
+import { IconMagnifier } from "../../lib/icons";
 
 export interface FileEditSummaryProps {
   entries: FileEditEntry[];
@@ -186,6 +187,17 @@ function FileEditSummaryInner({
     setCollapsed((c) => !c);
   }, []);
 
+  // Forward the session's changed files to another session for review.
+  // The extension reads the `acp.review.prompt` setting and pre-fills the
+  // Composer with the aggregated diff + review prompt.
+  const handleReview = useCallback(() => {
+    try {
+      getVsCodeApi().postMessage({ type: "review:start" });
+    } catch {
+      /* vscodeApi not available */
+    }
+  }, []);
+
   const toggleRow = useCallback((path: string) => {
     setRowStates((prev) => {
       const cur = prev[path];
@@ -220,31 +232,43 @@ function FileEditSummaryInner({
   return (
     <div className="ml-4 mr-1 mt-1 mb-1 rounded-md border border-[color-mix(in_srgb,var(--border)_60%,transparent)] bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)] overflow-hidden">
       {/* Header */}
-      <button
-        className="w-full flex items-center gap-2 px-2.5 py-[5px] bg-transparent border-none cursor-pointer text-left transition-colors duration-100 hover:bg-[color-mix(in_srgb,var(--accent)_6%,transparent)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]"
-        onClick={toggleCollapse}
-        aria-expanded={!collapsed}
-      >
-        <span
-          className="text-[10px] text-fg-muted flex-shrink-0 transition-transform duration-150"
-          style={{ transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}
-          aria-hidden="true"
+      <div className="flex items-center gap-2 px-2.5 py-[5px] bg-transparent border-none text-left transition-colors duration-100 hover:bg-[color-mix(in_srgb,var(--accent)_6%,transparent)]">
+        <button
+          className="flex items-center gap-2 bg-transparent border-none cursor-pointer text-left p-0 rounded focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-[-1px]"
+          onClick={toggleCollapse}
+          aria-expanded={!collapsed}
         >
-          ▼
-        </span>
-        <span className="text-[11px] font-medium text-fg-secondary flex-shrink-0">
-          Files changed
-        </span>
-        <span className="inline-flex items-center justify-center min-w-[18px] h-[16px] px-[5px] rounded-[8px] bg-[color-mix(in_srgb,var(--accent)_15%,transparent)] text-[10px] font-mono font-semibold text-accent flex-shrink-0">
-          {renderableEntries.length}
-        </span>
-        <span className="text-[10px] font-mono text-fg-muted flex-shrink-0">
-          <span className="text-success">+{totalLines}</span>
-          {totalDeleted > 0 && (
-            <span className="text-error"> -{totalDeleted}</span>
-          )}
-        </span>
-      </button>
+          <span
+            className="text-[10px] text-fg-muted flex-shrink-0 transition-transform duration-150"
+            style={{
+              transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)",
+            }}
+            aria-hidden="true"
+          >
+            ▼
+          </span>
+          <span className="text-[11px] font-medium text-fg-secondary flex-shrink-0">
+            Files changed
+          </span>
+          <span className="inline-flex items-center justify-center min-w-[18px] h-[16px] px-[5px] rounded-[8px] bg-[color-mix(in_srgb,var(--accent)_15%,transparent)] text-[10px] font-mono font-semibold text-accent flex-shrink-0">
+            {renderableEntries.length}
+          </span>
+          <span className="text-[10px] font-mono text-fg-muted flex-shrink-0">
+            <span className="text-success">+{totalLines}</span>
+            {totalDeleted > 0 && (
+              <span className="text-error"> -{totalDeleted}</span>
+            )}
+          </span>
+        </button>
+        <button
+          className="ml-auto inline-flex items-center justify-center w-[18px] h-[18px] p-0 rounded-[3px] bg-transparent text-fg-muted text-[11px] cursor-pointer border-none hover:bg-accent-hover hover:text-fg-primary transition-all"
+          onClick={handleReview}
+          title="Review changes in another session"
+          aria-label="Review changes"
+        >
+          <IconMagnifier size={13} className="flex-shrink-0" />
+        </button>
+      </div>
 
       {/* Rows */}
       {!collapsed && (

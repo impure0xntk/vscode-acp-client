@@ -258,10 +258,39 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
       };
       window.addEventListener("acp:attachDiff", handler);
       window.addEventListener("acp:attachExternalFile", handler);
+      // Editor-driven attach (acp.attachFile / acp.attachSelection /
+      // acp.attachDiff commands) — inject into Composer attachments.
+      window.addEventListener("acp:attachContext", handler);
       return () => {
         window.removeEventListener("acp:attachDiff", handler);
         window.removeEventListener("acp:attachExternalFile", handler);
+        window.removeEventListener("acp:attachContext", handler);
       };
+    }, []);
+
+    // Pre-fill the Composer for a code review: the active session's
+    // aggregated "Files changed" diff attachment plus the configured review
+    // prompt. Triggered by the `acp.reviewChanges` command / "Files changed"
+    // review button so the user can forward the changes to another session.
+    useEffect(() => {
+      const handler = (e: Event) => {
+        const detail = (e as CustomEvent).detail as {
+          attachment?: ContextAttachment;
+          prompt?: string;
+        };
+        if (detail.attachment) {
+          setAttachments((prev) => [
+            ...prev.filter((a) => a.id !== detail.attachment!.id),
+            detail.attachment!,
+          ]);
+        }
+        if (detail.prompt) {
+          setText(detail.prompt);
+        }
+        requestAnimationFrame(() => textareaRef.current?.focus());
+      };
+      window.addEventListener("acp:prepareReview", handler);
+      return () => window.removeEventListener("acp:prepareReview", handler);
     }, []);
 
     const resetHeight = useCallback(() => {

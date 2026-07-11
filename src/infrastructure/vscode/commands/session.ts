@@ -1,8 +1,8 @@
 import * as vscode from "vscode";
 import type { SessionOrchestrator } from "../../../application/orchestrator";
 import type { ChatPanel } from "../vscode-ui/chatPanel";
-import type { ContextAttachmentDTO } from "../../../domain/models/chat";
 import type { PersistentHistoryStore } from "../../../application/session/persistentHistory";
+import { getReviewPrompt } from "./review";
 
 export function registerSessionCommands(
   orchestrator: SessionOrchestrator,
@@ -296,7 +296,8 @@ export function registerSessionCommands(
         filePath = require("path").relative(ws2, uris[0].fsPath);
       }
       const attachment = await resolveFile(filePath, cwd);
-      addContextToChat(attachment, orchestrator, getChatPanel);
+      // Inject into the Composer as a context attachment (not a chat message).
+      getChatPanel()?.postMessage({ type: "attachContext", attachment });
     }
   );
 
@@ -309,7 +310,8 @@ export function registerSessionCommands(
         void vscode.window.showWarningMessage("ACP: No text selected");
         return;
       }
-      addContextToChat(attachment, orchestrator, getChatPanel);
+      // Inject into the Composer as a context attachment (not a chat message).
+      getChatPanel()?.postMessage({ type: "attachContext", attachment });
     }
   );
 
@@ -322,7 +324,20 @@ export function registerSessionCommands(
         void vscode.window.showWarningMessage("ACP: No git diff available");
         return;
       }
-      addContextToChat(attachment, orchestrator, getChatPanel);
+      // Inject into the Composer as a context attachment (not a chat message).
+      getChatPanel()?.postMessage({ type: "attachContext", attachment });
+    }
+  );
+
+  // acp.reviewChanges — gather the active session's "Files changed" and
+  // pre-fill the Composer so the user can forward them to another session
+  // for review (the review prompt comes from the `acp.review.prompt` setting).
+  const reviewChangesCmd = vscode.commands.registerCommand(
+    "acp.reviewChanges",
+    () => {
+      const prompt = getReviewPrompt();
+      ensureChatPanel();
+      getChatPanel()?.postMessage({ type: "review:prepare", prompt });
     }
   );
 
@@ -811,6 +826,7 @@ export function registerSessionCommands(
     attachFileCmd,
     attachSelectionCmd,
     attachDiffCmd,
+    reviewChangesCmd,
     forkSessionCmd,
     restoreSessionCmd,
     pinSessionCmd,
@@ -820,30 +836,4 @@ export function registerSessionCommands(
     closeAllCmd,
     showAgentMenuCmd,
   ];
-}
-
-function addContextToChat(
-  attachment: ContextAttachmentDTO,
-  orchestrator: SessionOrchestrator,
-  getChatPanel: () => ChatPanel | null
-): void {
-  const agents = orchestrator.getAllAgents();
-  if (agents.length === 0) return;
-  const agent = agents[0];
-  const activeSessionId =
-    orchestrator.getActiveSessionId(agent.agentId) ??
-    agent.sessions[0]?.sessionId;
-  if (!activeSessionId) return;
-  const info = orchestrator.getSessionInfo(agent.agentId, activeSessionId);
-  getChatPanel()?.pushMessage(
-    agent.agentId,
-    activeSessionId,
-    {
-      id: crypto.randomUUID(),
-      role: "system",
-      content: `📎 ${attachment.label} (${attachment.tokenCount} tokens)`,
-      timestamp: Date.now(),
-    },
-    info?.cwd
-  );
 }

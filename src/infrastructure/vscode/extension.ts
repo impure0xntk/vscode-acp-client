@@ -28,6 +28,7 @@ import {
 } from "../../adapter/context/symbol";
 import { ensureChatPanel, registerConnectCommands } from "./commands/connect";
 import { registerSessionCommands } from "./commands/session";
+import { registerQuickFixCommands } from "./commands/quickfix";
 import { registerExportDebugLogCommand } from "./commands/exportDebugLog";
 import { LogEntrySinkImpl } from "../../domain/services/log-entry-sink";
 import { wireChatPanelEvents } from "./commands/prompt";
@@ -682,6 +683,21 @@ function registerCommands(context: vscode.ExtensionContext): void {
     sendTabsToChatPanel
   );
 
+  const quickFixDisposables = registerQuickFixCommands(
+    orchestrator,
+    getChatPanel,
+    () =>
+      ensureChatPanel(
+        getChatPanel,
+        setChatPanel,
+        extensionContext.extensionUri,
+        sendTabsToChatPanel,
+        wireChatPanelEventsLocal,
+        orchestrator
+      ),
+    resolveSelection
+  );
+
   const setModeCmd = vscode.commands.registerCommand("acp.setMode", () => {
     void vscode.window.showWarningMessage("ACP: setMode not yet implemented");
   });
@@ -810,6 +826,7 @@ function registerCommands(context: vscode.ExtensionContext): void {
   for (const d of [
     ...connectDisposables,
     ...sessionDisposables,
+    ...quickFixDisposables,
     setModeCmd,
     showTrafficCmd,
     toggleOverviewCmd,
