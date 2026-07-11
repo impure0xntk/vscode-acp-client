@@ -31,6 +31,7 @@ import type {
   Selection,
   ActiveEditor,
   DiffResult,
+  DiagnosticProblem,
 } from "../editor";
 import type {
   ExtensionContextAPI,
@@ -700,6 +701,44 @@ class VscodeEditorAPI implements EditorAPI {
     const unstaged = await repo.diff(false);
     if (unstaged) diffs.push(unstaged);
     return diffs.length > 0 ? diffs.join("\n") : undefined;
+  }
+
+  async getDiagnostics(): Promise<DiagnosticProblem[]> {
+    const all = vscode.languages.getDiagnostics();
+    const result: DiagnosticProblem[] = [];
+    for (const [uri, diagnostics] of all) {
+      const filePath = uri.fsPath;
+      for (const d of diagnostics) {
+        let code: string | undefined;
+        if (d.code !== undefined) {
+          code =
+            typeof d.code === "string"
+              ? d.code
+              : typeof d.code === "object"
+                ? String(d.code.value)
+                : String(d.code);
+        }
+        result.push({
+          filePath,
+          startLine: d.range.start.line + 1,
+          startColumn: d.range.start.character + 1,
+          endLine: d.range.end.line + 1,
+          endColumn: d.range.end.character + 1,
+          severity:
+            d.severity === vscode.DiagnosticSeverity.Error
+              ? "error"
+              : d.severity === vscode.DiagnosticSeverity.Warning
+                ? "warning"
+                : d.severity === vscode.DiagnosticSeverity.Information
+                  ? "info"
+                  : "hint",
+          message: d.message,
+          source: d.source,
+          code,
+        });
+      }
+    }
+    return result;
   }
 }
 

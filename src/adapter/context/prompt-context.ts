@@ -19,6 +19,21 @@ export function attachmentsToContentBlocks(
 ): ContentBlock[] {
   const blocks: ContentBlock[] = [];
   for (const a of attachments) {
+    // Problems are an aggregate across many files (or one external tool's
+    // output), not a single document. Use a synthetic, self-describing URI
+    // so the agent receives the formatted problem list as a resource
+    // without mistaking it for a real `file://` path.
+    if (a.type === "problem") {
+      blocks.push({
+        type: "resource",
+        resource: {
+          uri: "problems://diagnostics",
+          mimeType: "text/plain",
+          text: a.content,
+        },
+      });
+      continue;
+    }
     if (!a.path) continue;
     blocks.push({
       type: "resource",

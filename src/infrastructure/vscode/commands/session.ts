@@ -39,6 +39,13 @@ export function registerSessionCommands(
   resolveDiff: () => Promise<
     import("../../../domain/models/chat").ContextAttachmentDTO | null
   >,
+  getDiagnostics: () => Promise<
+    import("../../../platform/editor").DiagnosticProblem[]
+  >,
+  getActiveFile: () => string | undefined,
+  resolveProblems: (
+    filter: import("../../../adapter/context/assembler").ProblemFilter
+  ) => Promise<import("../../../domain/models/chat").ContextAttachmentDTO | null>,
   sendTabsToChatPanel: () => void
 ): vscode.Disposable[] {
   // acp.newSession
@@ -284,16 +291,18 @@ export function registerSessionCommands(
 
       let filePath: string;
       if (uri) {
-        const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "";
-        filePath = require("path").relative(ws, uri.fsPath);
+        // fsPath is already absolute — pass it through so resolveFile reads
+        // the exact file. Converting to a workspace-relative path here and
+        // then re-joining against cwd in resolveFile produces a wrong path
+        // (and ENOENT) whenever cwd differs from the first workspace folder.
+        filePath = uri.fsPath;
       } else {
         const uris = await vscode.window.showOpenDialog({
           canSelectMany: false,
           openLabel: "Attach",
         });
         if (!uris?.length) return;
-        const ws2 = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "";
-        filePath = require("path").relative(ws2, uris[0].fsPath);
+        filePath = uris[0].fsPath;
       }
       const attachment = await resolveFile(filePath, cwd);
       // Inject into the Composer as a context attachment (not a chat message).
@@ -322,6 +331,64 @@ export function registerSessionCommands(
       const attachment = await resolveDiff();
       if (!attachment) {
         void vscode.window.showWarningMessage("ACP: No git diff available");
+        return;
+      }
+      // Inject into the Composer as a context attachment (not a chat message).
+      getChatPanel()?.postMessage({ type: "attachContext", attachment });
+    }
+  );
+
+  // acp.attachProblems — gather VS Code's Problems panel (including issues
+  // reported by external tools like ESLint/TSLint/tsc) and attach them to
+  // the Composer as a single context attachment with file:line:col refs.
+  const attachProblemsCmd = vscode.commands.registerCommand(
+    "acp.attachProblems",
+    async () => {
+      // Scope: entire workspace vs the active editor's document.
+      const scopePick = await vscode.window.showQuickPick(
+        [
+          {
+            label: "$(globe) Workspace",
+            description: "All problems across every file",
+            value: "all" as const,
+          },
+          {
+            label: "$(file) Current file",
+            description: "Only problems in the active editor",
+            value: "currentFile" as const,
+          },
+        ],
+        { placeHolder: "Attach problems from where?" }
+      );
+      if (!scopePick) return;
+
+      // Discover which reporting tools (sources) are present so the user can
+      // narrow to a single linter/compiler if they want.
+      const all = await getDiagnostics();
+      const sources = Array.from(
+        new Set(all.map((d) => d.source).filter((s): s is string => !!s))
+      ).sort();
+      let source: string | undefined;
+      if (sources.length > 1) {
+        const sourcePick = await vscode.window.showQuickPick(
+          [
+            { label: "$(check-all) All sources", value: undefined as string | undefined },
+            ...sources.map((s) => ({ label: s, value: s })),
+          ],
+          { placeHolder: "Filter by reporting tool (optional)" }
+        );
+        if (!sourcePick) return;
+        source = sourcePick.value;
+      }
+
+      const attachment = await resolveProblems({
+        scope: scopePick.value,
+        source,
+      });
+      if (!attachment) {
+        void vscode.window.showWarningMessage(
+          "ACP: No problems found for the selected scope"
+        );
         return;
       }
       // Inject into the Composer as a context attachment (not a chat message).
@@ -826,6 +893,7 @@ export function registerSessionCommands(
     attachFileCmd,
     attachSelectionCmd,
     attachDiffCmd,
+    attachProblemsCmd,
     reviewChangesCmd,
     forkSessionCmd,
     restoreSessionCmd,

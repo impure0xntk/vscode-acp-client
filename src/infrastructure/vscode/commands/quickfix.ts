@@ -2,6 +2,11 @@ import * as vscode from "vscode";
 import type { SessionOrchestrator } from "../../../application/orchestrator";
 import type { ChatPanel } from "../vscode-ui/chatPanel";
 import type { ContextAttachmentDTO } from "../../../domain/models/chat";
+import type { SerializedRange } from "../../../adapter/context/assembler";
+import {
+  resolveFixAttachment,
+  type FixSelectionArgs,
+} from "./quickfixResolver";
 
 /**
  * Default prompt used when pre-filling the Composer to ask an agent to fix
@@ -23,22 +28,35 @@ export function getFixPrompt(): string {
  * Register the "Fix selection with agent" Quick Fix and its backing command.
  *
  * The Quick Fix (`vscode.CodeActionKind.QuickFix`) appears in the lightbulb
- * whenever a non-empty selection exists. Invoking it resolves the current editor
- * selection as a Composer attachment, opens the chat panel, and pre-fills the
- * Composer with a fix instruction so the user can forward it to an agent.
+ * for any non-empty range — including a diagnostic "problem" range, not just a
+ * user selection. Invoking it resolves the *range it was invoked on* (passed
+ * through as command arguments) as a Composer attachment, opens the chat panel,
+ * and pre-fills the Composer with a fix instruction so the user can forward it to
+ * an agent. Passing the range explicitly is required: when the Quick Fix is fired
+ * from a problem's lightbulb, the active editor selection is empty, so reading
+ * `editor.activeEditor` would resolve nothing.
  */
 export function registerQuickFixCommands(
   _orchestrator: SessionOrchestrator,
   getChatPanel: () => ChatPanel | null,
   ensureChatPanel: () => void,
-  resolveSelection: () => Promise<ContextAttachmentDTO | null>
+  resolveSelection: () => Promise<ContextAttachmentDTO | null>,
+  resolveRangeAt: (
+    uri: string,
+    range: SerializedRange
+  ) => Promise<ContextAttachmentDTO | null>
 ): vscode.Disposable[] {
-  // acp.fixSelection — resolve the selection, attach it to the Composer,
-  // and pre-fill a fix instruction for the user to send to an agent.
+  // acp.fixSelection — resolve the range (or active selection) as an
+  // attachment, attach it to the Composer, and pre-fill a fix instruction
+  // for the user to send to an agent.
   const fixSelectionCmd = vscode.commands.registerCommand(
     "acp.fixSelection",
-    async () => {
-      const attachment = await resolveSelection();
+    async (args?: FixSelectionArgs) => {
+      const attachment = await resolveFixAttachment(
+        args,
+        resolveRangeAt,
+        resolveSelection
+      );
       if (!attachment) {
         void vscode.window.showWarningMessage("ACP: No text selected");
         return;
@@ -53,21 +71,75 @@ export function registerQuickFixCommands(
     }
   );
 
-  // Quick Fix code action — shows in the lightbulb for any non-empty selection.
+  // acp.attachQuickFix — resolve the range (or active selection) as a Composer
+  // attachment and attach it WITHOUT pre-filling any instruction. The user
+  // stages the selection as context and types their own prompt in the Composer.
+  // Reuses the existing `attachContext` webview message, which appends the
+  // attachment to the Composer and injects no prompt text.
+  const attachQuickFixCmd = vscode.commands.registerCommand(
+    "acp.attachQuickFix",
+    async (args?: FixSelectionArgs) => {
+      const attachment = await resolveFixAttachment(
+        args,
+        resolveRangeAt,
+        resolveSelection
+      );
+      if (!attachment) {
+        void vscode.window.showWarningMessage("ACP: No text selected");
+        return;
+      }
+      ensureChatPanel();
+      // Inject into the Composer as a context attachment only — no prompt.
+      getChatPanel()?.postMessage({ type: "attachContext", attachment });
+      // Focus the Composer so the user can type their prompt next to the chip.
+      setTimeout(() => getChatPanel()?.focusComposer(), 300);
+    }
+  );
+
+  // Quick Fix code action — shows in the lightbulb for any non-empty range,
+  // including diagnostic "problem" ranges. The range is passed through to the
+  // command so the attachment reflects exactly what the user clicked on.
   const codeActionProvider = vscode.languages.registerCodeActionsProvider(
     [{ scheme: "file" }, { scheme: "untitled" }],
     {
-      provideCodeActions(_document, range) {
+      provideCodeActions(document, range) {
         if (range.isEmpty) return [];
-        const action = new vscode.CodeAction(
+        // Only `file:` documents are resolvable from disk via the platform
+        // assembler; for `untitled:` the command falls back to the active
+        // editor selection.
+        const commandArgs =
+          document.uri.scheme === "file"
+            ? [
+                {
+                  uri: document.uri.toString(),
+                  range: {
+                    startLine: range.start.line,
+                    startCharacter: range.start.character,
+                    endLine: range.end.line,
+                    endCharacter: range.end.character,
+                  },
+                },
+              ]
+            : [];
+        const fixAction = new vscode.CodeAction(
           "ACP: Fix selection with agent",
           vscode.CodeActionKind.QuickFix
         );
-        action.command = {
+        fixAction.command = {
           command: "acp.fixSelection",
           title: "Fix selection with agent",
+          arguments: commandArgs,
         };
-        return [action];
+        const attachAction = new vscode.CodeAction(
+          "ACP: Attach selection to chat",
+          vscode.CodeActionKind.QuickFix
+        );
+        attachAction.command = {
+          command: "acp.attachQuickFix",
+          title: "Attach selection to chat",
+          arguments: commandArgs,
+        };
+        return [fixAction, attachAction];
       },
     },
     {
@@ -75,5 +147,5 @@ export function registerQuickFixCommands(
     }
   );
 
-  return [fixSelectionCmd, codeActionProvider];
+  return [fixSelectionCmd, attachQuickFixCmd, codeActionProvider];
 }

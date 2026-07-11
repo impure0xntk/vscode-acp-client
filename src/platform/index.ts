@@ -33,6 +33,7 @@ export type {
   DefinitionLocation,
   Selection,
   ActiveEditor,
+  DiagnosticProblem,
 } from "./editor";
 export type {
   ExtensionContextAPI,

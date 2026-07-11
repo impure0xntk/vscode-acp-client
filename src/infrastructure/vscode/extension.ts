@@ -20,6 +20,10 @@ import {
   resolveFile as resolveFilePlatform,
   resolveSelection as resolveSelectionPlatform,
   resolveDiff as resolveDiffPlatform,
+  resolveRange as resolveRangePlatform,
+  resolveProblems as resolveProblemsPlatform,
+  type SerializedRange,
+  type ProblemFilter,
 } from "../../adapter/context/assembler";
 import { searchFiles as searchFilesPlatform } from "../../adapter/context/file";
 import {
@@ -42,8 +46,9 @@ import {
   MESH_MARKER_V2_OPEN,
   MESH_MARKER_CLOSE,
 } from "../../domain/models/mesh";
-import { VscodePlatform } from "../../platform/adapters/vscode";
+import { VscodePlatform, toPlatformUri } from "../../platform/adapters/vscode";
 import type { PlatformAPI } from "../../platform/platform";
+import type { DiagnosticProblem } from "../../platform/editor";
 
 import { exec } from "child_process";
 import { promisify } from "util";
@@ -82,6 +87,36 @@ function resolveSelection(): Promise<ContextAttachmentDTO | null> {
 function resolveDiff(): Promise<ContextAttachmentDTO | null> {
   return resolveDiffPlatform(
     platform.editor
+  ) as Promise<ContextAttachmentDTO | null>;
+}
+
+function resolveRangeAt(
+  uri: string,
+  range: SerializedRange
+): Promise<ContextAttachmentDTO | null> {
+  const vUri = vscode.Uri.parse(uri);
+  return resolveRangePlatform(
+    platform.editor,
+    toPlatformUri(vUri),
+    range
+  ) as Promise<ContextAttachmentDTO | null>;
+}
+
+function getDiagnostics(): Promise<DiagnosticProblem[]> {
+  return platform.editor.getDiagnostics() as Promise<DiagnosticProblem[]>;
+}
+
+function getActiveFile(): string | undefined {
+  return platform.editor.activeEditor?.filePath;
+}
+
+function resolveProblems(
+  filter: ProblemFilter
+): Promise<ContextAttachmentDTO | null> {
+  return resolveProblemsPlatform(
+    platform.editor,
+    platform.fs,
+    filter
   ) as Promise<ContextAttachmentDTO | null>;
 }
 
@@ -680,6 +715,9 @@ function registerCommands(context: vscode.ExtensionContext): void {
     resolveFile,
     resolveSelection,
     resolveDiff,
+    getDiagnostics,
+    getActiveFile,
+    resolveProblems,
     sendTabsToChatPanel
   );
 
@@ -695,7 +733,8 @@ function registerCommands(context: vscode.ExtensionContext): void {
         wireChatPanelEventsLocal,
         orchestrator
       ),
-    resolveSelection
+    resolveSelection,
+    resolveRangeAt
   );
 
   const setModeCmd = vscode.commands.registerCommand("acp.setMode", () => {

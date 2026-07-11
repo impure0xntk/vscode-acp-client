@@ -33,6 +33,27 @@ export interface ActiveEditor {
   visibleRanges: LineRange[];
 }
 
+/** A single diagnostic (problem) surfaced in VS Code's Problems panel. */
+export interface DiagnosticProblem {
+  /** Absolute file path the diagnostic belongs to. */
+  filePath: string;
+  /** 1-based start line. */
+  startLine: number;
+  /** 1-based start column (character). */
+  startColumn: number;
+  /** 1-based end line. */
+  endLine: number;
+  /** 1-based end column (character). */
+  endColumn: number;
+  severity: "error" | "warning" | "info" | "hint";
+  /** Human-readable diagnostic message. */
+  message: string;
+  /** Reporting source (e.g. "tsc", "eslint", "tslint"). */
+  source?: string;
+  /** Diagnostic code (e.g. "2322", "no-unused-vars"). */
+  code?: string;
+}
+
 export interface EditorAPI {
   openDocument(uri: PlatformUri): Promise<PlatformUri>;
   getDocumentContent(uri: PlatformUri): Promise<string>;
@@ -62,6 +83,8 @@ export interface EditorAPI {
     }
   ): Disposable;
   getGitDiff(): Promise<string | undefined>;
+  /** All diagnostics currently in the Problems panel (workspace-wide). */
+  getDiagnostics(): Promise<DiagnosticProblem[]>;
 }
 
 export type { DiffResult } from "./types";
