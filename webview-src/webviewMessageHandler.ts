@@ -25,6 +25,7 @@ import type {
   SessionOverviewState,
   Plan,
   PlanStep,
+  ContextAttachment,
 } from "./types";
 
 const log = getLogger("webview.messageHandler");
@@ -570,6 +571,11 @@ interface SessionNotificationMessage {
   };
 }
 
+interface ResolvedExternalFileMessage {
+  type: "resolvedExternalFile";
+  attachment: ContextAttachment;
+}
+
 type WebviewMessage =
   | PlanUpdateMessage
   | PlanStepUpdateMessage
@@ -621,7 +627,8 @@ type WebviewMessage =
   | ComposerFocusMessage
   | PanelModeSetMessage
   | SessionNotificationMessage
-  | SessionFileWriteMessage;
+  | SessionFileWriteMessage
+  | ResolvedExternalFileMessage;
 
 function handleSetTabs(data: SetTabsMessage): void {
   log.info("handleSetTabs", {
@@ -1907,6 +1914,19 @@ export function setupMessageHandlers(): void {
       case "session/webviewFileWrite":
         handleSessionFileWrite(data);
         break;
+      case "resolvedExternalFile": {
+        // Extension resolved a file chosen via the native file dialog
+        // (attach-external-file). Append it to the Composer's attachments.
+        const attachment = data.attachment;
+        if (attachment) {
+          window.dispatchEvent(
+            new CustomEvent("acp:attachExternalFile", {
+              detail: { attachment },
+            })
+          );
+        }
+        break;
+      }
     }
   });
 

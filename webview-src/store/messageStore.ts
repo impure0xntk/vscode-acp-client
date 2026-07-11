@@ -327,7 +327,16 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
             if (
               m.role === "agent" &&
               m.thinking == null &&
-              m.id === messageId
+              m.id === messageId &&
+              // Only merge into an in-progress message.  A matching message
+              // that already carries a stopReason is a completed previous turn;
+              // some ACP agents reuse the same messageId across distinct turns.
+              // Merging there concatenates the previous turn's text into the new
+              // turn's response, so the final step ends up showing the prior
+              // step's message mixed in.  stopReason is stamped only after a
+              // turn's chunks stop (session/turnEnded), so an in-flight message
+              // never has one — making this a safe boundary signal.
+              (m.stopReason == null || m.stopReason === "")
             ) {
               messageIdTargetIdx = i;
               break;
@@ -512,7 +521,16 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
             if (
               m.role === "agent" &&
               m.thinking == null &&
-              m.id === messageId
+              m.id === messageId &&
+              // Only merge into an in-progress message.  A matching message
+              // that already carries a stopReason is a completed previous turn;
+              // some ACP agents reuse the same messageId across distinct turns.
+              // Merging there concatenates the previous turn's text into the new
+              // turn's response, so the final step ends up showing the prior
+              // step's message mixed in.  stopReason is stamped only after a
+              // turn's chunks stop (session/turnEnded), so an in-flight message
+              // never has one — making this a safe boundary signal.
+              (m.stopReason == null || m.stopReason === "")
             ) {
               messageIdTargetIdx = i;
               break;

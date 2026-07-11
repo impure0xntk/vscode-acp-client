@@ -709,6 +709,132 @@ describe("messageStore", () => {
     });
   });
 
+  // ── Regression: reused messageId across turns (end_turn final step) ──
+  // Some ACP agents reuse the same messageId across distinct turns.  When a
+  // prior turn already ended (stopReason set) and the next turn reuses that
+  // messageId, its chunks must NOT be merged into the prior turn's message —
+  // otherwise the final step ends up showing the previous step's message
+  // mixed into the final response.
+
+  describe("regression: reused messageId across turns", () => {
+    function makeAgent(overrides: Partial<ChatMessage> = {}): ChatMessage {
+      return makeMessage({
+        role: "agent",
+        agentId: "agent-1",
+        content: "step content",
+        id: "m1",
+        ...overrides,
+      });
+    }
+
+    it("does not merge the final turn's chunks into a completed prior turn (same messageId)", () => {
+      const key = "session-reuse";
+      const store = useMessageStore.getState();
+
+      // Turn N: agent message id=m1 streams, then ends with tool_use.
+      store.setMessages(key, [
+        makeMessage({ role: "user", content: "q" }),
+        makeAgent({ content: "step1 text" }),
+      ]);
+      // session/turnEnded stamps stopReason on the last agent message.
+      store.updateLastAgentMessage(key, { stopReason: "tool_use" });
+
+      // The tool call from turn N is delivered as its own message.
+      store.appendMessage(
+        key,
+        makeMessage({
+          role: "tool",
+          content: "tool result",
+          id: "t1",
+          toolCalls: [
+            { id: "tc1", title: "Bash", status: "completed", kind: "bash" },
+          ],
+        })
+      );
+
+      // Turn N+1 (final): agent reuses messageId "m1" — must NOT merge into
+      // the completed step1 message.
+      store.appendStreamChunk(key, "agent-1", "sess-A", " final answer", "m1");
+
+      const msgs = useMessageStore.getState().perSession[key];
+      // user, step1(agent), tool, finalAnswer(agent) → 4 distinct messages
+      assert.strictEqual(msgs.length, 4, "must remain 4 distinct messages");
+
+      const step1 = msgs[1];
+      const finalMsg = msgs[3];
+      assert.strictEqual(step1.role, "agent");
+      assert.strictEqual(step1.content, "step1 text", "prior step untouched");
+      assert.strictEqual(
+        step1.stopReason,
+        "tool_use",
+        "prior step keeps its stopReason"
+      );
+      assert.strictEqual(finalMsg.role, "agent");
+      assert.strictEqual(
+        finalMsg.content,
+        " final answer",
+        "final turn content isolated"
+      );
+      assert.notStrictEqual(
+        step1.id,
+        finalMsg.id,
+        "distinct ids for distinct turns"
+      );
+    });
+
+    it("stamps end_turn onto the new final message, not the prior step", () => {
+      const key = "session-reuse-2";
+      const store = useMessageStore.getState();
+
+      store.setMessages(key, [
+        makeMessage({ role: "user", content: "q" }),
+        makeAgent({ content: "step1 text" }),
+      ]);
+      store.updateLastAgentMessage(key, { stopReason: "tool_use" });
+      store.appendMessage(
+        key,
+        makeMessage({
+          role: "tool",
+          content: "tool result",
+          id: "t1",
+          toolCalls: [
+            { id: "tc1", title: "Bash", status: "completed", kind: "bash" },
+          ],
+        })
+      );
+      store.appendStreamChunk(key, "agent-1", "sess-A", " final answer", "m1");
+
+      // session/turnEnded for the final turn.
+      store.updateLastAgentMessage(key, { stopReason: "end_turn" });
+
+      const msgs = useMessageStore.getState().perSession[key];
+      // end_turn must land on the final agent message, never the prior step.
+      assert.strictEqual(msgs[1].stopReason, "tool_use");
+      assert.strictEqual(msgs[3].stopReason, "end_turn");
+      assert.strictEqual(
+        msgs[3].content,
+        " final answer",
+        "final response not contaminated by prior step"
+      );
+    });
+
+    it("still merges same messageId within a single in-progress turn", () => {
+      // A single logical message whose chunks arrive across a tool boundary
+      // (no stopReason stamped yet) must still merge — this is the legitimate
+      // same-messageId continuation the guard must preserve.
+      const key = "session-reuse-3";
+      const store = useMessageStore.getState();
+      store.setMessages(key, [
+        makeAgent({ content: "first part", stopReason: undefined }),
+      ]);
+      // No stopReason yet → still in-progress → merge allowed.
+      store.appendStreamChunk(key, "agent-1", "sess-A", " second part", "m1");
+      const msgs = useMessageStore.getState().perSession[key];
+      assert.strictEqual(msgs.length, 1, "single in-progress message");
+      assert.strictEqual(msgs[0].content, "first part second part");
+    });
+  });
+
   // ── Cross-session isolation ───────────────────────────────────────
 
   describe("cross-session isolation", () => {

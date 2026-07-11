@@ -257,7 +257,11 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
         }
       };
       window.addEventListener("acp:attachDiff", handler);
-      return () => window.removeEventListener("acp:attachDiff", handler);
+      window.addEventListener("acp:attachExternalFile", handler);
+      return () => {
+        window.removeEventListener("acp:attachDiff", handler);
+        window.removeEventListener("acp:attachExternalFile", handler);
+      };
     }, []);
 
     const resetHeight = useCallback(() => {
@@ -305,57 +309,6 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
     // Compute targets for cancel: when sendTargets are selected (multi-@ mode),
     // use those; the active session fallback is in AppContainer.cancelTurn
     const cancelTargets = sendTargets.length > 0 ? sendTargets : undefined;
-
-    const pinnedSessionKeys = useSessionStore((s) => s.pinnedSessionKeys);
-    const hasPinnedSessions = pinnedSessionKeys.length > 0;
-
-    const handleSendToAllPinned = useCallback(() => {
-      const trimmed = text.trim();
-      if ((!trimmed && attachments.length === 0) || disabled) return;
-
-      // Build targets from all pinned sessions
-      const sessionInfoMap = useSessionStore.getState().sessionInfoMap;
-      const pinnedTargets: SendTarget[] = pinnedSessionKeys
-        .filter((key) => sessionInfoMap[key]) // only include sessions that exist
-        .map((key) => {
-          const [agentId, sessionId] = key.split(":");
-          const info = sessionInfoMap[key];
-          return {
-            agentId,
-            sessionId,
-            label: info?.sessionId?.slice(0, 8) ?? sessionId,
-            status: (info?.status ?? "idle") as
-              | "idle"
-              | "running"
-              | "completed"
-              | "error"
-              | "cancelled",
-            tokenUsage: info?.tokenUsage,
-            contextWindowMax: info?.contextWindowMax,
-          };
-        });
-
-      if (pinnedTargets.length === 0) return;
-
-      log.info("sendToAllPinned", {
-        textLen: trimmed.length,
-        targetCount: pinnedTargets.length,
-      });
-      onSend(trimmed, attachments, pinnedTargets);
-
-      resetPicker();
-      setText("");
-      setAttachments([]);
-      resetHeight();
-    }, [
-      text,
-      attachments,
-      disabled,
-      pinnedSessionKeys,
-      onSend,
-      resetHeight,
-      resetPicker,
-    ]);
 
     const buildTeamSuggestions = useCallback(
       (query: string): SuggestionItem[] => {
@@ -1273,6 +1226,17 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
             rows={1}
             className="flex-1 bg-transparent border-none outline-none font-ui text-fg-primary text-[13px] leading-[1.5] resize-none max-h-[160px] min-h-[20px] placeholder:text-fg-muted"
           />
+          <button
+            className="bg-transparent border-none cursor-pointer text-sm w-6 h-6 rounded flex-shrink-0 flex items-center justify-center p-0 leading-none text-accent hover:bg-accent-hover disabled:text-fg-muted disabled:cursor-not-allowed"
+            onClick={() =>
+              getVsCodeApi().postMessage({ type: "attachExternalFile" })
+            }
+            disabled={disabled}
+            title="Attach file (any location, including outside the workspace)"
+            aria-label="Attach external file"
+          >
+            <Icon name="paperclip" size="sm" />
+          </button>
           {status === "running" || status === "cancelling" ? (
             <button
               className={`bg-transparent border-none cursor-pointer text-sm w-6 h-6 rounded flex-shrink-0 flex items-center justify-center p-0 leading-none ${status === "cancelling" ? "text-fg-muted cursor-not-allowed" : "text-fg-secondary hover:text-error"}`}
@@ -1287,30 +1251,16 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
               {status === "cancelling" ? "◔" : "■"}
             </button>
           ) : (
-            <>
-              <button
-                className="bg-transparent border-none cursor-pointer text-sm w-6 h-6 rounded flex-shrink-0 flex items-center justify-center p-0 leading-none text-accent hover:bg-accent-hover disabled:text-fg-muted disabled:cursor-not-allowed"
-                onClick={handleSend}
-                disabled={
-                  disabled || (!text.trim() && attachments.length === 0)
-                }
-                title="Send to active session"
-              >
-                ↑
-              </button>
-              {hasPinnedSessions && (
-                <button
-                  className="bg-transparent border-none cursor-pointer text-sm w-6 h-6 rounded flex-shrink-0 flex items-center justify-center p-0 leading-none text-accent opacity-80 hover:opacity-100 hover:bg-accent-hover disabled:text-fg-muted disabled:cursor-not-allowed disabled:opacity-40"
-                  onClick={handleSendToAllPinned}
-                  disabled={
-                    disabled || (!text.trim() && attachments.length === 0)
-                  }
-                  title={`Send to all pinned (${pinnedSessionKeys.length})`}
-                >
-                  ↑↑
-                </button>
-              )}
-            </>
+            <button
+              className="bg-transparent border-none cursor-pointer text-sm w-6 h-6 rounded flex-shrink-0 flex items-center justify-center p-0 leading-none text-accent hover:bg-accent-hover disabled:text-fg-muted disabled:cursor-not-allowed"
+              onClick={handleSend}
+              disabled={
+                disabled || (!text.trim() && attachments.length === 0)
+              }
+              title="Send to active session"
+            >
+              ↑
+            </button>
           )}
         </div>
       </div>

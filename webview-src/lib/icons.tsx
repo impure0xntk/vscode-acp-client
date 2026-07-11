@@ -847,6 +847,17 @@ export function IconPlus({
   );
 }
 
+export function IconPaperclip({
+  className,
+  size = 16,
+}: IconProps): React.ReactElement {
+  return (
+    <Svg className={className} size={size}>
+      <path d="M12.5 6.5l-5 5a2 2 0 0 0 3 3l5-5a3.5 3.5 0 0 0-5-5L4 9.5a5 5 0 0 0 7.5 7.5l4-4" />
+    </Svg>
+  );
+}
+
 export function IconCrown({
   className,
   size = 16,
@@ -999,6 +1010,7 @@ const ICON_COMPONENTS: Record<string, React.FC<IconProps>> = {
   pencil: IconPencil,
   person: IconPerson,
   plus: IconPlus,
+  paperclip: IconPaperclip,
   pin: IconPin,
   "pin-filled": IconPinFilled,
   "more-vertical": IconMoreVertical,

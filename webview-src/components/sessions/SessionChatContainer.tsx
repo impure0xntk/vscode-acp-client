@@ -212,23 +212,50 @@ export const SessionChatContainer = memo(function SessionChatContainer({
   const toggleRef = useRef(toggleIntermediateSteps);
   toggleRef.current = toggleIntermediateSteps;
 
-  // When the current turn completes (its final response appears), collapse
+  // When the current turn completes (its final response settles), collapse
   // the intermediate-steps banner if it was open — so the final message is
   // revealed with the steps already folded.  A layout effect runs before
   // paint, so the banner is already collapsed in the same frame the final
   // message appears (no open-banner flash before collapse).
+  //
+  // A "settled" final requires a turn-ending stopReason.  During streaming,
+  // selectFinalResponse keeps re-selecting the newest agent message (text OR
+  // a thinking block) as the "final" even though it has no stopReason yet, so
+  // latestFinalKey churns on every chunk/thought.  Collapsing on those
+  // spurious changes would hide an expanded banner mid-turn — the reported
+  // "banner disappears while the agent is thinking/processing" bug.  We only
+  // collapse once the turn actually ends (end_turn, cancelled, max_tokens, …).
+  // tool_use is excluded because it continues the same turn.
   const latestFinalKey = latestGroup?.finalResponse?.item.key ?? null;
-  const prevLatestFinalKeyRef = useRef<string | null>(null);
+  const latestFinalStopReason =
+    (latestGroup?.finalResponse?.item as ChatDisplayItem | undefined)?.stopReason ??
+    null;
+  const prevFinalKeyRef = useRef<string | null>(null);
+  const prevFinalSettledRef = useRef(false);
   useLayoutEffect(() => {
-    const prev = prevLatestFinalKeyRef.current;
-    prevLatestFinalKeyRef.current = latestFinalKey;
-    if (latestFinalKey == null || latestFinalKey === prev) return;
+    const key = latestFinalKey;
+    const settled =
+      latestFinalStopReason != null &&
+      latestFinalStopReason !== "" &&
+      latestFinalStopReason !== "tool_use";
+    const prevKey = prevFinalKeyRef.current;
+    const prevSettled = prevFinalSettledRef.current;
+    prevFinalKeyRef.current = key;
+    prevFinalSettledRef.current = settled;
+    if (key == null) return;
+    // Collapse only on a genuine turn completion: either the final response is
+    // a newly arrived settled message, or the same message just received its
+    // turn-ending stopReason.  Streaming jumps between still-open agent
+    // messages (no stopReason) must NOT collapse an expanded banner.
+    const justSettled = settled && !prevSettled;
+    const newSettledFinal = key !== prevKey && settled;
+    if (!justSettled && !newSettledFinal) return;
     const gid = latestGroup?.userItem.key;
     if (!gid || !sessionKey) return;
     if (collapsedMapRef.current[gid] === false) {
       toggleRef.current(sessionKey, gid);
     }
-  }, [latestFinalKey, sessionKey]);
+  }, [latestFinalKey, latestFinalStopReason, sessionKey]);
 
   const isGroupExpanded = useCallback(
     (group: AgentResponseGroup): boolean => {

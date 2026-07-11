@@ -5,6 +5,7 @@ import * as os from "os";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { attachmentsToContentBlocks } from "../../../adapter/context/prompt-context";
+import { collectExternalFileAttachments } from "../../../adapter/context/externalFile";
 import type { SessionOrchestrator } from "../../../application/orchestrator";
 import type { ChatPanel } from "../vscode-ui/chatPanel";
 import type {
@@ -319,6 +320,13 @@ export function wireChatPanelEvents(
               error: err.message,
             })
           );
+        break;
+      }
+      case "attachExternalFile": {
+        // Open the native file dialog so the user can pick any file on disk,
+        // including files outside the workspace.  Selected files are resolved
+        // (content read inline) and posted back for the Composer to attach.
+        void handleAttachExternalFile(orchestrator, resolveFile, chatPanel);
         break;
       }
       case "selectAgent":
@@ -1055,4 +1063,30 @@ function addContextToChat(
     },
     info?.cwd
   );
+}
+
+/**
+ * Attach files chosen from the native file dialog (any location, including
+ * outside the workspace) to the Composer. Opens `showOpenDialog`, resolves
+ * each selected file (reads content inline), and posts the results back so
+ * the webview can append them as context attachments.
+ */
+async function handleAttachExternalFile(
+  _orchestrator: SessionOrchestrator,
+  resolveFile: (path: string, cwd?: string) => Promise<ContextAttachmentDTO>,
+  chatPanel: ChatPanel | null
+): Promise<void> {
+  const uris = await vscode.window.showOpenDialog({
+    canSelectMany: true,
+    canSelectFiles: true,
+    canSelectFolders: false,
+    openLabel: "Attach",
+    title: "Attach file(s) to context",
+  });
+  if (!uris || uris.length === 0) return;
+
+  const attachments = await collectExternalFileAttachments(uris, resolveFile);
+  for (const attachment of attachments) {
+    chatPanel?.postMessage({ type: "resolvedExternalFile", attachment });
+  }
 }
