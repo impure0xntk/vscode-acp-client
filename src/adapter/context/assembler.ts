@@ -192,6 +192,129 @@ export function estimateTokens(text: string): number {
 }
 
 /**
+ * Render one or more diagnostics as a single `problem`-type Composer
+ * attachment. Shared by `resolveProblems` (the multi-problem "Attach Problems"
+ * command) and `resolveProblem` (a single right-clicked problem from the
+ * Problems panel's context menu). Embeds each offending source line plus a
+ * caret under the offending column so the agent sees both the message and the
+ * exact symbol/expression without re-running the linter itself.
+ */
+async function renderProblems(
+  fs: FileSystemAPI,
+  problems: DiagnosticProblem[],
+  scopeLabel: string
+): Promise<ContextAttachment | null> {
+  if (problems.length === 0) return null;
+
+  // Sort for stable, readable output.
+  problems = [...problems].sort(
+    (a, b) =>
+      a.filePath.localeCompare(b.filePath) ||
+      a.startLine - b.startLine ||
+      a.startColumn - b.startColumn
+  );
+
+  const fileCount = new Set(problems.map((p) => p.filePath)).size;
+  const issueWord = problems.length === 1 ? "issue" : "issues";
+  const fileWord = fileCount === 1 ? "file" : "files";
+  const header = `Problems (${scopeLabel}): ${problems.length} ${issueWord} across ${fileCount} ${fileWord}`;
+
+  const relPath = (p: string): string => {
+    const ws = fs.workspaceRoot ?? "";
+    if (ws && p.startsWith(ws)) {
+      const rel = path.relative(ws, p);
+      return rel.length > 0 ? rel : path.basename(p);
+    }
+    return p;
+  };
+
+  const lines: string[] = [header, ""];
+
+  // Read each unique file's content once to embed the offending source line.
+  const contentCache = new Map<string, string | null>();
+  const readFile = async (filePath: string): Promise<string | null> => {
+    if (contentCache.has(filePath)) return contentCache.get(filePath) ?? null;
+    let content: string | null = null;
+    try {
+      content = await fs.readFile(filePath);
+    } catch {
+      content = null;
+    }
+    contentCache.set(filePath, content);
+    return content;
+  };
+
+  let index = 0;
+  for (let i = 0; i < problems.length; i++) {
+    const p = problems[i];
+    index += 1;
+
+    const sourceTag = p.source ? `${p.source}` : "(unknown)";
+    const codeTag = p.code ? ` (${p.code})` : "";
+    const loc = `${relPath(p.filePath)}:${p.startLine}:${p.startColumn}`;
+    const severity = p.severity.toUpperCase();
+    lines.push(`${index}. [${severity}] ${sourceTag}${codeTag}: ${loc}`);
+    lines.push(`   ${p.message}`);
+
+    // Embed the offending source line + a caret under the column so the
+    // agent sees both the message and the exact symbol/expression.
+    const content = await readFile(p.filePath);
+    if (content !== null) {
+      const fileLines = content.split("\n");
+      const srcLineIdx = p.startLine - 1;
+      if (srcLineIdx >= 0 && srcLineIdx < fileLines.length) {
+        const srcLine = fileLines[srcLineIdx];
+        const gutter = `   > ${p.startLine} | `;
+        lines.push(`${gutter}${srcLine}`);
+        const caretPad = gutter.length + Math.max(0, p.startColumn - 1);
+        lines.push(`${" ".repeat(caretPad)}^`);
+      }
+    }
+
+    // Blank separator unless the next diagnostic is on the same file+line.
+    const next = problems[i + 1];
+    if (!next || next.filePath !== p.filePath || next.startLine !== p.startLine) {
+      lines.push("");
+    }
+  }
+
+  const first = problems[0];
+  const label =
+    problems.length === 1
+      ? `${path.basename(first.filePath)}:${first.startLine}`
+      : scopeLabel === "current file"
+        ? `${path.basename(first.filePath)}: Problems (${problems.length})`
+        : `Problems (${problems.length})`;
+
+  return {
+    id: crypto.randomUUID(),
+    type: "problem",
+    // First problem's file so the chip click opens it; the prompt block
+    // uses a synthetic `problems://` URI (see attachmentsToContentBlocks).
+    path: first.filePath,
+    label,
+    lineRange: [first.startLine, first.endLine],
+    tokenCount: estimateTokens(lines.join("\n")),
+    content: lines.join("\n"),
+    message: first.message,
+  };
+}
+
+/**
+ * Resolve a Composer attachment from a single diagnostic (e.g. one
+ * right-clicked in the Problems panel). Used by the `acp.attachProblem`
+ * command so a problem is attached as a `problem`-type attachment — distinct
+ * from a `selection` — carrying its message, `file:line:col`, source line,
+ * and a caret, ready for an agent to act on.
+ */
+export async function resolveProblem(
+  fs: FileSystemAPI,
+  problem: DiagnosticProblem
+): Promise<ContextAttachment | null> {
+  return renderProblems(fs, [problem], "selected problem");
+}
+
+/**
  * Resolve a Composer attachment from VS Code's Problems panel.
  *
  * Gathers diagnostics (including those reported by external tools such as
@@ -225,100 +348,7 @@ export async function resolveProblems(
   }
   if (problems.length === 0) return null;
 
-  // Sort for stable, readable output.
-  problems = [...problems].sort(
-    (a, b) =>
-      a.filePath.localeCompare(b.filePath) ||
-      a.startLine - b.startLine ||
-      a.startColumn - b.startColumn
-  );
-
-  const fileCount = new Set(problems.map((p) => p.filePath)).size;
   const scopeLabel =
     filter.scope === "currentFile" ? "current file" : "workspace";
-  const issueWord = problems.length === 1 ? "issue" : "issues";
-  const fileWord = fileCount === 1 ? "file" : "files";
-  const header = `Problems (${scopeLabel}): ${problems.length} ${issueWord} across ${fileCount} ${fileWord}`;
-
-  const relPath = (p: string): string => {
-    const ws = fs.workspaceRoot ?? "";
-    if (ws && p.startsWith(ws)) {
-      const rel = path.relative(ws, p);
-      return rel.length > 0 ? rel : path.basename(p);
-    }
-    return p;
-  };
-
-  const lines: string[] = [header, ""];
-
-  // Read each unique file's content once to embed the offending source line.
-  const contentCache = new Map<string, string | null>();
-  const readFile = async (filePath: string): Promise<string | null> => {
-    if (contentCache.has(filePath)) return contentCache.get(filePath) ?? null;
-    let content: string | null = null;
-    try {
-      content = await fs.readFile(filePath);
-    } catch {
-      content = null;
-    }
-    contentCache.set(filePath, content);
-    return content;
-  };
-
-  // Group consecutive diagnostics by file for a compact layout.
-  let currentFile: string | null = null;
-  let index = 0;
-  for (let i = 0; i < problems.length; i++) {
-    const p = problems[i];
-    index += 1;
-
-    const sourceTag = p.source ? `${p.source}` : "(unknown)";
-    const codeTag = p.code ? ` (${p.code})` : "";
-    const loc = `${relPath(p.filePath)}:${p.startLine}:${p.startColumn}`;
-    const severity = p.severity.toUpperCase();
-    lines.push(`${index}. [${severity}] ${sourceTag}${codeTag}: ${loc}`);
-    lines.push(`   ${p.message}`);
-
-    // Embed the offending source line + a caret under the column so the
-    // agent sees both the message and the exact symbol/expression.
-    if (currentFile !== p.filePath) {
-      currentFile = p.filePath;
-    }
-    const content = await readFile(p.filePath);
-    if (content !== null) {
-      const fileLines = content.split("\n");
-      const srcLineIdx = p.startLine - 1;
-      if (srcLineIdx >= 0 && srcLineIdx < fileLines.length) {
-        const srcLine = fileLines[srcLineIdx];
-        const gutter = `   > ${p.startLine} | `;
-        lines.push(`${gutter}${srcLine}`);
-        const caretPad = gutter.length + Math.max(0, p.startColumn - 1);
-        lines.push(`${" ".repeat(caretPad)}^`);
-      }
-    }
-
-    // Blank separator unless the next diagnostic is on the same file+line.
-    const next = problems[i + 1];
-    if (!next || next.filePath !== p.filePath || next.startLine !== p.startLine) {
-      lines.push("");
-    }
-  }
-
-  const first = problems[0];
-  const label =
-    filter.scope === "currentFile"
-      ? `${path.basename(first.filePath)}: Problems (${problems.length})`
-      : `Problems (${problems.length})`;
-
-  return {
-    id: crypto.randomUUID(),
-    type: "problem",
-    // First problem's file so the chip click opens it; the prompt block
-    // uses a synthetic `problems://` URI (see attachmentsToContentBlocks).
-    path: first.filePath,
-    label,
-    lineRange: [first.startLine, first.endLine],
-    tokenCount: estimateTokens(lines.join("\n")),
-    content: lines.join("\n"),
-  };
+  return renderProblems(fs, problems, scopeLabel);
 }

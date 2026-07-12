@@ -25,16 +25,14 @@ export function getFixPrompt(): string {
 }
 
 /**
- * Register the "Fix selection with agent" Quick Fix and its backing command.
+ * Register the "Fix selection with agent" and "Attach selection to chat"
+ * commands, both wired to the editor context menu (when text is selected).
  *
- * The Quick Fix (`vscode.CodeActionKind.QuickFix`) appears in the lightbulb
- * for any non-empty range — including a diagnostic "problem" range, not just a
- * user selection. Invoking it resolves the *range it was invoked on* (passed
- * through as command arguments) as a Composer attachment, opens the chat panel,
- * and pre-fills the Composer with a fix instruction so the user can forward it to
- * an agent. Passing the range explicitly is required: when the Quick Fix is fired
- * from a problem's lightbulb, the active editor selection is empty, so reading
- * `editor.activeEditor` would resolve nothing.
+ * These commands resolve the active selection (or the range passed via command
+ * arguments) as a Composer attachment. The backing commands are intentionally
+ * exposed only through the editor context menu and the command palette — not as
+ * Quick Fix code actions on diagnostics — so a problem's right-click shows only
+ * the dedicated "ACP: Attach Problem to Chat" entry.
  */
 export function registerQuickFixCommands(
   _orchestrator: SessionOrchestrator,
@@ -96,56 +94,5 @@ export function registerQuickFixCommands(
     }
   );
 
-  // Quick Fix code action — shows in the lightbulb for any non-empty range,
-  // including diagnostic "problem" ranges. The range is passed through to the
-  // command so the attachment reflects exactly what the user clicked on.
-  const codeActionProvider = vscode.languages.registerCodeActionsProvider(
-    [{ scheme: "file" }, { scheme: "untitled" }],
-    {
-      provideCodeActions(document, range) {
-        if (range.isEmpty) return [];
-        // Only `file:` documents are resolvable from disk via the platform
-        // assembler; for `untitled:` the command falls back to the active
-        // editor selection.
-        const commandArgs =
-          document.uri.scheme === "file"
-            ? [
-                {
-                  uri: document.uri.toString(),
-                  range: {
-                    startLine: range.start.line,
-                    startCharacter: range.start.character,
-                    endLine: range.end.line,
-                    endCharacter: range.end.character,
-                  },
-                },
-              ]
-            : [];
-        const fixAction = new vscode.CodeAction(
-          "ACP: Fix selection with agent",
-          vscode.CodeActionKind.QuickFix
-        );
-        fixAction.command = {
-          command: "acp.fixSelection",
-          title: "Fix selection with agent",
-          arguments: commandArgs,
-        };
-        const attachAction = new vscode.CodeAction(
-          "ACP: Attach selection to chat",
-          vscode.CodeActionKind.QuickFix
-        );
-        attachAction.command = {
-          command: "acp.attachQuickFix",
-          title: "Attach selection to chat",
-          arguments: commandArgs,
-        };
-        return [fixAction, attachAction];
-      },
-    },
-    {
-      providedCodeActionKinds: [vscode.CodeActionKind.QuickFix],
-    }
-  );
-
-  return [fixSelectionCmd, attachQuickFixCmd, codeActionProvider];
+  return [fixSelectionCmd, attachQuickFixCmd];
 }

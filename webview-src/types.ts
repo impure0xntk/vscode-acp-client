@@ -168,12 +168,15 @@ export interface TokenUsage {
 
 export interface ContextAttachment {
   id: string;
-  type: "file" | "selection" | "symbol" | "diff";
+  type: "file" | "selection" | "symbol" | "diff" | "problem";
   path: string;
   label: string;
   lineRange?: [number, number];
   tokenCount: number;
   content: string;
+  /** Short human-readable summary — for `problem` attachments this is the
+   * diagnostic message, used by the Composer chip label. */
+  message?: string;
 }
 
 /**

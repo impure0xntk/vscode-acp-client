@@ -357,13 +357,17 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
         // existing message (messageIdTargetIdx < 0), we must NOT merge — the
         // messageId is an explicit ACP signal that this is a NEW logical message.
         // Also, if sessionUpdate type changed, we must NOT merge.
+        // Never merge into a thinking message: doing so appends the response
+        // text onto the thinking message's content, so the final step renders a
+        // normal message body instead of keeping the thought in its own block.
         const shouldMergeIntoLast =
           messageId == null &&
           !sessionUpdateChanged &&
           lastMsg !== null &&
           lastMsg.role === "agent" &&
           lastMsg.agentId === agentId &&
-          (lastMsg.stopReason == null || lastMsg.stopReason === "");
+          (lastMsg.stopReason == null || lastMsg.stopReason === "") &&
+          lastMsg.thinking == null;
 
         // 3. If not directly mergeable, look back past tool messages to find
         //    an in-progress agent message to merge into.
@@ -550,13 +554,15 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
         // existing message (messageIdTargetIdx < 0), we must NOT merge — the
         // messageId is an explicit ACP signal that this is a NEW logical message.
         // Also, if sessionUpdate type changed, we must NOT merge.
+        // Never merge into a thinking message (same reason as shouldMergeIntoLast).
         const shouldAppend =
           messageId == null &&
           !sessionUpdateChanged &&
           lastMsg !== null &&
           lastMsg.role === "agent" &&
           lastMsg.agentId === agentId &&
-          (lastMsg.stopReason == null || lastMsg.stopReason === "");
+          (lastMsg.stopReason == null || lastMsg.stopReason === "") &&
+          lastMsg.thinking == null;
 
         // 3. Look back past tool messages for an in-progress agent message
         // IMPORTANT: Only look back if messageId was NOT explicitly provided

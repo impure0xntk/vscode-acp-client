@@ -248,7 +248,7 @@ export function IntermediateStepsBanner({
                 step={stepWithSummary}
                 sessionId={sessionId}
                 agentId={agentId}
-                forceHeader={true}
+                suppressHeader
                 onAttachDiff={onAttachDiff}
               />
             );

@@ -51,6 +51,9 @@ export interface ContextAttachmentDTO {
   lineRange?: [number, number];
   tokenCount: number;
   content: string;
+  /** Short human-readable summary — for `problem` attachments this is the
+   * diagnostic message, used by the Composer chip label. */
+  message?: string;
 }
 
 // ============================================================================

@@ -43,6 +43,10 @@ function displayLabel(a: ContextAttachment): string {
       return a.label;
     case "diff":
       return "diff";
+    case "problem":
+      // Show the diagnostic message so the chip reveals the error at a glance;
+      // fall back to the file:line label when the message is unavailable.
+      return a.message ? a.message : a.label || name;
     case "file":
     default:
       return name;

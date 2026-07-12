@@ -16,6 +16,13 @@ export interface StepViewProps {
   isNew?: boolean;
   /** Force header display on agent message */
   forceHeader?: boolean;
+  /**
+   * Suppress the per-step message header (the "Agent hh:mm:ss" label).
+   * Used by IntermediateStepsBanner, which folds many steps together and
+   * does not want a header on every step — the banner toggle already groups
+   * them, so the repeated labels are redundant noise.
+   */
+  suppressHeader?: boolean;
   /** Whether the agent message key is "new" (for animation) */
   isAgentNew?: boolean;
   /** Callback when user wants to attach a diff to the composer */
@@ -42,6 +49,7 @@ function StepViewInner({
   agentId,
   isNew = true,
   forceHeader = false,
+  suppressHeader = false,
   isAgentNew = true,
   onAttachDiff,
   externalFileEditEntries,
@@ -97,7 +105,7 @@ function StepViewInner({
     const timeStr = firstTs ? new Date(firstTs).toLocaleTimeString() : "";
     return (
       <div className="flex flex-col gap-[1px]">
-        {forceHeader && (
+        {!suppressHeader && forceHeader && (
           <div className="flex items-center gap-2 text-[11px] text-fg-muted mb-1 px-0.5">
             <span className="font-medium text-fg-secondary">Agent</span>
             <span className="text-[10px] opacity-50">{timeStr}</span>
@@ -128,13 +136,17 @@ function StepViewInner({
     <div className="flex flex-col gap-[1px]">
       {step.agentMessage && (
         <DisplayItemView
-          item={step.agentMessage}
+          item={
+            suppressHeader
+              ? { ...step.agentMessage, isFirstOfTurn: false }
+              : step.agentMessage
+          }
           idx={0}
           items={[step.agentMessage]}
           sessionId={sessionId}
           agentId={agentId}
           isNew={isAgentNew}
-          forceHeader={forceHeader}
+          forceHeader={suppressHeader ? false : forceHeader}
         />
       )}
       {hasThinking &&
@@ -169,6 +181,7 @@ function areStepViewPropsEqual(
     prev.agentId === next.agentId &&
     prev.isNew === next.isNew &&
     prev.forceHeader === next.forceHeader &&
+    prev.suppressHeader === next.suppressHeader &&
     prev.isAgentNew === next.isAgentNew &&
     prev.onAttachDiff === next.onAttachDiff &&
     prev.externalFileEditEntries === next.externalFileEditEntries

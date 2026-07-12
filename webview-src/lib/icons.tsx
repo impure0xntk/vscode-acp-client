@@ -980,6 +980,7 @@ const ICON_COMPONENTS: Record<string, React.FC<IconProps>> = {
   tools: IconTools,
   question: IconQuestion,
   output: IconOutput,
+  warning: IconWarning,
   "repo-forked": IconRepoForked,
   "arrow-up": IconArrowUp,
   "arrow-down": IconArrowDown,
@@ -1043,7 +1044,15 @@ export function Icon({
  * Map attachment/context types to icon names.
  */
 export function iconForType(
-  type: "file" | "selection" | "symbol" | "diff" | "terminal" | "folder" | "git"
+  type:
+    | "file"
+    | "selection"
+    | "symbol"
+    | "diff"
+    | "terminal"
+    | "folder"
+    | "git"
+    | "problem"
 ): string {
   switch (type) {
     case "file":
@@ -1060,6 +1069,8 @@ export function iconForType(
       return "folder-opened";
     case "git":
       return "git-branch";
+    case "problem":
+      return "warning";
   }
 }
 

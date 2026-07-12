@@ -1,7 +1,12 @@
 import * as assert from "assert";
 import { describe, it } from "mocha";
-import { estimateTokens, resolveFile } from "../../adapter/context/assembler";
+import {
+  estimateTokens,
+  resolveFile,
+  resolveProblem,
+} from "../../adapter/context/assembler";
 import type { FileSystemAPI } from "../../platform/filesystem";
+import type { DiagnosticProblem } from "../../platform/editor";
 
 function makeFs(): { fs: FileSystemAPI; reads: string[] } {
   const reads: string[] = [];
@@ -82,5 +87,48 @@ describe("resolveFile — path handling", () => {
     const { fs, reads } = makeFs();
     await resolveFile(fs, "a.txt");
     assert.deepStrictEqual(reads, ["/ws/a.txt"]);
+  });
+});
+
+// ============================================================================
+// resolveProblem — single diagnostic → `problem` attachment
+// ============================================================================
+// Contract relied on by the `acp.attachProblem` command (Problems panel
+// right-click → "Attach Problem to Chat"): the diagnostic is attached as a
+// `problem`-type Composer attachment, distinct from a `selection`, carrying
+// its message, file:line:col, source + code, and the `message` summary used
+// by the chip label.
+
+describe("resolveProblem — single diagnostic", () => {
+  const problem: DiagnosticProblem = {
+    filePath: "/ws/src/app.ts",
+    startLine: 42,
+    startColumn: 10,
+    endLine: 42,
+    endColumn: 24,
+    severity: "error",
+    message: "Property 'x' does not exist on type 'App'.",
+    source: "tsc",
+    code: "2339",
+  };
+
+  it("returns a `problem`-type attachment with file:line label", async () => {
+    const { fs } = makeFs();
+    const attachment = await resolveProblem(fs, problem);
+    assert.ok(attachment);
+    assert.strictEqual(attachment!.type, "problem");
+    assert.strictEqual(attachment!.path, "/ws/src/app.ts");
+    assert.strictEqual(attachment!.label, "app.ts:42");
+    assert.deepStrictEqual(attachment!.lineRange, [42, 42]);
+    assert.strictEqual(attachment!.message, problem.message);
+  });
+
+  it("embeds the message and file:line:col reference in content", async () => {
+    const { fs } = makeFs();
+    const attachment = await resolveProblem(fs, problem);
+    assert.ok(attachment);
+    assert.match(attachment!.content, /app\.ts:42:10/);
+    assert.match(attachment!.content, /\[ERROR\] tsc \(2339\)/);
+    assert.match(attachment!.content, /Property 'x' does not exist/);
   });
 });

@@ -66,6 +66,7 @@ function resolveAttachments(
     label: att.label ?? att.path ?? "attachment",
     lineRange: att.lineRange,
     tokenCount: att.tokenCount ?? 0,
+    message: att.message,
     isNavigable: !!att.path,
     extension: (att.path ?? "").split(".").pop() ?? "",
     detail: att.label ?? "",

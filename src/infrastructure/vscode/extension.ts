@@ -22,6 +22,7 @@ import {
   resolveDiff as resolveDiffPlatform,
   resolveRange as resolveRangePlatform,
   resolveProblems as resolveProblemsPlatform,
+  resolveProblem as resolveProblemPlatform,
   type SerializedRange,
   type ProblemFilter,
 } from "../../adapter/context/assembler";
@@ -117,6 +118,15 @@ function resolveProblems(
     platform.editor,
     platform.fs,
     filter
+  ) as Promise<ContextAttachmentDTO | null>;
+}
+
+function resolveProblem(
+  problem: DiagnosticProblem
+): Promise<ContextAttachmentDTO | null> {
+  return resolveProblemPlatform(
+    platform.fs,
+    problem
   ) as Promise<ContextAttachmentDTO | null>;
 }
 
@@ -718,6 +728,7 @@ function registerCommands(context: vscode.ExtensionContext): void {
     getDiagnostics,
     getActiveFile,
     resolveProblems,
+    resolveProblem,
     sendTabsToChatPanel
   );
 

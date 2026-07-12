@@ -88,9 +88,20 @@ function flushBatch(msgKey: string, agentId: string, sessionId: string): void {
   streamBatchMap.delete(msgKey);
   batch.chunks = [];
 
+  // Preserve the ACP sessionUpdate type (agent_thought_chunk /
+  // agent_message_chunk) so thought batches are flushed into a dedicated
+  // thinking block and reply batches into the response body.  Dropping it
+  // would route thought chunks into content as a normal message.
   useMessageStore
     .getState()
-    .appendStreamChunks(msgKey, agentId, sessionId, accumulated, messageId);
+    .appendStreamChunks(
+      msgKey,
+      agentId,
+      sessionId,
+      accumulated,
+      messageId,
+      batch.sessionUpdate
+    );
   const store = useSessionStore.getState();
   const existing = store.sessionInfoMap[msgKey];
   if (existing && existing.status === "running") {
@@ -794,7 +805,8 @@ function handleSessionStreamStart(data: SessionStreamStart): void {
         data.agentId,
         data.sessionId,
         accumulated,
-        batchMessageId
+        batchMessageId,
+        batch.sessionUpdate
       );
   }
 }
@@ -823,6 +835,8 @@ function handleSessionStreamEnd(data: SessionStreamEnd): void {
     const messageId = batch.messageId;
     streamBatchMap.delete(msgKey);
     batch.chunks = [];
+    // Preserve sessionUpdate so a pending thought batch is flushed into a
+    // thinking block, not the response body.
     useMessageStore
       .getState()
       .appendStreamChunks(
@@ -830,7 +844,8 @@ function handleSessionStreamEnd(data: SessionStreamEnd): void {
         data.agentId,
         data.sessionId,
         accumulated,
-        messageId
+        messageId,
+        batch.sessionUpdate
       );
   }
   useMessageStore.getState().setStreaming(msgKey, false);
@@ -987,6 +1002,10 @@ function handleSessionTurnEnded(data: SessionTurnEnded): void {
     streamBatchMap.delete(msgKey);
     batch.chunks = [];
 
+    // Preserve sessionUpdate so a pending thought batch (flushed because
+    // session/turnEnded arrived in the same tick before the RAF) is routed
+    // into a dedicated thinking block instead of the response body — which
+    // is what made the last step's thinking render as a normal message.
     useMessageStore
       .getState()
       .appendStreamChunks(
@@ -994,7 +1013,8 @@ function handleSessionTurnEnded(data: SessionTurnEnded): void {
         data.agentId,
         data.sessionId,
         accumulated,
-        messageId
+        messageId,
+        batch.sessionUpdate
       );
     const store = useSessionStore.getState();
     const existing = store.sessionInfoMap[msgKey];

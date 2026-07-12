@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import type { DiagnosticProblem } from "../../../platform/editor";
 import type { SessionOrchestrator } from "../../../application/orchestrator";
 import type { ChatPanel } from "../vscode-ui/chatPanel";
 import type { PersistentHistoryStore } from "../../../application/session/persistentHistory";
@@ -45,6 +46,9 @@ export function registerSessionCommands(
   getActiveFile: () => string | undefined,
   resolveProblems: (
     filter: import("../../../adapter/context/assembler").ProblemFilter
+  ) => Promise<import("../../../domain/models/chat").ContextAttachmentDTO | null>,
+  resolveProblem: (
+    problem: DiagnosticProblem
   ) => Promise<import("../../../domain/models/chat").ContextAttachmentDTO | null>,
   sendTabsToChatPanel: () => void
 ): vscode.Disposable[] {
@@ -393,6 +397,102 @@ export function registerSessionCommands(
       }
       // Inject into the Composer as a context attachment (not a chat message).
       getChatPanel()?.postMessage({ type: "attachContext", attachment });
+    }
+  );
+
+  // acp.attachProblem — attach a single problem right-clicked in VS Code's
+  // Problems panel as a `problem`-type Composer attachment (distinct from a
+  // `selection`). VS Code's `problems/context` menu passes the clicked
+  // `vscode.Diagnostic` as the first argument and — in newer versions — the
+  // resource `vscode.Uri` as the second. We recover the file path by matching
+  // the diagnostic against the live Problems list, falling back to the passed
+  // URI when the match fails (covers older VS Code that omits the URI).
+  const attachProblemCmd = vscode.commands.registerCommand(
+    "acp.attachProblem",
+    async (...args: unknown[]) => {
+      // VS Code's `problems/context` passes the clicked `vscode.Diagnostic`
+      // and — in newer releases — the resource `vscode.Uri`. Argument order
+      // has varied across VS Code versions, so detect each by shape rather
+      // than by position.
+      const diagnostic = args.find(
+        (a): a is vscode.Diagnostic =>
+          !!a &&
+          typeof a === "object" &&
+          "range" in (a as object) &&
+          "message" in (a as object)
+      );
+      const uriArg = args.find(
+        (a): a is vscode.Uri =>
+          !!a &&
+          typeof a === "object" &&
+          "fsPath" in (a as object) &&
+          "scheme" in (a as object)
+      );
+
+      if (!diagnostic) {
+        void vscode.window.showWarningMessage("ACP: No problem selected");
+        return;
+      }
+
+      const clicked: DiagnosticProblem = {
+        filePath: "",
+        startLine: diagnostic.range.start.line + 1,
+        startColumn: diagnostic.range.start.character + 1,
+        endLine: diagnostic.range.end.line + 1,
+        endColumn: diagnostic.range.end.character + 1,
+        severity:
+          diagnostic.severity === vscode.DiagnosticSeverity.Error
+            ? "error"
+            : diagnostic.severity === vscode.DiagnosticSeverity.Warning
+              ? "warning"
+              : diagnostic.severity === vscode.DiagnosticSeverity.Information
+                ? "info"
+                : "hint",
+        message: diagnostic.message,
+        source: diagnostic.source,
+        code:
+          diagnostic.code === undefined
+            ? undefined
+            : typeof diagnostic.code === "string"
+              ? diagnostic.code
+              : typeof diagnostic.code === "object"
+                ? String(diagnostic.code.value)
+                : String(diagnostic.code),
+      };
+
+      const all = await getDiagnostics();
+      const candidates = uriArg?.fsPath
+        ? all.filter((p) => p.filePath === uriArg.fsPath)
+        : all;
+      const match = candidates.find(
+        (p) =>
+          p.message === clicked.message &&
+          (p.source ?? undefined) === (clicked.source ?? undefined) &&
+          p.startLine === clicked.startLine &&
+          p.startColumn === clicked.startColumn
+      );
+
+      const problem: DiagnosticProblem = match ?? {
+        ...clicked,
+        filePath: uriArg?.fsPath ?? "",
+      };
+
+      if (!problem.filePath) {
+        void vscode.window.showWarningMessage(
+          "ACP: Could not resolve the problem's file location"
+        );
+        return;
+      }
+
+      const attachment = await resolveProblem(problem);
+      if (!attachment) {
+        void vscode.window.showWarningMessage("ACP: Could not attach problem");
+        return;
+      }
+      // Open the chat panel (if needed) and inject as a Composer attachment.
+      ensureChatPanel();
+      getChatPanel()?.postMessage({ type: "attachContext", attachment });
+      setTimeout(() => getChatPanel()?.focusComposer(), 300);
     }
   );
 
@@ -894,6 +994,7 @@ export function registerSessionCommands(
     attachSelectionCmd,
     attachDiffCmd,
     attachProblemsCmd,
+    attachProblemCmd,
     reviewChangesCmd,
     forkSessionCmd,
     restoreSessionCmd,

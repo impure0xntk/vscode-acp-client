@@ -48,11 +48,12 @@ export interface ResolvedToolCall {
 
 export interface ResolvedAttachment {
   id: string;
-  type: "file" | "selection" | "symbol" | "diff";
+  type: "file" | "selection" | "symbol" | "diff" | "problem";
   path: string;
   label: string;
   lineRange: [number, number] | undefined;
   tokenCount: number;
+  message?: string;
   isNavigable: boolean;
   extension: string;
   detail: string;
