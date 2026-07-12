@@ -114,6 +114,8 @@ function AttachmentChip({
         <Icon name="diff-single" size="sm" className="text-[12px]" />
       ) : attachment.type === "selection" ? (
         <Icon name="selection" size="sm" className="text-[12px]" />
+      ) : attachment.type === "turn" ? (
+        <Icon name="output" size="sm" className="text-[12px]" />
       ) : attachment.type === "symbol" ? (
         <Icon name="symbol-class" size="sm" className="text-[12px]" />
       ) : (
@@ -126,9 +128,11 @@ function AttachmentChip({
           ? "selection"
           : attachment.type === "symbol"
             ? attachment.label
-            : attachment.type === "diff"
-              ? "diff"
-              : (attachment.path.split("/").pop() ?? attachment.path)}
+            : attachment.type === "turn"
+              ? "turn"
+              : attachment.type === "diff"
+                ? "diff"
+                : (attachment.path.split("/").pop() ?? attachment.path)}
       </span>
       {attachment.type === "selection" && attachment.lineRange && (
         <span className="text-fg-muted text-[9px] ml-[2px]">

@@ -48,7 +48,7 @@ export interface ResolvedToolCall {
 
 export interface ResolvedAttachment {
   id: string;
-  type: "file" | "selection" | "symbol" | "diff" | "problem";
+  type: "file" | "selection" | "symbol" | "diff" | "problem" | "turn";
   path: string;
   label: string;
   lineRange: [number, number] | undefined;

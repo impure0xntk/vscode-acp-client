@@ -47,7 +47,7 @@ export interface TriggerState {
   trigger: TriggerType;
   query: string;
   caretOffset: number;
-  subTrigger?: "symbol" | "file" | "switch" | "team";
+  subTrigger?: "symbol" | "file" | "switch" | "team" | "output" | "turn";
   /** Multi-@ mode: picker stays open after selecting a session */
   multiMode?: boolean;
 }
@@ -80,7 +80,7 @@ export interface UseTriggerPickerOptions {
   fetchSuggestions: (
     trigger: TriggerType,
     query: string,
-    subTrigger?: "symbol" | "file" | "switch" | "team"
+    subTrigger?: "symbol" | "file" | "switch" | "team" | "output" | "turn"
   ) => Promise<SuggestionItem[]>;
   resolveItem: (item: SelectInput) => Promise<SelectOutput>;
 }
@@ -257,6 +257,29 @@ export function useTriggerPicker(
           };
         }
 
+        // `#output` / `#turn` → pick a previous turn's final response as a
+        // context attachment. Mirrors the `switch` subcommand: one keyword,
+        // optional trailing query that filters the turn list.
+        if (first === "output" || first === "turn") {
+          if (tokens.length === 1) {
+            return {
+              active: true,
+              trigger: "#",
+              subTrigger: first,
+              query: "",
+              caretOffset: idx,
+            };
+          }
+          const rest = trimLeft(afterTrigger.slice(first.length));
+          return {
+            active: true,
+            trigger: "#",
+            subTrigger: first,
+            query: rest,
+            caretOffset: idx,
+          };
+        }
+
         return {
           active: true,
           trigger: "#",
@@ -303,6 +326,36 @@ export function useTriggerPicker(
           active: true,
           trigger: "#",
           subTrigger: kw,
+          query: "",
+          caretOffset: input.triggerState.caretOffset,
+        };
+        setTriggerState(expandedState);
+
+        return { text: newText, triggerState: expandedState };
+      }
+
+      if (
+        input.triggerState.subTrigger === undefined &&
+        input.item.kind === "turn"
+      ) {
+        // `#output` / `#turn` subcommands: expand to the turn picker
+        // (mirrors the file/symbol expansion above).  `value` carries the
+        // actual keyword ("output" | "turn") since both share kind "turn".
+        const kw = input.item.value;
+        const before = input.text.slice(0, input.triggerState.caretOffset);
+        const consumed = getConsumedLength(input.triggerState);
+        const after = input.text.slice(
+          input.triggerState.caretOffset + consumed
+        );
+        const newText = before + "#" + kw + " " + after;
+
+        dismissedRef.current = false;
+        setPickerIndex(0);
+
+        const expandedState: TriggerState = {
+          active: true,
+          trigger: "#",
+          subTrigger: kw as TriggerState["subTrigger"],
           query: "",
           caretOffset: input.triggerState.caretOffset,
         };

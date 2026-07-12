@@ -34,6 +34,20 @@ export function attachmentsToContentBlocks(
       });
       continue;
     }
+    // A forwarded prior-turn output (cross-session hand-off). Use a synthetic
+    // URI so the agent receives the text as a resource without mistaking it
+    // for a real file:// path.
+    if (a.type === "turn") {
+      blocks.push({
+        type: "resource",
+        resource: {
+          uri: "turn://session-output",
+          mimeType: "text/plain",
+          text: a.content,
+        },
+      });
+      continue;
+    }
     if (!a.path) continue;
     blocks.push({
       type: "resource",

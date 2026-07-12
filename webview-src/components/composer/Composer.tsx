@@ -21,6 +21,7 @@ import { useMeshStore } from "../../store/meshStore";
 import { getVsCodeApi } from "../../lib/vscodeApi";
 import { getLogger } from "../../lib/logger";
 import { sessionColorForKey } from "../../shared/sessionColor";
+import { collectTurns } from "../../lib/sessionTurns";
 
 const log = getLogger("webview.Composer");
 import { ContextBar } from "./ContextBar";
@@ -92,6 +93,9 @@ export interface ComposerProps {
   resolveDiff: () => Promise<ContextAttachment | null>;
   fetchSymbols: (query: string) => Promise<SuggestionItem[]>;
   resolveSymbol: (name: string) => Promise<ContextAttachment>;
+  /** Resolve a previous turn's final output into a context attachment.
+   *  `ref` is `${agentId}::${sessionId}::${turnIndex}`. */
+  resolveOutput: (ref: string) => Promise<ContextAttachment | null>;
   availableCommands?: SlashCommand[];
   /** Queued prompts for the active session */
   queue?: QueuedPrompt[];
@@ -228,6 +232,7 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
       resolveDiff,
       fetchSymbols,
       resolveSymbol,
+      resolveOutput,
       availableCommands = [],
       queue = [],
       onSendNow,
@@ -365,7 +370,7 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
       async (
         trigger: TriggerType,
         query: string,
-        subTrigger?: "symbol" | "file" | "switch" | "team"
+        subTrigger?: "symbol" | "file" | "switch" | "team" | "output" | "turn"
       ): Promise<SuggestionItem[]> => {
         if (trigger === "/") {
           const agentItems: SuggestionItem[] = availableCommands.map((cmd) => ({
@@ -560,6 +565,29 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
           return buildSessionSuggestions(tabs, query);
         }
 
+        if (subTrigger === "output" || subTrigger === "turn") {
+          const perSession = useMessageStore.getState().perSession;
+          const turns = collectTurns(perSession);
+          const q = query.toLowerCase();
+          const filtered =
+            q.length > 0
+              ? turns.filter(
+                  (t) =>
+                    t.sessionTitle.toLowerCase().includes(q) ||
+                    t.userPrompt.toLowerCase().includes(q) ||
+                    t.output.toLowerCase().includes(q)
+                )
+              : turns;
+          return filtered.map((t) => ({
+            id: `turn:${t.agentId}::${t.sessionId}::${t.turnIndex}`,
+            kind: "turn" as const,
+            label: `${t.sessionTitle} · ${t.userPrompt.slice(0, 40)}${t.userPrompt.length > 40 ? "…" : ""}`,
+            value: `${t.agentId}::${t.sessionId}::${t.turnIndex}`,
+            detail: t.output.replace(/\s+/g, " ").trim().slice(0, 60),
+            icon: "output",
+          }));
+        }
+
         // subTrigger === undefined → "# " — show subcommand completions
         const subCommands: SuggestionItem[] = [
           {
@@ -609,6 +637,22 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
             value: "__diff__",
             detail: "Attach working tree diff",
             icon: "diff-single",
+          },
+          {
+            id: "sub:output",
+            kind: "turn",
+            label: "output",
+            value: "output",
+            detail: "Attach a previous turn's final output",
+            icon: "output",
+          },
+          {
+            id: "sub:turn",
+            kind: "turn",
+            label: "turn",
+            value: "turn",
+            detail: "Attach a previous turn's final output",
+            icon: "output",
           },
           {
             id: "sub:switch",
@@ -698,6 +742,15 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
         } else if (item.kind === "diff") {
           try {
             const attachment = await resolveDiff();
+            if (attachment) setAttachments((prev) => [...prev, attachment]);
+          } catch {
+            /* silently fail */
+          }
+          newText = before + after;
+          setText(newText);
+        } else if (item.kind === "turn") {
+          try {
+            const attachment = await resolveOutput(item.value);
             if (attachment) setAttachments((prev) => [...prev, attachment]);
           } catch {
             /* silently fail */
@@ -831,6 +884,7 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
         resolveSelection,
         resolveDiff,
         resolveSymbol,
+        resolveOutput,
         onNewSession,
         onSwitchSession,
         addSendTarget,

@@ -13,6 +13,8 @@ import {
 import { ResizableSessionOverviewPanel } from "../components/sessions/overview/SessionOverviewPanel";
 import { MeshPanel } from "../components/mesh";
 import { useSessionStore, sessionKeyOf } from "../store/sessionStore";
+import { useMessageStore } from "../store/messageStore";
+import { getTurnOutput } from "../lib/sessionTurns";
 import type { SessionStoreState } from "../store/sessionStore";
 import { useUiStateStore } from "../store/uiStateStore";
 import { useMeshStore } from "../store/meshStore";
@@ -471,6 +473,39 @@ export function AppContainer(): React.ReactElement {
     });
   }, []);
 
+  const resolveOutput = useCallback((ref: string) => {
+    return new Promise<ContextAttachment | null>((resolve) => {
+      const [agentId, sessionId, turnIdxStr] = ref.split("::");
+      const turnIndex = Number(turnIdxStr);
+      if (!agentId || !sessionId || Number.isNaN(turnIndex)) {
+        resolve(null);
+        return;
+      }
+      const key = sessionKeyOf(agentId, sessionId);
+      const messages = useMessageStore.getState().perSession[key] ?? [];
+      const output = getTurnOutput(messages, turnIndex);
+      if (output == null) {
+        resolve(null);
+        return;
+      }
+      const sessionTitle =
+        useSessionStore.getState().tabTitles[key] ?? sessionId.slice(0, 8);
+      // Guard against an out-of-range index produced by stale picker data.
+      const userPrompt = messages[turnIndex]?.role === "user"
+        ? messages[turnIndex].content.trim()
+        : "";
+      resolve({
+        id: `turn:${ref}`,
+        type: "turn",
+        path: "",
+        label: `${sessionTitle} · ${userPrompt.slice(0, 32)}`,
+        tokenCount: Math.ceil(output.length / 4),
+        content: output,
+        message: sessionTitle,
+      });
+    });
+  }, []);
+
   return (
     <div
       className={`prose prose-sm dark:prose-invert flex flex-col h-screen overflow-hidden relative${overviewVisible ? " with-overview" : ""}${overviewOnLeft ? " overview-left" : ""}`}
@@ -511,6 +546,7 @@ export function AppContainer(): React.ReactElement {
             resolveDiff={resolveDiff}
             fetchSymbols={fetchSymbols}
             resolveSymbol={resolveSymbol}
+            resolveOutput={resolveOutput}
             availableCommands={availableCommands}
             onCancelQueuedPrompt={cancelQueuedPrompt}
             onClearQueue={clearQueue}
@@ -537,6 +573,7 @@ export function AppContainer(): React.ReactElement {
             resolveDiff={resolveDiff}
             fetchSymbols={fetchSymbols}
             resolveSymbol={resolveSymbol}
+            resolveOutput={resolveOutput}
             availableCommands={availableCommands}
             onCancelQueuedPrompt={cancelQueuedPrompt}
             onClearQueue={clearQueue}

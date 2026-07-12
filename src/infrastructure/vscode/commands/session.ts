@@ -434,8 +434,52 @@ export function registerSessionCommands(
         return;
       }
 
-      const clicked: DiagnosticProblem = {
-        filePath: "",
+      // Resolve the owning file path. Prefer the URI VS Code passes (newer
+      // releases); otherwise locate the clicked diagnostic among the live
+      // Problems list by reference equality — VS Code hands this command the
+      // same `vscode.Diagnostic` instance returned by
+      // `vscode.languages.getDiagnostics(uri)`, so this is exact and avoids
+      // the brittle message/line re-match that breaks when several problems
+      // share identical text (e.g. many spelling hints from Codebook).
+      let filePath = uriArg?.fsPath ?? "";
+      if (!filePath) {
+        for (const [fileUri, diags] of vscode.languages.getDiagnostics()) {
+          if (diags.includes(diagnostic)) {
+            filePath = fileUri.fsPath;
+            break;
+          }
+        }
+      }
+      // Last-resort fallback: match by message + location against our own
+      // snapshot (covers versions that neither pass the URI nor the original
+      // diagnostic object reference).
+      if (!filePath) {
+        const all = await getDiagnostics();
+        const match =
+          all.find(
+            (p) =>
+              p.message === diagnostic.message &&
+              (p.source ?? undefined) === (diagnostic.source ?? undefined) &&
+              p.startLine === diagnostic.range.start.line + 1 &&
+              p.startColumn === diagnostic.range.start.character + 1
+          ) ??
+          all.find(
+            (p) =>
+              p.startLine === diagnostic.range.start.line + 1 &&
+              p.startColumn === diagnostic.range.start.character + 1
+          );
+        filePath = match?.filePath ?? "";
+      }
+
+      if (!filePath) {
+        void vscode.window.showWarningMessage(
+          "ACP: Could not resolve the problem's file location"
+        );
+        return;
+      }
+
+      const problem: DiagnosticProblem = {
+        filePath,
         startLine: diagnostic.range.start.line + 1,
         startColumn: diagnostic.range.start.character + 1,
         endLine: diagnostic.range.end.line + 1,
@@ -459,30 +503,6 @@ export function registerSessionCommands(
                 ? String(diagnostic.code.value)
                 : String(diagnostic.code),
       };
-
-      const all = await getDiagnostics();
-      const candidates = uriArg?.fsPath
-        ? all.filter((p) => p.filePath === uriArg.fsPath)
-        : all;
-      const match = candidates.find(
-        (p) =>
-          p.message === clicked.message &&
-          (p.source ?? undefined) === (clicked.source ?? undefined) &&
-          p.startLine === clicked.startLine &&
-          p.startColumn === clicked.startColumn
-      );
-
-      const problem: DiagnosticProblem = match ?? {
-        ...clicked,
-        filePath: uriArg?.fsPath ?? "",
-      };
-
-      if (!problem.filePath) {
-        void vscode.window.showWarningMessage(
-          "ACP: Could not resolve the problem's file location"
-        );
-        return;
-      }
 
       const attachment = await resolveProblem(problem);
       if (!attachment) {

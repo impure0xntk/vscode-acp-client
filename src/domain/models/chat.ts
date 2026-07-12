@@ -45,7 +45,7 @@ export interface ToolCall {
 
 export interface ContextAttachmentDTO {
   id: string;
-  type: "file" | "selection" | "symbol" | "diff" | "problem";
+  type: "file" | "selection" | "symbol" | "diff" | "problem" | "turn";
   path: string;
   label: string;
   lineRange?: [number, number];

@@ -47,6 +47,10 @@ function displayLabel(a: ContextAttachment): string {
       // Show the diagnostic message so the chip reveals the error at a glance;
       // fall back to the file:line label when the message is unavailable.
       return a.message ? a.message : a.label || name;
+    case "turn":
+      // A forwarded prior-turn output — show the source session title (or
+      // fallback to the generated label) since there is no file to name.
+      return a.message ? a.message : a.label || "turn";
     case "file":
     default:
       return name;
@@ -61,6 +65,8 @@ export function ContextChip({
   const c = getContextColors(contextColor);
 
   const handleClick = () => {
+    // Turn attachments carry no real path — nothing to open in the editor.
+    if (!attachment.path) return;
     const vscode = getVsCodeApi();
     vscode.postMessage({
       type: "openFile",

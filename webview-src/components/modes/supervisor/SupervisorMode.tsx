@@ -49,6 +49,8 @@ export interface SupervisorModeProps {
   resolveDiff: () => Promise<ContextAttachment | null>;
   fetchSymbols: (query: string) => Promise<SuggestionItem[]>;
   resolveSymbol: (name: string) => Promise<ContextAttachment>;
+  /** Resolve a previous turn's final output into a context attachment. */
+  resolveOutput: (ref: string) => Promise<ContextAttachment | null>;
   availableCommands?: SlashCommand[];
   onCancelQueuedPrompt?: (
     agentId: string,
@@ -73,6 +75,7 @@ export const SupervisorMode = React.memo(function SupervisorMode({
   resolveDiff,
   fetchSymbols,
   resolveSymbol,
+  resolveOutput,
   availableCommands = [],
   onCancelQueuedPrompt,
   onClearQueue,
@@ -237,6 +240,7 @@ export const SupervisorMode = React.memo(function SupervisorMode({
           resolveDiff={resolveDiff}
           fetchSymbols={fetchSymbols}
           resolveSymbol={resolveSymbol}
+          resolveOutput={resolveOutput}
           availableCommands={availableCommands}
           queue={sessionQueue}
           onAttachDiff={onAttachDiff}

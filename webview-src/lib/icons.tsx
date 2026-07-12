@@ -1053,6 +1053,7 @@ export function iconForType(
     | "folder"
     | "git"
     | "problem"
+    | "turn"
 ): string {
   switch (type) {
     case "file":
@@ -1071,6 +1072,8 @@ export function iconForType(
       return "git-branch";
     case "problem":
       return "warning";
+    case "turn":
+      return "output";
   }
 }
 

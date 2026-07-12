@@ -48,14 +48,14 @@ const SUB_TRIGGER_LABELS: Record<string, string> = {
 
 export interface ContextPickerProps {
   trigger: TriggerType;
-  subTrigger?: "symbol" | "file" | "switch" | "team";
+  subTrigger?: "symbol" | "file" | "switch" | "team" | "output" | "turn";
   query: string;
   onSelect: (item: SuggestionItem) => void;
   onClose: () => void;
   fetchItems: (
     trigger: TriggerType,
     query: string,
-    subTrigger?: "symbol" | "file" | "switch" | "team"
+    subTrigger?: "symbol" | "file" | "switch" | "team" | "output" | "turn"
   ) => Promise<SuggestionItem[]>;
   selectedIndex: number;
   onSelectedIndexChange: (index: number) => void;
@@ -152,7 +152,9 @@ export function ContextPicker({
             ? "No sessions found"
             : subTrigger === "team"
               ? "No teams found"
-              : "No files found";
+              : subTrigger === "output" || subTrigger === "turn"
+                ? "No turns found"
+                : "No files found";
 
   const firstActionIdx = items.findIndex((it) => it.kind === "action");
   const hasSeparator = firstActionIdx > 0;

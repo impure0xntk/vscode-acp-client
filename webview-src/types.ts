@@ -134,7 +134,7 @@ export interface ChatMessage {
   sessionCwd?: string;
   /** File paths confirmed to exist — inline code matching these becomes clickable links */
   inlineFilePaths?: string[];
-  /** Context attachments (files, selections, symbols, diffs) */
+  /** Context attachments (files, selections, symbols, diffs, turns) */
   attachments?: ContextAttachment[];
   /** Serialized JSON string for SQLite round-trip — parsed into `attachments` at runtime */
   attachmentsJson?: string;
@@ -168,7 +168,7 @@ export interface TokenUsage {
 
 export interface ContextAttachment {
   id: string;
-  type: "file" | "selection" | "symbol" | "diff" | "problem";
+  type: "file" | "selection" | "symbol" | "diff" | "problem" | "turn";
   path: string;
   label: string;
   lineRange?: [number, number];
@@ -211,7 +211,8 @@ export interface SuggestionItem {
     | "symbol"
     | "action"
     | "session"
-    | "team";
+    | "team"
+    | "turn";
   label: string;
   /** Relative path for files, command id for commands, symbol name for symbols, action id for actions, "agentId:sessionId" for sessions, team id for teams */
   value: string;
