@@ -617,9 +617,26 @@ export function selectFinalResponse(
   // stopReason or isFirstOfTurn (which can happen when updateLastAgentMessage
   // falls back to a tool message, or when incremental annotation resets
   // the turn-boundary state).
+  //
+  // Thinking-only messages (thinking set, no text content) are also
+  // excluded.  They represent intermediate reasoning, not the user-visible
+  // final response.  If a thinking-only message were selected as "final",
+  // it would sit at index 0 in a fresh turn, leaving zero intermediate
+  // items → IntermediateStepsBanner disappears.  Later, when real text
+  // arrives, the selection shifts and the banner reappears — causing a
+  // visible flicker.
   const agentOnly: Array<{ item: PipelineItem; originalIndex: number }> = [];
   for (let i = 0; i < agentChats.length; i++) {
     if (isRealAgentChat(agentChats[i])) {
+      const chat = agentChats[i] as ChatDisplayItem;
+      // Skip thinking-only messages — they have reasoning but deliver no
+      // user-facing content.  They are intermediate steps, not final output.
+      if (
+        chat.thinking != null &&
+        (chat.content?.trim() ?? "") === ""
+      ) {
+        continue;
+      }
       agentOnly.push({ item: agentChats[i], originalIndex: i });
     }
   }
