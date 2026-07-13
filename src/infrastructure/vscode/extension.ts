@@ -34,6 +34,7 @@ import {
 import { ensureChatPanel, registerConnectCommands } from "./commands/connect";
 import { registerSessionCommands } from "./commands/session";
 import { registerQuickFixCommands } from "./commands/quickfix";
+import { registerProblemQuickFixProvider } from "./commands/problemQuickFix";
 import { registerExportDebugLogCommand } from "./commands/exportDebugLog";
 import { LogEntrySinkImpl } from "../../domain/services/log-entry-sink";
 import { wireChatPanelEvents } from "./commands/prompt";
@@ -810,6 +811,11 @@ function registerCommands(context: vscode.ExtensionContext): void {
     () => persistentHistory ?? null
   );
 
+  // Surface "Attach Problem to Chat" as a Quick Fix on any diagnostic so a
+  // problem can be sent to the Composer from the Problems panel's
+  // "Quick Fix…" menu (or the editor lightbulb) instead of the command palette.
+  const problemQuickFixDisposable = registerProblemQuickFixProvider();
+
   const toggleOverviewCmd = vscode.commands.registerCommand(
     "acp.toggleSessionOverview",
     () => {
@@ -887,6 +893,7 @@ function registerCommands(context: vscode.ExtensionContext): void {
     setPanelModeSupervisorCmd,
     clearLogsCmd,
     exportDebugLogCmd,
+    problemQuickFixDisposable,
   ]) {
     context.subscriptions.push(d);
   }
