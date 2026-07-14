@@ -230,7 +230,7 @@ function FileEditSummaryInner({
   );
 
   return (
-    <div className="ml-4 mr-1 mt-1 mb-1 rounded-md border border-[color-mix(in_srgb,var(--border)_60%,transparent)] bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)] overflow-hidden">
+    <div className="mt-1 mb-1 rounded-md border border-[color-mix(in_srgb,var(--border)_60%,transparent)] bg-[color-mix(in_srgb,var(--bg-secondary)_8%,transparent)] overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-2 px-2.5 py-[5px] bg-transparent border-none text-left transition-colors duration-100 hover:bg-[color-mix(in_srgb,var(--accent)_6%,transparent)]">
         <button
