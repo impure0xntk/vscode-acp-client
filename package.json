@@ -80,6 +80,22 @@
         "title": "ACP: Attach Git Diff"
       },
       {
+        "command": "acp.attachProblem",
+        "title": "ACP: Attach Problem to Chat"
+      },
+      {
+        "command": "acp.fixSelection",
+        "title": "ACP: Fix Selection with Agent"
+      },
+      {
+        "command": "acp.attachQuickFix",
+        "title": "ACP: Attach Selection to Chat"
+      },
+      {
+        "command": "acp.reviewChanges",
+        "title": "ACP: Review Changes in Another Session"
+      },
+      {
         "command": "acp.setMode",
         "title": "ACP: Set Agent Mode"
       },
@@ -132,6 +148,14 @@
         "command": "acp.splitHorizontal",
         "title": "ACP: Split Sessions Horizontally (Side by Side)",
         "icon": "$(split-horizontal)"
+      },
+      {
+        "command": "acp.setPanelMode.unified",
+        "title": "ACP: Switch to Unified Mode"
+      },
+      {
+        "command": "acp.setPanelMode.supervisor",
+        "title": "ACP: Switch to Supervisor Mode"
       }
     ],
     "keybindings": [
@@ -157,12 +181,29 @@
         {
           "command": "acp.attachDiff",
           "group": "acp@2"
+        },
+        {
+          "command": "acp.fixSelection",
+          "when": "editorHasSelection",
+          "group": "acp@3"
+        },
+        {
+          "command": "acp.attachQuickFix",
+          "when": "editorHasSelection",
+          "group": "acp@4"
         }
       ],
       "explorer/context": [
         {
           "command": "acp.attachFile",
           "when": "explorerResourceIsFile",
+          "group": "acp@1"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "acp.attachProblem",
+          "when": "view == 'workbench.panel.markers.view'",
           "group": "acp@1"
         }
       ]
@@ -211,6 +252,11 @@
                     "sessionName": {
                       "type": "string",
                       "description": "Human-readable title for this session tab"
+                    },
+                    "pinned": {
+                      "type": "boolean",
+                      "default": true,
+                      "description": "Pin the auto-created session so it survives auto-close. Defaults to true."
                     }
                   }
                 }
@@ -300,6 +346,16 @@
           "default": 4000,
           "minimum": 100,
           "description": "Max total tokens for context attachments"
+        },
+        "acp.review.prompt": {
+          "type": "string",
+          "default": "Please review the file changes attached below. Focus on correctness, potential bugs, edge cases, security issues, and adherence to the project's conventions. Provide specific, actionable feedback and suggest concrete fixes where appropriate.",
+          "description": "Prompt pre-filled into the Composer when forwarding the current session's Files changed list to another session for review (the acp.reviewChanges command, or the Files changed review button)."
+        },
+        "acp.fix.prompt": {
+          "type": "string",
+          "default": "Please review and fix the selected code below. Explain the root cause of any issue, then provide a corrected version that follows the project's conventions and best practices. Apply the fix directly if you have the appropriate tools.",
+          "description": "Prompt pre-filled into the Composer by the 'Fix selection with agent' Quick Fix (the acp.fixSelection command). Sent together with the selected text as a Composer attachment so an agent can correct it."
         },
         "acp.sessionOverviewPosition": {
           "type": "string",
@@ -459,6 +515,11 @@
                         "mode": {
                           "type": "string",
                           "description": "Agent mode to set after connection"
+                        },
+                        "pinned": {
+                          "type": "boolean",
+                          "default": true,
+                          "description": "Pin the auto-created session so it survives auto-close. Defaults to true."
                         }
                       },
                       "required": [
