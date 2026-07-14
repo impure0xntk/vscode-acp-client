@@ -176,12 +176,43 @@ function FileEditSummaryInner({
 }: FileEditSummaryProps): React.ReactElement | null {
   const [collapsed, setCollapsed] = useState(false);
   const [rowStates, setRowStates] = useState<Record<string, RowState>>({});
+  // Paths the user has successfully reverted — hidden from the summary, and
+  // the whole summary disappears once every file has been reverted.
+  const [revertedPaths, setRevertedPaths] = useState<Set<string>>(
+    () => new Set()
+  );
 
   // Filter out entries without a contentHash — they're too old to render
   const renderableEntries = useMemo(
-    () => filterRenderableEntries(entries, agentId ?? "", sessionId ?? ""),
-    [entries, agentId, sessionId]
+    () =>
+      filterRenderableEntries(entries, agentId ?? "", sessionId ?? "").filter(
+        (e) => !revertedPaths.has(e.path)
+      ),
+    [entries, agentId, sessionId, revertedPaths]
   );
+
+  // Listen for revert results from the extension. Only a *successful* revert
+  // hides the row — a failed revert leaves the entry so the user can retry.
+  useEffect(() => {
+    if (!agentId || !sessionId) return;
+    const handler = (event: MessageEvent) => {
+      const data = event.data as Record<string, unknown>;
+      if (
+        data.type === "revertFileResult" &&
+        data.success === true &&
+        typeof data.path === "string"
+      ) {
+        setRevertedPaths((prev) => {
+          if (prev.has(data.path as string)) return prev;
+          const next = new Set(prev);
+          next.add(data.path as string);
+          return next;
+        });
+      }
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, [agentId, sessionId]);
 
   const toggleCollapse = useCallback(() => {
     setCollapsed((c) => !c);

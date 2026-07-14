@@ -913,6 +913,11 @@ export function wireChatPanelEvents(
               void vscode.window.showWarningMessage(
                 `File not found: ${path.basename(absPath)}`
               );
+              chatPanel?.postMessage({
+                type: "revertFileResult",
+                path: revertPath,
+                success: false,
+              });
               return;
             }
 
@@ -932,6 +937,11 @@ export function wireChatPanelEvents(
             void vscode.window.showInformationMessage(
               `Reverted ${path.basename(absPath)} to original content`
             );
+            chatPanel?.postMessage({
+              type: "revertFileResult",
+              path: revertPath,
+              success: true,
+            });
           } catch (err) {
             getLogger("prompt").error(
               "revertFile failed",
@@ -941,6 +951,11 @@ export function wireChatPanelEvents(
             void vscode.window.showErrorMessage(
               `Failed to revert ${path.basename(absPath)}: ${(err as Error).message}`
             );
+            chatPanel?.postMessage({
+              type: "revertFileResult",
+              path: revertPath,
+              success: false,
+            });
           }
         })();
         break;

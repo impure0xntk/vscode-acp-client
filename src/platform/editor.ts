@@ -83,8 +83,6 @@ export interface EditorAPI {
     }
   ): Disposable;
   getGitDiff(): Promise<string | undefined>;
-  /** All diagnostics currently in the Problems panel (workspace-wide). */
-  getDiagnostics(): Promise<DiagnosticProblem[]>;
 }
 
 export type { DiffResult } from "./types";

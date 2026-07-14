@@ -21,10 +21,8 @@ import {
   resolveSelection as resolveSelectionPlatform,
   resolveDiff as resolveDiffPlatform,
   resolveRange as resolveRangePlatform,
-  resolveProblems as resolveProblemsPlatform,
   resolveProblem as resolveProblemPlatform,
   type SerializedRange,
-  type ProblemFilter,
 } from "../../adapter/context/assembler";
 import { searchFiles as searchFilesPlatform } from "../../adapter/context/file";
 import {
@@ -104,22 +102,8 @@ function resolveRangeAt(
   ) as Promise<ContextAttachmentDTO | null>;
 }
 
-function getDiagnostics(): Promise<DiagnosticProblem[]> {
-  return platform.editor.getDiagnostics() as Promise<DiagnosticProblem[]>;
-}
-
 function getActiveFile(): string | undefined {
   return platform.editor.activeEditor?.filePath;
-}
-
-function resolveProblems(
-  filter: ProblemFilter
-): Promise<ContextAttachmentDTO | null> {
-  return resolveProblemsPlatform(
-    platform.editor,
-    platform.fs,
-    filter
-  ) as Promise<ContextAttachmentDTO | null>;
 }
 
 function resolveProblem(
@@ -726,9 +710,6 @@ function registerCommands(context: vscode.ExtensionContext): void {
     resolveFile,
     resolveSelection,
     resolveDiff,
-    getDiagnostics,
-    getActiveFile,
-    resolveProblems,
     resolveProblem,
     sendTabsToChatPanel
   );

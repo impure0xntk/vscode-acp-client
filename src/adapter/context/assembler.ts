@@ -12,14 +12,6 @@ export interface GitAPI {
   }>;
 }
 
-/** Filter applied when building a Problems attachment. */
-export interface ProblemFilter {
-  /** "all" = entire workspace; "currentFile" = active editor's document. */
-  scope: "all" | "currentFile";
-  /** When set, keep only diagnostics whose `source` matches (e.g. "eslint"). */
-  source?: string;
-}
-
 export async function resolveFile(
   fs: FileSystemAPI,
   filePath: string,
@@ -192,12 +184,11 @@ export function estimateTokens(text: string): number {
 }
 
 /**
- * Render one or more diagnostics as a single `problem`-type Composer
- * attachment. Shared by `resolveProblems` (the multi-problem "Attach Problems"
- * command) and `resolveProblem` (a single right-clicked problem from the
- * Problems panel's context menu). Embeds each offending source line plus a
- * caret under the offending column so the agent sees both the message and the
- * exact symbol/expression without re-running the linter itself.
+ * Render one or more diagnostics as a `problem`-type Composer attachment.
+ * Used by `resolveProblem` (a single right-clicked problem from the Problems
+ * panel's context menu). Embeds each offending source line plus a caret under
+ * the offending column so the agent sees both the message and the exact
+ * symbol/expression without re-running the linter itself.
  */
 async function renderProblems(
   fs: FileSystemAPI,
@@ -312,43 +303,4 @@ export async function resolveProblem(
   problem: DiagnosticProblem
 ): Promise<ContextAttachment | null> {
   return renderProblems(fs, [problem], "selected problem");
-}
-
-/**
- * Resolve a Composer attachment from VS Code's Problems panel.
- *
- * Gathers diagnostics (including those reported by external tools such as
- * ESLint, TSLint, and the TypeScript compiler) and formats them as a
- * single context attachment with `file:line:col` references and the
- * offending source line + a caret under the offending column. The result is
- * purpose-built for an agent: it can see exactly what is flagged and
- * where, without re-running the linter itself.
- *
- * `scope: "currentFile"` restricts the attachment to the active editor's
- * document (when one is open); `source` (e.g. "eslint") narrows the
- * set to a single reporting tool.
- */
-export async function resolveProblems(
-  editor: EditorAPI,
-  fs: FileSystemAPI,
-  filter: ProblemFilter
-): Promise<ContextAttachment | null> {
-  const all = await editor.getDiagnostics();
-  if (all.length === 0) return null;
-
-  let problems = all;
-  if (filter.scope === "currentFile") {
-    const activeFile = editor.activeEditor?.filePath;
-    problems = activeFile
-      ? all.filter((p) => p.filePath === activeFile)
-      : all;
-  }
-  if (filter.source) {
-    problems = problems.filter((p) => p.source === filter.source);
-  }
-  if (problems.length === 0) return null;
-
-  const scopeLabel =
-    filter.scope === "currentFile" ? "current file" : "workspace";
-  return renderProblems(fs, problems, scopeLabel);
 }
