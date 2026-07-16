@@ -26,6 +26,7 @@ import { collectTurns } from "../../lib/sessionTurns";
 const log = getLogger("webview.Composer");
 import { ContextBar } from "./ContextBar";
 import { ContextPicker } from "./ContextPicker";
+import { ContextPreview } from "./ContextPreview";
 import type { FileCandidate } from "./ContextPicker";
 import { Icon } from "../../lib/icons";
 import {
@@ -249,6 +250,11 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
 
     const [text, setText] = useState("");
     const [attachments, setAttachments] = useState<ContextAttachment[]>([]);
+    // Previewed attachment id — clicking a chip toggles its content preview.
+    // Only attachments that contribute tokens (tokenCount > 0) are previewable.
+    const [previewAttachmentId, setPreviewAttachmentId] = useState<
+      string | null
+    >(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const historyRef = useRef<string[]>([]);
     const historyIdxRef = useRef(-1);
@@ -934,7 +940,20 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
 
     const handleRemoveAttachment = useCallback((id: string) => {
       setAttachments((prev) => prev.filter((a) => a.id !== id));
+      setPreviewAttachmentId((prev) => (prev === id ? null : prev));
     }, []);
+
+    // Toggle the preview pane for an attachment. Only attachments that add
+    // context tokens (tokenCount > 0) are previewable; others are ignored.
+    const handlePreviewAttachment = useCallback(
+      (attachment: ContextAttachment) => {
+        if (attachment.tokenCount <= 0) return;
+        setPreviewAttachmentId((prev) =>
+          prev === attachment.id ? null : attachment.id
+        );
+      },
+      []
+    );
 
     /** Send immediately (bypass queue) — used by "send now" button on queued items */
     const handleSendNow = useCallback(
@@ -975,6 +994,7 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
     const handleSend = useCallback(() => {
       const trimmed = text.trim();
       if ((trimmed || attachments.length > 0) && !disabled) {
+        setPreviewAttachmentId(null);
         if (trimmed) {
           const h = historyRef.current;
           if (h.length === 0 || h[h.length - 1] !== trimmed) {
@@ -1194,7 +1214,23 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
           connectedAgents={connectedAgents}
           selectedTeam={selectedTeam}
           onRemoveSelectedTeam={() => setSelectedTeam(null)}
+          onPreviewAttachment={handlePreviewAttachment}
+          previewingAttachmentId={previewAttachmentId}
         />
+
+        {/* Attachment preview — shown above the input when a token-bearing
+            chip is clicked. Lets the user inspect exactly what context will
+            be injected into the prompt before sending. */}
+        {(() => {
+          const att = attachments.find((a) => a.id === previewAttachmentId);
+          if (!att || att.tokenCount <= 0) return null;
+          return (
+            <ContextPreview
+              attachment={att}
+              onClose={() => setPreviewAttachmentId(null)}
+            />
+          );
+        })()}
 
         {/* Mesh mode badge — shown when /mesh fanout|supervisor|pipeline is active */}
         {communicationMode && (

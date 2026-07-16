@@ -171,12 +171,14 @@ md.renderer.rules.fence = (tokens, idx, options, env, slf) => {
   return `<pre${token.info ? ` data-lang="${md.utils.escapeHtml(token.info)}"` : ""}><code>${md.utils.escapeHtml(token.content)}</code></pre>`;
 };
 
-// Register plantuml plugin (uses @startuml/@enduml blocks)
+// Register plantuml plugin (uses @startuml/@enduml blocks).
+// NOTE: We deliberately do NOT configure a remote `server`. The default
+// (https://www.plantuml.com/plantuml) would leak attachment content to an
+// external host and trigger outbound network requests from the webview.
+// Diagrams render via the local proxy set up by the extension host instead.
 md.use(plantumlPlugin, {
   imageFormat: "svg",
   diagramName: "uml",
-  // Use a public PlantUML server for rendering
-  server: "https://www.plantuml.com/plantuml",
 });
 
 // code_block uses the same wrapper as fence but without a language label
@@ -205,7 +207,7 @@ md.renderer.rules.code_inline = (tokens, idx, options, env, self) => {
 };
 
 const PURIFY_OPTS: PurifyConfig = {
-  ADD_TAGS: ["a", "span", "div", "button", "svg", "path", "img", "pre", "code"],
+  ADD_TAGS: ["a", "span", "div", "button", "svg", "path", "pre", "code"],
   ADD_ATTR: [
     "class",
     "data-action",
@@ -225,12 +227,11 @@ const PURIFY_OPTS: PurifyConfig = {
     "stroke-linecap",
     "stroke-linejoin",
     "d",
-    "src",
-    "alt",
     "width",
     "height",
-    "style",
   ],
+  // Block inline event handlers and javascript: URLs from attachment content.
+  FORBID_ATTR: ["style", "onload", "onerror", "onclick"],
 };
 
 /**

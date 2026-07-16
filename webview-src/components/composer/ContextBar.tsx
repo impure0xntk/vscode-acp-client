@@ -1,6 +1,10 @@
 import React from "react";
-import type { ContextAttachment, SelectedTeam, SendTarget } from "../../types";
-import type { ContextColor } from "../../types";
+import type {
+  ContextAttachment,
+  ContextColor,
+  SelectedTeam,
+  SendTarget,
+} from "../../types";
 import { ContextChip } from "./ContextChip";
 import { SendTargetChip } from "../primitives/SendTargetChip";
 import { Icon } from "../../lib/icons";
@@ -14,6 +18,10 @@ export interface ContextBarProps {
   selectedTeam?: SelectedTeam | null;
   onRemoveSelectedTeam?: () => void;
   contextColor?: ContextColor;
+  /** Called when an attachment chip is clicked for preview. */
+  onPreviewAttachment?: (attachment: ContextAttachment) => void;
+  /** Id of the attachment currently being previewed (if any). */
+  previewingAttachmentId?: string | null;
 }
 
 export type { SelectedTeam } from "../../types";
@@ -27,6 +35,8 @@ export function ContextBar({
   selectedTeam = null,
   onRemoveSelectedTeam,
   contextColor = "normal",
+  onPreviewAttachment,
+  previewingAttachmentId = null,
 }: ContextBarProps): React.ReactElement | null {
   const hasAttachments = attachments.length > 0;
   const hasTargets = sendTargets.length > 0;
@@ -69,6 +79,8 @@ export function ContextBar({
             attachment={a}
             onRemove={onRemove}
             contextColor={contextColor}
+            onPreview={onPreviewAttachment}
+            isPreviewing={previewingAttachmentId === a.id}
           />
         ))}
       </div>

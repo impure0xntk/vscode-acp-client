@@ -6,4 +6,6 @@ export { ContextPicker } from "./ContextPicker";
 export type { ContextPickerProps } from "./ContextPicker";
 export { ContextChip } from "./ContextChip";
 export type { ContextChipProps } from "./ContextChip";
+export { ContextPreview } from "./ContextPreview";
+export type { ContextPreviewProps } from "./ContextPreview";
 export { ContextCompressionNotice } from "./ContextCompressionNotice";

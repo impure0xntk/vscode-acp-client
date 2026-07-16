@@ -2,11 +2,16 @@ import React from "react";
 import type { ContextAttachment } from "../../types";
 import { getVsCodeApi } from "../../lib/vscodeApi";
 import { Icon, iconForType } from "../../lib/icons";
+import { attachmentLabel } from "../../lib/attachments";
 
 export interface ContextChipProps {
   attachment: ContextAttachment;
   onRemove: (id: string) => void;
   contextColor?: "normal" | "warning" | "critical";
+  /** Called when the chip body is clicked for preview (distinct from remove). */
+  onPreview?: (attachment: ContextAttachment) => void;
+  /** Whether this chip's attachment is currently being previewed. */
+  isPreviewing?: boolean;
 }
 
 function getContextColors(color: "normal" | "warning" | "critical"): {
@@ -33,59 +38,45 @@ function getContextColors(color: "normal" | "warning" | "critical"): {
   }
 }
 
-/** Derive a concise display label per attachment type. */
-function displayLabel(a: ContextAttachment): string {
-  const name = a.path.split("/").pop() ?? a.path;
-  switch (a.type) {
-    case "selection":
-      return a.lineRange ? `${name}:${a.lineRange[0]}-${a.lineRange[1]}` : name;
-    case "symbol":
-      return a.label;
-    case "diff":
-      return "diff";
-    case "problem":
-      // Show the diagnostic message so the chip reveals the error at a glance;
-      // fall back to the file:line label when the message is unavailable.
-      return a.message ? a.message : a.label || name;
-    case "turn":
-      // A forwarded prior-turn output — show the source session title (or
-      // fallback to the generated label) since there is no file to name.
-      return a.message ? a.message : a.label || "turn";
-    case "file":
-    default:
-      return name;
-  }
-}
-
 export function ContextChip({
   attachment,
   onRemove,
   contextColor = "normal",
+  onPreview,
+  isPreviewing = false,
 }: ContextChipProps): React.ReactElement {
   const c = getContextColors(contextColor);
 
-  const handleClick = () => {
-    // Turn attachments carry no real path — nothing to open in the editor.
-    if (!attachment.path) return;
-    const vscode = getVsCodeApi();
-    vscode.postMessage({
-      type: "openFile",
-      path: attachment.path,
-      line: attachment.lineRange?.[0],
-    });
+  // Clicking the label previews the attachment when it adds context tokens;
+  // clicking also opens the file in the editor (when a real path exists).
+  // Clicking the chip label toggles the preview; a modifier-click (Cmd/Ctrl)
+  // also opens the file in the editor. Plain click no longer forces a jump,
+  // so users can inspect context without losing their place.
+  const handleClick = (e: React.MouseEvent) => {
+    if (onPreview) onPreview(attachment);
+    if (e.metaKey || e.ctrlKey) {
+      if (!attachment.path) return; // Turn attachments have no real path
+      const vscode = getVsCodeApi();
+      vscode.postMessage({
+        type: "openFile",
+        path: attachment.path,
+        line: attachment.lineRange?.[0],
+      });
+    }
   };
 
-  const label = displayLabel(attachment);
+  const label = attachmentLabel(attachment);
   const iconName = iconForType(attachment.type);
 
   return (
     <span
-      className={`inline-flex items-center gap-[3px] px-1.5 py-0.5 rounded border text-[11px] whitespace-nowrap shrink-0 ${c.bg} ${c.border}${contextColor === "critical" ? " animate-context-pulse" : ""}`}
+      className={`inline-flex items-center gap-[3px] px-1.5 py-0.5 rounded border text-[11px] whitespace-nowrap shrink-0 ${c.bg} ${c.border}${contextColor === "critical" ? " animate-context-pulse" : ""}${isPreviewing ? " ring-1 ring-accent" : ""}`}
       title={`${attachment.path}\n${attachment.tokenCount} tokens`}
     >
       <Icon name={iconName} size="sm" className="text-[12px] shrink-0" />
       <span
         className="text-fg-primary max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap cursor-pointer hover:underline"
+        title="Click to preview · Cmd/Ctrl+Click to open file"
         onClick={handleClick}
       >
         {label}
