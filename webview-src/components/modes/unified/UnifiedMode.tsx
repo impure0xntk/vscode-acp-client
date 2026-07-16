@@ -276,6 +276,7 @@ export const UnifiedMode = React.memo(function UnifiedMode({
         if (!info) continue;
         const shouldClear =
           info.status === "running" ||
+          info.status === "idle" ||
           info.status === "completed" ||
           info.status === "error" ||
           info.status === "cancelled";
