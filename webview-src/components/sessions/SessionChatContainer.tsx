@@ -197,12 +197,8 @@ export const SessionChatContainer = memo(function SessionChatContainer({
 
   // Per-group file edit summaries via dedicated hook (O(W log W + S)).
   // Computes separate file edit summaries for each group's steps + finalResponse.
-  const groupFileEditSummaryMaps = useGroupFileEditSummaryMaps(
-    agentId ?? "",
-    sessionId ?? "",
-    groups,
-    latestGroup
-  );
+  const { groupMaps: groupFileEditSummaryMaps, latestCurrentStepSummary } =
+    useGroupFileEditSummaryMaps(agentId ?? "", sessionId ?? "", groups, latestGroup);
 
   const collapsedMap = useIntermediateStepsCollapseMap(sessionKey ?? null);
   const toggleIntermediateSteps = useToggleIntermediateSteps();
@@ -748,7 +744,10 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                           {currentStep.fileEditSummary &&
                             currentStep.fileEditSummary.length > 0 && (
                               <FileEditSummary
-                                entries={currentStep.fileEditSummary}
+                                entries={
+                                  latestCurrentStepSummary ??
+                                  currentStep.fileEditSummary
+                                }
                                 sessionId={sessionId}
                                 agentId={agentId}
                                 onAttachDiff={onAttachDiff}

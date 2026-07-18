@@ -29,7 +29,8 @@ export interface SupervisorModeProps {
     attachments: ContextAttachment[],
     targets?: SendTarget[],
     mode?: import("../../../types").CommunicationMode | null,
-    teamId?: string
+    teamId?: string,
+    queueMode?: import("../../../types").QueuedPromptMode
   ) => void;
   onCancel: (targets?: SendTarget[]) => void;
   onSwitchSession: (agentId: string, sessionId: string) => void;
@@ -59,6 +60,10 @@ export interface SupervisorModeProps {
   ) => void;
   onClearQueue?: (agentId: string, sessionId: string) => void;
   onAttachDiff?: (attachment: ContextAttachment) => void;
+  onSendMode?: (
+    text: string,
+    attachments: ContextAttachment[],
+  ) => void;
 }
 
 export const SupervisorMode = React.memo(function SupervisorMode({

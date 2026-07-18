@@ -11,6 +11,12 @@ export type { SessionInfo, SessionStatus, TurnOutcome, TokenUsage };
 
 export type QueuedPromptStatus = "pending" | "sending" | "sent" | "cancelled";
 
+/** Queue entry mode: stack (enqueue after current turn) or inject (interrupt at next safe boundary). */
+export type QueuedPromptMode = "stack" | "inject";
+
+/** Safe boundary at which an inject entry should be applied (best-effort hint). */
+export type InjectBoundary = "tool_call" | "thought" | "stream_pause" | "end_turn";
+
 export interface QueuedPrompt {
   id: string;
   agentId: string;
@@ -20,6 +26,10 @@ export interface QueuedPrompt {
   /** ISO timestamp when the prompt was enqueued */
   enqueuedAt: string;
   status: QueuedPromptStatus;
+  /** Whether this entry is deferred (stack) or injected at the next boundary (inject). */
+  mode: QueuedPromptMode;
+  /** For inject entries: the safe boundary to wait for before injecting. */
+  injectBoundary?: InjectBoundary;
 }
 
 /**

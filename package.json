@@ -312,6 +312,21 @@
           "default": false,
           "description": "Log protocol traffic to Output Channel"
         },
+        "acp.queue.defaultMode": {
+          "type": "string",
+          "enum": [
+            "stack",
+            "inject",
+            "stop"
+          ],
+          "default": "stack",
+          "description": "Default behavior when sending a message to a running (in-progress) session: stack (enqueue after current turn), inject (interrupt at next safe boundary), or stop (stop & send immediately)."
+        },
+        "acp.queue.showPanel": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the prompt queue panel in the Composer when messages are queued."
+        },
         "acp.logLevel": {
           "type": "string",
           "enum": [
@@ -570,6 +585,9 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.0",
     "@tailwindcss/typography": "^0.5.20",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/diff": "^8.0.0",
     "@types/dompurify": "^3.0.5",
     "@types/markdown-it": "^14.1.2",
@@ -581,6 +599,7 @@
     "@types/vscode": "^1.95.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
+    "@vitest/ui": "^4.1.10",
     "@vscode/test-electron": "^2.4.0",
     "@vscode/vsce": "^3.2.0",
     "autoprefixer": "^10.5.0",
@@ -592,6 +611,7 @@
     "eslint": "^9.17.0",
     "glob": "^11.0.0",
     "highlight.js": "^11.11.1",
+    "jsdom": "^29.1.1",
     "knip": "^6.21.0",
     "markdown-it": "^14.2.0",
     "mocha": "^11.7.6",
@@ -605,6 +625,7 @@
     "stylelint-config-tailwindcss": "^1.0.1",
     "tailwindcss": "^4.3.0",
     "ts-prune": "^0.10.3",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.10"
   }
 }

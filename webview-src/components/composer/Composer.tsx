@@ -9,6 +9,7 @@ import type {
   CommunicationMode,
   ContextAttachment,
   QueuedPrompt,
+  QueuedPromptMode,
   SelectedTeam,
   SendTarget,
   SuggestionItem,
@@ -74,7 +75,8 @@ export interface ComposerProps {
     attachments: ContextAttachment[],
     targets?: SendTarget[],
     mode?: CommunicationMode | null,
-    teamId?: string
+    teamId?: string,
+    queueMode?: QueuedPromptMode
   ) => void;
   onCancel: (targets?: SendTarget[]) => void;
   onNewSession?: () => void;
@@ -108,6 +110,11 @@ export interface ComposerProps {
   onClearQueue?: () => void;
   /** Attach a diff attachment (from FileEditSummary) */
   onAttachDiff?: (attachment: ContextAttachment) => void;
+  /** Send with an explicit queue mode (stack/inject) — used for running-session routing. Defaults to undefined (immediate). */
+  onSendMode?: (
+    text: string,
+    attachments: ContextAttachment[],
+  ) => void;
 }
 
 function relativeTime(iso: string | null): string {
@@ -240,6 +247,7 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
       onRemoveQueueItem,
       onClearQueue,
       onAttachDiff,
+      onSendMode,
     },
     ref
   ): React.ReactElement {
@@ -991,6 +999,18 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
       ]
     );
 
+    // Queue mode selector: when a session is running, the user picks
+    // stack/inject via hotkeys; this ref stores the pending mode so
+    // handleSend can route correctly.
+    const pendingQueueModeRef = useRef<
+      "stack" | "inject" | null
+    >(null);
+    const usePendingQueueMode = (): "stack" | "inject" | null => {
+      const m = pendingQueueModeRef.current;
+      pendingQueueModeRef.current = null;
+      return m;
+    };
+
     const handleSend = useCallback(() => {
       const trimmed = text.trim();
       if ((trimmed || attachments.length > 0) && !disabled) {
@@ -1068,25 +1088,32 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
         }
 
         const targets = sendTargets.length > 0 ? sendTargets : undefined;
+        const queueMode = usePendingQueueMode();
         log.info("send", {
           textLen: trimmed.length,
           attachments: attachments.length,
           targets: targets?.length ?? 0,
           mode: communicationMode,
           teamId: selectedTeam?.id ?? null,
+          queueMode: queueMode ?? "immediate",
         });
-        onSend(
-          trimmed,
-          attachments,
-          targets,
-          communicationMode,
-          selectedTeam?.id
-        );
+        if (queueMode && status === "running" && onSendMode) {
+          // Route to queue (stack or inject) instead of sending immediately.
+          onSendMode(trimmed, attachments);
+        } else {
+          onSend(
+            trimmed,
+            attachments,
+            targets,
+            communicationMode,
+            selectedTeam?.id,
+            queueMode ?? undefined
+          );
+        }
 
         clearSendTargets();
         setSelectedTeam(null);
         setCommunicationMode(null);
-        resetPicker();
         setText("");
         setAttachments([]);
         resetHeight();
@@ -1096,6 +1123,7 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
       attachments,
       disabled,
       onSend,
+      onSendMode,
       sendTargets,
       clearSendTargets,
       selectedTeam,
@@ -1104,6 +1132,7 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
       resetPicker,
       communicationMode,
       setCommunicationMode,
+      status,
     ]);
 
     const handleKeyDown = useCallback(
@@ -1120,8 +1149,28 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
         // Picker closed: Enter sends the message
         if (e.key === "Enter" && !e.shiftKey) {
           e.preventDefault();
+          if (status === "running") {
+            // Default running-session send = stack (enqueue after turn).
+            pendingQueueModeRef.current = "stack";
+          }
           handleSend();
           return;
+        }
+
+        // Running-session hotkeys
+        if (status === "running") {
+          if (e.altKey && e.key === "Enter") {
+            e.preventDefault();
+            pendingQueueModeRef.current = "stack";
+            handleSend();
+            return;
+          }
+          if (e.metaKey && e.shiftKey && e.key === "Enter") {
+            e.preventDefault();
+            pendingQueueModeRef.current = "inject";
+            handleSend();
+            return;
+          }
         }
 
         // Picker closed: ArrowUp/Down navigates message history.
@@ -1284,6 +1333,16 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
                     </span>
                   </div>
                   <div className="flex items-center gap-0.5 flex-shrink-0">
+                    <span
+                      className={`text-[9px] font-semibold uppercase px-1 rounded ${
+                        entry.mode === "inject"
+                          ? "bg-accent text-user-fg"
+                          : "bg-bg-tertiary text-fg-muted"
+                      }`}
+                      title={entry.mode === "inject" ? "Inject (interrupt at boundary)" : "Stack (enqueue after turn)"}
+                    >
+                      {entry.mode === "inject" ? "INJ" : "STK"}
+                    </span>
                     {onSendNow && entry.status === "pending" && (
                       <button
                         className="inline-flex items-center justify-center w-[18px] h-[18px] p-0 rounded-[3px] bg-transparent text-fg-muted text-[10px] cursor-pointer border-none hover:bg-accent hover:text-user-fg transition-all flex-shrink-0"
@@ -1357,18 +1416,48 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
             <Icon name="paperclip" size="sm" />
           </button>
           {status === "running" || status === "cancelling" ? (
-            <button
-              className={`bg-transparent border-none cursor-pointer text-sm w-6 h-6 rounded flex-shrink-0 flex items-center justify-center p-0 leading-none ${status === "cancelling" ? "text-fg-muted cursor-not-allowed" : "text-fg-secondary hover:text-error"}`}
-              onClick={
-                status === "running" ? () => onCancel(cancelTargets) : undefined
-              }
-              disabled={status === "cancelling"}
-              title={
-                status === "cancelling" ? "Cancelling…" : "Stop generation"
-              }
-            >
-              {status === "cancelling" ? "◔" : "■"}
-            </button>
+            <>
+              <button
+                className="bg-transparent border-none cursor-pointer text-sm w-6 h-6 rounded flex-shrink-0 flex items-center justify-center p-0 leading-none text-fg-secondary hover:text-accent"
+                onClick={() => {
+                  pendingQueueModeRef.current = "stack";
+                  handleSend();
+                }}
+                disabled={disabled || (!text.trim() && attachments.length === 0)}
+                title="Stack — enqueue after current turn (⌥+Enter)"
+                aria-label="Stack message"
+              >
+                ▤
+              </button>
+              <button
+                className="bg-transparent border-none cursor-pointer text-sm w-6 h-6 rounded flex-shrink-0 flex items-center justify-center p-0 leading-none text-fg-secondary hover:text-accent"
+                onClick={() => {
+                  pendingQueueModeRef.current = "inject";
+                  handleSend();
+                }}
+                disabled={disabled || (!text.trim() && attachments.length === 0)}
+                title="Inject — interrupt at next boundary (⌘+Shift+Enter)"
+                aria-label="Inject message"
+              >
+                ⤓
+              </button>
+              <button
+                className={`bg-transparent border-none cursor-pointer text-sm w-6 h-6 rounded flex-shrink-0 flex items-center justify-center p-0 leading-none ${status === "cancelling" ? "text-fg-muted cursor-not-allowed" : "text-fg-secondary hover:text-error"}`}
+                onClick={
+                  status === "running"
+                    ? () => onCancel(cancelTargets)
+                    : undefined
+                }
+                disabled={status === "cancelling"}
+                title={
+                  status === "cancelling"
+                    ? "Cancelling…"
+                    : "Stop generation (⌘+Enter)"
+                }
+              >
+                {status === "cancelling" ? "◔" : "■"}
+              </button>
+            </>
           ) : (
             <button
               className="bg-transparent border-none cursor-pointer text-sm w-6 h-6 rounded flex-shrink-0 flex items-center justify-center p-0 leading-none text-accent hover:bg-accent-hover disabled:text-fg-muted disabled:cursor-not-allowed"

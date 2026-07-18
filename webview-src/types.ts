@@ -270,6 +270,9 @@ export interface FullState {
 
 export type QueuedPromptStatus = "pending" | "sending" | "sent" | "cancelled";
 
+/** Queue entry mode: stack (enqueue after current turn) or inject (interrupt at next safe boundary). */
+export type QueuedPromptMode = "stack" | "inject";
+
 export interface QueuedPrompt {
   id: string;
   agentId: string;
@@ -277,6 +280,10 @@ export interface QueuedPrompt {
   text: string;
   enqueuedAt: string;
   status: QueuedPromptStatus;
+  /** Whether this entry is deferred (stack) or injected at the next boundary (inject). */
+  mode: QueuedPromptMode;
+  /** For inject entries: the safe boundary to wait for before injecting. */
+  injectBoundary?: "tool_call" | "thought" | "stream_pause" | "end_turn";
   attachments?: ContextAttachment[];
 }
 

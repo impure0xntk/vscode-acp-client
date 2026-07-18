@@ -247,6 +247,7 @@ describe("messageStore", () => {
         text: "prompt1",
         enqueuedAt: "2024-01-01",
         status: "pending" as const,
+        mode: "stack" as const,
       };
       const entry2 = {
         id: "q2",
@@ -255,6 +256,7 @@ describe("messageStore", () => {
         text: "prompt2",
         enqueuedAt: "2024-01-01",
         status: "pending" as const,
+        mode: "stack" as const,
       };
       useMessageStore.getState().addQueuedPrompt("session-1", entry1);
       useMessageStore.getState().addQueuedPrompt("session-1", entry2);
@@ -272,6 +274,7 @@ describe("messageStore", () => {
         text: "prompt",
         enqueuedAt: "2024-01-01",
         status: "pending" as const,
+        mode: "stack" as const,
       };
       useMessageStore.getState().addQueuedPrompt("new-key", entry);
       const state = useMessageStore.getState();
@@ -889,6 +892,7 @@ describe("messageStore", () => {
         text: "t1",
         enqueuedAt: "2024-01-01",
         status: "pending" as const,
+        mode: "stack" as const,
       };
       const entry2 = {
         id: "q2",
@@ -897,6 +901,7 @@ describe("messageStore", () => {
         text: "t2",
         enqueuedAt: "2024-01-01",
         status: "pending" as const,
+        mode: "stack" as const,
       };
       useMessageStore.getState().addQueuedPrompt("session-1", entry1);
       useMessageStore.getState().addQueuedPrompt("session-2", entry2);

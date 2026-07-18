@@ -1,5 +1,5 @@
 import type { ContentBlock, StopReason } from "@agentclientprotocol/sdk";
-import type { PromptContext, QueuedPrompt } from "./types";
+import type { PromptContext, QueuedPrompt, QueuedPromptMode } from "./types";
 import type { AgentConnection } from "./agent-connection";
 import type { ChatMessage } from "../../domain/models/chat";
 import { SessionState, sessionKey } from "./session-state";
@@ -43,7 +43,8 @@ export class PromptExecution {
     agentId: string,
     sessionId: string,
     text: string,
-    context?: PromptContext
+    context?: PromptContext,
+    mode: QueuedPromptMode = "stack"
   ): Promise<QueuedPrompt | undefined> {
     const sessionInfo = this.deps.sessionState.getSessionInfo(
       agentId,
@@ -54,6 +55,8 @@ export class PromptExecution {
     }
 
     if (sessionInfo.status === "running") {
+      // Inject entries wait at the next safe boundary (handled as priority
+      // queue entries); stack entries append to the tail of the FIFO queue.
       const entry: QueuedPrompt = {
         id: crypto.randomUUID(),
         agentId,
@@ -62,9 +65,19 @@ export class PromptExecution {
         context,
         enqueuedAt: new Date().toISOString(),
         status: "pending",
+        mode,
+        injectBoundary: mode === "inject" ? "end_turn" : undefined,
       };
       const key = sessionKey(agentId, sessionId);
-      this.deps.sessionState.addToQueue(key, entry);
+      if (mode === "inject") {
+        // Inject entries run before pending stack entries (priority).
+        const queue = this.deps.sessionState.getQueue(key);
+        queue.unshift(entry);
+        this.deps.sessionState.setQueue(key, queue);
+      } else {
+        this.deps.sessionState.addToQueue(key, entry);
+      }
+      this.deps.emit("promptQueued", { agentId, sessionId, entry });
       return entry;
     }
 
@@ -208,7 +221,7 @@ export class PromptExecution {
     }
   }
 
-  private async processNextInQueue(
+  async processNextInQueue(
     agentId: string,
     sessionId: string
   ): Promise<void> {
@@ -222,11 +235,19 @@ export class PromptExecution {
     );
     if (!sessionInfo || sessionInfo.status === "running") return;
 
-    const next = queue.shift()!;
+    // Inject entries take priority over stack entries (FIFO within each mode).
+    const injectIdx = queue.findIndex((e) => e.status === "pending" && e.mode === "inject");
+    const next = (injectIdx >= 0 ? queue.splice(injectIdx, 1) : queue.splice(0, 1))[0]!;
     next.status = "sending";
 
     try {
-      await this.execute(next.agentId, next.sessionId, next.text, next.context);
+      // Inject entries are framed as mid-task additions so the agent treats
+      // them as supplementary instructions rather than a fresh turn.
+      const execText =
+        next.mode === "inject"
+          ? `[Added during the current task] ${next.text}`
+          : next.text;
+      await this.execute(next.agentId, next.sessionId, execText, next.context);
       next.status = "sent";
     } catch (e) {
       next.status = "cancelled";
@@ -234,6 +255,12 @@ export class PromptExecution {
     } finally {
       if (queue.length === 0) {
         this.deps.sessionState.setQueue(key, []);
+      } else {
+        this.deps.emit("promptQueueUpdated", {
+          agentId,
+          sessionId,
+          queue: [...queue],
+        });
       }
     }
   }
@@ -247,10 +274,21 @@ export class PromptExecution {
     sessionId: string,
     promptId: string
   ): boolean {
-    return this.deps.sessionState.removeFromQueue(
+    const removed = this.deps.sessionState.removeFromQueue(
       sessionKey(agentId, sessionId),
       promptId
     );
+    if (removed) {
+      const queue = this.deps.sessionState.getQueue(
+        sessionKey(agentId, sessionId)
+      );
+      this.deps.emit("promptQueueUpdated", {
+        agentId,
+        sessionId,
+        queue: [...queue],
+      });
+    }
+    return removed;
   }
 
   reorderQueuedPrompts(
@@ -274,6 +312,11 @@ export class PromptExecution {
     }
 
     this.deps.sessionState.setQueue(key, [...reordered, ...sending]);
+    this.deps.emit("promptQueueUpdated", {
+      agentId,
+      sessionId,
+      queue: [...reordered, ...sending],
+    });
   }
 
   handleContextCompression(
@@ -315,12 +358,14 @@ export class PromptExecution {
       context: undefined,
       enqueuedAt: new Date().toISOString(),
       status: "pending",
+      mode: "stack",
     };
 
     const key = sessionKey(agentId, sessionId);
     const queue = this.deps.sessionState.getQueue(key);
     queue.unshift(entry);
     this.deps.sessionState.setQueue(key, queue);
+    this.deps.emit("promptQueued", { agentId, sessionId, entry });
   }
 
   bufferToolCall(

@@ -481,12 +481,13 @@ export function wireChatPanelEvents(
       // Mesh send — single or multi-target (mesh:send)
       // ==================================================================
       case "mesh:send": {
-        const { text, attachments, targets, mode, teamId } = data as {
+        const { text, attachments, targets, mode, teamId, queueMode } = data as {
           text: string;
           attachments: ContextAttachmentDTO[];
           targets: SendTarget[];
           mode?: string;
           teamId?: string;
+          queueMode?: import("../../../application/session/types").QueuedPromptMode;
         };
         if (
           mode === "supervisor" &&
@@ -524,7 +525,15 @@ export function wireChatPanelEvents(
             );
           }
         } else {
-          meshSend(text, attachments, targets);
+          for (const target of targets) {
+            void orchestrator.prompt(
+              target.agentId,
+              target.sessionId,
+              text,
+              attachmentsToContentBlocks(attachments),
+              queueMode
+            );
+          }
         }
         break;
       }

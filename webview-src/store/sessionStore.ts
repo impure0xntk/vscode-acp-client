@@ -526,11 +526,16 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
   addQueuedPrompt: (sessionKey, entry) =>
     set((state) => {
       const existing = state.promptQueue[sessionKey] ?? [];
+      // Default mode to "stack" for older entries that omit it.
+      const normalized: QueuedPrompt = {
+        ...entry,
+        mode: entry.mode ?? "stack",
+      };
       return {
         ...state,
         promptQueue: {
           ...state.promptQueue,
-          [sessionKey]: [...existing, entry],
+          [sessionKey]: [...existing, normalized],
         },
       };
     }),

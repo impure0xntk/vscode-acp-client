@@ -36,7 +36,8 @@ function makeSessionInfo(
 
 function makeQueuedPrompt(
   id: string,
-  status: QueuedPrompt["status"] = "pending"
+  status: QueuedPrompt["status"] = "pending",
+  mode: QueuedPrompt["mode"] = "stack"
 ): QueuedPrompt {
   return {
     id,
@@ -45,6 +46,7 @@ function makeQueuedPrompt(
     text: `prompt-${id}`,
     enqueuedAt: new Date().toISOString(),
     status,
+    mode,
   };
 }
 

@@ -290,9 +290,10 @@ export class SessionOrchestrator extends EventEmitter {
     agentId: string,
     sessionId: string,
     text: string,
-    context?: import("./types").PromptContext
+    context?: import("./types").PromptContext,
+    mode?: import("./types").QueuedPromptMode
   ): Promise<import("./types").QueuedPrompt | undefined> {
-    return this.promptExecution.send(agentId, sessionId, text, context);
+    return this.promptExecution.send(agentId, sessionId, text, context, mode);
   }
 
   async cancel(agentId: string, sessionId: string): Promise<void> {

@@ -118,7 +118,8 @@ export function AppContainer(): React.ReactElement {
       sessionId?: string,
       targets?: SendTarget[],
       mode?: CommunicationMode | null,
-      teamId?: string
+      teamId?: string,
+      queueMode?: import("../types").QueuedPromptMode
     ) => {
       const resolvedTargets: SendTarget[] = targets?.length
         ? targets
@@ -156,6 +157,7 @@ export function AppContainer(): React.ReactElement {
         targets: resolvedTargets,
         mode,
         teamId,
+        queueMode,
       });
     },
     [activeAgentId, activeSessionId, displayStatus]
@@ -245,18 +247,45 @@ export function AppContainer(): React.ReactElement {
       attachments: ContextAttachment[],
       targets?: SendTarget[],
       mode?: CommunicationMode | null,
-      teamId?: string
+      teamId?: string,
+      queueMode?: import("../types").QueuedPromptMode
     ) => {
       if (targets && targets.length > 0) {
-        sendMessage(text, attachments, undefined, undefined, targets);
+        sendMessage(text, attachments, undefined, undefined, targets, mode, teamId, queueMode);
       } else {
         sendMessage(
           text,
           attachments,
           activeAgentId ?? undefined,
-          activeSessionId ?? undefined
+          activeSessionId ?? undefined,
+          undefined,
+          mode,
+          teamId,
+          queueMode
         );
       }
+      forceScrollToBottomRef.current?.();
+    },
+    [sendMessage, forceScrollToBottomRef, activeAgentId, activeSessionId]
+  );
+
+  // Stack/Inject mode send — used for running-session routing.
+  const sendQueueMode = useCallback(
+    (
+      text: string,
+      attachments: ContextAttachment[],
+      queueMode: import("../types").QueuedPromptMode
+    ) => {
+      sendMessage(
+        text,
+        attachments,
+        activeAgentId ?? undefined,
+        activeSessionId ?? undefined,
+        undefined,
+        undefined,
+        undefined,
+        queueMode
+      );
       forceScrollToBottomRef.current?.();
     },
     [sendMessage, forceScrollToBottomRef, activeAgentId, activeSessionId]
@@ -557,6 +586,9 @@ export function AppContainer(): React.ReactElement {
                 })
               );
             }}
+            onSendMode={(text, attachments) =>
+              sendQueueMode(text, attachments, "stack")
+            }
           />
         ) : (
           <UnifiedMode
@@ -584,6 +616,9 @@ export function AppContainer(): React.ReactElement {
                 })
               );
             }}
+            onSendMode={(text, attachments) =>
+              sendQueueMode(text, attachments, "stack")
+            }
           />
         )}
       </div>

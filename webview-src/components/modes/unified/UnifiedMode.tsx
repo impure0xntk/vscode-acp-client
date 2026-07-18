@@ -34,7 +34,8 @@ export interface UnifiedModeProps {
     attachments: ContextAttachment[],
     targets?: SendTarget[],
     mode?: import("../../../types").CommunicationMode | null,
-    teamId?: string
+    teamId?: string,
+    queueMode?: import("../../../types").QueuedPromptMode
   ) => void;
   onCancel: (targets?: SendTarget[]) => void;
   onSwitchSession: (agentId: string, sessionId: string) => void;
@@ -64,6 +65,10 @@ export interface UnifiedModeProps {
   ) => void;
   onClearQueue?: (agentId: string, sessionId: string) => void;
   onAttachDiff?: (attachment: ContextAttachment) => void;
+  onSendMode?: (
+    text: string,
+    attachments: ContextAttachment[],
+  ) => void;
 }
 
 export const UnifiedMode = React.memo(function UnifiedMode({
@@ -85,6 +90,7 @@ export const UnifiedMode = React.memo(function UnifiedMode({
   onCancelQueuedPrompt,
   onClearQueue,
   onAttachDiff,
+  onSendMode,
 }: UnifiedModeProps): React.ReactElement {
   const log = useLogger("UnifiedMode");
 
@@ -228,7 +234,8 @@ export const UnifiedMode = React.memo(function UnifiedMode({
     (
       text: string,
       attachments: ContextAttachment[],
-      targets?: SendTarget[]
+      targets?: SendTarget[],
+      queueMode?: import("../../../types").QueuedPromptMode
     ) => {
       const activeKey = useSessionStore.getState().activeSessionKey;
       const now = new Date().toISOString();
@@ -252,7 +259,7 @@ export const UnifiedMode = React.memo(function UnifiedMode({
           return next;
         });
       }
-      onSendMessage(text, attachments, targets);
+      onSendMessage(text, attachments, targets, undefined, undefined, queueMode);
     },
     [onSendMessage]
   );
@@ -395,6 +402,11 @@ export const UnifiedMode = React.memo(function UnifiedMode({
             useSessionStore.getState().clearQueue(activeSessionKey);
           }
         }}
+        onSendMode={
+          onSendMode ??
+          ((text, attachments) =>
+            handleSendWithTurnTracking(text, attachments, undefined, "stack"))
+        }
       />
     </div>
   );
