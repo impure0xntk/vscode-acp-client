@@ -200,7 +200,17 @@ function setChatPanel(panel: ChatPanel): void {
     warn: (msg) => log.warn(msg),
     error: (msg) => log.error(msg),
   };
-  void sendStatuslineInfo();
+}
+
+// sendStatuslineInfo shells out to git 3x; debounce so rapid panel
+// creations (e.g. autoConnect loop) coalesce into a single invocation.
+let statuslineTimer: ReturnType<typeof setTimeout> | null = null;
+function scheduleStatuslineInfo(delayMs = 500): void {
+  if (statuslineTimer) clearTimeout(statuslineTimer);
+  statuslineTimer = setTimeout(() => {
+    statuslineTimer = null;
+    void sendStatuslineInfo();
+  }, delayMs);
 }
 
 function updateContext(): void {
@@ -444,14 +454,28 @@ export async function activate(
     maxSessions: 1000,
     maxMessagesPerSession: 10000,
   });
-  await persistentHistory.initialize(context.globalStorageUri.fsPath);
-  (platform as VscodePlatform).setLogStore(persistentHistory);
-  orchestrator.setHistoryStore(persistentHistory);
+  // Defer SQLite WASM init off the activation critical path. The store
+  // starts as a no-op until ready, so early message persistence is simply
+  // skipped rather than blocking extension activation.
+  const historyInit = persistentHistory
+    .initialize(context.globalStorageUri.fsPath)
+    .then(() => {
+      (platform as VscodePlatform).setLogStore(persistentHistory!);
+      orchestrator.setHistoryStore(persistentHistory!);
+    })
+    .catch((err) => {
+      log.error("failed to initialize persistent history", {}, err as Error);
+    });
   orchestrator.setSessionHistoryStore(historyStore);
 
   const logSink = new LogEntrySinkImpl();
   logSink.setStore(persistentHistory);
   ChatPanel.setLogSink(logSink);
+  // Ensure log sink is wired to the DB once it becomes ready (async init).
+  void historyInit.then(() => {
+    logSink.setStore(persistentHistory!);
+    ChatPanel.setLogSink(logSink);
+  });
 
   registerCommands(context);
   updateContext();
@@ -482,9 +506,27 @@ export async function activate(
   } else {
     const autoConnectAgents = registry.getAutoConnectAgents();
     log.info("auto-connect agents", { count: autoConnectAgents.length });
+    // Connect agents in parallel, capped by maxConcurrentAgents, so that
+    // multiple stdio process spawns + handshakes don't serialize the startup.
+    const maxConcurrent = Math.max(
+      1,
+      vscode.workspace
+        .getConfiguration("acp")
+        .get<number>("maxConcurrentAgents", 5)
+    );
+    const tasks: Promise<void>[] = [];
     for (const agent of autoConnectAgents) {
       for (const entry of agent.autoConnect ?? []) {
-        await cmdConnect(agent, entry, agent.openChat !== false);
+        tasks.push(cmdConnect(agent, entry, agent.openChat !== false));
+      }
+    }
+    if (tasks.length > 0) {
+      const chunks: Promise<void>[][] = [];
+      for (let i = 0; i < tasks.length; i += maxConcurrent) {
+        chunks.push(tasks.slice(i, i + maxConcurrent));
+      }
+      for (const chunk of chunks) {
+        await Promise.all(chunk);
       }
     }
   }
@@ -675,7 +717,9 @@ function wireOrchestratorEvents(meshOrch: MeshOrchestrator): void {
     }
   );
 
-  void sendOverviewPosition();
+  // Overview position is pushed when chatPanel becomes available (see
+  // ensureChatPanel → sendTabs → setChatPanel path); no-op here since
+  // chatPanel is still null during activation.
 }
 
 function registerCommands(context: vscode.ExtensionContext): void {
@@ -968,6 +1012,7 @@ async function applyPreset(preset: PresetConfig): Promise<void> {
 
   const panel = getChatPanel();
   if (panel) {
+    scheduleStatuslineInfo();
     if (preset.layout) {
       panel.postMessage({
         type: "unifiedChat:setLayout",
@@ -1048,6 +1093,8 @@ async function cmdConnect(
       );
       const info = orchestrator.getSessionInfo(config.id, sessionId);
       if (info) getChatPanel()?.setActiveSession(config.id, sessionId, info);
+      // Panel now exists — refresh statusline shortly after (debounced).
+      scheduleStatuslineInfo();
     }
     void vscode.window.showInformationMessage(
       `ACP: Connected to ${config.name}`

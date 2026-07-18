@@ -126,12 +126,20 @@ export class PersistentHistoryStore {
   private writeTimeout: ReturnType<typeof setTimeout> | null = null;
   private readonly WRITE_DEBOUNCE_MS = 1000;
   private dbPath: string = "";
+  /** True once SQLite WASM has loaded and the DB is open. */
+  private ready = false;
 
   constructor(config: Partial<HistoryConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
   }
 
+  get isReady(): boolean {
+    return this.ready;
+  }
+
   async initialize(storageUri?: string): Promise<void> {
+    // Guard against double-init (callers may await or fire-and-forget).
+    if (this.ready || this.db) return;
     const SQL = await initSqlJs();
     this.dbPath = getDbPath(storageUri);
 
@@ -151,6 +159,7 @@ export class PersistentHistoryStore {
 
     this.db.run(SCHEMA_SQL);
     this.persist();
+    this.ready = true;
   }
 
   dispose(): void {
@@ -160,16 +169,20 @@ export class PersistentHistoryStore {
       this.db.close();
       this.db = null;
     }
+    this.ready = false;
   }
 
   private persist(): void {
-    if (!this.db) return;
+    if (!this.db || !this.ready) return;
     const data = this.db.export();
     const buffer = Buffer.from(data);
     fs.writeFileSync(this.dbPath, buffer);
   }
 
   saveSession(session: AppSessionInfo): void {
+    // No-op until the store is ready; early writes during activation are
+    // intentionally dropped rather than blocking the startup path.
+    if (!this.ready) return;
     this.writeQueue.set(session.sessionId, session);
     this.scheduleWrite();
   }
@@ -199,17 +212,18 @@ export class PersistentHistoryStore {
 
   private upsertSession(info: AppSessionInfo): void {
     if (!this.db) return;
+    const db = this.db;
 
     const workspaceName = this.extractWorkspaceName(info.cwd);
     const now = new Date().toISOString();
 
-    const existing = this.db.exec(
+    const existing = db.exec(
       "SELECT session_id FROM sessions WHERE session_id = ?",
       [info.sessionId]
     );
 
     if (existing.length > 0 && existing[0].values.length > 0) {
-      this.db.run(
+      db.run(
         `UPDATE sessions SET
           title = ?, status = ?, message_count = ?,
           input_tokens = ?, output_tokens = ?, total_tokens = ?,
@@ -227,7 +241,7 @@ export class PersistentHistoryStore {
         ]
       );
     } else {
-      this.db.run(
+      db.run(
         `INSERT INTO sessions (
           session_id, agent_id, title, cwd, model, mode, status,
           workspace_name, created_at, message_count,
@@ -254,15 +268,17 @@ export class PersistentHistoryStore {
   }
 
   async saveMessages(sessionId: string, msgs: ChatMessage[]): Promise<void> {
-    if (!this.db || msgs.length === 0) return;
+    if (!this.ready || msgs.length === 0) return;
+    const db = this.db;
+    if (!db) return;
 
     for (const msg of msgs) {
-      const existing = this.db.exec("SELECT id FROM messages WHERE id = ?", [
+      const existing = db.exec("SELECT id FROM messages WHERE id = ?", [
         msg.id,
       ]);
       if (existing.length > 0 && existing[0].values.length > 0) continue;
 
-      this.db.run(
+      db.run(
         `INSERT INTO messages (
           id, session_id, role, content, timestamp,
           tool_calls_json, attachments_json, inline_file_paths, session_cwd
@@ -449,8 +465,10 @@ export class PersistentHistoryStore {
   }
 
   saveLogEntry(entry: Omit<LogEntry, "id">): void {
-    if (!this.db) return;
-    this.db.run(
+    if (!this.ready) return;
+    const db = this.db;
+    if (!db) return;
+    db.run(
       `INSERT INTO log_entries (
         source, trace_id, session_id, agent_id,
         category, level, message, context_json, timestamp
