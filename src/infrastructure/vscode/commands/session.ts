@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import type { DiagnosticProblem } from "../../../platform/editor";
-import type { SessionOrchestrator } from "../../../application/orchestrator";
+import type { SessionOrchestrator } from "../../../application/session/orchestrator";
 import type { ChatPanel } from "../vscode-ui/chatPanel";
 import type { PersistentHistoryStore } from "../../../application/session/persistentHistory";
 import { getReviewPrompt } from "./review";
@@ -11,8 +11,8 @@ export function registerSessionCommands(
   registry: {
     getAgent: (
       id: string
-    ) => import("../../../application/orchestrator").AgentConfig | undefined;
-    getAgents: () => import("../../../application/orchestrator").AgentConfig[];
+    ) => import("../../../application/session/types").AgentConfig | undefined;
+    getAgents: () => import("../../../application/session/types").AgentConfig[];
   },
   getChatPanel: () => ChatPanel | null,
   ensureChatPanel: () => void,

@@ -1,0 +1,7 @@
+{
+  "entry": ["src/extension.ts"],
+  "project": ["src/**/*.ts"],
+  "paths": {
+    "@/*": ["src/*"]
+  }
+}

@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import type { SessionOrchestrator } from "../orchestrator";
+import type { SessionOrchestrator } from "../session/orchestrator";
 import type { ChatMessage } from "../../domain/models/chat";
 import type { SessionNotification } from "@agentclientprotocol/sdk";
 import type { FileWriteEvent } from "../../adapter/acp/client";

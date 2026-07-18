@@ -1,16 +1,9 @@
 // ============================================================================
 // SessionOrchestrator — thin facade over session modules
 //
-// This class composes the following modules:
-//   - AgentConnection   : process lifecycle, initialize, disconnect
-//   - SessionState      : in-memory state, streaming buffer, tool call buffer
-//   - SessionLifecycle  : CRUD, fork, restore, rename, pin
-//   - PromptExecution   : prompt send, queue, cancel, turn lifecycle
-//   - ProtocolHandler   : handleSessionUpdate, handleRequestPermission
-//   - SessionOverview   : overview computation, debounced emit
-//
-// The orchestrator owns the module wiring and exposes a unified API
-// for the extension layer (event handlers, commands, extension.ts).
+// Uses the Ref<T> pattern to break circular constructor dependencies:
+// modules accept Ref<T> instead of T, and the orchestrator updates
+// the refs after all modules are constructed — no `as any` needed.
 // ============================================================================
 
 import { EventEmitter } from "events";
@@ -21,6 +14,7 @@ import type { SessionHistoryStore, HistoryEntry } from "./historyStore";
 import { PromptBuilder } from "../../domain/services/prompt-builder";
 import type { MeshProtocolConfig } from "../../domain/services/prompt-builder";
 import { getLogger } from "../../platform/backends";
+import { Ref } from "../../shared/util/ref";
 
 const log = getLogger("orchestrator");
 
@@ -75,12 +69,18 @@ export class SessionOrchestrator extends EventEmitter {
   private deps: OrchestratorDeps;
 
   // Modules
-  private agentConnection!: AgentConnection;
+  private agentConnection: AgentConnection;
   private sessionState: SessionState;
-  private sessionLifecycle!: SessionLifecycle;
-  private promptExecution!: PromptExecution;
-  private protocolHandler!: ProtocolHandler;
+  private sessionLifecycle: SessionLifecycle;
+  private promptExecution: PromptExecution;
+  private protocolHandler: ProtocolHandler;
   private sessionOverview: SessionOverview;
+
+  // Forward refs for circular dependencies
+  private agentConnectionRef = new Ref<AgentConnection>(null as unknown as AgentConnection);
+  private promptExecutionRef = new Ref<PromptExecution>(null as unknown as PromptExecution);
+  private historyStoreRef = new Ref<PersistentHistoryStore | null>(null);
+  private sessionHistoryStoreRef = new Ref<SessionHistoryStore | null>(null);
 
   // History stores (set after construction)
   private historyStore: PersistentHistoryStore | null = null;
@@ -90,35 +90,22 @@ export class SessionOrchestrator extends EventEmitter {
     super();
     this.deps = deps;
 
-    // Initialize modules in dependency order
     // 1. SessionState (no dependencies)
     this.sessionState = new SessionState();
 
-    // 2. SessionOverview (depends on sessionState)
+    // 2. SessionOverview (depends on sessionState only)
     this.sessionOverview = new SessionOverview({
-      agentConnection: undefined as any, // Will be set after agentConnection is created
       sessionState: this.sessionState,
       emit: (event: string, ...args: unknown[]) => this.emit(event, ...args),
     });
 
-    // 3. ProtocolHandler (depends on sessionState, ui)
-    //    Uses placeholder references that will be updated
-    this.protocolHandler = new ProtocolHandler({
-      agentConnection: undefined as any,
-      sessionState: this.sessionState,
-      promptExecution: undefined as any,
-      ui: deps.ui,
-      historyStore: null,
-      sessionHistoryStore: null,
-      emit: (event: string, ...args: unknown[]) => this.emit(event, ...args),
-    });
-
-    // 4. PromptExecution (depends on agentConnection placeholder, sessionState)
+    // 3. PromptExecution (depends on agentConnectionRef, sessionState)
+    //    ProtocolHandler reference is set later via backpatch
     this.promptExecution = new PromptExecution({
-      agentConnection: undefined as any,
+      agentConnection: this.agentConnectionRef,
       sessionState: this.sessionState,
-      protocolHandler: this.protocolHandler,
-      historyStore: null,
+      // protocolHandler is circular — we use a temporary placeholder and backpatch
+      protocolHandler: null as unknown as ProtocolHandler,
       getMeshGlobalEnabled: () =>
         deps.ui.getConfiguration<boolean>("acp.meshProtocol", "enabled", false),
       emit: (event: string, ...args: unknown[]) => this.emit(event, ...args),
@@ -128,14 +115,27 @@ export class SessionOrchestrator extends EventEmitter {
         message: import("../../domain/models/chat").ChatMessage
       ) => this.appendMessage(agentId, sessionId, message),
     });
+    this.promptExecutionRef.value = this.promptExecution;
 
-    // 5. SessionLifecycle (depends on agentConnection, sessionState, promptExecution)
+    // 4. ProtocolHandler (depends on promptExecutionRef, sessionState, ui)
+    this.protocolHandler = new ProtocolHandler({
+      promptExecution: this.promptExecutionRef,
+      sessionState: this.sessionState,
+      ui: deps.ui,
+      emit: (event: string, ...args: unknown[]) => this.emit(event, ...args),
+    });
+
+    // Backpatch: set protocolHandler on PromptExecution so both modules
+    // can call each other without `as any`.
+    this.promptExecution.setProtocolHandler(this.protocolHandler);
+
+    // 5. SessionLifecycle (depends on agentConnectionRef, sessionState, promptExecution)
     this.sessionLifecycle = new SessionLifecycle({
-      agentConnection: undefined as any,
+      agentConnection: this.agentConnectionRef,
       sessionState: this.sessionState,
       promptExecution: this.promptExecution,
-      historyStore: null,
-      sessionHistoryStore: null,
+      historyStore: this.historyStoreRef,
+      sessionHistoryStore: this.sessionHistoryStoreRef,
       emit: (event: string, ...args: unknown[]) => this.emit(event, ...args),
     });
 
@@ -156,12 +156,8 @@ export class SessionOrchestrator extends EventEmitter {
       },
     });
 
-    // Now update all cross-references
-    (this.sessionOverview as any).deps.agentConnection = this.agentConnection;
-    (this.protocolHandler as any).deps.agentConnection = this.agentConnection;
-    (this.protocolHandler as any).deps.promptExecution = this.promptExecution;
-    (this.promptExecution as any).deps.agentConnection = this.agentConnection;
-    (this.sessionLifecycle as any).deps.agentConnection = this.agentConnection;
+    // Complete the forward ref — all modules now point to the real AgentConnection
+    this.agentConnectionRef.value = this.agentConnection;
   }
 
   // ========================================================================
@@ -170,14 +166,12 @@ export class SessionOrchestrator extends EventEmitter {
 
   setHistoryStore(store: PersistentHistoryStore): void {
     this.historyStore = store;
-    (this.sessionLifecycle as any).deps.historyStore = store;
-    (this.protocolHandler as any).deps.historyStore = store;
+    this.historyStoreRef.value = store;
   }
 
   setSessionHistoryStore(store: SessionHistoryStore): void {
     this.sessionHistoryStore = store;
-    (this.sessionLifecycle as any).deps.sessionHistoryStore = store;
-    (this.protocolHandler as any).deps.sessionHistoryStore = store;
+    this.sessionHistoryStoreRef.value = store;
   }
 
   // ========================================================================
@@ -194,7 +188,6 @@ export class SessionOrchestrator extends EventEmitter {
 
     await this.agentConnection.connect(agentId, config);
 
-    // Initialize PromptBuilder for Mesh Protocol injection
     if (config.meshRole && config.meshProtocol?.enabled) {
       const meshConfig: MeshProtocolConfig = {
         enabled: true,
@@ -428,7 +421,7 @@ export class SessionOrchestrator extends EventEmitter {
   ): import("../../domain/models/chat").ChatMessage {
     const stored = { ...msg };
     if (msg.toolCalls) {
-      (stored as any).toolCallsJson = JSON.stringify(msg.toolCalls);
+      (stored as Record<string, unknown>).toolCallsJson = JSON.stringify(msg.toolCalls);
     }
     return stored;
   }
@@ -567,8 +560,6 @@ export class SessionOrchestrator extends EventEmitter {
       result.push(this.getAgentStatus(agentId));
       seenAgentIds.add(agentId);
     }
-    // Also handle agents that may have been removed from agentConfigs
-    // but still have sessions
     for (const [agentId] of this.sessionState.getAllSessions()) {
       if (!seenAgentIds.has(agentId)) {
         result.push(this.getAgentStatus(agentId));
@@ -665,7 +656,6 @@ export class SessionOrchestrator extends EventEmitter {
     );
   }
 
-  // Allow protocolHandler to access historyStore
   getHistoryStore(): PersistentHistoryStore | null {
     return this.historyStore;
   }
@@ -678,7 +668,6 @@ export class SessionOrchestrator extends EventEmitter {
   // Passthrough methods for backward compatibility (tests + external callers)
   // ========================================================================
 
-  /** Passthrough to protocolHandler.handleSessionUpdate — for tests */
   handleSessionUpdate(
     agentId: string,
     notification: import("@agentclientprotocol/sdk").SessionNotification
@@ -686,14 +675,12 @@ export class SessionOrchestrator extends EventEmitter {
     this.protocolHandler.handleSessionUpdate(agentId, notification);
   }
 
-  /** Passthrough to sessionLifecycle — for tests */
   chatMessageToContentBlocks(
     msg: import("../../domain/models/chat").ChatMessage
   ): import("@agentclientprotocol/sdk").ContentBlock[] {
     return this.sessionLifecycle.chatMessageToContentBlocks(msg);
   }
 
-  /** Alias for triggerOverviewUpdate — backward compat */
   emitOverviewUpdate(): void {
     this.triggerOverviewUpdate();
   }
@@ -702,7 +689,6 @@ export class SessionOrchestrator extends EventEmitter {
   // Test Helpers — expose internal state for unit tests
   // ========================================================================
 
-  /** Expose internal session state maps for testing */
   getInternalState(): {
     sessions: Map<string, Map<string, AppSessionInfo>>;
     streamTextBuffer: Map<string, string>;
@@ -718,14 +704,15 @@ export class SessionOrchestrator extends EventEmitter {
       import("@agentclientprotocol/sdk").ClientSideConnection
     >;
   } {
+    // Access private fields via index for tests (tests are in the same package)
     return {
-      sessions: this.sessionState["sessions"],
-      streamTextBuffer: this.sessionState["streamTextBuffer"],
-      streamMsgRef: this.sessionState["streamMsgRef"],
-      agentInfoMap: this.agentConnection["agentInfoMap"],
-      agentConfigs: this.agentConnection["agentConfigs"],
+      sessions: (this.sessionState as unknown as { sessions: Map<string, Map<string, AppSessionInfo>> }).sessions,
+      streamTextBuffer: (this.sessionState as unknown as { streamTextBuffer: Map<string, string> }).streamTextBuffer,
+      streamMsgRef: (this.sessionState as unknown as { streamMsgRef: Map<string, { agentId: string; sessionId: string; msgId: string }> }).streamMsgRef,
+      agentInfoMap: (this.agentConnection as unknown as { agentInfoMap: Map<string, AgentInfo> }).agentInfoMap,
+      agentConfigs: (this.agentConnection as unknown as { agentConfigs: Map<string, AgentConfig> }).agentConfigs,
       protocolHandler: this.protocolHandler,
-      connections: this.agentConnection["connections"],
+      connections: (this.agentConnection as unknown as { connections: Map<string, import("@agentclientprotocol/sdk").ClientSideConnection> }).connections,
     };
   }
 
@@ -734,7 +721,6 @@ export class SessionOrchestrator extends EventEmitter {
   // ========================================================================
 
   dispose(): void {
-    // Flush all pending sessions to persistent storage
     const allSessions = this.sessionState.getAllSessions();
     for (const [, agentSessions] of allSessions) {
       for (const sessionInfo of agentSessions) {

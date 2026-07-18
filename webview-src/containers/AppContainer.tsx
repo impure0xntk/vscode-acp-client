@@ -19,7 +19,7 @@ import type { SessionStoreState } from "../store/sessionStore";
 import { useUiStateStore } from "../store/uiStateStore";
 import { useMeshStore } from "../store/meshStore";
 import { getVsCodeApi } from "../lib/vscodeApi";
-import { setPendingSwitch } from "../webviewMessageHandler";
+import { setPendingSwitch } from "../messageRouter/shared/guards";
 import { useShallow } from "zustand/shallow";
 import { useChatHandlers } from "../hooks/useChatHandlers";
 import { useOverviewHandlers } from "../hooks/useOverviewHandlers";

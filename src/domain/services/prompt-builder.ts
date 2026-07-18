@@ -418,11 +418,16 @@ ${originalTask}
 Please include the marker at the END of your response.`;
 }
 
+import { createRoleStrategy } from "./prompt-strategies";
+import type { RolePromptStrategy } from "./prompt-strategy";
+
 export class PromptBuilder {
   private config: MeshProtocolConfig;
+  private strategy: RolePromptStrategy;
 
   constructor(config: MeshProtocolConfig) {
     this.config = config;
+    this.strategy = createRoleStrategy(config.role);
   }
 
   /**
@@ -430,20 +435,7 @@ export class PromptBuilder {
    */
   buildSystemPromptExtension(): string {
     if (!this.config.enabled) return "";
-    return buildMeshSystemPrompt(this.config) + this.buildRolePrompt();
-  }
-
-  private buildRolePrompt(): string {
-    switch (this.config.role) {
-      case "planner":
-        return buildPlannerSystemPrompt();
-      case "worker":
-        return buildWorkerSystemPrompt();
-      case "lead":
-        return buildLeadSystemPrompt();
-      case "reviewer":
-        return buildReviewerSystemPrompt();
-    }
+    return buildMeshSystemPrompt(this.config) + this.strategy.buildSystemPrompt();
   }
 
   /**

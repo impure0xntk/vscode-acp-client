@@ -1,7 +1,6 @@
 import type { ContentBlock } from "@agentclientprotocol/sdk";
 import type { ChatMessage } from "../../domain/models/chat";
-import type { AppSessionInfo, QueuedPrompt } from "./types";
-import type { AgentConnection } from "./agent-connection";
+import type { AppSessionInfo } from "./types";
 import type { SessionState } from "./session-state";
 import { sessionKey } from "./session-state";
 import type { PromptExecution } from "./prompt-execution";
@@ -11,6 +10,8 @@ import type { RestoreResult } from "./types";
 import { abbreviatePath } from "../../shared/util/path";
 import { getLogger } from "../../platform/backends";
 import { sessionNotFound, connectionFailed } from "../../adapter/acp/error";
+import { Ref } from "../../shared/util/ref";
+import type { AgentConnection } from "./agent-connection";
 
 const log = getLogger("session-lifecycle");
 
@@ -37,11 +38,11 @@ function withTimeout<T>(
 }
 
 export interface SessionLifecycleDeps {
-  agentConnection: AgentConnection;
+  agentConnection: Ref<AgentConnection>;
   sessionState: SessionState;
   promptExecution: PromptExecution;
-  historyStore: PersistentHistoryStore | null;
-  sessionHistoryStore: SessionHistoryStore | null;
+  historyStore: Ref<PersistentHistoryStore | null>;
+  sessionHistoryStore: Ref<SessionHistoryStore | null>;
   /** Emit orchestrator event (sessionReplayStart, etc.) */
   emit: (event: string, ...args: unknown[]) => void;
 }
@@ -54,7 +55,7 @@ export class SessionLifecycle {
   }
 
   async createSession(agentId: string, cwd?: string): Promise<string> {
-    const connection = this.deps.agentConnection.getConnection(agentId);
+    const connection = this.deps.agentConnection.value.getConnection(agentId);
     if (!connection) {
       throw connectionFailed(
         agentId,
@@ -103,7 +104,7 @@ export class SessionLifecycle {
   }
 
   async closeSession(agentId: string, sessionId: string): Promise<void> {
-    const connection = this.deps.agentConnection.getConnection(agentId);
+    const connection = this.deps.agentConnection.value.getConnection(agentId);
 
     log.info("closing session", { agentId, sessionId });
 
@@ -204,7 +205,7 @@ export class SessionLifecycle {
     messages: ChatMessage[],
     cwd?: string
   ): Promise<import("./types").RestoreResult> {
-    const agentInfo = this.deps.agentConnection.getAgentInfo(agentId);
+    const agentInfo = this.deps.agentConnection.value.getAgentInfo(agentId);
     const sourceInfo = this.deps.sessionState.getSessionInfo(
       agentId,
       sourceSessionId
@@ -212,7 +213,7 @@ export class SessionLifecycle {
     const effectiveCwd = cwd ?? sourceInfo?.cwd ?? process.cwd();
 
     if (agentInfo?.capabilities?.loadSession) {
-      const connection = this.deps.agentConnection.getConnection(agentId);
+      const connection = this.deps.agentConnection.value.getConnection(agentId);
       if (!connection)
         throw connectionFailed(
           agentId,
@@ -398,7 +399,7 @@ export class SessionLifecycle {
   private persistSession(sessionId: string, agentId: string): void {
     const info = this.deps.sessionState.getSessionInfo(agentId, sessionId);
     if (info) {
-      this.deps.historyStore?.saveSession(info);
+      this.deps.historyStore.value?.saveSession(info);
     }
   }
 
@@ -407,7 +408,7 @@ export class SessionLifecycle {
     sessionId: string,
     info: AppSessionInfo
   ): void {
-    if (!this.deps.sessionHistoryStore) return;
+    if (!this.deps.sessionHistoryStore.value) return;
     const entry: HistoryEntry = {
       sessionId,
       agentId,
@@ -422,6 +423,6 @@ export class SessionLifecycle {
         total: info.tokenUsage.total,
       },
     };
-    void this.deps.sessionHistoryStore.upsertEntry(entry);
+    void this.deps.sessionHistoryStore.value.upsertEntry(entry);
   }
 }

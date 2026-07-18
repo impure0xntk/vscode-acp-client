@@ -1,6 +1,6 @@
 import * as assert from "assert";
 import { describe, it, beforeEach, afterEach } from "mocha";
-import { handleFixPrepare } from "../../webviewMessageHandler";
+import { handleFixPrepare } from "../../messageRouter/handlers/context/context";
 import type { ContextAttachment } from "../../types";
 
 function makeAttachment(id: string): ContextAttachment {

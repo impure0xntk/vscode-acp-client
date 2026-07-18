@@ -1,4 +1,4 @@
-import type { SessionOrchestrator } from "../orchestrator";
+import type { SessionOrchestrator } from "../session/orchestrator";
 import type { ChatPanel } from "../../infrastructure/vscode/vscode-ui/chatPanel";
 import type { ChatPresenter } from "../../infrastructure/vscode/vscode-ui/presenter";
 import type { AgentStatusTracker } from "../../adapter/agent/status";

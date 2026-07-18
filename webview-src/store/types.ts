@@ -7,4 +7,5 @@ export type {
   WorkspaceFolder,
   SlashCommand,
   SessionTabStatus,
+  TurnOutcome,
 } from "./sessionStore";

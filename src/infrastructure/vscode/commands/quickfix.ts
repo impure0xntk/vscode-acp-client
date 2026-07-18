@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import type { SessionOrchestrator } from "../../../application/orchestrator";
+import type { SessionOrchestrator } from "../../../application/session/orchestrator";
 import type { ChatPanel } from "../vscode-ui/chatPanel";
 import type { ContextAttachmentDTO } from "../../../domain/models/chat";
 import type { SerializedRange } from "../../../adapter/context/assembler";

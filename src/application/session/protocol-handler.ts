@@ -7,7 +7,6 @@ import type {
 } from "@agentclientprotocol/sdk";
 import type { ToolCall } from "../../domain/models/chat";
 import type { AppSessionInfo } from "./types";
-import type { AgentConnection } from "./agent-connection";
 import type { SessionState } from "./session-state";
 import { sessionKey } from "./session-state";
 import type { PromptExecution } from "./prompt-execution";
@@ -18,32 +17,28 @@ import {
   getStandardPermissionOptions,
   requestPermissionViaQuickPick,
 } from "../../adapter/acp/permissions";
+import { Ref } from "../../shared/util/ref";
 
 const log = getLogger("protocol-handler");
 
 /**
  * Micro-batch buffer for streaming text chunks.
  * Accumulates agent_message_chunk text and flushes on a timer,
- * on tool_call arrival, or on turn end.  This prevents one
- * postMessage per character (Codex/Copilot) from overwhelming
- * the extension host ↔ webview channel.
+ * on tool_call arrival, or on turn end.
  */
 interface TextBatch {
   text: string;
   timer: ReturnType<typeof setTimeout> | null;
-  /** ACP SDK messageId for this message — used to merge chunks across tool boundaries. */
   messageId?: string | null;
 }
 
 const TEXT_BATCH_FLUSH_MS = 150;
 
 export interface ProtocolHandlerDeps {
-  agentConnection: AgentConnection;
+  /** Forward ref — set by orchestrator after PromptExecution is created. */
+  promptExecution: Ref<PromptExecution>;
   sessionState: SessionState;
-  promptExecution: PromptExecution;
   ui: UIAPI;
-  historyStore: import("./persistentHistory").PersistentHistoryStore | null;
-  sessionHistoryStore: import("./historyStore").SessionHistoryStore | null;
   /** Callback to emit events to external listeners */
   emit: (event: string, ...args: unknown[]) => void;
 }
@@ -65,13 +60,7 @@ export class ProtocolHandler {
   private pendingTextBatch: Map<string, TextBatch> = new Map();
   // sessionKey → last seen ACP messageId (for step boundary detection)
   private lastSeenMessageId: Map<string, string | null> = new Map();
-  /**
-   * Drain window for late notifications after turn end.
-   * When a turn completes, session/update notifications may still be in-flight
-   * (the agent sent them before receiving the prompt response).  Without a
-   * drain window, these are silently dropped — causing incomplete tool_call_update
-   * delivery (status stays "in_progress" forever).
-   */
+  /** Drain window for late notifications after turn end. */
   private turnEndedAt: Map<string, number> = new Map();
   private static readonly DRAIN_WINDOW_MS = 2000;
 
@@ -147,12 +136,9 @@ export class ProtocolHandler {
       sessionInfo.status !== "running" &&
       sessionInfo.status !== "cancelling"
     ) {
-      // After turn end, allow a drain window for late notifications.
-      // The agent may have sent tool_call_update BEFORE receiving the
-      // prompt response — these are still valid and must be forwarded.
       const sKey = sessionKey(agentId, sessionId);
       const endedAt = this.turnEndedAt.get(sKey);
-      if (endedAt == null) return; // no recent turn — truly stale
+      if (endedAt == null) return;
       const elapsed = Date.now() - endedAt;
       if (elapsed > ProtocolHandler.DRAIN_WINDOW_MS) {
         this.turnEndedAt.delete(sKey);
@@ -164,8 +150,6 @@ export class ProtocolHandler {
         kind: update.sessionUpdate,
         elapsedMs: elapsed,
       });
-      // Process as a no-op state update — forward to webview but skip
-      // tool call buffering (no active turn to attribute them to).
       this.deps.emit("sessionUpdate", { agentId, sessionId, notification });
       return;
     }
@@ -194,48 +178,9 @@ export class ProtocolHandler {
         this.handleAgentMessageChunk(agentId, sessionId, sessionInfo, update);
         break;
       case "agent_thought_chunk":
-        sessionInfo.status = "running";
-        if (!sessionInfo.isStreaming) {
-          sessionInfo.isStreaming = true;
-          this.deps.emit("sessionStreamStart", { agentId, sessionId });
-        }
-        {
-          const sKey = sessionKey(agentId, sessionId);
-          const u = update as {
-            content?: { text?: string };
-            messageId?: string | null;
-          };
-          const delta = u.content?.text ?? "";
-          if (!delta) break;
-          // Buffer thoughts in their own batch, separate from message text.
-          // They are flushed as distinct agent_thought_chunk stream events
-          // (see flushThoughts) so the webview renders them in a dedicated
-          // thinking block instead of concatenating them into the message body.
-          const existingThought = this.pendingThoughts.get(sKey);
-          if (existingThought) {
-            existingThought.text += delta;
-            if (u.messageId != null && existingThought.messageId == null) {
-              existingThought.messageId = u.messageId;
-            }
-          } else {
-            const thought: {
-              text: string;
-              messageId?: string | null;
-              timer: ReturnType<typeof setTimeout> | null;
-            } = {
-              text: delta,
-              messageId: u.messageId ?? null,
-              timer: null,
-            };
-            thought.timer = setTimeout(() => {
-              this.flushThoughts(agentId, sessionId);
-            }, TEXT_BATCH_FLUSH_MS);
-            this.pendingThoughts.set(sKey, thought);
-          }
-        }
+        this.handleAgentThoughtChunk(agentId, sessionId, sessionInfo, update);
         break;
       case "tool_call":
-        // Flush any pending thoughts first so they appear before the tool call.
         this.flushThoughts(agentId, sessionId, true);
         this.flushTextBatch(agentId, sessionId);
         this.handleToolCall(agentId, sessionId, sessionInfo, update);
@@ -279,9 +224,6 @@ export class ProtocolHandler {
     }
 
     if (kind === "session_info_update" || kind === "usage_update") {
-      // Flush pending thoughts and message text. Thoughts are now buffered
-      // separately and emitted as agent_thought_chunk, so flushing both keeps
-      // the webview in sync without duplicating content.
       this.flushThoughts(agentId, sessionId, true);
       this.flushTextBatch(agentId, sessionId, true);
     }
@@ -316,8 +258,6 @@ export class ProtocolHandler {
     }
 
     const buffered = entry.text;
-    // Track the streaming thought text on the session state so a late
-    // message_chunk with the same ACP messageId can be merged correctly.
     const existing = this.deps.sessionState.getStreamMsgRef(sKey);
     if (existing) {
       this.deps.sessionState.appendStreamText(sKey, buffered);
@@ -331,7 +271,6 @@ export class ProtocolHandler {
       });
       this.deps.sessionState.setStreamText(sKey, buffered);
     }
-    // Emitted as its own update type so the webview renders a thinking block.
     this.deps.emit("sessionStreamChunk", {
       agentId,
       sessionId,
@@ -340,6 +279,43 @@ export class ProtocolHandler {
       sessionUpdate: "agent_thought_chunk",
     });
     sessionInfo.lastResponseAt = new Date().toISOString();
+  }
+
+  private handleAgentThoughtChunk(
+    agentId: string,
+    sessionId: string,
+    sessionInfo: AppSessionInfo,
+    update: unknown
+  ): void {
+    sessionInfo.status = "running";
+    if (!sessionInfo.isStreaming) {
+      sessionInfo.isStreaming = true;
+      this.deps.emit("sessionStreamStart", { agentId, sessionId });
+    }
+    const sKey = sessionKey(agentId, sessionId);
+    const u = update as {
+      content?: { text?: string };
+      messageId?: string | null;
+    };
+    const delta = u.content?.text ?? "";
+    if (!delta) return;
+    const existingThought = this.pendingThoughts.get(sKey);
+    if (existingThought) {
+      existingThought.text += delta;
+      if (u.messageId != null && existingThought.messageId == null) {
+        existingThought.messageId = u.messageId;
+      }
+    } else {
+      const thought = {
+        text: delta,
+        messageId: u.messageId ?? null,
+        timer: null as ReturnType<typeof setTimeout> | null,
+      };
+      thought.timer = setTimeout(() => {
+        this.flushThoughts(agentId, sessionId);
+      }, TEXT_BATCH_FLUSH_MS);
+      this.pendingThoughts.set(sKey, thought);
+    }
   }
 
   private handleAgentMessageChunk(
@@ -351,15 +327,12 @@ export class ProtocolHandler {
     sessionInfo.status = "running";
     sessionInfo.lastResponseAt = new Date().toISOString();
 
-    this.deps.promptExecution.flushPendingToolCalls(agentId, sessionId);
+    this.deps.promptExecution.value.flushPendingToolCalls(agentId, sessionId);
 
     const u = update as Record<string, unknown>;
     const content = u.content as Record<string, unknown> | undefined;
     const text =
       content?.type === "text" ? (content.text as string) : undefined;
-    // ACP SDK messageId — identifies the logical message this chunk belongs to.
-    // When a tool_call interrupts streaming, subsequent chunks with the same
-    // messageId belong to the same message and must be merged.
     const messageId = (u.messageId as string | null) ?? null;
 
     const sKey = sessionKey(agentId, sessionId);
@@ -369,9 +342,6 @@ export class ProtocolHandler {
     }
 
     if (text) {
-      // Always buffer — even the first chunk goes through the batch timer
-      // to prevent one postMessage per chunk under fast streaming.
-      // Thoughts are also appended to the same batch so they flush together.
       const existing = this.pendingTextBatch.get(sKey);
       if (existing) {
         existing.text += text;
@@ -434,12 +404,11 @@ export class ProtocolHandler {
       diffContent: tcDiff,
     };
 
-    // Track tool_call messageId as step boundary
     if (tcMessageId !== null) {
       this.lastSeenMessageId.set(sKey, tcMessageId);
     }
 
-    this.deps.promptExecution.bufferToolCall(agentId, sessionId, newCall);
+    this.deps.promptExecution.value.bufferToolCall(agentId, sessionId, newCall);
   }
 
   private handleToolCallUpdate(
@@ -450,7 +419,6 @@ export class ProtocolHandler {
   ): void {
     const sKey = sessionKey(agentId, sessionId);
     const buffered = this.deps.sessionState.getPendingToolCalls(sKey);
-
     const u = update as Record<string, unknown>;
 
     if (buffered) {
@@ -484,7 +452,6 @@ export class ProtocolHandler {
             ? extractDiffContent(u.content as ToolCallContent[])
             : undefined;
           if (tcDiff) tc.diffContent = tcDiff;
-
           return;
         }
       }
@@ -597,15 +564,7 @@ export class ProtocolHandler {
     );
   }
 
-  private flushPendingToolCalls(agentId: string, sessionId: string): void {
-    const key = sessionKey(agentId, sessionId);
-    this.flushTextBatch(agentId, sessionId);
-    this.deps.sessionState.clearPendingToolCalls(key);
-  }
-
   flushAllBatches(agentId: string, sessionId: string): void {
-    // Flush pending thoughts first (they precede the message text), then the
-    // message-text batch. Both are now distinct stream events.
     this.flushThoughts(agentId, sessionId);
     this.flushTextBatch(agentId, sessionId);
   }
@@ -622,16 +581,10 @@ export class ProtocolHandler {
   resetStepTracking(agentId: string, sessionId: string): void {
     const sKey = sessionKey(agentId, sessionId);
     this.lastSeenMessageId.delete(sKey);
-    // Record turn end time so late notifications within the drain window
-    // are forwarded instead of silently dropped.
     this.turnEndedAt.set(sKey, Date.now());
   }
 }
 
-/**
- * Safe JSON.stringify — catches circular references, BigInt, and other
- * non-serializable values that would throw.  Falls back to String(value).
- */
 function safeJsonStringify(value: unknown): string {
   try {
     return JSON.stringify(value);

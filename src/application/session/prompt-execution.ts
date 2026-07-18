@@ -3,34 +3,40 @@ import type { PromptContext, QueuedPrompt } from "./types";
 import type { AgentConnection } from "./agent-connection";
 import type { ChatMessage } from "../../domain/models/chat";
 import { SessionState, sessionKey } from "./session-state";
-import type { PersistentHistoryStore } from "./persistentHistory";
 import { getLogger } from "../../platform/backends";
 import { buildPromptContent } from "../../adapter/acp/content";
+import { Ref } from "../../shared/util/ref";
+import type { ProtocolHandler } from "./protocol-handler";
 
 const log = getLogger("prompt-execution");
 
 export interface PromptExecutionDeps {
-  agentConnection: AgentConnection;
+  /** Forward ref — set by orchestrator after AgentConnection is created. */
+  agentConnection: Ref<AgentConnection>;
   sessionState: SessionState;
-  protocolHandler: import("./protocol-handler").ProtocolHandler;
-  historyStore: PersistentHistoryStore | null;
+  protocolHandler: ProtocolHandler;
   /** Get global Mesh Protocol enabled state */
   getMeshGlobalEnabled: () => boolean;
   /** Emit event to orchestrator (sessionTurnActiveChanged, etc.) */
   emit: (event: string, ...args: unknown[]) => void;
-  /** Append a tool message to the session — used by flushToolCallGroup to surface buffered calls */
+  /** Append a tool message to the session */
   appendToolMessage: (
     agentId: string,
     sessionId: string,
-    message: import("../../domain/models/chat").ChatMessage
+    message: ChatMessage
   ) => void;
 }
 
 export class PromptExecution {
-  private deps: PromptExecutionDeps;
+  deps: PromptExecutionDeps;
 
   constructor(deps: PromptExecutionDeps) {
     this.deps = deps;
+  }
+
+  /** Set protocolHandler after construction (breaks circular dependency). */
+  setProtocolHandler(handler: ProtocolHandler): void {
+    this.deps = { ...this.deps, protocolHandler: handler };
   }
 
   async send(
@@ -72,7 +78,7 @@ export class PromptExecution {
     text: string,
     context?: PromptContext
   ): Promise<void> {
-    const connection = this.deps.agentConnection.getConnection(agentId);
+    const connection = this.deps.agentConnection.value.getConnection(agentId);
     if (!connection) {
       throw new Error(`Agent ${agentId} is not connected`);
     }
@@ -113,9 +119,6 @@ export class PromptExecution {
     sessionInfo.updatedAt = new Date();
     sessionInfo.isStreaming = true;
 
-    // When callers provide raw ContentBlock[] as context (e.g. from
-    // ContextAttachment → ContentBlock conversion), use it directly.
-    // Otherwise, fall back to buildPromptContent for a plain text prompt.
     const promptBlocks: ContentBlock[] = context
       ? [...context, { type: "text", text: finalText }]
       : buildPromptContent(finalText);
@@ -155,7 +158,6 @@ export class PromptExecution {
         stopReason,
       });
 
-      // Reset step tracking for next turn
       this.deps.protocolHandler.resetStepTracking(agentId, sessionId);
     } catch (e) {
       sessionInfo.lastTurnOutcome = "error";
@@ -170,9 +172,6 @@ export class PromptExecution {
     } finally {
       sessionInfo.status = "idle";
       sessionInfo.updatedAt = new Date();
-      // When the agent produces only tool calls (no text), stopReason
-      // may be undefined — default to "end_turn" so the UI turn boundary
-      // is always closed.
       const resolvedStopReason = stopReason ?? "end_turn";
       this.deps.emit("sessionTurnActiveChanged", {
         agentId,
@@ -185,7 +184,7 @@ export class PromptExecution {
   }
 
   async cancel(agentId: string, sessionId: string): Promise<void> {
-    const connection = this.deps.agentConnection.getConnection(agentId);
+    const connection = this.deps.agentConnection.value.getConnection(agentId);
     const sessionInfo = this.deps.sessionState.getSessionInfo(
       agentId,
       sessionId
@@ -355,8 +354,6 @@ export class PromptExecution {
     calls: import("../../domain/models/chat").ToolCall[]
   ): void {
     if (calls.length === 0) return;
-    // grouped tool calls become a single ChatMessage so the
-    // webview pipeline can render them as one ToolCallCard.
     const toolMsg: ChatMessage = {
       id: `tool-${kind}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
       role: "tool",

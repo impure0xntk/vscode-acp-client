@@ -1,8 +1,6 @@
 import * as vscode from "vscode";
-import type {
-  SessionOrchestrator,
-  AgentConfig,
-} from "../../../application/orchestrator";
+import type { AgentConfig } from "../../../application/session/types";
+import type { SessionOrchestrator } from "../../../application/session/orchestrator";
 import type { AgentRegistry } from "../../../adapter/agent/registry";
 import { ChatPanel } from "../vscode-ui/chatPanel";
 

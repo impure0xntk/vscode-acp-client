@@ -575,7 +575,7 @@ describe("Mesh message type validation", () => {
 
 describe("MeshAgentStatus state transitions", () => {
   // ── Pure function: compute next agent state ────────────────────────────
-  // Mirrors the logic in webviewMessageHandler.ts handleAgentStatus
+  // Mirrors the logic in handlers/mesh/mesh.ts handleAgentStatus
 
   type AgentState = "idle" | "working" | "waiting" | "error" | "disconnected";
 

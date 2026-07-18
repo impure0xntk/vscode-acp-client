@@ -27,8 +27,8 @@
     "url": "https://github.com/impure0xntk/vscode-acp-client"
   },
   "publisher": "vscode-acp-client",
-  "main": "./out/extension.js",
-  "browser": "./out/extension.js",
+  "main": "./out/infrastructure/vscode/extension.js",
+  "browser": "./out/infrastructure/vscode/extension.js",
   "activationEvents": [
     "onStartupFinished"
   ],

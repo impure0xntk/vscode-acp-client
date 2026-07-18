@@ -3,7 +3,7 @@ import { describe, it, beforeEach } from "mocha";
 import { useFileWriteStore } from "../../../store/fileWriteStore";
 import { useMessageStore } from "../../../store/messageStore";
 
-// ── webviewMessageHandler — file-write + writeSeq integration ──────────────
+// ── file-write + writeSeq integration ────────────────────────────────────
 //
 // Test the store-level effects of the three handler functions that coordinate
 // file-write tracking.  We don't call the handler functions directly (they
@@ -14,7 +14,7 @@ import { useMessageStore } from "../../../store/messageStore";
 //   handleSessionStreamStart → fileWriteStore.currentSeq() → messageStore.updateLastAgentMessage({ writeSeq })
 //   handleSessionTurnActive(active=false) → fileWriteStore.clearSession(agentId, sessionId)
 
-describe("webviewMessageHandler — file-write & writeSeq integration", () => {
+describe("file-write & writeSeq integration", () => {
   const agentId = "claude";
   const sessionId = "sess-filewrite";
   const msgKey = `${agentId}:${sessionId}`;

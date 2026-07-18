@@ -3,7 +3,7 @@ import { describe, it, beforeEach } from "mocha";
 import {
   normalizeToolStatus,
   extractDiffFromContent,
-} from "../../webviewMessageHandler";
+} from "../../messageRouter/shared/utils";
 import { useMessageStore } from "../../store/messageStore";
 
 // ── normalizeToolStatus ─────────────────────────────────────────────────────

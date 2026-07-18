@@ -1,5 +1,4 @@
 import type { SessionStatus, TurnOutcome } from "../../domain/models/session";
-import type { AgentConnection } from "./agent-connection";
 import type { SessionState } from "./session-state";
 import type { ChatMessage } from "../../domain/models/chat";
 
@@ -39,7 +38,6 @@ export interface SessionOverview {
 }
 
 export interface SessionOverviewDeps {
-  agentConnection: AgentConnection;
   sessionState: SessionState;
   emit: (event: string, ...args: unknown[]) => void;
 }

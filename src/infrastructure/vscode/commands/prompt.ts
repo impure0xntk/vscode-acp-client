@@ -6,7 +6,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import { attachmentsToContentBlocks } from "../../../adapter/context/prompt-context";
 import { collectExternalFileAttachments } from "../../../adapter/context/externalFile";
-import type { SessionOrchestrator } from "../../../application/orchestrator";
+import type { SessionOrchestrator } from "../../../application/session/orchestrator";
 import type { ChatPanel } from "../vscode-ui/chatPanel";
 import type {
   ChatMessage,

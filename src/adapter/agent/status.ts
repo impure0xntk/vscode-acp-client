@@ -1,9 +1,9 @@
 import { EventEmitter } from "events";
-import {
+import type {
   AgentStatus,
   SessionStatusInfo,
   AgentConnectionState,
-} from "../../application/orchestrator";
+} from "../../application/session/types";
 
 export type { AgentStatus, SessionStatusInfo, AgentConnectionState };
 

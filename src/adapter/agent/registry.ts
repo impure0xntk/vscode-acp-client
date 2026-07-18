@@ -1,4 +1,4 @@
-import type { AgentConfig } from "../../application/orchestrator";
+import type { AgentConfig } from "../../application/session/types";
 import type { PlatformAPI } from "../../platform";
 import type { Memento } from "../../platform/context";
 
@@ -144,7 +144,7 @@ export class AgentRegistry {
     return Object.entries(agentsObj).map(([key, raw]) => {
       const a = raw as unknown as Record<string, unknown>;
       let autoConnect:
-        | import("../../application/orchestrator").AutoConnectEntry[]
+        | import("../../application/session/types").AutoConnectEntry[]
         | undefined;
       if (Array.isArray(a.autoConnect)) {
         autoConnect = (a.autoConnect as Array<unknown>)
