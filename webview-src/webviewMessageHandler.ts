@@ -1124,19 +1124,34 @@ function handleSessionSnapshot(data: SessionSnapshot): void {
     messageCount: data.messages.length,
   });
 
-  // Deserialize attachmentsJson for each message
+  // Deserialize attachmentsJson and toolCallsJson for each message.
+  // The extension-host persistent store stores tool calls as a JSON string
+  // (toolCallsJson) and the webview ChatMessage type holds them as a parsed
+  // array (toolCalls). Without this, restored tool messages arrive with an
+  // undefined toolCalls array, so the pipeline's splitIntoSteps drops the
+  // tool items and the restored chat loses its tool-call history.
   const messages = data.messages.map((msg) => {
+    let next = msg;
     if (msg.attachmentsJson && !msg.attachments) {
       try {
         const attachments = JSON.parse(
           msg.attachmentsJson
         ) as import("./types").ContextAttachment[];
-        return { ...msg, attachments };
+        next = { ...next, attachments };
       } catch {
-        return msg;
+        /* keep original */
       }
     }
-    return msg;
+    const tcJson = (msg as { toolCallsJson?: string }).toolCallsJson;
+    if (tcJson && !msg.toolCalls) {
+      try {
+        const toolCalls = JSON.parse(tcJson) as import("./types").ToolCall[];
+        next = { ...next, toolCalls };
+      } catch {
+        /* keep original */
+      }
+    }
+    return next;
   });
 
   // Populate message store so the chat UI renders the restored conversation
