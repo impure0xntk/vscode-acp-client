@@ -469,7 +469,8 @@ export class MeshOrchestrator {
   async meshSend(
     targets: SendTarget[],
     text: string,
-    attachments?: ContextAttachmentDTO[]
+    attachments?: ContextAttachmentDTO[],
+    queueMode?: import("../../application/session/types").QueuedPromptMode
   ): Promise<MultiSendResult> {
     const targetDesc = targets
       .map((t) => `${t.agentId}:${t.sessionId}`)
@@ -477,9 +478,15 @@ export class MeshOrchestrator {
     log.info("mesh:send", {
       targetCount: targets.length,
       targets: targetDesc,
+      queueMode: queueMode ?? "immediate",
     });
     const context = this.buildContext(attachments);
-    return this.fanoutExecutor.execute(targets, { text, context, attachments });
+    return this.fanoutExecutor.execute(targets, {
+      text,
+      context,
+      attachments,
+      queueMode,
+    });
   }
 
   /**

@@ -25,6 +25,8 @@ export interface FanoutRequest {
   context: PromptContext;
   /** Original attachment DTOs for UI echo (passed through to pushUserMessage) */
   attachments?: ContextAttachmentDTO[];
+  /** Queue mode for running-session routing (stack/inject). */
+  queueMode?: import("../../application/session/types").QueuedPromptMode;
 }
 
 export interface FanoutResult {
@@ -99,7 +101,8 @@ export class FanoutExecutor {
         target.agentId,
         target.sessionId,
         request.text,
-        request.context
+        request.context,
+        request.queueMode
       );
       return { target, status: "sent" };
     } catch (e) {

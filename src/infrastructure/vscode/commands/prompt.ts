@@ -38,11 +38,16 @@ let _supervisorOrchestrator: SupervisorOrchestrator | null = null;
 
 /**
  * Single code path for sending user messages to agent sessions (DRY).
+ *
+ * Routes through MeshOrchestrator (when present) so that the user message is
+ * echoed into the webview via pushUserMessage — otherwise it is pushed directly.
+ * queueMode is threaded through to orchestrator.prompt for running-session routing.
  */
 function meshSend(
   text: string,
   attachments: ContextAttachmentDTO[],
-  targets: SendTarget[]
+  targets: SendTarget[],
+  queueMode?: import("../../../application/session/types").QueuedPromptMode
 ): void {
   const chatPanel = _chatPanel;
   const orchestrator = _orchestrator;
@@ -60,10 +65,19 @@ function meshSend(
   const context = attachmentsToContentBlocks(attachments);
 
   if (meshOrchestrator) {
-    void meshOrchestrator.meshSend(targets, text, attachments);
+    // MeshOrchestrator.meshSend → FanoutExecutor.sendToTarget → pushUserMessage
+    // echoes the user message into the webview chat UI.
+    void meshOrchestrator.meshSend(targets, text, attachments, queueMode);
   } else {
     for (const target of targets) {
-      void orchestrator.prompt(target.agentId, target.sessionId, text, context);
+      chatPanel.pushMessage(target.agentId, target.sessionId, userMessage);
+      void orchestrator.prompt(
+        target.agentId,
+        target.sessionId,
+        text,
+        context,
+        queueMode
+      );
     }
   }
 }
@@ -525,15 +539,7 @@ export function wireChatPanelEvents(
             );
           }
         } else {
-          for (const target of targets) {
-            void orchestrator.prompt(
-              target.agentId,
-              target.sessionId,
-              text,
-              attachmentsToContentBlocks(attachments),
-              queueMode
-            );
-          }
+          meshSend(text, attachments, targets, queueMode);
         }
         break;
       }
