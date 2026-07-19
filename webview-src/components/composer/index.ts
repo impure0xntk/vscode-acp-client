@@ -9,3 +9,5 @@ export type { ContextChipProps } from "./ContextChip";
 export { ContextPreview } from "./ContextPreview";
 export type { ContextPreviewProps } from "./ContextPreview";
 export { ContextCompressionNotice } from "./ContextCompressionNotice";
+export { ActiveSessionIndicator } from "./ActiveSessionIndicator";
+export type { ActiveSessionIndicatorProps } from "./ActiveSessionIndicator";

@@ -28,6 +28,7 @@ const log = getLogger("webview.Composer");
 import { ContextBar } from "./ContextBar";
 import { ContextPicker } from "./ContextPicker";
 import { ContextPreview } from "./ContextPreview";
+import { ActiveSessionIndicator } from "./ActiveSessionIndicator";
 import type { FileCandidate } from "./ContextPicker";
 import { Icon } from "../../lib/icons";
 import {
@@ -1125,6 +1126,7 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
       onSend,
       onSendMode,
       sendTargets,
+      onSwitchSession,
       clearSendTargets,
       selectedTeam,
       setSelectedTeam,
@@ -1255,6 +1257,21 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
 
     return (
       <div className="composer flex-shrink-0 px-3 pt-1.5 pb-2">
+        {/* Active session indicator — always shows where a plain message
+            lands, so the user never has to guess which session is targeted.
+            Hidden when multi-@ targets are selected (the ContextBar's
+            SendTargetChips already enumerate them). */}
+        <ActiveSessionIndicator
+          activeSessionKey={useSessionStore.getState().activeSessionKey}
+          sendTargets={sendTargets}
+          disabled={disabled}
+          onClick={() => {
+            const key = useSessionStore.getState().activeSessionKey;
+            if (!key) return;
+            const [agentId, sessionId] = key.split(":");
+            onSwitchSession?.(agentId, sessionId);
+          }}
+        />
         <ContextBar
           attachments={attachments}
           onRemove={handleRemoveAttachment}
