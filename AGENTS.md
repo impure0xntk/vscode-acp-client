@@ -55,7 +55,7 @@ webview-src/                       # React webview UI
 | UI (Webview) | React 18 + Tailwind CSS 4                |
 | Markdown     | `markdown-it` + `highlight.js`           |
 | Bundler      | esbuild                                  |
-| Testing      | Mocha (extension host), Vitest (webview) |
+| Testing      | Mocha , Vitest                                                   |
 | Linting      | ESLint 9 + Prettier 3                    |
 
 ## Build & Development
@@ -79,7 +79,7 @@ echo "use flake" > .envrc && direnv allow
 | `npm run watch`     | Watch mode (tsc + esbuild)                      |
 | `npm run lint`      | ESLint                                          |
 | `npm run format`    | Prettier                                        |
-| `npm test`          | Run Mocha extension host tests                  |
+| `npm test`          | Run all tests (Mocha + Vitest)                  |
 | `npm run package`   | Produce `.vsix` via vsce                        |
 | `npm run clean`     | Remove `out/` and `dist/`                       |
 
@@ -253,8 +253,12 @@ Settings are under the `acp.` prefix:
 
 ## Testing
 
-- Extension host tests: `test/suite/` (Mocha)
-- Webview component tests: co-located `*.test.tsx` (Vitest)
+- **Test runner**: Mocha, Vitest (`vitest.config.ts`)
+- **Test environment**: jsdom
+- **Setup file**: `webview-src/test/setup.ts` (loads `@testing-library/jest-dom` matchers)
+- **Suite (core/integration) tests**: `src/test/suite/*.test.ts` + `webview-src/test/suite/*.test.ts`
+- **UI (component) tests**: `webview-src/test/ui/*.test.tsx`
+- **Run command**: `npm test` (runs `test:core`, `test:webview` then `test:vitest`)
 - Integration: manual smoke tests against real agents
 - Protocol compliance: mock ACP server
 
@@ -262,12 +266,11 @@ Settings are under the `acp.` prefix:
 
 After modifying your code, always run the following three commands in order and ensure they all pass before proceeding.
 
-``bash`
-`npm run typecheck` # 1. TypeScript type check
-`npm run compile` # 2. Compile + webview bundle
-`npm test` # 3. Run test suite
-
-````text
+```bash
+npm run typecheck   # 1. TypeScript type check
+npm run compile     # 2. Compile + webview bundle
+npm test            # 3. Run test suite
+```
 
 - **Proceed with everything in green** — If any of them fail, fix it immediately and rerun.
 
@@ -341,7 +344,8 @@ Per-tool overrides via `acp.permissions.tools`.
 - `react`, `react-dom` + types
 - `markdown-it`, `highlight.js`, `dompurify` + types
 - `tailwindcss`, `@tailwindcss/postcss`, `postcss`, `autoprefixer`
-- `eslint`, `prettier`, `mocha`, `concurrently`
+- `vitest`, `@vitest/ui`, `@testing-library/react`, `@testing-library/jest-dom`, `@testing-library/user-event`, `jsdom`
+- `eslint`, `prettier`, `concurrently`
 
 ## References
 
