@@ -560,6 +560,7 @@
     "watch": "concurrently \"tsc -watch -p ./\" \"node esbuild.js --watch\"",
     "test": "mocha out/test/suite --timeout 10000 && mocha out/webview-test/test/suite --timeout 10000",
     "test:webview": "mocha out/webview-test/test/suite --timeout 10000",
+    "test:vitest": "vitest run",
     "lint": "eslint src --ext ts && npm run lint:css",
     "lint:css": "stylelint webview-src/styles/globals.css",
     "format": "prettier --write .",
