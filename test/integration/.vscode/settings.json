@@ -30,7 +30,8 @@
         "nixpkgs#github-copilot-cli",
         "-c",
         "copilot",
-        "--acp"
+        "--acp",
+        "--yolo"
       ],
       "env": {
         "NIXPKGS_ALLOW_UNFREE": "1"
