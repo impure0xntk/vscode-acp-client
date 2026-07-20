@@ -32,6 +32,11 @@ export interface StepViewProps {
    * When provided, rendered instead of step.fileEditSummary.
    */
   externalFileEditEntries?: FileEditEntry[];
+  /**
+   * When true, FileEditSummary renders collapsed by default. Fed by
+   * IntermediateStepsBanner so that every step except the last starts folded.
+   */
+  startFileEditCollapsed?: boolean;
 }
 
 /**
@@ -53,6 +58,7 @@ function StepViewInner({
   isAgentNew = true,
   onAttachDiff,
   externalFileEditEntries,
+  startFileEditCollapsed = false,
 }: StepViewProps): React.ReactElement {
   // Thinking items are carried as pre-agent step "tool calls" (role="agent",
   // thinking set, no resolvedToolCalls).  They render as normal agent
@@ -126,6 +132,7 @@ function StepViewInner({
             sessionId={sessionId}
             agentId={agentId}
             onAttachDiff={onAttachDiff}
+            startCollapsed={startFileEditCollapsed}
           />
         )}
       </div>
@@ -164,6 +171,7 @@ function StepViewInner({
           sessionId={sessionId}
           agentId={agentId}
           onAttachDiff={onAttachDiff}
+          startCollapsed={startFileEditCollapsed}
         />
       )}
     </div>
@@ -184,7 +192,8 @@ function areStepViewPropsEqual(
     prev.suppressHeader === next.suppressHeader &&
     prev.isAgentNew === next.isAgentNew &&
     prev.onAttachDiff === next.onAttachDiff &&
-    prev.externalFileEditEntries === next.externalFileEditEntries
+    prev.externalFileEditEntries === next.externalFileEditEntries &&
+    prev.startFileEditCollapsed === next.startFileEditCollapsed
   );
 }
 

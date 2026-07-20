@@ -4,6 +4,7 @@ import { AppContainer } from "../../containers/AppContainer";
 import { useSessionStore, sessionKeyOf } from "../../store/sessionStore";
 import { useMeshStore } from "../../store/meshStore";
 import { useUiStateStore } from "../../store/uiStateStore";
+import { getPanelMode } from "../../components/modes/panelModeStrategy";
 import type { SessionInfoDTO } from "../../store/sessionStore";
 import type { Plan } from "../../types";
 
@@ -81,7 +82,7 @@ describe("AppContainer", () => {
       meshPanelVisible: false,
     } as Partial<ReturnType<typeof useMeshStore.getState>>);
     useUiStateStore.setState({
-      panelMode: "unified",
+      panelMode: getPanelMode("unified"),
       overviewVisible: false,
       overviewWidth: 280,
       overviewPosition: "right",
@@ -148,6 +149,7 @@ describe("AppContainer", () => {
   });
 
   it("renders the supervisor mode layout when panelMode is supervisor", () => {
+    seedSessions();
     useUiStateStore.getState().setPanelMode("supervisor");
     const { container } = render(<AppContainer />);
     // Supervisor mode always shows the Mesh panel.

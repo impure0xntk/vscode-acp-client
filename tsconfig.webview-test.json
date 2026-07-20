@@ -26,6 +26,8 @@
     "webview-src/components/CompletionNotification.tsx",
     "webview-src/components/mesh/AgentConnectPanel.tsx",
     "webview-src/components/ErrorBoundary.tsx",
+    "webview-src/components/modes/**/*",
+    "webview-src/containers/**/*",
     "webview-src/shared/**/*",
     "webview-src/types.ts",
     "webview-src/lib/**/*",

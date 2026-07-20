@@ -242,6 +242,9 @@ export function IntermediateStepsBanner({
               externalSummary && !step.fileEditSummary
                 ? { ...step, fileEditSummary: externalSummary }
                 : step;
+            // Collapse the file edits on every step except the last one,
+            // so the banner's older steps stay compact by default.
+            const isLastStep = idx === steps.length - 1;
             return (
               <StepView
                 key={`step-${idx}`}
@@ -249,6 +252,7 @@ export function IntermediateStepsBanner({
                 sessionId={sessionId}
                 agentId={agentId}
                 suppressHeader
+                startFileEditCollapsed={!isLastStep}
                 onAttachDiff={onAttachDiff}
               />
             );

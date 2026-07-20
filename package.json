@@ -150,12 +150,8 @@
         "icon": "$(split-horizontal)"
       },
       {
-        "command": "acp.setPanelMode.unified",
-        "title": "ACP: Switch to Unified Mode"
-      },
-      {
-        "command": "acp.setPanelMode.supervisor",
-        "title": "ACP: Switch to Supervisor Mode"
+        "command": "acp.setPanelMode",
+        "title": "ACP: Switch Panel Mode"
       }
     ],
     "keybindings": [

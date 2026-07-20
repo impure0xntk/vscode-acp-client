@@ -55,7 +55,6 @@ export function handleUnifiedChatSetSplitDirection(
 }
 
 export function handlePanelModeSet(data: PanelModeSetMessage): void {
-  if (data.mode !== "unified" && data.mode !== "supervisor") return;
   log.info("panelMode:set", { mode: data.mode });
   useUiStateStore.getState().setPanelMode(data.mode);
 }

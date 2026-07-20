@@ -17,14 +17,15 @@ import { useMessageStore } from "../store/messageStore";
 import { getTurnOutput } from "../lib/sessionTurns";
 import type { SessionStoreState } from "../store/sessionStore";
 import { useUiStateStore } from "../store/uiStateStore";
+import type { UiStateStore } from "../store/uiStateStore";
 import { useMeshStore } from "../store/meshStore";
 import { getVsCodeApi } from "../lib/vscodeApi";
 import { setPendingSwitch } from "../messageRouter/shared/guards";
 import { useShallow } from "zustand/shallow";
 import { useChatHandlers } from "../hooks/useChatHandlers";
 import { useOverviewHandlers } from "../hooks/useOverviewHandlers";
-import { UnifiedMode, SupervisorMode } from "../components/modes";
 import { PlanViewerOverlay } from "../components/modes/supervisor/PlanViewer";
+import { getPanelMode } from "../components/modes/panelModeStrategy";
 import type {
   CommunicationMode,
   ContextAttachment,
@@ -78,7 +79,7 @@ export function AppContainer(): React.ReactElement {
     overviewSelectedSessionIds,
     overviewSelectionMode,
   } = useUiStateStore(
-    useShallow((s) => ({
+    useShallow((s: UiStateStore) => ({
       panelMode: s.panelMode,
       overviewVisible: s.overviewVisible,
       overviewWidth: s.overviewWidth,
@@ -560,67 +561,34 @@ export function AppContainer(): React.ReactElement {
         />
       )}
       <div className="flex flex-col h-full min-h-0 min-w-0 overflow-hidden relative">
-        {panelMode === "supervisor" ? (
-          <SupervisorMode
-            onSendMessage={handleMeshSend}
-            onCancel={handleCancel}
-            onSwitchSession={switchTab}
-            onRenameSession={handleRenameSession}
-            onNewSession={handleNewSession}
-            disabled={!activeSessionId}
-            status={displayStatus}
-            fetchFiles={fetchFiles}
-            resolveFile={resolveFile}
-            resolveSelection={resolveSelection}
-            resolveDiff={resolveDiff}
-            fetchSymbols={fetchSymbols}
-            resolveSymbol={resolveSymbol}
-            resolveOutput={resolveOutput}
-            availableCommands={availableCommands}
-            onCancelQueuedPrompt={cancelQueuedPrompt}
-            onClearQueue={clearQueue}
-            onAttachDiff={(attachment) => {
-              window.dispatchEvent(
-                new CustomEvent("acp:attachDiff", {
-                  detail: { attachment },
-                })
-              );
-            }}
-            onSendMode={(text, attachments) =>
-              sendQueueMode(text, attachments, "stack")
-            }
-          />
-        ) : (
-          <UnifiedMode
-            onSendMessage={handleMeshSend}
-            onCancel={handleCancel}
-            onSwitchSession={switchTab}
-            onRenameSession={handleRenameSession}
-            onNewSession={handleNewSession}
-            disabled={!activeSessionId}
-            status={displayStatus}
-            fetchFiles={fetchFiles}
-            resolveFile={resolveFile}
-            resolveSelection={resolveSelection}
-            resolveDiff={resolveDiff}
-            fetchSymbols={fetchSymbols}
-            resolveSymbol={resolveSymbol}
-            resolveOutput={resolveOutput}
-            availableCommands={availableCommands}
-            onCancelQueuedPrompt={cancelQueuedPrompt}
-            onClearQueue={clearQueue}
-            onAttachDiff={(attachment) => {
-              window.dispatchEvent(
-                new CustomEvent("acp:attachDiff", {
-                  detail: { attachment },
-                })
-              );
-            }}
-            onSendMode={(text, attachments) =>
-              sendQueueMode(text, attachments, "stack")
-            }
-          />
-        )}
+        {getPanelMode(panelMode.id).render({
+          onSendMessage: handleMeshSend,
+          onCancel: handleCancel,
+          onSwitchSession: switchTab,
+          onRenameSession: handleRenameSession,
+          onNewSession: handleNewSession,
+          disabled: !activeSessionId,
+          status: displayStatus,
+          fetchFiles: fetchFiles,
+          resolveFile: resolveFile,
+          resolveSelection: resolveSelection,
+          resolveDiff: resolveDiff,
+          fetchSymbols: fetchSymbols,
+          resolveSymbol: resolveSymbol,
+          resolveOutput: resolveOutput,
+          availableCommands: availableCommands,
+          onCancelQueuedPrompt: cancelQueuedPrompt,
+          onClearQueue: clearQueue,
+          onAttachDiff: (attachment) => {
+            window.dispatchEvent(
+              new CustomEvent("acp:attachDiff", {
+                detail: { attachment },
+              })
+            );
+          },
+          onSendMode: (text, attachments) =>
+            sendQueueMode(text, attachments, "stack"),
+        })}
       </div>
 
       {currentPlan && <PlanViewerOverlay plan={currentPlan} />}

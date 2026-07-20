@@ -1,12 +1,14 @@
 import { create } from "zustand";
 import type { SessionOverviewFilter, SessionOverviewState } from "../types";
+import type { PanelModeStrategy } from "../components/modes/panelModeStrategy";
+import { getPanelMode } from "../components/modes/panelModeStrategy";
 
 // NOTE: Scroll state (isAtBottom, unreadCount, etc.) is NOT stored here.
 // It is derived locally in ChatArea from raw DOM scroll events to avoid
 // Zustand → useSyncExternalStore → infinite re-render loops.
 
-interface UiStateStore {
-  panelMode: "unified" | "supervisor";
+export interface UiStateStore {
+  panelMode: PanelModeStrategy;
 
   /** Direction the pinned sessions are split: side-by-side (horizontal) or
    * stacked top-bottom (vertical). Defaults to horizontal. */
@@ -25,6 +27,7 @@ interface UiStateStore {
   overviewSelectionMode: boolean;
 
   setPanelMode: (mode: "unified" | "supervisor") => void;
+  getPanelMode: () => PanelModeStrategy;
 
   setSplitDirection: (direction: "horizontal" | "vertical") => void;
 
@@ -44,7 +47,7 @@ interface UiStateStore {
 }
 
 export const useUiStateStore = create<UiStateStore>((set) => ({
-  panelMode: "unified",
+  panelMode: getPanelMode("unified"),
 
   splitDirection: "horizontal",
 
@@ -58,7 +61,13 @@ export const useUiStateStore = create<UiStateStore>((set) => ({
   setSplitRatios: (ratios: number[]) => set({ splitRatios: ratios }),
 
   setPanelMode: (mode) =>
-    set((state) => (state.panelMode === mode ? state : { panelMode: mode })),
+    set((state) =>
+      state.panelMode.id === mode
+        ? state
+        : { panelMode: getPanelMode(mode) }
+    ),
+
+  getPanelMode: () => getPanelMode(useUiStateStore.getState().panelMode.id),
 
   overviewVisible: false,
   overviewWidth: 280,

@@ -92,20 +92,11 @@ export function registerUICommands(
     }
   );
 
-  const setPanelModeUnifiedCmd = vscode.commands.registerCommand(
-    "acp.setPanelMode.unified",
-    () => {
-      getChatPanel()?.postMessage({ type: "panelMode:set", mode: "unified" });
-    }
-  );
-
-  const setPanelModeSupervisorCmd = vscode.commands.registerCommand(
-    "acp.setPanelMode.supervisor",
-    () => {
-      getChatPanel()?.postMessage({
-        type: "panelMode:set",
-        mode: "supervisor",
-      });
+  const setPanelModeCmd = vscode.commands.registerCommand(
+    "acp.setPanelMode",
+    (mode: "unified" | "supervisor" | undefined) => {
+      const next = mode ?? "unified";
+      getChatPanel()?.postMessage({ type: "panelMode:set", mode: next });
     }
   );
 
@@ -116,7 +107,6 @@ export function registerUICommands(
     toggleOverviewCmd,
     splitVerticalCmd,
     splitHorizontalCmd,
-    setPanelModeUnifiedCmd,
-    setPanelModeSupervisorCmd,
+    setPanelModeCmd,
   ];
 }

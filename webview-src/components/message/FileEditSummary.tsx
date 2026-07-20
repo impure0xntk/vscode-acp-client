@@ -19,6 +19,13 @@ export interface FileEditSummaryProps {
   sessionId?: string;
   agentId?: string;
   onAttachDiff?: (attachment: ContextAttachment) => void;
+  /**
+   * When true, the per-file summary starts collapsed (FileEditSummary
+   * header visible, individual file rows hidden). Used by
+   * IntermediateStepsBanner so that every step except the most recent one
+   * folds its file edits by default, reducing visual noise.
+   */
+  startCollapsed?: boolean;
 }
 
 type RowStatus = "modified" | "stale";
@@ -173,8 +180,9 @@ function FileEditSummaryInner({
   sessionId,
   agentId,
   onAttachDiff,
+  startCollapsed = false,
 }: FileEditSummaryProps): React.ReactElement | null {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(startCollapsed);
   const [rowStates, setRowStates] = useState<Record<string, RowState>>({});
   // Paths the user has successfully reverted — hidden from the summary, and
   // the whole summary disappears once every file has been reverted.
@@ -331,7 +339,8 @@ function areFileEditSummaryPropsEqual(
     prev.entries === next.entries &&
     prev.sessionId === next.sessionId &&
     prev.agentId === next.agentId &&
-    prev.onAttachDiff === next.onAttachDiff
+    prev.onAttachDiff === next.onAttachDiff &&
+    prev.startCollapsed === next.startCollapsed
   );
 }
 
