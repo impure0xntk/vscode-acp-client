@@ -10,6 +10,7 @@ import { VscodeUIAPI, toPlatformUri } from "../../../platform/adapters/vscode";
 import type { LogEntrySink } from "../../../platform/backends/log-entry-sink-backend";
 import { LogLevelValue } from "../../../platform/backends/types";
 import { BatchedPathResolver } from "../../../extension/pathResolver";
+import type { SessionStateBridge } from "./sessionStateBridge";
 
 export interface SessionSnapshot {
   agentId: string;
@@ -48,6 +49,32 @@ export function extractCandidatePaths(text: string): string[] {
 export class ChatPanel {
   public static readonly viewId: string = "acp.chatPanel";
   protected static instance: ChatPanel | null = null;
+
+  /**
+   * Central session-state bridge.  Set by extension.ts before any panel
+   * is created.  Panels register themselves during createPanel() so that
+   * all orchestrator events are pushed to every open panel automatically.
+   */
+  static _stateBridge: SessionStateBridge | null = null;
+
+  /**
+   * Accessor for the onDidDispose event so the bridge can listen.
+   * Subclasses override this to expose their own dispose event.
+   */
+  get onDidDispose(): { event: (fn: () => void) => { dispose(): void } } {
+    return this._onDidDispose;
+  }
+
+  protected _onDidDispose = {
+    event: (fn: () => void) => {
+      const listeners = this._disposeListeners;
+      listeners.add(fn);
+      return {
+        dispose: () => listeners.delete(fn),
+      };
+    },
+  };
+  private _disposeListeners = new Set<() => void>();
 
   protected panel: WebviewPanel | null = null;
   protected ui: UIAPI;
@@ -178,7 +205,13 @@ export class ChatPanel {
     this.panel.onDidDispose(() => {
       ChatPanel.instance = null;
       this.panel = null;
+      // Notify bridge listeners (SessionStateBridge auto-unregisters).
+      for (const fn of this._disposeListeners) fn();
     });
+
+    // Register with the state bridge so all orchestrator events reach
+    // this panel automatically.
+    ChatPanel._stateBridge?.register(this);
   }
 
   protected buildHtmlForCreation(): string {

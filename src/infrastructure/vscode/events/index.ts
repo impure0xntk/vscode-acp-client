@@ -2,6 +2,7 @@ import type { SessionOrchestrator } from "../../../application/session/orchestra
 import type { MeshOrchestrator } from "../../../domain/services/mesh-orchestrator";
 import type { SupervisorOrchestrator } from "../../../domain/services/supervisor-orchestrator";
 import type { ChatPanel } from "../vscode-ui/chatPanel";
+import { SessionStateBridge } from "../vscode-ui/sessionStateBridge";
 import type { ChatPresenter } from "../vscode-ui/presenter";
 import type { AgentStatusTracker } from "../../../adapter/agent/status";
 import type { SessionHistoryStore } from "../../../application/session/historyStore";
@@ -13,6 +14,8 @@ export interface EventWiringDeps {
   orchestrator: SessionOrchestrator;
   meshOrchestrator: MeshOrchestrator | null;
   supervisorOrchestrator: SupervisorOrchestrator | null;
+  /** Session-state bridge — all panels receive events through this. */
+  bridge: SessionStateBridge;
   getChatPanel: () => ChatPanel | null;
   presenter: ChatPresenter;
   statusTracker: AgentStatusTracker;
@@ -28,6 +31,7 @@ export interface EventWiringDeps {
 export function wireAllEvents(deps: EventWiringDeps): void {
   wireOrchestratorEvents({
     orchestrator: deps.orchestrator,
+    bridge: deps.bridge,
     getChatPanel: deps.getChatPanel,
     presenter: deps.presenter,
     statusTracker: deps.statusTracker,

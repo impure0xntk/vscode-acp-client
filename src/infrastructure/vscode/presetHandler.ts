@@ -13,6 +13,7 @@ import type {
 import type { PersistentHistoryStore } from "../../application/session/persistentHistory";
 import type { MeshOrchestrator } from "../../domain/services/mesh-orchestrator";
 import type { SupervisorOrchestrator } from "../../domain/services/supervisor-orchestrator";
+import { SessionStateBridge } from "./vscode-ui/sessionStateBridge";
 import { ChatPanel } from "./vscode-ui/chatPanel";
 import { wireChatPanelEvents } from "./commands/prompt";
 import {
@@ -38,6 +39,7 @@ export interface PresetDeps {
   registry: AgentRegistry;
   platform: PlatformAPI;
   presenter: ChatPresenter;
+  bridge: SessionStateBridge;
   persistentHistory: PersistentHistoryStore | null;
   meshOrchestrator: MeshOrchestrator | null;
   supervisorOrchestrator: SupervisorOrchestrator | null;
@@ -56,7 +58,7 @@ function wireChatPanelEventsLocal(deps: PresetDeps): void {
         deps.orchestrator,
         deps.registry,
         deps.presenter,
-        getChatPanel
+        deps.bridge
       ),
     (fp, cwd?) => resolveFile(p, fp, cwd),
     () => resolveSelection(p),
@@ -82,7 +84,7 @@ function ensureChatPanelReady(deps: PresetDeps): void {
     deps.orchestrator,
     deps.registry,
     deps.presenter,
-    getChatPanel,
+    deps.bridge,
     true
   );
 
@@ -117,7 +119,7 @@ export async function applyPreset(
   deps: PresetDeps,
   preset: PresetConfig
 ): Promise<void> {
-  const { orchestrator, registry } = deps;
+  const { orchestrator, registry, bridge } = deps;
   const wsFolders = (vscode.workspace.workspaceFolders ?? []).map(
     (f) => f.uri.fsPath
   );
@@ -196,7 +198,7 @@ export async function applyPreset(
   if (panel) {
     scheduleStatuslineInfo(getChatPanel);
     if (preset.layout) {
-      panel.postMessage({
+      bridge.postMessage({
         type: "unifiedChat:setLayout",
         layout: preset.layout,
         splitRatio: preset.splitRatio,
@@ -204,7 +206,7 @@ export async function applyPreset(
     }
     for (const s of connectedSessions) {
       if (orchestrator.isSessionPinned(s.agentId, s.sessionId)) {
-        panel.postMessage({
+        bridge.postMessage({
           type: "session.pinned",
           agentId: s.agentId,
           sessionId: s.sessionId,
@@ -226,7 +228,7 @@ export async function cmdConnect(
   entry?: AutoConnectEntry,
   autoOpenChat = true
 ): Promise<void> {
-  const { orchestrator, registry } = deps;
+  const { orchestrator, registry, bridge } = deps;
 
   let config: AgentConfig;
   if (typeof agentConfig === "string" || !agentConfig) {

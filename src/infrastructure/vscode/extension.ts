@@ -3,6 +3,7 @@ import { getLogger } from "../../platform/backends";
 import { ApplicationBuilder } from "./ApplicationBuilder";
 import type { Application } from "./ApplicationBuilder";
 import { ChatPanel } from "./vscode-ui/chatPanel";
+import { SessionStateBridge } from "./vscode-ui/sessionStateBridge";
 import { ChatPresenter } from "./vscode-ui/presenter";
 import {
   getChatPanel,
@@ -32,6 +33,7 @@ const log = getLogger("extension");
 
 let extensionContext: vscode.ExtensionContext;
 let app: Application;
+let bridge: SessionStateBridge;
 const presenter = new ChatPresenter();
 
 // -- Helpers: build CommandRegDeps from Application + presenters ---------------
@@ -49,7 +51,7 @@ function buildCommandDeps(): CommandRegDeps {
         app.orchestrator,
         app.registry,
         presenter,
-        getChatPanel
+        bridge
       ),
     wireChatPanelEvents: (
       panel,
@@ -106,6 +108,7 @@ function buildPresetDeps(): PresetDeps {
     registry: app.registry,
     platform: app.platform,
     presenter,
+    bridge,
     persistentHistory: app.persistentHistory,
     meshOrchestrator: app.meshOrchestrator,
     supervisorOrchestrator: app.supervisorOrchestrator,
@@ -125,7 +128,7 @@ function wireChatPanelEventsLocal(): void {
         app.orchestrator,
         app.registry,
         presenter,
-        getChatPanel
+        bridge
       ),
     (fp: string, cwd?: string) => resolveFile(p, fp, cwd),
     () => resolveSelection(p),
@@ -147,6 +150,12 @@ export async function activate(
   log.info("extension activating");
   extensionContext = context;
 
+  // 0. Create the session-state bridge before any panels are created.
+  //    All panels register themselves during createPanel() and receive
+  //    orchestrator events through this bridge automatically.
+  bridge = new SessionStateBridge();
+  ChatPanel._stateBridge = bridge;
+
   // 1. Build application services
   const builder = await ApplicationBuilder.create(context);
   builder.buildAll({ get: () => getChatPanel() });
@@ -166,11 +175,12 @@ export async function activate(
   registerAllCommands(buildCommandDeps());
   updateContext(app.orchestrator);
 
-  // 3. Wire orchestrator + mesh events
+  // 3. Wire orchestrator + mesh events through the bridge
   wireAllEvents({
     orchestrator: app.orchestrator,
     meshOrchestrator: app.meshOrchestrator,
     supervisorOrchestrator: app.supervisorOrchestrator,
+    bridge,
     getChatPanel,
     presenter,
     statusTracker: app.statusTracker,
@@ -182,7 +192,7 @@ export async function activate(
         app.orchestrator,
         app.registry,
         presenter,
-        getChatPanel
+        bridge
       ),
   });
 
@@ -195,7 +205,7 @@ export async function activate(
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("acp.sessionOverviewPosition")) {
-        sendOverviewPosition(getChatPanel);
+        sendOverviewPosition(bridge);
       }
     })
   );

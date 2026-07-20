@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import type { SessionOrchestrator } from "../../application/session/orchestrator";
 import type { AgentRegistry } from "../../adapter/agent/registry";
-import type { ChatPanel } from "./vscode-ui/chatPanel";
+import { SessionStateBridge } from "./vscode-ui/sessionStateBridge";
 import type { ChatPresenter } from "./vscode-ui/presenter";
 
 let sendTabsDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -21,21 +21,21 @@ function updateContext(orchestrator: SessionOrchestrator): void {
   );
 }
 
-function sendOverviewPosition(getChatPanel: () => ChatPanel | null): void {
+function sendOverviewPosition(bridge: SessionStateBridge): void {
   const pos = vscode.workspace
     .getConfiguration("acp")
     .get<string>("sessionOverviewPosition", "right");
-  getChatPanel()?.postMessage({
+  bridge.postMessage({
     type: "sessionOverview:position",
     payload: { position: pos },
   });
 }
 
-function sendTabsToChatPanel(
+function sendTabsToBridge(
   orchestrator: SessionOrchestrator,
   registry: AgentRegistry,
   presenter: ChatPresenter,
-  getChatPanel: () => ChatPanel | null,
+  bridge: SessionStateBridge,
   immediate = false
 ): void {
   if (immediate) {
@@ -44,7 +44,7 @@ function sendTabsToChatPanel(
       sendTabsDebounceTimer = null;
     }
     sendTabsScheduled = false;
-    sendTabsNow(orchestrator, registry, presenter, getChatPanel);
+    sendTabsNow(orchestrator, registry, presenter, bridge);
     return;
   }
   if (sendTabsScheduled) return;
@@ -52,7 +52,7 @@ function sendTabsToChatPanel(
   sendTabsDebounceTimer = setTimeout(() => {
     sendTabsDebounceTimer = null;
     sendTabsScheduled = false;
-    sendTabsNow(orchestrator, registry, presenter, getChatPanel);
+    sendTabsNow(orchestrator, registry, presenter, bridge);
   }, 100);
 }
 
@@ -60,11 +60,8 @@ function sendTabsNow(
   orchestrator: SessionOrchestrator,
   registry: AgentRegistry,
   presenter: ChatPresenter,
-  getChatPanel: () => ChatPanel | null
+  bridge: SessionStateBridge
 ): void {
-  const cp = getChatPanel();
-  if (!cp) return;
-
   presenter.setWorkspace(
     vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null,
     (vscode.workspace.workspaceFolders ?? []).map((f) => ({
@@ -96,9 +93,6 @@ function sendTabsNow(
         agentStatus.agentId,
         info?.createdAt ?? new Date()
       );
-      if (info) {
-        cp.pushSessionInfo(agentStatus.agentId, s.sessionId, info);
-      }
       validKeys.add(`${agentStatus.agentId}:${s.sessionId}`);
     }
   }
@@ -128,15 +122,34 @@ function sendTabsNow(
     presenter.setActiveSession(allTabs[0].agentId, allTabs[0].sessionId);
   }
 
-  cp.postMessage(presenter.buildSetTabsMessage());
+  const setTabsMsg = presenter.buildSetTabsMessage();
 
   const overview = orchestrator.getSessionOverview({
     withRecentResponses: false,
   });
-  cp.postMessage({
+
+  const overviewMsg = {
     type: "sessionOverview:state",
     payload: overview,
-  });
+  };
+
+  // Broadcast to all registered panels via the bridge (FR-7).
+  bridge.postMessage(setTabsMsg);
+  bridge.postMessage(overviewMsg);
+
+  // Push full session snapshots so every panel's webview messageStore
+  // has messages for the drill-down / restore use case.
+  for (const agentStatus of orchestrator.getAllAgents()) {
+    for (const s of agentStatus.sessions) {
+      const info = orchestrator.getSessionInfo(
+        agentStatus.agentId,
+        s.sessionId
+      );
+      if (info) {
+        bridge.pushSessionSnapshot(agentStatus.agentId, s.sessionId, info);
+      }
+    }
+  }
 }
 
-export { updateContext, sendOverviewPosition, sendTabsToChatPanel };
+export { updateContext, sendOverviewPosition, sendTabsToBridge as sendTabsToChatPanel };

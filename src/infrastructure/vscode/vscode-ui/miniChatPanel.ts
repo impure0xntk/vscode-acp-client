@@ -14,6 +14,7 @@ import { VscodeUIAPI, toPlatformUri } from "../../../platform/adapters/vscode";
  * - viewId = "acp.miniChat" (separate webview instance)
  * - default placement is ViewColumn.Beside (does not steal the editor area)
  * - loads dist/webview.mini.js instead of dist/webview.js
+ * - registers with SessionStateBridge on creation (automatic state sync)
  */
 export class MiniChatPanel extends ChatPanel {
   public static readonly viewId: string = "acp.miniChat";
@@ -56,7 +57,13 @@ export class MiniChatPanel extends ChatPanel {
     this.panel.onDidDispose(() => {
       MiniChatPanel.miniInstance = null;
       this.panel = null;
+      // onDidDispose emitter fires → bridge auto-unregisters
     });
+
+    // Register with the state bridge so session events are pushed
+    // to this panel automatically.  The bridge is set before createPanel()
+    // is called by the factory/command code.
+    ChatPanel._stateBridge?.register(this);
   }
 
   protected distUri(filename: string): PlatformUri {
