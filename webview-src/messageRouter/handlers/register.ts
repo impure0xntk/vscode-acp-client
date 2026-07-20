@@ -180,5 +180,12 @@ export function setupAllHandlers(router: MessageRouter): void {
     "fix:prepare": _fixPrepare as unknown as MessageHandler,
     resolvedExternalFile: _resolvedExt as unknown as MessageHandler,
     attachContext: _attachCtx as unknown as MessageHandler,
+
+    // -- File Edit (stale check) ---------------------------------------------
+    // hashCheckResult is emitted by the extension in response to
+    // checkFileHashBatch (sent from FileEditSummary for stale detection).
+    // FileEditSummary consumes it via its own window listener; register a
+    // no-op here so the MessageRouter doesn't log "unhandled message type".
+    hashCheckResult: (() => {}) as unknown as MessageHandler,
   });
 }

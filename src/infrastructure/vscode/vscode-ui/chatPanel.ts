@@ -46,12 +46,12 @@ export function extractCandidatePaths(text: string): string[] {
  * Uses Platform API for webview panel creation.
  */
 export class ChatPanel {
-  public static readonly viewId = "acp.chatPanel";
-  private static instance: ChatPanel | null = null;
+  public static readonly viewId: string = "acp.chatPanel";
+  protected static instance: ChatPanel | null = null;
 
-  private panel: WebviewPanel | null = null;
-  private ui: UIAPI;
-  private extensionUri: PlatformUri;
+  protected panel: WebviewPanel | null = null;
+  protected ui: UIAPI;
+  protected extensionUri: PlatformUri;
   private pathResolver: BatchedPathResolver;
   private currentSessionKey: string = "";
 
@@ -76,6 +76,11 @@ export class ChatPanel {
     path: string;
     originalContent: string;
   }>;
+
+  /** Exposed for subclass (MiniChatPanel) to forward raw messages to handlers. */
+  protected get onDidReceiveMessageEmitter() {
+    return this._onDidReceiveMessage;
+  }
 
   /** Extension-side logger — set by extension.ts after construction. */
   logger: {
@@ -129,7 +134,7 @@ export class ChatPanel {
     return ChatPanel.instance;
   }
 
-  private constructor(ui: UIAPI, extensionUri: PlatformUri) {
+  protected constructor(ui: UIAPI, extensionUri: PlatformUri) {
     this.ui = ui;
     this.extensionUri = extensionUri;
     this.pathResolver = new BatchedPathResolver(process.cwd(), {
@@ -152,7 +157,7 @@ export class ChatPanel {
     this.createPanel();
   }
 
-  private createPanel(): void {
+  protected createPanel(): void {
     const html = this.buildHtmlForCreation();
     this.panel = this.ui.createWebviewPanel({
       viewId: ChatPanel.viewId,
@@ -176,11 +181,11 @@ export class ChatPanel {
     });
   }
 
-  private buildHtmlForCreation(): string {
+  protected buildHtmlForCreation(): string {
     return `<!DOCTYPE html><html><body><div id="root"></div></body></html>`;
   }
 
-  private updatePanelHtml(): void {
+  protected updatePanelHtml(): void {
     const p = this.panel;
     if (!p) return;
     const nonce = crypto.randomUUID();
@@ -212,7 +217,7 @@ export class ChatPanel {
     p.webview.html = html;
   }
 
-  private distUri(filename: string): PlatformUri {
+  protected distUri(filename: string): PlatformUri {
     return this.extensionUri.with({
       path: this.extensionUri.path + "/dist/" + filename,
     });
@@ -463,7 +468,7 @@ export class ChatPanel {
     }
   }
 
-  private handleMessage(data: Record<string, unknown>): void {
+  protected handleMessage(data: Record<string, unknown>): void {
     switch (data.type as string) {
       case "ready":
         break;
@@ -519,7 +524,7 @@ export class ChatPanel {
   /**
    * Forward webview log messages to the extension logger and persist to DB.
    */
-  private handleWebviewLog(payload: Record<string, unknown>): void {
+  protected handleWebviewLog(payload: Record<string, unknown>): void {
     const level = String(payload.level ?? "info");
     const category = String(payload.category ?? "webview");
     const message = String(payload.message ?? "");

@@ -41,6 +41,8 @@ interface Props {
   onCloseSelected: () => void;
   /** Exit selection mode */
   onExitSelectionMode: () => void;
+  /** Expand a session (drill-down to its message history) — MiniChat only */
+  onExpand?: (sessionId: string, agentId: string) => void;
 }
 
 export function SessionOverviewPanel({
@@ -59,6 +61,7 @@ export function SessionOverviewPanel({
   onLongPress,
   onCloseSelected,
   onExitSelectionMode,
+  onExpand,
 }: Props): React.ReactElement | null {
   if (!isVisible) return null;
 
@@ -269,6 +272,11 @@ export function SessionOverviewPanel({
               onClose={() => handleClose(session.sessionId, session.agentId)}
               onSelect={handleToggleSelect}
               onLongPress={handleLongPress}
+              onExpand={
+                onExpand
+                  ? () => onExpand(session.sessionId, session.agentId)
+                  : undefined
+              }
             />
           );
         })}

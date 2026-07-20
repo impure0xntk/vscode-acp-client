@@ -1,4 +1,5 @@
 import { sessionKeyOf, useSessionStore } from "../../../store/sessionStore";
+import { useMessageStore } from "../../../store/messageStore";
 import { getLogger } from "../../../lib/logger";
 import type { SlashCommand, AgentInfo } from "../../../store/sessionStore";
 import type { QueuedPrompt } from "../../../types";
@@ -88,16 +89,25 @@ export function handleSessionCommands(data: SessionCommandsMessage): void {
 export function handleQueueAdded(data: QueueAddedMessage): void {
   const key = sessionKeyOf(data.agentId, data.sessionId);
   useSessionStore.getState().addQueuedPrompt(key, data.entry);
+  // Mirror into messageStore so the unified Queue UI (which reads
+  // messageStore.promptQueue) shows the new entry.  Without this the banner
+  // only appears after a later queue:updated, so an entry enqueued while the
+  // previous turn is still running silently disappears from the UI.
+  useMessageStore.getState().addQueuedPrompt(key, data.entry);
 }
 
 export function handleQueueUpdated(data: QueueUpdatedMessage): void {
   const key = sessionKeyOf(data.agentId, data.sessionId);
   useSessionStore.getState().setPromptQueue(key, data.queue);
+  useMessageStore.getState().setPromptQueue(key, data.queue);
 }
 
 export function handleQueueDequeued(data: QueueDequeuedMessage): void {
   const key = sessionKeyOf(data.agentId, data.sessionId);
   useSessionStore
+    .getState()
+    .updateQueuedPromptStatus(key, data.entry.id, "sending");
+  useMessageStore
     .getState()
     .updateQueuedPromptStatus(key, data.entry.id, "sending");
 }

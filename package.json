@@ -132,6 +132,11 @@
         "title": "ACP: Close All Sessions"
       },
       {
+        "command": "acp.openMiniChat",
+        "title": "ACP: Open MiniChat",
+        "icon": "$(layout-sidebar-right)"
+      },
+      {
         "command": "acp.clearLogs",
         "title": "ACP: Clear Persisted Logs"
       },
@@ -159,6 +164,11 @@
         "command": "acp.openChat",
         "key": "ctrl+shift+i",
         "mac": "cmd+shift+i"
+      },
+      {
+        "command": "acp.openMiniChat",
+        "key": "ctrl+shift+m",
+        "mac": "cmd+shift+m"
       },
       {
         "command": "acp.newSession",
@@ -398,6 +408,22 @@
           ],
           "default": "unified",
           "description": "Default chat panel mode: unified (multi-session)"
+        },
+        "acp.miniChat.width": {
+          "type": "number",
+          "default": 300,
+          "minimum": 220,
+          "maximum": 420,
+          "description": "Width of the MiniChat panel in pixels"
+        },
+        "acp.miniChat.position": {
+          "type": "string",
+          "enum": [
+            "beside",
+            "right"
+          ],
+          "default": "beside",
+          "description": "Default placement of the MiniChat panel (beside the editor, or right sidebar)"
         },
         "acp.unifiedChat.layoutMode": {
           "type": "string",

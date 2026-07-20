@@ -33,6 +33,8 @@ interface Props {
   onSelect: (sessionId: string) => void;
   /** Long-press: enter selection mode and select this session */
   onLongPress: (sessionId: string) => void;
+  /** Expand: drill down to this session's message history (MiniChat only) */
+  onExpand?: () => void;
 }
 
 const LONG_PRESS_MS = 500;
@@ -51,6 +53,7 @@ export function SessionOverviewCard({
   onClose,
   onSelect,
   onLongPress,
+  onExpand,
 }: Props): React.ReactElement {
   const sessionKey = `${session.agentId}:${session.sessionId}`;
   const liveInfo = useSessionInfo(sessionKey);
@@ -135,6 +138,12 @@ export function SessionOverviewCard({
     }
   }, [selectionMode, onSelect, session.sessionId, onFocus]);
 
+  // Double-click (single click still focuses/switches) triggers drill-down.
+  const handleDoubleClick = useCallback(() => {
+    if (didLongPressRef.current) return;
+    onExpand?.();
+  }, [onExpand]);
+
   const statusValue =
     liveItem.status === "idle" && effectiveOutcome
       ? effectiveOutcome
@@ -163,6 +172,7 @@ export function SessionOverviewCard({
       className={`session-overview-card p-[6px 8px] m-[2px 4px] bg-bg-primary border border-[transparent] border-l border-[transparent] rounded-md cursor-pointer hover:border-accent focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-1 ${borderLeftClass}${isExpanded ? " bg-bg-secondary" : ""}${isActive ? " bg-[color-mix(in_srgb,var(--accent)_12%,transparent)]" : ""}${isSelected ? " border-accent bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]" : ""}${animClass}`}
       onAnimationEnd={handleAnimationEnd}
       onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerLeave}

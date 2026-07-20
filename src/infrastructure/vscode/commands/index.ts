@@ -14,6 +14,11 @@ import { registerUICommands } from "./uiCommands";
 import { registerMeshCommands } from "./meshCommands";
 import { registerExportDebugLogCommand } from "./exportDebugLog";
 import { registerProblemQuickFixProvider } from "./problemQuickFix";
+import { registerMiniChatCommands } from "./miniChat";
+import type { MiniChatPanel } from "../vscode-ui/miniChatPanel";
+import type { SuggestionItem } from "../../../adapter/context/symbol";
+import type { MeshOrchestrator } from "../../../domain/services/mesh-orchestrator";
+import type { SupervisorOrchestrator } from "../../../domain/services/supervisor-orchestrator";
 
 export { ensureChatPanel };
 
@@ -27,7 +32,23 @@ export interface CommandRegDeps {
   getChatPanel: () => ChatPanel | null;
   setChatPanel: (panel: ChatPanel) => void;
   sendTabs: () => void;
-  wireChatPanelEvents: () => void;
+  wireChatPanelEvents: (
+    panel: ChatPanel | MiniChatPanel,
+    orchestrator: SessionOrchestrator,
+    sendTabs: () => void,
+    resolveFile: (path: string, cwd?: string) => Promise<ContextAttachmentDTO>,
+    resolveSelection: () => Promise<ContextAttachmentDTO | null>,
+    resolveDiff: () => Promise<ContextAttachmentDTO | null>,
+    searchFiles: (
+      query: string,
+      cwd?: string
+    ) => Promise<{ relativePath: string; name: string; absolutePath?: string }[]>,
+    searchSymbols: (query: string) => Promise<SuggestionItem[]>,
+    resolveSymbolByName: (name: string) => Promise<ContextAttachmentDTO>,
+    persistentHistory?: PersistentHistoryStore,
+    meshOrchestrator?: MeshOrchestrator,
+    supervisorOrchestrator?: SupervisorOrchestrator
+  ) => void;
   pickConnectedAgent: (placeHolder: string) => Promise<string | undefined>;
   pickAgentByName: (name?: string) => Promise<AgentConfig | undefined>;
   historyStore: {
@@ -49,6 +70,14 @@ export interface CommandRegDeps {
   resolveDiff: () => Promise<ContextAttachmentDTO | null>;
   resolveProblem: (problem: DiagnosticProblem) => Promise<ContextAttachmentDTO | null>;
   resolveRangeAt: (uri: string, range: SerializedRange) => Promise<ContextAttachmentDTO | null>;
+  searchFiles: (
+    query: string,
+    cwd?: string
+  ) => Promise<{ relativePath: string; name: string; absolutePath?: string }[]>;
+  searchSymbols: (query: string) => Promise<SuggestionItem[]>;
+  resolveSymbolByName: (name: string) => Promise<ContextAttachmentDTO>;
+  meshOrchestrator?: MeshOrchestrator;
+  supervisorOrchestrator?: SupervisorOrchestrator;
 }
 
 /**
@@ -72,6 +101,11 @@ export function registerAllCommands(deps: CommandRegDeps): void {
     resolveDiff,
     resolveProblem,
     resolveRangeAt,
+    searchFiles,
+    searchSymbols,
+    resolveSymbolByName,
+    meshOrchestrator,
+    supervisorOrchestrator,
   } = deps;
 
   const extensionUri = context.extensionUri;
@@ -82,7 +116,21 @@ export function registerAllCommands(deps: CommandRegDeps): void {
       setChatPanel,
       extensionUri,
       sendTabs,
-      wireChatPanelEvents,
+      () =>
+        wireChatPanelEvents(
+          getChatPanel()!,
+          orchestrator,
+          sendTabs,
+          resolveFile,
+          resolveSelection,
+          resolveDiff,
+          searchFiles,
+          searchSymbols,
+          resolveSymbolByName,
+          persistentHistory ?? undefined,
+          meshOrchestrator,
+          supervisorOrchestrator
+        ),
       orchestrator
     );
 
@@ -94,6 +142,15 @@ export function registerAllCommands(deps: CommandRegDeps): void {
     setChatPanel,
     sendTabs,
     wireChatPanelEvents,
+    resolveFile,
+    resolveSelection,
+    resolveDiff,
+    searchFiles,
+    searchSymbols,
+    resolveSymbolByName,
+    persistentHistory,
+    meshOrchestrator,
+    supervisorOrchestrator,
     pickConnectedAgent,
     pickAgentByName
   );
@@ -129,6 +186,27 @@ export function registerAllCommands(deps: CommandRegDeps): void {
   );
   const problemQuickFixDisposable = registerProblemQuickFixProvider();
 
+  const miniChatDisposables = registerMiniChatCommands(
+    context,
+    orchestrator,
+    sendTabs,
+    (panel) =>
+      wireChatPanelEvents(
+        panel,
+        orchestrator,
+        sendTabs,
+        resolveFile,
+        resolveSelection,
+        resolveDiff,
+        searchFiles,
+        searchSymbols,
+        resolveSymbolByName,
+        persistentHistory ?? undefined,
+        meshOrchestrator,
+        supervisorOrchestrator
+      )
+  );
+
   for (const d of [
     ...connectDisposables,
     ...sessionDisposables,
@@ -137,6 +215,7 @@ export function registerAllCommands(deps: CommandRegDeps): void {
     ...meshDisposables,
     exportDebugLogDisposable,
     problemQuickFixDisposable,
+    ...miniChatDisposables,
   ]) {
     context.subscriptions.push(d);
   }

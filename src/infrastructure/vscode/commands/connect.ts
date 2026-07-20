@@ -3,6 +3,12 @@ import type { AgentConfig } from "../../../application/session/types";
 import type { SessionOrchestrator } from "../../../application/session/orchestrator";
 import type { AgentRegistry } from "../../../adapter/agent/registry";
 import { ChatPanel } from "../vscode-ui/chatPanel";
+import type { MiniChatPanel } from "../vscode-ui/miniChatPanel";
+import type { ContextAttachmentDTO } from "../../../domain/models/chat";
+import type { SuggestionItem } from "../../../adapter/context/symbol";
+import type { PersistentHistoryStore } from "../../../application/session/persistentHistory";
+import type { MeshOrchestrator } from "../../../domain/services/mesh-orchestrator";
+import type { SupervisorOrchestrator } from "../../../domain/services/supervisor-orchestrator";
 
 /**
  * Ensure the chat panel is visible. Creates it if it does not exist.
@@ -12,7 +18,7 @@ export function ensureChatPanel(
   setChatPanel: (panel: ChatPanel) => void,
   extensionUri: vscode.Uri,
   sendTabs: () => void,
-  wireEvents: () => void,
+  wireEvents: (panel: ChatPanel | MiniChatPanel) => void,
   orchestrator: SessionOrchestrator
 ): void {
   if (!getChatPanel()) {
@@ -27,7 +33,7 @@ export function ensureChatPanel(
         sessionId
       );
     };
-    wireEvents();
+    wireEvents(panel);
     sendTabs();
     const agents = orchestrator.getAllAgents();
     if (agents.length > 0) {
@@ -58,7 +64,35 @@ export function registerConnectCommands(
   getChatPanel: () => ChatPanel | null,
   setChatPanel: (panel: ChatPanel) => void,
   sendTabs: () => void,
-  wireChatPanelEvents: () => void,
+  wireChatPanelEvents: (
+    panel: ChatPanel | MiniChatPanel,
+    orchestrator: SessionOrchestrator,
+    sendTabs: () => void,
+    resolveFile: (path: string, cwd?: string) => Promise<ContextAttachmentDTO>,
+    resolveSelection: () => Promise<ContextAttachmentDTO | null>,
+    resolveDiff: () => Promise<ContextAttachmentDTO | null>,
+    searchFiles: (
+      query: string,
+      cwd?: string
+    ) => Promise<{ relativePath: string; name: string; absolutePath?: string }[]>,
+    searchSymbols: (query: string) => Promise<SuggestionItem[]>,
+    resolveSymbolByName: (name: string) => Promise<ContextAttachmentDTO>,
+    persistentHistory?: PersistentHistoryStore,
+    meshOrchestrator?: MeshOrchestrator,
+    supervisorOrchestrator?: SupervisorOrchestrator
+  ) => void,
+  resolveFile: (path: string, cwd?: string) => Promise<ContextAttachmentDTO>,
+  resolveSelection: () => Promise<ContextAttachmentDTO | null>,
+  resolveDiff: () => Promise<ContextAttachmentDTO | null>,
+  searchFiles: (
+    query: string,
+    cwd?: string
+  ) => Promise<{ relativePath: string; name: string; absolutePath?: string }[]>,
+  searchSymbols: (query: string) => Promise<SuggestionItem[]>,
+  resolveSymbolByName: (name: string) => Promise<ContextAttachmentDTO>,
+  persistentHistory: PersistentHistoryStore | null,
+  meshOrchestrator: MeshOrchestrator | undefined,
+  supervisorOrchestrator: SupervisorOrchestrator | undefined,
   pickConnectedAgent: (placeHolder: string) => Promise<string | undefined>,
   pickAgentByName: (name?: string) => Promise<AgentConfig | undefined>
 ): vscode.Disposable[] {
@@ -70,7 +104,21 @@ export function registerConnectCommands(
       setChatPanel,
       extensionUri,
       sendTabs,
-      wireChatPanelEvents,
+      (panel) =>
+        wireChatPanelEvents(
+          panel,
+          orchestrator,
+          sendTabs,
+          resolveFile,
+          resolveSelection,
+          resolveDiff,
+          searchFiles,
+          searchSymbols,
+          resolveSymbolByName,
+          persistentHistory ?? undefined,
+          meshOrchestrator,
+          supervisorOrchestrator
+        ),
       orchestrator
     );
     setTimeout(() => {
@@ -98,7 +146,21 @@ export function registerConnectCommands(
           setChatPanel,
           extensionUri,
           sendTabs,
-          wireChatPanelEvents,
+          (panel) =>
+            wireChatPanelEvents(
+              panel,
+              orchestrator,
+              sendTabs,
+              resolveFile,
+              resolveSelection,
+              resolveDiff,
+              searchFiles,
+              searchSymbols,
+              resolveSymbolByName,
+              persistentHistory ?? undefined,
+              meshOrchestrator,
+              supervisorOrchestrator
+            ),
           orchestrator
         );
         const activeSessId = orchestrator.getActiveSessionId(config.id);
@@ -128,7 +190,21 @@ export function registerConnectCommands(
           setChatPanel,
           extensionUri,
           sendTabs,
-          wireChatPanelEvents,
+          (panel) =>
+            wireChatPanelEvents(
+              panel,
+              orchestrator,
+              sendTabs,
+              resolveFile,
+              resolveSelection,
+              resolveDiff,
+              searchFiles,
+              searchSymbols,
+              resolveSymbolByName,
+              persistentHistory ?? undefined,
+              meshOrchestrator,
+              supervisorOrchestrator
+            ),
           orchestrator
         );
         const info = orchestrator.getSessionInfo(config.id, sessionId);
@@ -175,7 +251,21 @@ export function registerConnectCommands(
         setChatPanel,
         extensionUri,
         sendTabs,
-        wireChatPanelEvents,
+        (panel) =>
+          wireChatPanelEvents(
+            panel,
+            orchestrator,
+            sendTabs,
+            resolveFile,
+            resolveSelection,
+            resolveDiff,
+            searchFiles,
+            searchSymbols,
+            resolveSymbolByName,
+            persistentHistory ?? undefined,
+            meshOrchestrator,
+            supervisorOrchestrator
+          ),
         orchestrator
       );
     }

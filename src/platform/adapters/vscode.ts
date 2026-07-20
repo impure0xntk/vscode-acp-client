@@ -211,11 +211,13 @@ export class VscodeUIAPI implements UIAPI {
     html: string;
     enableScripts?: boolean;
     retainContextWhenHidden?: boolean;
+    /** Initial placement column (VS Code only). Defaults to ViewColumn.One. */
+    viewColumn?: number;
   }): WebviewPanel {
     const panel = vscode.window.createWebviewPanel(
       options.viewId,
       options.title,
-      vscode.ViewColumn.One,
+      options.viewColumn ?? vscode.ViewColumn.One,
       {
         enableScripts: options.enableScripts ?? true,
         retainContextWhenHidden: options.retainContextWhenHidden ?? false,

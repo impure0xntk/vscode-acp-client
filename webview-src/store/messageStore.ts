@@ -196,6 +196,14 @@ export interface MessageState {
   clearSession: (key: string) => void;
   /** Add a queued prompt entry */
   addQueuedPrompt: (key: string, entry: QueuedPrompt) => void;
+  /** Replace the entire queued prompt list for a session */
+  setPromptQueue: (key: string, queue: QueuedPrompt[]) => void;
+  /** Update a queued prompt's status */
+  updateQueuedPromptStatus: (
+    key: string,
+    promptId: string,
+    status: QueuedPrompt["status"]
+  ) => void;
   /** Update a message by messageId (for streaming message stopReason stamping) */
   updateMessageByMessageId: (
     key: string,
@@ -204,7 +212,7 @@ export interface MessageState {
   ) => void;
 }
 
-export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
+export const useMessageStore = create<MessageState>(
   (set) => ({
     perSession: {},
     streaming: {},
@@ -774,6 +782,28 @@ export const useMessageStore: StoreApi<MessageState> = create<MessageState>(
           promptQueue: { ...state.promptQueue, [key]: [...existing, entry] },
         };
       }),
+
+  setPromptQueue: (key, queue) =>
+    set((state) => {
+      if (state.promptQueue[key] === queue) return state;
+      return {
+        ...state,
+        promptQueue: { ...state.promptQueue, [key]: queue },
+      };
+    }),
+
+  updateQueuedPromptStatus: (key, promptId, status) =>
+    set((state) => {
+      const q = state.promptQueue[key];
+      if (!q) return state;
+      const idx = q.findIndex((e) => e.id === promptId);
+      if (idx < 0) return state;
+      const updated = q.map((e) => (e.id === promptId ? { ...e, status } : e));
+      return {
+        ...state,
+        promptQueue: { ...state.promptQueue, [key]: updated },
+      };
+    }),
 
     updateMessageByMessageId: (key, messageId, update) =>
       set((state) => {

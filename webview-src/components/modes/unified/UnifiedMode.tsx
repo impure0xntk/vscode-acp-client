@@ -304,10 +304,18 @@ export const UnifiedMode = React.memo(function UnifiedMode({
   const forceScrollToBottomRef = useRef<(() => void) | undefined>(undefined);
   const scrollToUnreadRef = useRef<(() => void) | undefined>(undefined);
 
-  // Queue for the active session
-  const promptQueue = useSessionStore((s) => s.promptQueue);
+  // Queue for the active session.  Read from messageStore.promptQueue (the
+  // source of truth that handleQueueAdded/Updated/Dequeued mirrors into) so
+  // the banner reflects entries enqueued while the previous turn is still
+  // running.  sessionStore.promptQueue is kept in sync by the handlers and
+  // used by other surfaces, but reading both here guarantees the banner
+  // never misses an enqueued entry.
+  const messageStoreQueue = useMessageStore((s) => s.promptQueue);
+  const sessionStoreQueue = useSessionStore((s) => s.promptQueue);
   const sessionQueue: QueuedPrompt[] = activeSessionKey
-    ? (promptQueue[activeSessionKey] ?? [])
+    ? (messageStoreQueue[activeSessionKey] ??
+      sessionStoreQueue[activeSessionKey] ??
+      [])
     : [];
 
   return (
@@ -343,6 +351,7 @@ export const UnifiedMode = React.memo(function UnifiedMode({
         scrollToUnreadRef={scrollToUnreadRef}
         turnStartedAtMap={turnStartedAtMap}
         pendingMap={pendingMap}
+        queue={sessionQueue}
         onAttachDiff={(attachment) => {
           // Add attachment to composer's context bar
           // The Composer manages its own attachments state, so we need

@@ -9,6 +9,7 @@ import { SessionHeader } from "../SessionHeader";
 import { SessionStatusBar } from "../SessionStatusBar";
 import { useSessionInfo } from "../../../hooks/useSessionInfo";
 import type { ChatMessage } from "../../../types";
+import type { QueuedPrompt } from "../../../types";
 import type { TurnOutcome } from "../../primitives/StatusIcon";
 import type { SessionHeaderProps } from "../SessionView";
 
@@ -19,7 +20,10 @@ interface SessionSectionInnerProps {
   splitIndex: number;
   splitTotal: number;
   splitRatios: number[];
+  queue?: QueuedPrompt[];
   splitDirection: "horizontal" | "vertical";
+  turnStartedAtMap?: Record<string, string>;
+  pendingMap?: Record<string, boolean>;
   messages: ChatMessage[];
   tabTitles: Record<string, string>;
   onFocusChange: (key: string) => void;
@@ -32,8 +36,6 @@ interface SessionSectionInnerProps {
   >;
   forceScrollToBottomRef?: React.MutableRefObject<(() => void) | undefined>;
   scrollToUnreadRef?: React.MutableRefObject<(() => void) | undefined>;
-  turnStartedAtMap?: Record<string, string>;
-  pendingMap?: Record<string, boolean>;
   renderHeader?: (props: SessionHeaderProps) => React.ReactNode;
   getSessionColor: (key: string) => string;
   onAttachDiff?: (
@@ -61,6 +63,7 @@ const SessionSectionInner = React.memo(function SessionSectionInner({
   scrollToUnreadRef,
   turnStartedAtMap,
   pendingMap,
+  queue,
   renderHeader,
   getSessionColor,
   onAttachDiff,
@@ -197,7 +200,7 @@ const SessionSectionInner = React.memo(function SessionSectionInner({
           active={info.status === "running"}
           turnStartedAt={turnStartedAtMap?.[sessionKey]}
           pending={pendingMap?.[sessionKey] ?? false}
-          queue={[]}
+          queue={queue ?? []}
           onCancelQueue={() => {}}
         />
       </div>
@@ -216,6 +219,7 @@ export interface SplitSessionLayoutProps {
   onPin: (key: string) => void;
   onUnpin: (key: string) => void;
   onClose: (key: string) => void;
+  queue?: QueuedPrompt[];
   onRename?: (agentId: string, sessionId: string, title: string) => void;
   onSplitRatiosChange: (ratios: number[]) => void;
   scrollToMessageRef?: React.MutableRefObject<
@@ -248,6 +252,7 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
   scrollToUnreadRef,
   turnStartedAtMap,
   pendingMap,
+  queue,
   renderHeader,
   getSessionColor,
   onAttachDiff,
@@ -388,6 +393,7 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
               tabTitles={tabTitles}
               turnStartedAtMap={turnStartedAtMap}
               pendingMap={pendingMap}
+              queue={queue}
               onFocusChange={onFocusChange}
               onPin={onPin}
               onUnpin={onUnpin}

@@ -7,7 +7,7 @@ import {
   useScrollStateStore,
   type SessionScrollState,
 } from "../../store/scrollStateStore";
-import type { ContextAttachment, SendTarget, ChatMessage } from "../../types";
+import type { ContextAttachment, SendTarget, ChatMessage, QueuedPrompt } from "../../types";
 import type { TurnOutcome } from "../primitives/StatusIcon";
 import { SplitSessionLayout } from "./layouts/SplitSessionLayout";
 
@@ -91,6 +91,7 @@ export interface SessionViewProps {
   scrollToUnreadRef?: React.MutableRefObject<(() => void) | undefined>;
   turnStartedAtMap?: Record<string, string>;
   pendingMap?: Record<string, boolean>;
+  queue?: QueuedPrompt[];
   renderHeader?: (props: SessionHeaderProps) => React.ReactNode;
   renderFooter?: (props: SessionFooterProps) => React.ReactNode;
   /** Callback when user wants to attach a diff to the composer */
@@ -160,6 +161,7 @@ export const SessionView = React.memo(function SessionView({
   scrollToUnreadRef,
   turnStartedAtMap,
   pendingMap,
+  queue,
   renderHeader,
   renderFooter,
   onAttachDiff,
@@ -182,6 +184,7 @@ export const SessionView = React.memo(function SessionView({
         scrollToUnreadRef={scrollToUnreadRef}
         turnStartedAtMap={turnStartedAtMap}
         pendingMap={pendingMap}
+        queue={queue}
         renderHeader={renderHeader}
         getSessionColor={getSessionColor}
         onAttachDiff={onAttachDiff}

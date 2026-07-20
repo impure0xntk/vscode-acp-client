@@ -51,18 +51,52 @@ function buildCommandDeps(): CommandRegDeps {
         presenter,
         getChatPanel
       ),
-    wireChatPanelEvents: () => wireChatPanelEventsLocal(),
+    wireChatPanelEvents: (
+      panel,
+      orchestrator,
+      sendTabs,
+      resolveFileFn,
+      resolveSelectionFn,
+      resolveDiffFn,
+      searchFilesFn,
+      searchSymbolsFn,
+      resolveSymbolByNameFn,
+      persistentHistoryArg,
+      meshOrchestratorArg,
+      supervisorOrchestratorArg
+    ) =>
+      wireChatPanelEvents(
+        panel,
+        orchestrator,
+        sendTabs,
+        resolveFileFn,
+        resolveSelectionFn,
+        resolveDiffFn,
+        searchFilesFn,
+        searchSymbolsFn,
+        resolveSymbolByNameFn,
+        persistentHistoryArg,
+        meshOrchestratorArg,
+        supervisorOrchestratorArg
+      ),
     pickConnectedAgent: (ph: string) =>
       pickConnectedAgent(app.orchestrator, ph),
     pickAgentByName: (name?: string) =>
       pickAgentByName(app.registry, name),
     historyStore: app.historyStore as unknown as CommandRegDeps["historyStore"],
     persistentHistory: app.persistentHistory,
-    resolveFile: (path, cwd?) => resolveFile(p, path, cwd),
+    resolveFile: (path, cwd) => resolveFile(p, path, cwd),
     resolveSelection: () => resolveSelection(p),
     resolveDiff: () => resolveDiff(p),
     resolveProblem: (problem) => resolveProblem(p, problem),
     resolveRangeAt: (uri, range) => resolveRangeAt(p, uri, range),
+    searchFiles: (query: string, cwd?: string) =>
+      searchFiles(p, query, cwd),
+    searchSymbols: (query: string) => searchSymbols(p, query),
+    resolveSymbolByName: (name: string) =>
+      resolveSymbolByName(p, name),
+    meshOrchestrator: app.meshOrchestrator ?? undefined,
+    supervisorOrchestrator: app.supervisorOrchestrator ?? undefined,
   };
 }
 

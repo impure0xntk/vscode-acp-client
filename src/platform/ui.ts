@@ -90,6 +90,8 @@ export interface UIAPI {
     html: string;
     enableScripts?: boolean;
     retainContextWhenHidden?: boolean;
+    /** Initial placement column (VS Code only). Defaults to ViewColumn.One. */
+    viewColumn?: number;
   }): WebviewPanel;
   registerTreeDataProvider<T>(
     viewId: string,
