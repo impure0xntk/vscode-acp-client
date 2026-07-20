@@ -18,15 +18,15 @@ export interface ActiveSessionIndicatorProps {
 }
 
 /**
- * Compact banner pinned above the Composer input that shows which session a
- * plain message will be sent to.
+ * Inline destination indicator pinned just above the Composer input.
  *
  * Mirrors patterns from Claude Code (status-line session context),
- * Continue (active-session chip in the chat header), and Cursor
- * (composer "target" label): make the *destination* of the next send
- * always visible, not just the tab bar far above.
+ * Continue (active-session chip in the chat header), and ChatGPT's
+ * tool-switching composer (inline scope chips): make the *destination* of
+ * the next send always visible, rendered as a low-contrast inline row that
+ * matches the surrounding ContextBar chips instead of a heavy bordered block.
  *
- * - Single active session → colored dot + agentId + title + status.
+ * - Single active session → status dot + agentId + title + status label.
  * - Multi-@ mode (sendTargets set) → "→ N selected" summary, since the
  *   message fans out to several sessions (the SendTargetChips already list
  *   them individually in the ContextBar).
@@ -44,8 +44,8 @@ export function ActiveSessionIndicator({
 
   if (disabled && !activeSessionKey) {
     return (
-      <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-bg-secondary border border-border text-[11px] text-fg-muted">
-        <Icon name="circle-slash" size="sm" />
+      <div className="flex items-center gap-1 h-[18px] px-0.5 text-[10px] text-fg-muted leading-none">
+        <Icon name="circle-slash" size="xs" />
         <span>No active session — connect an agent</span>
       </div>
     );
@@ -54,18 +54,19 @@ export function ActiveSessionIndicator({
   if (!activeSessionKey) return null;
 
   // Multi-@ mode: the message goes to the selected targets, not the tab's
-  // active session. Show a summary rather than a single-session label.
+  // active session. Show a compact inline summary rather than a single-session
+  // label (the SendTargetChips enumerate them in the ContextBar below).
   if (isMultiMode) {
     return (
       <div
-        className="flex items-center gap-1.5 px-2 py-1 rounded bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] text-[11px] text-fg-secondary cursor-default"
+        className="flex items-center gap-1 h-[18px] px-0.5 text-[10px] text-fg-muted leading-none"
         title={`Message will be sent to ${sendTargets.length} selected session(s)`}
       >
-        <Icon name="arrow-right" size="sm" className="text-accent" />
-        <span className="font-medium text-fg-primary">
+        <Icon name="arrow-right" size="xs" className="text-accent" />
+        <span className="font-medium text-fg-secondary">
           {sendTargets.length} selected
         </span>
-        <span className="text-fg-muted">· message fans out to targets above</span>
+        <span className="opacity-70">· fans out to targets above</span>
       </div>
     );
   }
@@ -91,27 +92,27 @@ export function ActiveSessionIndicator({
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-1.5 px-2 py-1 rounded bg-bg-secondary border border-border text-[11px] text-fg-secondary hover:bg-accent-hover cursor-pointer transition-colors w-full text-left"
+      className="flex items-center gap-1.5 h-[18px] px-0.5 text-[10px] text-fg-muted leading-none hover:bg-accent-hover rounded-[3px] cursor-pointer transition-colors w-full text-left group"
       title={`Active session — click to focus. ${agentId}:${sessionId}`}
     >
       <span
-        className="w-2 h-2 rounded-full shrink-0"
+        className="w-1.5 h-1.5 rounded-full shrink-0"
         style={{ backgroundColor: color }}
       />
       <span
-        className="font-mono font-semibold shrink-0 max-w-[120px] truncate"
+        className="font-mono font-semibold shrink-0 max-w-[110px] truncate"
         style={{ color }}
       >
         {agentId}
       </span>
-      <span className="font-medium text-fg-primary max-w-[160px] truncate shrink min-w-0">
+      <span className="font-medium text-fg-secondary max-w-[160px] truncate shrink min-w-0 group-hover:text-fg-primary transition-colors">
         {title}
       </span>
-      <span className="ml-1 shrink-0 inline-flex items-center gap-1 text-fg-muted">
+      <span className="shrink-0 inline-flex items-center gap-1 text-fg-muted">
         <StatusIcon status={status} size="sm" />
         <span className="whitespace-nowrap">{statusLabel[status] ?? status}</span>
       </span>
-      <span className="ml-auto shrink-0 text-fg-muted text-[10px] uppercase tracking-wider hidden sm:inline">
+      <span className="ml-auto shrink-0 text-fg-muted/60 text-[9px] uppercase tracking-wider hidden sm:inline">
         Active
       </span>
     </button>

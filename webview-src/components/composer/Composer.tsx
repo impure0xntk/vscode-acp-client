@@ -1259,6 +1259,8 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
       <div className="composer flex-shrink-0 px-3 pt-1.5 pb-2">
         {/* Active session indicator — always shows where a plain message
             lands, so the user never has to guess which session is targeted.
+            Rendered as a low-contrast inline row so it blends with the
+            ContextBar chips below rather than floating as a heavy block.
             Hidden when multi-@ targets are selected (the ContextBar's
             SendTargetChips already enumerate them). */}
         <ActiveSessionIndicator

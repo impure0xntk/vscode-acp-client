@@ -54,7 +54,13 @@ export class PromptExecution {
       throw new Error(`Session ${sessionId} not found for agent ${agentId}`);
     }
 
-    if (sessionInfo.status === "running") {
+    // A session is "busy" if it is currently running OR still streaming.
+    // sessionInfo.status can lag behind the real agent activity (e.g. a late
+    // notification drains while status was reset to "idle"), so also check
+    // isStreaming to avoid misrouting a prompt into a direct execute() while
+    // the previous turn is still in flight — which would leave the session
+    // stuck in "ready" and stack every subsequent message.
+    if (sessionInfo.status === "running" || sessionInfo.isStreaming) {
       // Inject entries wait at the next safe boundary (handled as priority
       // queue entries); stack entries append to the tail of the FIFO queue.
       const entry: QueuedPrompt = {

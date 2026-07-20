@@ -607,6 +607,304 @@ describe("Streaming — interaction with tool calls", () => {
 });
 
 // ============================================================================
+// Regression: prompt send during/after a turn must not get stuck in "ready"
+// ============================================================================
+
+/**
+ * Regression coverage for the "message stuck in ready / stacked forever" bug.
+ *
+ * Root cause: send() routed a prompt to a direct execute() whenever
+ * sessionInfo.status was NOT "running", even if the previous turn was still
+ * in flight (status lagged behind isStreaming). That misrouted prompt never
+ * transitioned the session to "waiting for", so every later message piled
+ * onto the queue and was never processed.
+ *
+ * Fix: send() now also queues when isStreaming is true, and protocol-handler
+ * forces status="running" while isStreaming is true so concurrent sends are
+ * queued instead of misrouted.
+ */
+
+function injectStreamingSession(
+  orch: SessionOrchestrator,
+  agentId: string,
+  sessionId: string,
+  opts: { status: AppSessionInfo["status"]; isStreaming: boolean }
+): AppSessionInfo {
+  const sessions = (orch as any).getInternalState().sessions as Map<
+    string,
+    Map<string, AppSessionInfo>
+  >;
+  const agentSessions =
+    sessions.get(agentId) ?? new Map<string, AppSessionInfo>();
+  const now = new Date();
+  const info: AppSessionInfo = {
+    sessionId,
+    agentId,
+    title: "test-session",
+    cwd: "/tmp/test",
+    status: opts.status,
+    lastTurnOutcome: null,
+    messages: [],
+    isStreaming: opts.isStreaming,
+    createdAt: now,
+    updatedAt: now,
+    lastResponseAt: null,
+    tokenUsage: { input: 0, output: 0, total: 0 },
+    pendingCancel: false,
+  };
+  agentSessions.set(sessionId, info);
+  sessions.set(agentId, agentSessions);
+  return info;
+}
+
+describe("Regression — prompt send while a turn is still in flight", () => {
+  let orch: SessionOrchestrator;
+  const agentId = "reg-send-agent";
+  const sessionId = "reg-send-sess";
+
+  beforeEach(() => {
+    orch = createMockOrchestrator();
+  });
+
+  afterEach(() => {
+    orch.dispose();
+  });
+
+  it("queues the prompt when isStreaming is true even if status lagged to idle", async () => {
+    // Final turn still streaming, but status was reset to "idle" (the bug's
+    // exact precondition).
+    injectStreamingSession(orch, agentId, sessionId, {
+      status: "idle",
+      isStreaming: true,
+    });
+    // No connection wired → if send() misrouted to execute(), it would throw.
+    (orch as any).agentConnectionRef.value = {
+      getConnection: () => undefined,
+    };
+
+    const result = await orch.prompt(agentId, sessionId, "続けて");
+
+    // Must be queued (a QueuedPrompt is returned), not executed directly.
+    assert.ok(result, "prompt should be queued, not executed directly");
+    assert.strictEqual(result!.status, "pending");
+    assert.strictEqual(result!.mode, "stack");
+  });
+
+  it("queues the prompt when status is running and isStreaming is false", async () => {
+    injectStreamingSession(orch, agentId, sessionId, {
+      status: "running",
+      isStreaming: false,
+    });
+    (orch as any).agentConnectionRef.value = {
+      getConnection: () => undefined,
+    };
+
+    const result = await orch.prompt(agentId, sessionId, "続けて");
+
+    assert.ok(result, "prompt should be queued while status is running");
+    assert.strictEqual(result!.status, "pending");
+  });
+
+  it("executes directly (returns undefined) when the turn is fully idle", async () => {
+    injectStreamingSession(orch, agentId, sessionId, {
+      status: "idle",
+      isStreaming: false,
+    });
+    // Wire a connection so execute() can run without throwing.
+    (orch as any).agentConnectionRef.value = {
+      getConnection: (_agentId: string) => ({
+        prompt: async () => ({ stopReason: "end_turn", usage: undefined }),
+      }),
+    };
+
+    const result = await orch.prompt(agentId, sessionId, "こんにちは");
+
+    assert.strictEqual(
+      result,
+      undefined,
+      "prompt should execute directly when session is idle and not streaming"
+    );
+  });
+
+  it("protocol-handler keeps status running when a late chunk arrives while streaming", () => {
+    // status lagged to "idle" but a chunk still arrives for an in-flight turn.
+    injectStreamingSession(orch, agentId, sessionId, {
+      status: "idle",
+      isStreaming: true,
+    });
+
+    (orch as any).handleSessionUpdate(
+      agentId,
+      makeAgentMessageChunkNotification(sessionId, "late chunk")
+    );
+
+    const info = orch.getSessionInfo(agentId, sessionId)!;
+    // Status must be normalized back to "running" so concurrent sends queue.
+    assert.strictEqual(info.status, "running");
+    assert.strictEqual(info.isStreaming, true);
+  });
+
+  it("late notification after turn fully ended is drained, not treated as running", () => {
+    // Turn ended: isStreaming false, turnEndedAt set within DRAIN_WINDOW.
+    injectStreamingSession(orch, agentId, sessionId, {
+      status: "idle",
+      isStreaming: false,
+    });
+    const sKey = `${agentId}:${sessionId}`;
+    (orch as any)
+      .getInternalState()
+      .protocolHandler.turnEndedAt.set(sKey, Date.now());
+
+    const emitted: unknown[] = [];
+    orch.on("sessionUpdate", (evt: any) => emitted.push(evt));
+
+    (orch as any).handleSessionUpdate(
+      agentId,
+      makeAgentMessageChunkNotification(sessionId, "late chunk")
+    );
+
+    // Late notification is drained (emitted) but status stays idle.
+    const info = orch.getSessionInfo(agentId, sessionId)!;
+    assert.strictEqual(info.status, "idle");
+    assert.ok(emitted.length >= 1, "late notification should be drained");
+  });
+});
+
+// ============================================================================
+// Regression: queued stack prompts are auto-sent after a turn completes
+// ============================================================================
+
+/**
+ * After a turn finishes (status idle + streaming ended), any prompts that were
+ * stacked in the queue must be drained automatically. This is driven by
+ * execute()'s finally block calling processNextInQueue().
+ */
+
+function wireCountingConnection(
+  orch: SessionOrchestrator
+): { promptCalls: string[] } {
+  const promptCalls: string[] = [];
+  // Replace the connection ref so execute() can run without a real agent
+  // process. Each call resolves immediately.
+  (orch as any).agentConnectionRef.value = {
+    getConnection: (_agentId: string) => ({
+      prompt: async (req: { prompt: Array<{ type: string; text?: string }> }) => {
+        const text = req.prompt
+          .filter((b) => b.type === "text")
+          .map((b) => b.text ?? "")
+          .join("");
+        promptCalls.push(text);
+        return { stopReason: "end_turn" as const, usage: undefined };
+      },
+      cancel: async () => {},
+    }),
+  };
+  return { promptCalls };
+}
+
+describe("Regression — queued prompts auto-send when a turn ends", () => {
+  let orch: SessionOrchestrator;
+  const agentId = "auto-drain-agent";
+  const sessionId = "auto-drain-sess";
+
+  beforeEach(() => {
+    orch = createMockOrchestrator();
+  });
+
+  afterEach(() => {
+    orch.dispose();
+  });
+
+  it("drains all queued stack prompts after the first turn completes", async () => {
+    injectStreamingSession(orch, agentId, sessionId, {
+      status: "idle",
+      isStreaming: false,
+    });
+    const { promptCalls } = wireCountingConnection(orch);
+
+    // Simulate a turn already in progress: status is running, so prompts
+    // sent now are stacked in the queue instead of executing directly.
+    const info = orch.getSessionInfo(agentId, sessionId)!;
+    info.status = "running";
+
+    const qB = await orch.prompt(agentId, sessionId, "B");
+    const qC = await orch.prompt(agentId, sessionId, "C");
+    assert.ok(qB, "B must be queued while a turn is running");
+    assert.ok(qC, "C must be queued while a turn is running");
+    assert.strictEqual(
+      orch.getQueuedPrompts(agentId, sessionId).length,
+      2,
+      "two prompts stacked"
+    );
+
+    // Turn ends → status back to idle. The real code path triggers
+    // processNextInQueue from execute()'s finally block; replicate that
+    // boundary here to assert the auto-drain behaviour.
+    info.status = "idle";
+    (orch as any).promptExecution.processNextInQueue(agentId, sessionId);
+    // Allow the recursive execute() chain (B then C) to run to completion.
+    await new Promise((r) => setImmediate(r));
+    await new Promise((r) => setImmediate(r));
+
+    assert.deepStrictEqual(
+      promptCalls,
+      ["B", "C"],
+      "queued prompts auto-sent in FIFO order after turn ends"
+    );
+
+    const after = orch.getSessionInfo(agentId, sessionId)!;
+    assert.strictEqual(after.status, "idle", "session returns to idle");
+    assert.strictEqual(after.isStreaming, false);
+    assert.strictEqual(
+      orch.getQueuedPrompts(agentId, sessionId).length,
+      0,
+      "queue fully drained"
+    );
+  });
+
+  it("does not auto-send when the queue is empty (single prompt only)", async () => {
+    injectStreamingSession(orch, agentId, sessionId, {
+      status: "idle",
+      isStreaming: false,
+    });
+    const { promptCalls } = wireCountingConnection(orch);
+
+    const result = await orch.prompt(agentId, sessionId, "単発");
+    assert.strictEqual(result, undefined, "single prompt executes directly");
+
+    assert.strictEqual(promptCalls.length, 1, "no extra auto-send");
+    assert.strictEqual(promptCalls[0], "単発");
+  });
+
+  it("processes the queue FIFO across multiple sequential turns", async () => {
+    injectStreamingSession(orch, agentId, sessionId, {
+      status: "idle",
+      isStreaming: false,
+    });
+    const { promptCalls } = wireCountingConnection(orch);
+
+    // Turn in progress: stack three prompts.
+    const info = orch.getSessionInfo(agentId, sessionId)!;
+    info.status = "running";
+
+    const qA = await orch.prompt(agentId, sessionId, "A");
+    const qB = await orch.prompt(agentId, sessionId, "B");
+    const qC = await orch.prompt(agentId, sessionId, "C");
+    assert.ok(qA);
+    assert.ok(qB);
+    assert.ok(qC);
+
+    info.status = "idle";
+    (orch as any).promptExecution.processNextInQueue(agentId, sessionId);
+    await new Promise((r) => setImmediate(r));
+    await new Promise((r) => setImmediate(r));
+
+    // A, B, C auto-drained in FIFO order.
+    assert.deepStrictEqual(promptCalls, ["A", "B", "C"]);
+  });
+});
+
+// ============================================================================
 // Regression: wireSessionEvents must forward sessionUpdate to pushStreamChunk
 // ============================================================================
 

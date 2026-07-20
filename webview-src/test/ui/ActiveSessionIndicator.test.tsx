@@ -104,7 +104,7 @@ describe("ActiveSessionIndicator", () => {
     );
     expect(screen.getByText("3 selected")).toBeInTheDocument();
     expect(
-      screen.getByText(/message fans out to targets above/i)
+      screen.getByText(/fans out to targets above/i)
     ).toBeInTheDocument();
   });
 

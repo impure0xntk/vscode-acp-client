@@ -138,20 +138,33 @@ export class ProtocolHandler {
     ) {
       const sKey = sessionKey(agentId, sessionId);
       const endedAt = this.turnEndedAt.get(sKey);
-      if (endedAt == null) return;
-      const elapsed = Date.now() - endedAt;
-      if (elapsed > ProtocolHandler.DRAIN_WINDOW_MS) {
-        this.turnEndedAt.delete(sKey);
+      // DRAIN_WINDOW guards late notifications arriving AFTER a turn has
+      // fully ended. A notification arriving while isStreaming is still true
+      // means the turn is genuinely in flight — keep status as "running" so
+      // that concurrent sends are queued instead of misrouted to execute().
+      // Without this, a fast agent could reset status to "idle" mid-turn
+      // (e.g. the cancelling branch below, or a late turnEndedAt window),
+      // causing the session to get stuck in "ready" and stack all messages.
+      if (sessionInfo.isStreaming) {
+        sessionInfo.status = "running";
+        sessionInfo.updatedAt = new Date();
+      } else if (endedAt == null) {
+        return;
+      } else {
+        const elapsed = Date.now() - endedAt;
+        if (elapsed > ProtocolHandler.DRAIN_WINDOW_MS) {
+          this.turnEndedAt.delete(sKey);
+          return;
+        }
+        log.debug("late notification drained", {
+          agentId,
+          sessionId,
+          kind: update.sessionUpdate,
+          elapsedMs: elapsed,
+        });
+        this.deps.emit("sessionUpdate", { agentId, sessionId, notification });
         return;
       }
-      log.debug("late notification drained", {
-        agentId,
-        sessionId,
-        kind: update.sessionUpdate,
-        elapsedMs: elapsed,
-      });
-      this.deps.emit("sessionUpdate", { agentId, sessionId, notification });
-      return;
     }
 
     if (sessionInfo.status === "cancelling") {
