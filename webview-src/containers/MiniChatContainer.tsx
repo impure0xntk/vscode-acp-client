@@ -192,21 +192,33 @@ export function MiniChatContainer(): React.ReactElement {
   const removeQueueItem = useCallback((_promptId: string) => {}, []);
 
   // Mock context resolvers — MiniChat does not support rich context attach.
-  const noopResolver = useCallback(
-    () => Promise.resolve(null as ContextAttachment | null),
+  // Return a dummy ContextAttachment to satisfy the Composer's non-null type contract.
+  const noopAttachment: ContextAttachment = useMemo(
+    () => ({
+      id: "",
+      type: "file",
+      path: "",
+      label: "",
+      tokenCount: 0,
+      content: "",
+    }),
     []
+  );
+  const noopResolver = useCallback(
+    () => Promise.resolve(noopAttachment),
+    [noopAttachment]
   );
   const noopFileResolver = useCallback(
-    (_path: string) => Promise.resolve(null as ContextAttachment | null),
-    []
+    (_path: string) => Promise.resolve(noopAttachment),
+    [noopAttachment]
   );
   const noopSymbolResolver = useCallback(
-    (_name: string) => Promise.resolve(null as ContextAttachment | null),
-    []
+    (_name: string) => Promise.resolve(noopAttachment),
+    [noopAttachment]
   );
   const noopOutputResolver = useCallback(
-    (_ref: string) => Promise.resolve(null as ContextAttachment | null),
-    []
+    (_ref: string) => Promise.resolve(noopAttachment),
+    [noopAttachment]
   );
   const noopFileCandidates = useCallback(
     () => Promise.resolve([] as { relativePath: string; name: string }[]),
@@ -218,30 +230,34 @@ export function MiniChatContainer(): React.ReactElement {
   );
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
-      <SessionOverviewPanel
-        isVisible={true}
-        state={overviewState}
-        connectedAgents={connectedAgents}
-        width={containerWidth}
-        onFilterChange={(f) =>
-          useUiStateStore.getState().setOverviewFilter(f)
-        }
-        onFocus={handleOverviewFocus}
-        onCancel={handleOverviewCancel}
-        onClose={handleOverviewClose}
-        onToggleExpand={handleOverviewToggleExpand}
-        onToggleCollapse={handleOverviewToggleCollapse}
-        onNewSession={newSessionWithPicker}
-        onToggleSelect={handleOverviewToggleSelect}
-        onLongPress={handleOverviewLongPress}
-        onCloseSelected={handleOverviewCloseSelected}
-        onExitSelectionMode={handleOverviewExitSelectionMode}
-        // FR-12: expand icon / double-click on an Overview card drills down.
-        onExpand={(sessionId, agentId) =>
-          setDrillDownKey(`${agentId}:${sessionId}`)
-        }
-      />
+    <div className="flex flex-col h-screen overflow-hidden" ref={containerRef}>
+      {/* Flex-1 wrapper so SessionOverviewPanel's internal h-full
+          fills available space without pushing the Composer out of view. */}
+      <div className="flex-1 min-h-0 w-full overflow-hidden">
+        <SessionOverviewPanel
+          isVisible={true}
+          state={overviewState}
+          connectedAgents={connectedAgents}
+          width={containerWidth}
+          onFilterChange={(f) =>
+            useUiStateStore.getState().setOverviewFilter(f)
+          }
+          onFocus={handleOverviewFocus}
+          onCancel={handleOverviewCancel}
+          onClose={handleOverviewClose}
+          onToggleExpand={handleOverviewToggleExpand}
+          onToggleCollapse={handleOverviewToggleCollapse}
+          onNewSession={newSessionWithPicker}
+          onToggleSelect={handleOverviewToggleSelect}
+          onLongPress={handleOverviewLongPress}
+          onCloseSelected={handleOverviewCloseSelected}
+          onExitSelectionMode={handleOverviewExitSelectionMode}
+          // FR-12: expand icon / double-click on an Overview card drills down.
+          onExpand={(sessionId, agentId) =>
+            setDrillDownKey(`${agentId}:${sessionId}`)
+          }
+        />
+      </div>
 
       {/* FR-13: drill-down history renders only when explicitly expanded. */}
       {drillDownKey && (
