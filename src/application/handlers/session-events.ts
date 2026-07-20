@@ -140,9 +140,8 @@ export function wireSessionEvents(deps: SessionEventDeps): void {
         cp?.pushSessionInfo(agentId, sessionId, info);
         cp?.pushTurnActive(agentId, sessionId, info.status === "running");
       }
-      cp?.pushStreamEnd(agentId, sessionId);
-
       if (stopReason) {
+        cp?.pushStreamEnd(agentId, sessionId);
         cp?.postMessage({
           type: "session/turnEnded",
           agentId,

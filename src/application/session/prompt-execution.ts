@@ -138,6 +138,12 @@ export class PromptExecution {
     sessionInfo.updatedAt = new Date();
     sessionInfo.isStreaming = true;
 
+    this.deps.emit("sessionTurnActiveChanged", {
+      agentId,
+      sessionId,
+      active: true,
+    });
+
     const promptBlocks: ContentBlock[] = context
       ? [...context, { type: "text", text: finalText }]
       : buildPromptContent(finalText);
