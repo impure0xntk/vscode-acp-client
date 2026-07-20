@@ -1033,10 +1033,10 @@ export function Icon({
 }: {
   name: string;
   className?: string;
-  size?: "sm" | "md";
+  size?: "sm" | "md" | "xs";
 } & React.HTMLAttributes<HTMLSpanElement>): React.ReactElement {
   const Cmp = ICON_COMPONENTS[name] ?? IconQuestion;
-  const px = size === "sm" ? 12 : size === "md" ? 18 : 16;
+  const px = size === "xs" ? 10 : size === "sm" ? 12 : size === "md" ? 18 : 16;
   return <Cmp className={className} size={px} {...props} />;
 }
 

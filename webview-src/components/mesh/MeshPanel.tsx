@@ -10,7 +10,7 @@ import type {
   MeshTeamEntry,
   MeshTaskEntry,
   MeshRecentMessage,
-} from "../types";
+} from "../../types";
 import type { SessionInfoDTO } from "../../store/sessionStore";
 import { useSessionInfo } from "../../hooks/useSessionInfo";
 import {
@@ -273,7 +273,7 @@ function TeamSessionCard({
 
   return (
     <div
-      className={`flex flex-col gap-1 py-1 px-2 rounded-[3px] bg-bg-primary border border-transparent border-l-2 ${status === "running" ? "border-l-[#4fc3f7]" : status === "completed" ? "border-l-success" : status === "error" ? "border-l-error" : status === "cancelled" ? "border-l-fg-muted" : status === "waiting" || status === "waiting_for_input" ? "border-l-[#ffd54f]" : "border-l-transparent"}`}
+      className={`flex flex-col gap-1 py-1 px-2 rounded-[3px] bg-bg-primary border border-transparent border-l-2 ${status === "running" ? "border-l-[#4fc3f7]" : status === "completed" ? "border-l-success" : status === "error" ? "border-l-error" : status === "cancelled" ? "border-l-fg-muted" : status === "cancelling" ? "border-l-[#ffd54f]" : "border-l-transparent"}`}
       data-color-group={colorGroup}
       data-status={status}
     >

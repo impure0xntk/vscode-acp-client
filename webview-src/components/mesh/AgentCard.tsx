@@ -23,8 +23,7 @@ interface AgentCardProps {
 const STATUS_LABEL: Record<string, string> = {
   running: "Active",
   idle: "Idle",
-  waiting: "Waiting",
-  waiting_for_input: "Waiting for Input",
+  cancelling: "Cancelling",
   completed: "Done",
   error: "Error",
   cancelled: "Cancelled",
@@ -39,10 +38,7 @@ export function AgentCard({
   onClose,
 }: AgentCardProps): React.ReactElement {
   const status = sessionInfo.status;
-  const isCancelable =
-    status === "running" ||
-    status === "waiting" ||
-    status === "waiting_for_input";
+  const isCancelable = status === "running" || status === "cancelling";
   const isTerminal =
     status === "completed" || status === "error" || status === "cancelled";
   const colorGroup = sessionColorGroup(status);
@@ -69,7 +65,7 @@ export function AgentCard({
 
   return (
     <button
-      className={`agent-card flex flex-col gap-0.5 p-2 border border-transparent rounded-[4px] bg-bg-primary cursor-pointer text-left hover:bg-accent-hover focus-visible:outline focus-visible:outline-accent focus-visible:outline-offset-1 min-w-[140px] max-w-[200px] flex-shrink-0 ${isSelected ? "border-[color-mix(in_srgb,var(--accent)_20%,transparent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]" : ""}${status === "completed" ? " border-l-success" : status === "error" ? " border-l-error" : status === "cancelled" ? " border-l-fg-muted" : status === "waiting" || status === "waiting_for_input" ? " border-l-[#ffd54f]" : ""}`}
+      className={`agent-card flex flex-col gap-0.5 p-2 border border-transparent rounded-[4px] bg-bg-primary cursor-pointer text-left hover:bg-accent-hover focus-visible:outline focus-visible:outline-accent focus-visible:outline-offset-1 min-w-[140px] max-w-[200px] flex-shrink-0 ${isSelected ? "border-[color-mix(in_srgb,var(--accent)_20%,transparent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]" : ""}${status === "completed" ? " border-l-success" : status === "error" ? " border-l-error" : status === "cancelled" ? " border-l-fg-muted" : status === "cancelling" ? " border-l-[#ffd54f]" : ""}`}
       data-status={status}
       data-color-group={colorGroup}
       onClick={onSelect}
