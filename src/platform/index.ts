@@ -44,6 +44,7 @@ export type {
 export type { TerminalAPI, Terminal } from "./terminal";
 export type { OrchestrationStateAPI } from "./orchestration";
 export type { PlatformAPI } from "./platform";
+export type { DiagnosticBackend } from "./diagnostics";
 export { createPlatform } from "./factory";
 export type {
   LogStorageAPI,

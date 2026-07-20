@@ -81,6 +81,7 @@ function makePlatform(configValues: Record<string, unknown>): PlatformAPI {
     editor: {} as any,
     terminal: {} as any,
     orchestration: {} as any,
+    diagnostics: {} as any,
     logStorage: {} as any,
     ui: {} as any,
     initialize: async () => {},

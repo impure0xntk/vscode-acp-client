@@ -175,6 +175,7 @@ export async function activate(
     presenter,
     statusTracker: app.statusTracker,
     historyStore: app.historyStore,
+    diagnostics: app.platform.diagnostics,
     updateContext: () => updateContext(app.orchestrator),
     sendTabs: () =>
       sendTabsToChatPanel(

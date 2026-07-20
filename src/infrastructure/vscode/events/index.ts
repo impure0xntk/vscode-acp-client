@@ -5,6 +5,7 @@ import type { ChatPanel } from "../vscode-ui/chatPanel";
 import type { ChatPresenter } from "../vscode-ui/presenter";
 import type { AgentStatusTracker } from "../../../adapter/agent/status";
 import type { SessionHistoryStore } from "../../../application/session/historyStore";
+import type { DiagnosticBackend } from "../../../platform/diagnostics";
 import { wireOrchestratorEvents } from "./orchestratorEvents";
 import { wireMeshEvents } from "./meshEvents";
 
@@ -16,6 +17,7 @@ export interface EventWiringDeps {
   presenter: ChatPresenter;
   statusTracker: AgentStatusTracker;
   historyStore: SessionHistoryStore;
+  diagnostics: DiagnosticBackend;
   updateContext: () => void;
   sendTabs: () => void;
 }
@@ -30,6 +32,7 @@ export function wireAllEvents(deps: EventWiringDeps): void {
     presenter: deps.presenter,
     statusTracker: deps.statusTracker,
     historyStore: deps.historyStore,
+    diagnostics: deps.diagnostics,
     updateContext: deps.updateContext,
     sendTabs: deps.sendTabs,
   });

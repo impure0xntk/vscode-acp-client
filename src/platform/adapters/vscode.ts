@@ -31,6 +31,7 @@ import type {
   Selection,
   ActiveEditor,
   DiffResult,
+  DiagnosticProblem,
 } from "../editor";
 import type {
   ExtensionContextAPI,
@@ -45,6 +46,7 @@ import type {
   ClearLogsOptions,
   ClearLogsResult,
 } from "../logStorage";
+import type { DiagnosticBackend } from "../diagnostics";
 import { VsCodeOutputBackend } from "../backends/vscode-output-backend";
 import { LogEntrySinkBackend } from "../backends/log-entry-sink-backend";
 import { LoggerFactoryImpl } from "../backends/logger-impl";
@@ -53,6 +55,10 @@ import { LogLevel, type LogLevelValue } from "../backends/types";
 import type { PersistentHistoryStore } from "../../application/session/persistentHistory";
 import type { LogEntrySink } from "../backends/log-entry-sink-backend";
 import { LogEntrySinkImpl } from "../../domain/services/log-entry-sink";
+import { VscodeDiagnosticBackend } from "./vscode-diagnostics";
+import { getLogger } from "../backends";
+
+const log = getLogger("vscode-adapter");
 
 class VscodeLogStorageAPI implements LogStorageAPI {
   private store: PersistentHistoryStore | null = null;
@@ -94,6 +100,7 @@ export class VscodePlatform implements PlatformAPI {
   readonly context: ExtensionContextAPI;
   readonly terminal: TerminalAPI;
   readonly orchestration: OrchestrationStateAPI;
+  readonly diagnostics: DiagnosticBackend;
   logStorage: LogStorageAPI;
 
   private ctx: vscode.ExtensionContext;
@@ -122,6 +129,7 @@ export class VscodePlatform implements PlatformAPI {
     this.context = new VscodeContextAPI(this.ctx);
     this.terminal = new VscodeTerminalAPI();
     this.orchestration = new VscodeOrchestrationStateAPI(this.ctx);
+    this.diagnostics = new VscodeDiagnosticBackend();
     this.logStorage = new VscodeLogStorageAPI();
   }
 

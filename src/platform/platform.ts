@@ -1,6 +1,7 @@
 // src/platform/platform.ts
 
 import type { Disposable, EventEmitter, Event } from "./types";
+import type { DiagnosticBackend } from "./diagnostics";
 import type { EditorAPI } from "./editor";
 import type { ExtensionContextAPI } from "./context";
 import type { FileSystemAPI } from "./filesystem";
@@ -16,6 +17,7 @@ export interface PlatformAPI {
   readonly context: ExtensionContextAPI;
   readonly terminal: TerminalAPI;
   readonly orchestration: OrchestrationStateAPI;
+  readonly diagnostics: DiagnosticBackend;
   logStorage: LogStorageAPI;
   initialize(): Promise<void>;
   dispose(): Promise<void>;

@@ -8,6 +8,7 @@ import type { ChatPanel } from "../vscode-ui/chatPanel";
 import type { ChatPresenter } from "../vscode-ui/presenter";
 import type { AgentStatusTracker } from "../../../adapter/agent/status";
 import type { HistoryEntry } from "../../../application/session/historyStore";
+import type { DiagnosticBackend } from "../../../platform/diagnostics";
 import { MiniChatPanel } from "../vscode-ui/miniChatPanel";
 
 export interface OrchestratorEventDeps {
@@ -16,6 +17,7 @@ export interface OrchestratorEventDeps {
   presenter: ChatPresenter;
   statusTracker: AgentStatusTracker;
   historyStore: { addEntry(entry: HistoryEntry): Promise<void> | void };
+  diagnostics: DiagnosticBackend;
   updateContext: () => void;
   sendTabs: () => void;
 }
@@ -45,6 +47,7 @@ export function wireOrchestratorEvents(deps: OrchestratorEventDeps): void {
     getChatPanel,
     statusTracker,
     historyStore,
+    diagnostics,
     updateContext,
     sendTabs,
   } = deps;
@@ -385,7 +388,7 @@ export function wireOrchestratorEvents(deps: OrchestratorEventDeps): void {
   );
 
   // -- File writes --
-  orchestrator.on("fileWrite", (event: FileWriteEvent) => {
+  orchestrator.on("fileWrite", async (event: FileWriteEvent) => {
     const { agentId, sessionId, path: filePath, content, originalContent, contentHash } =
       event;
     broadcast(getChatPanel, (cp) =>
@@ -398,6 +401,10 @@ export function wireOrchestratorEvents(deps: OrchestratorEventDeps): void {
         contentHash
       )
     );
+
+    // Trigger diagnostics refresh for the modified file.
+    // Fire-and-forget: diagnostics are read asynchronously by the language server.
+    void diagnostics.refreshDiagnostics(filePath);
   });
 
   // -- Overview update (debounced internally by SessionOrchestrator) --
