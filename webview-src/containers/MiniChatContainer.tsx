@@ -1,6 +1,8 @@
 import React, {
   useCallback,
+  useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -57,6 +59,24 @@ export function MiniChatContainer(): React.ReactElement {
       overviewSelectionMode: s.overviewSelectionMode,
     }))
   );
+
+  // Track container width for full-width layout.
+  // SessionOverviewPanel fills the entire MiniChat width without resize handles
+  // (sidebar-ready with no internal size constraints).
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(300);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerWidth(entry.contentRect.width);
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   // FR-12/FR-13: drill-down key is null unless the user expands a session.
   const [drillDownKey, setDrillDownKey] = useState<string | null>(null);
@@ -203,7 +223,7 @@ export function MiniChatContainer(): React.ReactElement {
         isVisible={true}
         state={overviewState}
         connectedAgents={connectedAgents}
-        width={300}
+        width={containerWidth}
         onFilterChange={(f) =>
           useUiStateStore.getState().setOverviewFilter(f)
         }

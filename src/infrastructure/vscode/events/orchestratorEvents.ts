@@ -8,6 +8,7 @@ import type { ChatPanel } from "../vscode-ui/chatPanel";
 import type { ChatPresenter } from "../vscode-ui/presenter";
 import type { AgentStatusTracker } from "../../../adapter/agent/status";
 import type { HistoryEntry } from "../../../application/session/historyStore";
+import { MiniChatPanel } from "../vscode-ui/miniChatPanel";
 
 export interface OrchestratorEventDeps {
   orchestrator: SessionOrchestrator;
@@ -17,6 +18,20 @@ export interface OrchestratorEventDeps {
   historyStore: { addEntry(entry: HistoryEntry): Promise<void> | void };
   updateContext: () => void;
   sendTabs: () => void;
+}
+
+/**
+ * Broadcast a callback to both the main ChatPanel and the MiniChat panel.
+ * Ensures orchestrator events reach both panels (FR-7, FR-10, FR-15).
+ */
+function broadcast(
+  getChatPanel: () => ChatPanel | null,
+  fn: (cp: ChatPanel) => void
+): void {
+  const main = getChatPanel();
+  if (main) fn(main);
+  const mini = MiniChatPanel.current;
+  if (mini && mini !== main) fn(mini as unknown as ChatPanel);
 }
 
 /**
@@ -41,7 +56,7 @@ export function wireOrchestratorEvents(deps: OrchestratorEventDeps): void {
     sendTabs();
     const agentInfo = orchestrator.getAgentInfo(agentId);
     if (agentInfo) {
-      getChatPanel()?.setAgentInfo(agentId, agentInfo);
+      broadcast(getChatPanel, (cp) => cp.setAgentInfo(agentId, agentInfo));
     }
   });
 
@@ -74,7 +89,7 @@ export function wireOrchestratorEvents(deps: OrchestratorEventDeps): void {
       statusTracker.setActiveSession(agentId, sessionId);
       const info = orchestrator.getSessionInfo(agentId, sessionId);
       if (info) {
-        getChatPanel()?.pushSessionInfo(agentId, sessionId, info);
+        broadcast(getChatPanel, (cp) => cp.pushSessionInfo(agentId, sessionId, info));
       }
       sendTabs();
       updateContext();
@@ -101,7 +116,7 @@ export function wireOrchestratorEvents(deps: OrchestratorEventDeps): void {
       statusTracker.setActiveSession(agentId, sessionId);
       const info = orchestrator.getSessionInfo(agentId, sessionId);
       if (info) {
-        getChatPanel()?.setActiveSession(agentId, sessionId, info);
+        broadcast(getChatPanel, (cp) => cp.setActiveSession(agentId, sessionId, info));
       }
       updateContext();
     }
@@ -121,31 +136,33 @@ export function wireOrchestratorEvents(deps: OrchestratorEventDeps): void {
       active: boolean;
       stopReason?: string;
     }) => {
-      const cp = getChatPanel();
       const info = orchestrator.getSessionInfo(agentId, sessionId);
       if (info) {
-        cp?.pushSessionInfo(agentId, sessionId, info);
-        cp?.pushTurnActive(agentId, sessionId, info.status === "running");
-      }
-      cp?.pushStreamEnd(agentId, sessionId);
-      if (stopReason) {
-        cp?.postMessage({
-          type: "session/turnEnded",
-          agentId,
-          sessionId,
-          stopReason,
+        broadcast(getChatPanel, (cp) => {
+          cp.pushSessionInfo(agentId, sessionId, info);
+          cp.pushTurnActive(agentId, sessionId, info.status === "running");
         });
+      }
+      broadcast(getChatPanel, (cp) => cp.pushStreamEnd(agentId, sessionId));
+      if (stopReason) {
+        broadcast(getChatPanel, (cp) =>
+          cp.postMessage({
+            type: "session/turnEnded",
+            agentId,
+            sessionId,
+            stopReason,
+          })
+        );
       }
       if (turnActiveOverviewTimer) clearTimeout(turnActiveOverviewTimer);
       turnActiveOverviewTimer = setTimeout(() => {
         turnActiveOverviewTimer = null;
-        const cp2 = getChatPanel();
-        if (cp2) {
-          const overview = orchestrator.getSessionOverview({
-            withRecentResponses: false,
-          });
-          cp2.postMessage({ type: "sessionOverview:state", payload: overview });
-        }
+        const overview = orchestrator.getSessionOverview({
+          withRecentResponses: false,
+        });
+        broadcast(getChatPanel, (cp) =>
+          cp.postMessage({ type: "sessionOverview:state", payload: overview })
+        );
       }, 200);
     }
   );
@@ -162,13 +179,13 @@ export function wireOrchestratorEvents(deps: OrchestratorEventDeps): void {
       sessionId: string;
       message: ChatMessage;
     }) => {
-      const cp = getChatPanel();
-      if (!cp) return;
       const info = orchestrator.getSessionInfo(agentId, sessionId);
-      cp.pushMessage(agentId, sessionId, message, info?.cwd);
-      if (info) {
-        cp.pushSessionInfo(agentId, sessionId, info);
-      }
+      broadcast(getChatPanel, (cp) => {
+        cp.pushMessage(agentId, sessionId, message, info?.cwd);
+        if (info) {
+          cp.pushSessionInfo(agentId, sessionId, info);
+        }
+      });
       statusTracker.updateSessionStatus(agentId, sessionId, {
         sessionId,
         title: info?.title ?? sessionId,
@@ -216,20 +233,23 @@ export function wireOrchestratorEvents(deps: OrchestratorEventDeps): void {
       title: string;
       stopReason: import("@agentclientprotocol/sdk").StopReason;
     }) => {
-      const cp = getChatPanel();
       const activeSessionId = orchestrator.getActiveSessionId(agentId);
       if (sessionId !== activeSessionId) {
-        cp?.postMessage(
-          deps.presenter.buildSessionCompleted(
-            sessionId,
-            agentId,
-            title,
-            stopReason
+        broadcast(getChatPanel, (cp) =>
+          cp.postMessage(
+            deps.presenter.buildSessionCompleted(
+              sessionId,
+              agentId,
+              title,
+              stopReason
+            )
           )
         );
       }
       const info = orchestrator.getSessionInfo(agentId, sessionId);
-      if (info) cp?.pushSessionInfo(agentId, sessionId, info);
+      if (info) {
+        broadcast(getChatPanel, (cp) => cp.pushSessionInfo(agentId, sessionId, info));
+      }
     }
   );
 
@@ -243,7 +263,6 @@ export function wireOrchestratorEvents(deps: OrchestratorEventDeps): void {
     }) => {
       const { agentId, sessionId, notification } = event;
       const update = notification.update;
-      const cp = getChatPanel();
       const activeSessionId = orchestrator.getActiveSessionId(agentId);
       const isActive = sessionId === activeSessionId;
 
@@ -252,7 +271,9 @@ export function wireOrchestratorEvents(deps: OrchestratorEventDeps): void {
         update.sessionUpdate !== "agent_thought_chunk" &&
         update.sessionUpdate !== "agent_message_chunk"
       ) {
-        cp?.pushSessionNotification(agentId, sessionId, notification);
+        broadcast(getChatPanel, (cp) =>
+          cp.pushSessionNotification(agentId, sessionId, notification)
+        );
       }
 
       statusTracker.updateSessionStatus(agentId, sessionId, {
@@ -278,7 +299,7 @@ export function wireOrchestratorEvents(deps: OrchestratorEventDeps): void {
       ) {
         const sessionInfo = orchestrator.getSessionInfo(agentId, sessionId);
         if (sessionInfo) {
-          cp?.pushSessionInfo(agentId, sessionId, sessionInfo);
+          broadcast(getChatPanel, (cp) => cp.pushSessionInfo(agentId, sessionId, sessionInfo));
         }
       }
     }
@@ -288,14 +309,13 @@ export function wireOrchestratorEvents(deps: OrchestratorEventDeps): void {
   orchestrator.on(
     "sessionStreamStart",
     (event: { agentId: string; sessionId: string }) => {
-      const cp = getChatPanel();
-      if (cp) {
+      broadcast(getChatPanel, (cp) =>
         cp.postMessage({
           type: "session/streamStart",
           agentId: event.agentId,
           sessionId: event.sessionId,
-        });
-      }
+        })
+      );
     }
   );
 
@@ -309,10 +329,9 @@ export function wireOrchestratorEvents(deps: OrchestratorEventDeps): void {
       sessionUpdate?: string;
     }) => {
       const { agentId, sessionId, chunk, messageId, sessionUpdate } = event;
-      const cp = getChatPanel();
-      if (cp) {
-        cp.pushStreamChunk(agentId, sessionId, chunk, messageId, sessionUpdate);
-      }
+      broadcast(getChatPanel, (cp) =>
+        cp.pushStreamChunk(agentId, sessionId, chunk, messageId, sessionUpdate)
+      );
     }
   );
 
@@ -330,12 +349,14 @@ export function wireOrchestratorEvents(deps: OrchestratorEventDeps): void {
     }) => {
       const activeSessId = orchestrator.getActiveSessionId(agentId);
       if (sessionId !== activeSessId) return;
-      getChatPanel()?.postMessage({
-        type: "session/commands",
-        agentId,
-        sessionId,
-        commands,
-      });
+      broadcast(getChatPanel, (cp) =>
+        cp.postMessage({
+          type: "session/commands",
+          agentId,
+          sessionId,
+          commands,
+        })
+      );
     }
   );
 
@@ -353,76 +374,78 @@ export function wireOrchestratorEvents(deps: OrchestratorEventDeps): void {
         event;
       const activeSessionId = orchestrator.getActiveSessionId(agentId);
       if (sessionId !== activeSessionId) return;
-      const cp = getChatPanel();
-      cp?.pushSessionCompression(agentId, sessionId, {
-        contextWindowMax,
-        usedTokens: usedAfter,
-        usedBefore,
-      });
+      broadcast(getChatPanel, (cp) =>
+        cp.pushSessionCompression(agentId, sessionId, {
+          contextWindowMax,
+          usedTokens: usedAfter,
+          usedBefore,
+        })
+      );
     }
   );
 
   // -- File writes --
   orchestrator.on("fileWrite", (event: FileWriteEvent) => {
-    const { agentId, sessionId, path, content, originalContent, contentHash } =
+    const { agentId, sessionId, path: filePath, content, originalContent, contentHash } =
       event;
-    const cp = getChatPanel();
-    cp?.pushFileWrite(
-      agentId,
-      sessionId,
-      path,
-      content,
-      originalContent,
-      contentHash
+    broadcast(getChatPanel, (cp) =>
+      cp.pushFileWrite(
+        agentId,
+        sessionId,
+        filePath,
+        content,
+        originalContent,
+        contentHash
+      )
     );
   });
 
   // -- Overview update (debounced internally by SessionOrchestrator) --
   orchestrator.on("sessionOverview:update", (overview) => {
-    const cp = getChatPanel();
-    if (!cp) return;
-    cp.postMessage({ type: "sessionOverview:state", payload: overview });
+    broadcast(getChatPanel, (cp) =>
+      cp.postMessage({ type: "sessionOverview:state", payload: overview })
+    );
   });
 
   // -- Prompt queue events --
   orchestrator.on("promptQueued", ({ agentId, sessionId, entry }) => {
-    const cp = getChatPanel();
-    if (!cp) return;
-    cp.postMessage({ type: "queue:added", agentId, sessionId, entry });
+    broadcast(getChatPanel, (cp) =>
+      cp.postMessage({ type: "queue:added", agentId, sessionId, entry })
+    );
   });
 
   orchestrator.on("promptDequeued", ({ agentId, sessionId }) => {
-    const cp = getChatPanel();
-    if (!cp) return;
-    cp.postMessage({ type: "queue:dequeued", agentId, sessionId });
+    broadcast(getChatPanel, (cp) =>
+      cp.postMessage({ type: "queue:dequeued", agentId, sessionId })
+    );
   });
 
   orchestrator.on("promptQueueUpdated", ({ agentId, sessionId, queue }) => {
-    const cp = getChatPanel();
-    if (!cp) return;
-    cp.postMessage({ type: "queue:updated", agentId, sessionId, queue });
+    broadcast(getChatPanel, (cp) =>
+      cp.postMessage({ type: "queue:updated", agentId, sessionId, queue })
+    );
   });
 
   orchestrator.on(
     "sessionTitleChanged",
     ({ agentId, sessionId, title }) => {
-      const cp = getChatPanel();
-      if (!cp) return;
-      cp.postMessage({ type: "session/title", agentId, sessionId, title });
+      broadcast(getChatPanel, (cp) =>
+        cp.postMessage({ type: "session/title", agentId, sessionId, title })
+      );
       sendTabs();
     }
   );
 
   orchestrator.on("sessionPinned", ({ agentId, sessionId }) => {
-    const cp = getChatPanel();
-    if (!cp) return;
-    cp.postMessage({ type: "session.pinned", agentId, sessionId });
+    broadcast(getChatPanel, (cp) =>
+      cp.postMessage({ type: "session.pinned", agentId, sessionId })
+    );
   });
 
   orchestrator.on("sessionUnpinned", ({ agentId, sessionId }) => {
-    const cp = getChatPanel();
-    if (!cp) return;
-    cp.postMessage({ type: "session.unpinned", agentId, sessionId });
+    broadcast(getChatPanel, (cp) =>
+      cp.postMessage({ type: "session.unpinned", agentId, sessionId })
+    );
   });
 
   orchestrator.on(
