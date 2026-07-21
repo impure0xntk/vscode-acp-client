@@ -420,7 +420,9 @@ describe("Shared Zustand Store - UnifiedChat <-> MiniChat Sync", () => {
   });
 
   describe("State Persistence Across Reloads", () => {
-    it("restores message state after MiniChat remounts", () => {
+    it("does NOT request history:getSession on MiniChat remount", () => {
+      // Messages are delivered via bridge (session/snapshot and session/message),
+      // not via history:getSession. Remounts should NOT trigger history fetch.
       seedOneSession();
       render(<MiniChatContainer />);
       mockPostMessage.mockClear();
@@ -428,13 +430,9 @@ describe("Shared Zustand Store - UnifiedChat <-> MiniChat Sync", () => {
       // Second mount (simulating webview reload)
       render(<MiniChatContainer />);
 
-      // Should request history for the active session
-      expect(mockPostMessage).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: "history:getSession",
-          sessionId: "session-1",
-          agentId: "claude",
-        })
+      // Should NOT request history:getSession
+      expect(mockPostMessage).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: "history:getSession" })
       );
     });
 

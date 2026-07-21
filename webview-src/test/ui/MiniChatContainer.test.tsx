@@ -238,49 +238,16 @@ describe("MiniChatContainer", () => {
 });
 
 // ── History drill-down regression tests ────────────────────────────────
+//
+// NOTE: MiniChat drill-down does NOT fetch history via history:getSession/
+// history:sessionDetail.  Message data is already in the shared Zustand
+// stores (delivered through the bridge via session/snapshot and
+// session/message events).  The drill-down SessionChatContainer reads from
+// useMessages(key) which subscribes to messageStore — the data is already
+// there.
 
 describe("MiniChatContainer history drill-down", () => {
   const KEY = "claude:session-1";
-
-  function mkHistoryMessages(): ChatMessage[] {
-    return [
-      {
-        id: "msg-1",
-        role: "user",
-        content: "Hello",
-        timestamp: 1700000000000,
-      },
-      {
-        id: "msg-2",
-        role: "agent",
-        content: "Hi there!",
-        timestamp: 1700000001000,
-      },
-    ];
-  }
-
-  function fireSessionDetail(
-    sessionId: string,
-    agentId: string,
-    messages: ChatMessage[],
-    overrides: Record<string, unknown> = {}
-  ) {
-    window.dispatchEvent(
-      new MessageEvent("message", {
-        data: {
-          type: "history:sessionDetail",
-          session: {
-            sessionId,
-            agentId,
-            title: `History: ${sessionId}`,
-            createdAt: "2026-01-01T00:00:00Z",
-            ...overrides,
-          },
-          messages,
-        },
-      })
-    );
-  }
 
   beforeEach(() => {
     cleanup();
@@ -323,7 +290,9 @@ describe("MiniChatContainer history drill-down", () => {
     });
   });
 
-  it("sends history:getSession when drill-down is triggered (FR-12)", () => {
+  it("displays pre-existing messages from messageStore when drill-down opens (FR-12)", () => {
+    // Seed session info and pre-populate messageStore with messages already
+    // delivered via bridge (session/snapshot or session/message).
     useSessionStore.getState().bulkSetTabs({
       tabs: [
         { agentId: "claude", sessionId: "session-1", title: "My Session" },
@@ -336,21 +305,38 @@ describe("MiniChatContainer history drill-down", () => {
       ],
     });
     useSessionStore.getState().setActiveSession(KEY);
+    useMessageStore.getState().setMessages(KEY, [
+      {
+        id: "msg-1",
+        role: "user",
+        content: "Hello",
+        timestamp: 1700000000000,
+      },
+      {
+        id: "msg-2",
+        role: "agent",
+        content: "Hi there!",
+        timestamp: 1700000001000,
+      },
+    ]);
 
     const { container } = render(<MiniChatContainer />);
     const card = container.querySelector(".session-overview-card");
     fireEvent.doubleClick(card!);
 
-    expect(postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: "history:getSession",
-        sessionId: "session-1",
-        agentId: "claude",
-      })
+    // SessionChatContainer should render the pre-existing messages.
+    // getByText matches multiple elements (card title + message text), so use
+    // getAllByText + expect length >= 1 to confirm presence.
+    expect(screen.getAllByText("Hello").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Hi there!").length).toBeGreaterThanOrEqual(1);
+
+    // Should NOT have sent history:getSession
+    expect(postMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "history:getSession" })
     );
   });
 
-  it("injects messages into messageStore on history:sessionDetail", () => {
+  it("shows empty chat when no messages exist for the drill-down session", () => {
     useSessionStore.getState().bulkSetTabs({
       tabs: [
         { agentId: "claude", sessionId: "session-1", title: "My Session" },
@@ -368,61 +354,30 @@ describe("MiniChatContainer history drill-down", () => {
     const card = container.querySelector(".session-overview-card");
     fireEvent.doubleClick(card!);
 
-    act(() => {
-      fireSessionDetail("session-1", "claude", mkHistoryMessages());
-    });
-
-    const msgs = useMessageStore.getState().perSession[KEY];
-    expect(msgs).toBeDefined();
-    expect(msgs).toHaveLength(2);
-    expect(msgs[0].role).toBe("user");
-    expect(msgs[0].content).toBe("Hello");
-  });
-
-  it("registers dummy SessionInfoDTO on history:sessionDetail", () => {
-    useSessionStore.getState().bulkSetTabs({
-      tabs: [
-        { agentId: "claude", sessionId: "session-1", title: "My Session" },
-      ],
-      sessionInfoMap: {
-        "claude:session-1": mkInfo("claude", "session-1", "My Session"),
-      },
-      connectedAgents: [
-        { agentId: "claude", name: "Claude", color: "#3b82f6" },
-      ],
-    });
-    useSessionStore.getState().setActiveSession(KEY);
-
-    const { container } = render(<MiniChatContainer />);
-    const card = container.querySelector(".session-overview-card");
-    fireEvent.doubleClick(card!);
-
-    act(() => {
-      fireSessionDetail("session-1", "claude", mkHistoryMessages());
-    });
-
-    const info = useSessionStore.getState().sessionInfoMap[KEY];
-    expect(info).toBeDefined();
-    expect(info?.agentId).toBe("claude");
-    expect(info?.sessionId).toBe("session-1");
-    expect(info?.title).toBe("History: session-1");
-
-    const tabOrder = useSessionStore.getState().tabOrder;
-    expect(tabOrder).toContain(KEY);
+    // History label should be visible but no messages
+    expect(screen.getByText("History")).toBeInTheDocument();
   });
 
   it("preserves pre-existing session on drill-down close and unmount", () => {
-    // This test verifies that pre-existing sessions (already in tabOrder)
-    // are NOT removed when drill-down closes or component unmounts.
     seedSessions();
+    useMessageStore.getState().setMessages(KEY, [
+      {
+        id: "msg-1",
+        role: "user",
+        content: "Hello",
+        timestamp: 1700000000000,
+      },
+      {
+        id: "msg-2",
+        role: "agent",
+        content: "Hi there!",
+        timestamp: 1700000001000,
+      },
+    ]);
 
     const { container, unmount } = render(<MiniChatContainer />);
     const card = container.querySelector(".session-overview-card");
     fireEvent.doubleClick(card!);
-
-    act(() => {
-      fireSessionDetail("session-1", "claude", mkHistoryMessages());
-    });
 
     expect(useMessageStore.getState().perSession[KEY]).toHaveLength(2);
     expect(useSessionStore.getState().sessionInfoMap[KEY]).toBeDefined();
@@ -461,10 +416,6 @@ describe("MiniChatContainer history drill-down", () => {
     const card = container.querySelector(".session-overview-card");
     fireEvent.doubleClick(card!);
 
-    act(() => {
-      fireSessionDetail("session-1", "claude", mkHistoryMessages());
-    });
-
     expect(screen.getByText("History")).toBeInTheDocument();
   });
 
@@ -485,10 +436,6 @@ describe("MiniChatContainer history drill-down", () => {
     const { container } = render(<MiniChatContainer />);
     const card = container.querySelector(".session-overview-card");
     fireEvent.doubleClick(card!);
-
-    act(() => {
-      fireSessionDetail("session-1", "claude", mkHistoryMessages());
-    });
 
     // Close the drill-down.
     const closeBtn = screen.getByLabelText("Close history");

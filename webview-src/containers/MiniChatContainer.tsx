@@ -13,7 +13,6 @@ import { useSessionStore, sessionKeyOf } from "../store/sessionStore";
 import type { SessionStoreState } from "../store/sessionStore";
 import { useUiStateStore } from "../store/uiStateStore";
 import type { UiStateStore } from "../store/uiStateStore";
-import { useMessageStore } from "../store/messageStore";
 import { getVsCodeApi } from "../lib/vscodeApi";
 import { useShallow } from "zustand/shallow";
 import { useOverviewHandlers } from "../hooks/useOverviewHandlers";
@@ -91,22 +90,6 @@ export function MiniChatContainer({
     return () => observer.disconnect();
   }, []);
 
-  // Request history for the active session on mount if message store is empty.
-  // This handles the race condition where session snapshots are sent by the
-  // extension before the MiniChat webview is fully loaded and ready to receive.
-  useEffect(() => {
-    if (!activeSessionKey) return;
-    const messages = useMessageStore.getState().perSession[activeSessionKey];
-    if (messages && messages.length > 0) return; // Already have messages
-
-    const [agentId, sessionId] = activeSessionKey.split(":");
-    getVsCodeApi().postMessage({
-      type: "history:getSession",
-      sessionId,
-      agentId,
-    });
-  }, [activeSessionKey]);
-
   // Request full state sync from extension host on mount (standalone mode only).
   // When rendered inside AppContainer, the single webview shares Zustand stores
   // directly — no sync needed.
@@ -120,62 +103,6 @@ export function MiniChatContainer({
   // null = no drill-down (FR-5 lightweight state). When set, SessionChatContainer
   // is rendered for that session key.
   const [drillDownKey, setDrillDownKey] = useState<string | null>(null);
-  const drillDownKeyRef = useRef<string | null>(null);
-  drillDownKeyRef.current = drillDownKey;
-
-  // Request history messages when a drill-down opens.
-  useEffect(() => {
-    if (!drillDownKey) return;
-    const [agentId, sessionId] = drillDownKey.split(":");
-    getVsCodeApi().postMessage({
-      type: "history:getSession",
-      sessionId,
-      agentId,
-    });
-  }, [drillDownKey]);
-
-  // Listen for history:sessionDetail responses from the extension host.
-  // Inject messages into messageStore and register a SessionInfoDTO so
-  // SessionChatContainer's useMessages()/useSessionInfo() return values.
-  useEffect(() => {
-    const handler = (e: MessageEvent) => {
-      const msg = e.data;
-      if (msg?.type !== "history:sessionDetail") return;
-      const sessionId = msg.session?.sessionId as string | undefined;
-      const agentId = msg.session?.agentId as string | undefined;
-      const messages = msg.messages as
-        | import("../types").ChatMessage[]
-        | undefined;
-      if (!sessionId || !agentId || !messages) return;
-      const key = sessionKeyOf(agentId, sessionId);
-      if (drillDownKeyRef.current !== key) return;
-
-      const title =
-        (msg.session?.title as string | undefined) ?? sessionId.slice(0, 8);
-      useMessageStore.getState().setMessages(key, messages);
-
-      // Ensure session exists in the store so it appears in the Overview.
-      // Use setSessionInfo (upsert) so we don't lose existing session info.
-      // Do NOT call addTab here — the Overview derives its list from sessionInfoMap,
-      // and addTab would mutate tabOrder/activeSessionKey unexpectedly.
-      useSessionStore.getState().setSessionInfo(agentId, sessionId, {
-        sessionId,
-        agentId,
-        title,
-        status: "idle",
-        lastTurnOutcome: null,
-        isStreaming: false,
-        tokenUsage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
-        createdAt:
-          (msg.session?.createdAt as string | undefined) ??
-          new Date().toISOString(),
-        lastResponseAt: null,
-        sessionColor: getSessionColor(key),
-      });
-    };
-    window.addEventListener("message", handler);
-    return () => window.removeEventListener("message", handler);
-  }, []);
 
   // Close drill-down: simply hide the history view.
   // Do NOT remove messages or tabs — the session should remain in the Overview
@@ -185,6 +112,15 @@ export function MiniChatContainer({
   }, []);
 
   // ── Send / Cancel ───────────────────────────────────────────────────
+  //
+  // When drill-down is active (history view), the composer should send to the
+  // drill-down session, not the active-session store key.  Both resolve to the
+  // same session when the user is not in drill-down mode.
+  const sendAgentId = drillDownKey ? drillDownKey.split(":")[0] : activeAgentId;
+  const sendSessionId = drillDownKey
+    ? drillDownKey.split(":")[1]
+    : activeSessionId;
+
   const sendMessage = useCallback(
     (
       text: string,
@@ -194,12 +130,12 @@ export function MiniChatContainer({
     ) => {
       const resolvedTargets: SendTarget[] = targets?.length
         ? targets
-        : activeAgentId && activeSessionId
+        : sendAgentId && sendSessionId
           ? [
               {
-                agentId: activeAgentId,
-                sessionId: activeSessionId,
-                label: activeAgentId,
+                agentId: sendAgentId,
+                sessionId: sendSessionId,
+                label: sendAgentId,
                 status: "idle" as const,
               },
             ]
@@ -213,18 +149,18 @@ export function MiniChatContainer({
         mode,
       });
     },
-    [activeAgentId, activeSessionId]
+    [sendAgentId, sendSessionId]
   );
 
   const cancelTurn = useCallback(
     (_targets?: SendTarget[]) => {
       getVsCodeApi().postMessage({
         type: "cancelTurn",
-        agentId: activeAgentId,
-        sessionId: activeSessionId,
+        agentId: sendAgentId,
+        sessionId: sendSessionId,
       });
     },
-    [activeAgentId, activeSessionId]
+    [sendAgentId, sendSessionId]
   );
 
   const handleSend = useCallback(
@@ -371,9 +307,13 @@ export function MiniChatContainer({
           onCloseSelected={handleOverviewCloseSelected}
           onExitSelectionMode={handleOverviewExitSelectionMode}
           // FR-12: expand icon / double-click on an Overview card drills down.
-          onExpand={(sessionId, agentId) =>
-            setDrillDownKey(sessionKeyOf(agentId, sessionId))
-          }
+          // Also set the active session so the Composer sends to the correct
+          // session and reflects the right status.
+          onExpand={(sessionId, agentId) => {
+            const key = sessionKeyOf(agentId, sessionId);
+            setDrillDownKey(key);
+            useSessionStore.getState().setActiveSession(key);
+          }}
         />
       </div>
 
@@ -417,10 +357,11 @@ export function MiniChatContainer({
       <Composer
         onSend={handleSend}
         onCancel={handleCancel}
-        disabled={!activeSessionId}
+        disabled={!sendAgentId || !sendSessionId}
         status={
-          (useSessionStore.getState().sessionInfoMap[activeSessionKey ?? ""]
-            ?.status as
+          (useSessionStore.getState().sessionInfoMap[
+            drillDownKey ?? activeSessionKey ?? ""
+          ]?.status as
             | "idle"
             | "running"
             | "cancelling"

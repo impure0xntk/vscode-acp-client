@@ -102,7 +102,16 @@ export function handleSessionSnapshot(data: SessionSnapshot): void {
     return next;
   });
 
-  useMessageStore.getState().setMessages(key, messages);
+  const existingMessages = useMessageStore.getState().perSession[key];
+  if (messages.length === 0 && existingMessages && existingMessages.length > 0) {
+    log.info("handleSessionSnapshot: skipping empty snapshot for existing session", {
+      key,
+      existingCount: existingMessages.length,
+    });
+    // Still update sessionInfo/metadata even when skipping messages
+  } else {
+    useMessageStore.getState().setMessages(key, messages);
+  }
 
   const dto = toSessionInfoDTO({
     sessionId: data.sessionId,
@@ -131,10 +140,14 @@ export function handleSessionSnapshot(data: SessionSnapshot): void {
       data.sessionId,
       data.sessionId.slice(0, 8)
     );
+    // addTab already sets activeSessionKey to the new key.
+    // setPendingSnapshotKey is only needed for new sessions as a
+    // fallback for handleSetTabs when setTabs arrives before the snapshot.
+    // Do NOT call setActiveSession or setPendingSnapshotKey for existing
+    // sessions — sendTabsNow pushes snapshots for ALL sessions, and doing
+    // so would overwrite the user's active session with the last snapshot.
+    setPendingSnapshotKey(key);
   }
-
-  sessionStore.setActiveSession(key);
-  setPendingSnapshotKey(key);
 }
 
 export function handleSessionInfo(data: SessionInfo): void {

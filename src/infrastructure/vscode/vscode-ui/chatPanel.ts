@@ -81,7 +81,7 @@ export class ChatPanel {
       };
     },
   };
-  private _disposeListeners = new Set<() => void>();
+  protected _disposeListeners = new Set<() => void>();
 
   protected panel: WebviewPanel | null = null;
   protected ui: UIAPI;

@@ -95,6 +95,10 @@ export class ApplicationBuilder {
       taskBoardStore,
       pushUserMessage: (agentId, sessionId, message) => {
         chatPanelRef.get()?.pushMessage(agentId, sessionId, message);
+        // Also broadcast to all registered panels (MiniChatPanel) via
+        // the session-state bridge so user-message echoes appear in
+        // every open webview — not just ChatPanel.
+        ChatPanel._stateBridge?.pushMessage(agentId, sessionId, message);
       },
     });
     this._supervisorOrchestrator = new SupervisorOrchestrator({

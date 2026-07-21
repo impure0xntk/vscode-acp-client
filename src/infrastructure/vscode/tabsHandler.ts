@@ -139,13 +139,25 @@ function sendTabsNow(
 
   // Push full session snapshots so every panel's webview messageStore
   // has messages for the drill-down / restore use case.
+  //
+  // IMPORTANT: Only push snapshots for sessions that actually have messages
+  // in the extension host's SessionState.  Messages are stored in the webview's
+  // messageStore via streaming chunks (pushStreamChunk → appendStreamChunk),
+  // but the extension host's AppSessionInfo.messages may be empty if the
+  // streaming path didn't go through orchestrator.appendMessage().
+  // Pushing an empty snapshot would overwrite the webview's message store
+  // and make the user's conversation history disappear.
   for (const agentStatus of orchestrator.getAllAgents()) {
     for (const s of agentStatus.sessions) {
       const info = orchestrator.getSessionInfo(
         agentStatus.agentId,
         s.sessionId
       );
-      if (info) {
+      // Only push snapshot if the session has messages in the extension host.
+      // Empty snapshots are harmful — they'd wipe out the webview's message store.
+      // New sessions without messages don't need snapshots either (setTabs handles
+      // the tab creation, and messages arrive via streaming).
+      if (info && info.messages.length > 0) {
         bridge.pushSessionSnapshot(agentStatus.agentId, s.sessionId, info);
       }
     }

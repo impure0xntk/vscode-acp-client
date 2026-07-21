@@ -3,6 +3,17 @@ import { ChatPanel } from "./chatPanel";
 import type { PlatformUri } from "../../../platform/types";
 import { VscodeUIAPI } from "../../../platform/adapters/vscode";
 
+// MiniChatPanel uses the same webview bundle as ChatPanel (dist/webview.js) but
+// in "mini" layout mode.  Both layouts share the same Zustand stores — no state
+// sync bridge needed between webview instances.
+//
+// However, the extension-side SessionStateBridge must still be wired so that
+// orchestrator events (sendTabs, session/snapshot, session/message, etc.) reach
+// the MiniChatPanel webview.  This is done via ChatPanel._stateBridge.register()
+// and ChatPanel._stateSyncHandler.registerPanel() in createPanel().
+// These calls were missing before 2026-07-21, causing MiniChat to show no sessions
+// and not reflect sent messages.
+
 /**
  * MiniChat panel — now loads the SAME webview bundle (dist/webview.js)
  * as the full ChatPanel, but sends an initial "ui:setLayoutMode" message
@@ -63,7 +74,16 @@ export class MiniChatPanel extends ChatPanel {
     this.panel.onDidDispose(() => {
       MiniChatPanel.miniInstance = null;
       this.panel = null;
+      // Notify bridge listeners (SessionStateBridge auto-unregisters).
+      for (const fn of this._disposeListeners) fn();
     });
+
+    // Register with the state bridge so all orchestrator events reach
+    // this panel automatically.
+    ChatPanel._stateBridge?.register(this);
+
+    // Register with state sync handler for multi-webview state sync
+    ChatPanel._stateSyncHandler?.registerPanel(this.panel);
   }
 
   protected distUri(filename: string): PlatformUri {
