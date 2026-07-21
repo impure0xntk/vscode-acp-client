@@ -8,6 +8,11 @@ import { getPanelMode } from "../components/modes/panelModeStrategy";
 // Zustand → useSyncExternalStore → infinite re-render loops.
 
 export interface UiStateStore {
+  /** Layout mode: "full" = tab-bar + session-view + composer + overlay panels,
+   *  "mini" = overview-only + composer + drill-down (for sidebar/compact view).
+   *  Both modes share the same Zustand stores — no state sync needed. */
+  layoutMode: "full" | "mini";
+
   panelMode: PanelModeStrategy;
 
   /** Direction the pinned sessions are split: side-by-side (horizontal) or
@@ -25,6 +30,8 @@ export interface UiStateStore {
   overviewExpandedSessions: string[];
   overviewSelectedSessionIds: string[];
   overviewSelectionMode: boolean;
+
+  setLayoutMode: (mode: "full" | "mini") => void;
 
   setPanelMode: (mode: "unified" | "supervisor") => void;
   getPanelMode: () => PanelModeStrategy;
@@ -47,6 +54,8 @@ export interface UiStateStore {
 }
 
 export const useUiStateStore = create<UiStateStore>((set) => ({
+  layoutMode: "full",
+
   panelMode: getPanelMode("unified"),
 
   splitDirection: "horizontal",
@@ -59,6 +68,11 @@ export const useUiStateStore = create<UiStateStore>((set) => ({
     ),
 
   setSplitRatios: (ratios: number[]) => set({ splitRatios: ratios }),
+
+  setLayoutMode: (mode) =>
+    set((state) =>
+      state.layoutMode === mode ? state : { layoutMode: mode }
+    ),
 
   setPanelMode: (mode) =>
     set((state) =>

@@ -411,19 +411,10 @@ describe("MiniChatContainer history drill-down", () => {
     expect(tabOrder).toContain(KEY);
   });
 
-  it("clears messages and session info on unmount", () => {
-    useSessionStore.getState().bulkSetTabs({
-      tabs: [
-        { agentId: "claude", sessionId: "session-1", title: "My Session" },
-      ],
-      sessionInfoMap: {
-        "claude:session-1": mkInfo("claude", "session-1", "My Session"),
-      },
-      connectedAgents: [
-        { agentId: "claude", name: "Claude", color: "#3b82f6" },
-      ],
-    });
-    useSessionStore.getState().setActiveSession(KEY);
+  it("preserves pre-existing session on drill-down close and unmount", () => {
+    // This test verifies that pre-existing sessions (already in tabOrder)
+    // are NOT removed when drill-down closes or component unmounts.
+    seedSessions();
 
     const { container, unmount } = render(<MiniChatContainer />);
     const card = container.querySelector(".session-overview-card");
@@ -436,12 +427,20 @@ describe("MiniChatContainer history drill-down", () => {
     expect(useMessageStore.getState().perSession[KEY]).toHaveLength(2);
     expect(useSessionStore.getState().sessionInfoMap[KEY]).toBeDefined();
 
+    // Close drill-down
+    const closeBtn = screen.getByLabelText("Close history");
+    fireEvent.click(closeBtn);
+    expect(screen.queryByText("History")).toBeNull();
+
+    // Session should still exist after closing drill-down
+    expect(useSessionStore.getState().tabOrder).toContain(KEY);
+    expect(useSessionStore.getState().sessionInfoMap[KEY]).toBeDefined();
+
     unmount();
 
-    // After unmount, messages and session info should be cleared.
-    expect(useMessageStore.getState().perSession[KEY] ?? []).toHaveLength(0);
-    expect(useSessionStore.getState().sessionInfoMap[KEY]).toBeUndefined();
-    expect(useSessionStore.getState().tabOrder).not.toContain(KEY);
+    // After unmount, pre-existing session should still exist
+    expect(useSessionStore.getState().tabOrder).toContain(KEY);
+    expect(useSessionStore.getState().sessionInfoMap[KEY]).toBeDefined();
   });
 
   it("shows History label when drill-down is active", () => {
@@ -495,10 +494,6 @@ describe("MiniChatContainer history drill-down", () => {
     const closeBtn = screen.getByLabelText("Close history");
     fireEvent.click(closeBtn);
 
-    // Messages for the drill-down session should have been cleared.
     expect(screen.queryByText("History")).toBeNull();
-    // expect(
-    //   useMessageStore.getState().perSession[KEY] ?? []
-    // ).toHaveLength(0);
   });
 });

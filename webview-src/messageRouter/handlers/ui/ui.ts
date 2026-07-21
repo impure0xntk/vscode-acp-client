@@ -32,6 +32,11 @@ interface ComposerFocusMessage {
   type: "composer:focus";
 }
 
+interface SetLayoutModeMessage {
+  type: "ui:setLayoutMode";
+  mode: "full" | "mini";
+}
+
 export function handleSessionOverviewState(
   data: SessionOverviewStateMessage
 ): void {
@@ -61,6 +66,11 @@ export function handleUnifiedChatSetSplitDirection(
 export function handlePanelModeSet(data: PanelModeSetMessage): void {
   log.info("panelMode:set", { mode: data.mode });
   useUiStateStore.getState().setPanelMode(data.mode);
+}
+
+export function handleSetLayoutMode(data: SetLayoutModeMessage): void {
+  log.info("ui:setLayoutMode", { mode: data.mode });
+  useUiStateStore.getState().setLayoutMode(data.mode);
 }
 
 export function handleComposerFocus(_data: ComposerFocusMessage): void {

@@ -272,32 +272,85 @@ export const UnifiedMode = React.memo(function UnifiedMode({
   // (status became "running") or reached a terminal state (completed/error/
   // cancelled).  Previously only "running" was checked, causing sessions that
   // respond too fast (skipping "running") to stay stuck on "Sending…" forever.
-  // Use a ref to always read the latest pendingMap inside the subscription.
+  //
+  // Race condition fix: when status becomes "running", add a small delay
+  // before clearing pending so the UI has time to render "Sending…".
+  // For terminal states, clear immediately.
   const pendingMapRef = useRef(pendingMap);
   pendingMapRef.current = pendingMap;
+  const turnStartedAtMapRef = useRef(turnStartedAtMap);
+  turnStartedAtMapRef.current = turnStartedAtMap;
+  const pendingTimeoutsRef = useRef<
+    Record<string, ReturnType<typeof setTimeout>>
+  >({});
+
   useEffect(() => {
     return useSessionStore.subscribe((state) => {
       const infoMap = state.sessionInfoMap;
       const currentPending = pendingMapRef.current;
+      const currentTurnStartedAt = turnStartedAtMapRef.current;
       let pendingChanged = false;
       const nextPending = { ...currentPending };
+      let turnStartedAtChanged = false;
+      const nextTurnStartedAt = { ...currentTurnStartedAt };
+
       for (const [key, isPending] of Object.entries(currentPending)) {
         if (!isPending) continue;
         const info = infoMap[key];
         if (!info) continue;
-        const shouldClear =
-          info.status === "running" ||
+
+        const isTerminal =
           info.status === "idle" ||
           info.status === "completed" ||
           info.status === "error" ||
           info.status === "cancelled";
-        if (shouldClear) {
+        const isRunning = info.status === "running";
+
+        if (isTerminal) {
+          // Terminal state: clear immediately
           nextPending[key] = false;
           pendingChanged = true;
+          // Also clear turnStartedAtMap for this session
+          if (key in nextTurnStartedAt) {
+            delete nextTurnStartedAt[key];
+            turnStartedAtChanged = true;
+          }
+          // Clear any pending timeout for this key
+          const timeout = pendingTimeoutsRef.current[key];
+          if (timeout) {
+            clearTimeout(timeout);
+            delete pendingTimeoutsRef.current[key];
+          }
+        } else if (isRunning) {
+          // Status became "running": add a small delay before clearing pending
+          // to allow "Sending…" to render. Only set timeout if not already set.
+          if (!pendingTimeoutsRef.current[key]) {
+            const timeout = setTimeout(() => {
+              setPendingMap((prev) => {
+                const next = { ...prev };
+                next[key] = false;
+                return next;
+              });
+              delete pendingTimeoutsRef.current[key];
+            }, 150);
+            pendingTimeoutsRef.current[key] = timeout;
+          }
         }
       }
+
       if (pendingChanged) setPendingMap(nextPending);
+      if (turnStartedAtChanged) setTurnStartedAtMap(nextTurnStartedAt);
     });
+  }, []);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      for (const timeout of Object.values(pendingTimeoutsRef.current)) {
+        clearTimeout(timeout);
+      }
+      pendingTimeoutsRef.current = {};
+    };
   }, []);
 
   const scrollToMessageRef = useRef<((id: string) => void) | undefined>(

@@ -34,6 +34,14 @@ import {
   handleSessionCompleted as _sessionCompleted,
 } from "./session/snapshot";
 
+// -- Session: state sync ------------------------------------------------------
+import {
+  handleStateSyncResponse as _stateSyncResponse,
+  handleStateUpdate as _stateUpdate,
+  handleStateMutate as _stateMutate,
+} from "./session/stateSync";
+export type { StateSyncResponse, StateUpdate, StateMutate } from "./session/stateSync";
+
 // -- Session: notification / fileWrite ----------------------------------------
 import {
   handleSessionNotification as _sessionNotification,
@@ -84,6 +92,7 @@ import {
   handleUnifiedChatSetSplitDirection as _splitDir,
   handlePanelModeSet as _panelMode,
   handleComposerFocus as _composerFocus,
+  handleSetLayoutMode as _setLayoutMode,
 } from "./ui/ui";
 
 // -- Context / Attach ---------------------------------------------------------
@@ -153,6 +162,7 @@ export function setupAllHandlers(router: MessageRouter): void {
     "unifiedChat:setSplitDirection": _splitDir as unknown as MessageHandler,
     "panelMode:set": _panelMode as unknown as MessageHandler,
     "composer:focus": _composerFocus as unknown as MessageHandler,
+    "ui:setLayoutMode": _setLayoutMode as unknown as MessageHandler,
 
     // -- Mesh -----------------------------------------------------------------
     "mesh:status": _meshStatus as unknown as MessageHandler,
@@ -181,6 +191,11 @@ export function setupAllHandlers(router: MessageRouter): void {
     "fix:prepare": _fixPrepare as unknown as MessageHandler,
     resolvedExternalFile: _resolvedExt as unknown as MessageHandler,
     attachContext: _attachCtx as unknown as MessageHandler,
+
+    // -- State Sync ----------------------------------------------------------
+    "state/syncResponse": _stateSyncResponse as unknown as MessageHandler,
+    "state/update": _stateUpdate as unknown as MessageHandler,
+    "state/mutate": _stateMutate as unknown as MessageHandler,
 
     // -- File Edit (stale check) ---------------------------------------------
     // hashCheckResult is emitted by the extension in response to

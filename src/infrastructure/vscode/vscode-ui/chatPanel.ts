@@ -11,6 +11,7 @@ import type { LogEntrySink } from "../../../platform/backends/log-entry-sink-bac
 import { LogLevelValue } from "../../../platform/backends/types";
 import { BatchedPathResolver } from "../../../extension/pathResolver";
 import type { SessionStateBridge } from "./sessionStateBridge";
+import type { StateSyncHandler } from "../stateSyncHandler";
 
 export interface SessionSnapshot {
   agentId: string;
@@ -56,6 +57,12 @@ export class ChatPanel {
    * all orchestrator events are pushed to every open panel automatically.
    */
   static _stateBridge: SessionStateBridge | null = null;
+
+  /**
+   * State sync handler for multi-webview state synchronization.
+   * Set by extension.ts after application services are built.
+   */
+  static _stateSyncHandler: StateSyncHandler | null = null;
 
   /**
    * Accessor for the onDidDispose event so the bridge can listen.
@@ -107,6 +114,11 @@ export class ChatPanel {
   /** Exposed for subclass (MiniChatPanel) to forward raw messages to handlers. */
   protected get onDidReceiveMessageEmitter() {
     return this._onDidReceiveMessage;
+  }
+
+  /** Get the underlying webview panel for state sync registration. */
+  get webviewPanel(): WebviewPanel | null {
+    return this.panel;
   }
 
   /** Extension-side logger — set by extension.ts after construction. */
@@ -212,6 +224,9 @@ export class ChatPanel {
     // Register with the state bridge so all orchestrator events reach
     // this panel automatically.
     ChatPanel._stateBridge?.register(this);
+
+    // Register with state sync handler for multi-webview state sync
+    ChatPanel._stateSyncHandler?.registerPanel(this.panel);
   }
 
   protected buildHtmlForCreation(): string {

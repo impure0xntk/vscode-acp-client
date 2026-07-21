@@ -2,12 +2,12 @@ import React, { useCallback, useRef, useEffect, useState } from "react";
 import { useShallow } from "zustand/shallow";
 import { useSessionStore } from "../../../store/sessionStore";
 import type { SessionStoreState } from "../../../store/sessionStore";
-import { useMessageStore } from "../../../store/messageStore";
 import { getLogger } from "../../../lib/logger";
 import { SessionChatContainer } from "../SessionChatContainer";
 import { SessionHeader } from "../SessionHeader";
 import { SessionStatusBar } from "../SessionStatusBar";
 import { useSessionInfo } from "../../../hooks/useSessionInfo";
+import { useMultipleMessages } from "../../../hooks/useMultipleMessages";
 import type { ChatMessage } from "../../../types";
 import type { QueuedPrompt } from "../../../types";
 import type { TurnOutcome } from "../../primitives/StatusIcon";
@@ -271,6 +271,8 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
     visibleKeys.push(focusKey);
   }
 
+  const { messagesMap } = useMultipleMessages(visibleKeys);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const dragStateRef = useRef<{
     dividerIndex: number;
@@ -355,8 +357,6 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
     );
   }
 
-  const allMessages = useMessageStore.getState().perSession;
-
   const effectiveRatios = computeEffectiveRatios(
     splitRatios,
     visibleKeys.length
@@ -389,7 +389,7 @@ export const SplitSessionLayout = React.memo(function SplitSessionLayout({
               splitTotal={visibleKeys.length}
               splitRatios={effectiveRatios}
               splitDirection={splitDirection}
-              messages={allMessages[key] ?? []}
+              messages={messagesMap[key] ?? []}
               tabTitles={tabTitles}
               turnStartedAtMap={turnStartedAtMap}
               pendingMap={pendingMap}

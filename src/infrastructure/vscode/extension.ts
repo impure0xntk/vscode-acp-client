@@ -5,6 +5,7 @@ import type { Application } from "./ApplicationBuilder";
 import { ChatPanel } from "./vscode-ui/chatPanel";
 import { SessionStateBridge } from "./vscode-ui/sessionStateBridge";
 import { ChatPresenter } from "./vscode-ui/presenter";
+import { StateSyncHandler } from "./stateSyncHandler";
 import {
   getChatPanel,
   setChatPanel,
@@ -41,6 +42,7 @@ const log = getLogger("extension");
 let extensionContext: vscode.ExtensionContext;
 let app: Application;
 let bridge: SessionStateBridge;
+let stateSyncHandler: StateSyncHandler;
 const presenter = new ChatPresenter();
 
 // -- Helpers: build CommandRegDeps from Application + presenters ---------------
@@ -81,7 +83,8 @@ function buildCommandDeps(): CommandRegDeps {
         resolveSymbolByNameFn,
         persistentHistoryArg,
         meshOrchestratorArg,
-        supervisorOrchestratorArg
+        supervisorOrchestratorArg,
+        stateSyncHandler
       ),
     pickConnectedAgent: (ph: string) =>
       pickConnectedAgent(app.orchestrator, ph),
@@ -132,7 +135,8 @@ function wireChatPanelEventsLocal(): void {
     (name: string) => resolveSymbolByName(p, name),
     app.persistentHistory ?? undefined,
     app.meshOrchestrator ?? undefined,
-    app.supervisorOrchestrator ?? undefined
+    app.supervisorOrchestrator ?? undefined,
+    stateSyncHandler
   );
 }
 
@@ -155,6 +159,15 @@ export async function activate(
   builder.buildAll({ get: () => getChatPanel() });
   app = builder.build();
   app.orchestrator.setSessionHistoryStore(app.historyStore);
+
+  // Create state sync handler for multi-webview state synchronization
+  stateSyncHandler = new StateSyncHandler(
+    app.orchestrator,
+    app.registry,
+    presenter,
+    bridge
+  );
+  ChatPanel._stateSyncHandler = stateSyncHandler;
 
   // Init persistent history off the critical path
   if (app.persistentHistory) {

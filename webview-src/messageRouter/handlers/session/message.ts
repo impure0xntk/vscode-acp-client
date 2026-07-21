@@ -49,13 +49,11 @@ export function handleSessionMessage(data: SessionMessageData): void {
           before: msg.toolCalls.length,
           after: dedupedTCs.length,
         });
-        useMessageStore
-          .getState()
-          .appendMessage(msgKey, {
-            ...msg,
-            attachments,
-            toolCalls: dedupedTCs,
-          });
+        useMessageStore.getState().appendMessage(msgKey, {
+          ...msg,
+          attachments,
+          toolCalls: dedupedTCs,
+        });
         return;
       }
     }

@@ -32,7 +32,20 @@ import type {
 // The drill-down history reuses SessionChatContainer directly (the same
 // component UnifiedMode uses inside SplitSessionLayout) to avoid divergence
 // and keep rendering logic DRY.
-export function MiniChatContainer(): React.ReactElement {
+//
+// When standalone={false} (default), this component is rendered inside
+// AppContainer's single webview and shares the same Zustand stores —
+// no state sync request is needed. When standalone={true} (legacy
+// separate webview), it requests state sync from the extension host.
+export interface MiniChatContainerProps {
+  /** Whether this is a standalone webview (separate JS bundle).
+   *  When false, runs inside AppContainer — no state sync needed. */
+  standalone?: boolean;
+}
+
+export function MiniChatContainer({
+  standalone = true,
+}: MiniChatContainerProps): React.ReactElement {
   const { activeSessionKey, connectedAgents } = useSessionStore(
     useShallow((s: SessionStoreState) => ({
       activeSessionKey: s.activeSessionKey,
@@ -78,23 +91,37 @@ export function MiniChatContainer(): React.ReactElement {
     return () => observer.disconnect();
   }, []);
 
+  // Request history for the active session on mount if message store is empty.
+  // This handles the race condition where session snapshots are sent by the
+  // extension before the MiniChat webview is fully loaded and ready to receive.
+  useEffect(() => {
+    if (!activeSessionKey) return;
+    const messages = useMessageStore.getState().perSession[activeSessionKey];
+    if (messages && messages.length > 0) return; // Already have messages
+
+    const [agentId, sessionId] = activeSessionKey.split(":");
+    getVsCodeApi().postMessage({
+      type: "history:getSession",
+      sessionId,
+      agentId,
+    });
+  }, [activeSessionKey]);
+
+  // Request full state sync from extension host on mount (standalone mode only).
+  // When rendered inside AppContainer, the single webview shares Zustand stores
+  // directly — no sync needed.
+  useEffect(() => {
+    if (!standalone) return;
+    const vscode = getVsCodeApi();
+    vscode.postMessage({ type: "state/syncRequest" });
+  }, [standalone]);
+
   // ── Drill-down history (FR-12 ~ FR-15) ─────────────────────────────
   // null = no drill-down (FR-5 lightweight state). When set, SessionChatContainer
   // is rendered for that session key.
   const [drillDownKey, setDrillDownKey] = useState<string | null>(null);
   const drillDownKeyRef = useRef<string | null>(null);
   drillDownKeyRef.current = drillDownKey;
-
-  // Track keys whose messages/sessionInfo were injected by the drill-down so
-  // we can clean them up on close/unmount. This owns the lifecycle of
-  // history-only sessions that would otherwise leak in the store.
-  const drilledKeysRef = useRef<Set<string>>(new Set());
-
-  const cleanupDrillDownKey = useCallback((key: string) => {
-    useMessageStore.getState().setMessages(key, []);
-    useSessionStore.getState().removeTab(key);
-    drilledKeysRef.current.delete(key);
-  }, []);
 
   // Request history messages when a drill-down opens.
   useEffect(() => {
@@ -126,6 +153,11 @@ export function MiniChatContainer(): React.ReactElement {
       const title =
         (msg.session?.title as string | undefined) ?? sessionId.slice(0, 8);
       useMessageStore.getState().setMessages(key, messages);
+
+      // Ensure session exists in the store so it appears in the Overview.
+      // Use setSessionInfo (upsert) so we don't lose existing session info.
+      // Do NOT call addTab here — the Overview derives its list from sessionInfoMap,
+      // and addTab would mutate tabOrder/activeSessionKey unexpectedly.
       useSessionStore.getState().setSessionInfo(agentId, sessionId, {
         sessionId,
         agentId,
@@ -140,28 +172,17 @@ export function MiniChatContainer(): React.ReactElement {
         lastResponseAt: null,
         sessionColor: getSessionColor(key),
       });
-      useSessionStore.getState().addTab(agentId, sessionId, title);
-      drilledKeysRef.current.add(key);
     };
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
   }, []);
 
-  // Clean up all drill-down sessions on unmount.
-  useEffect(() => {
-    return () => {
-      for (const key of drilledKeysRef.current) {
-        cleanupDrillDownKey(key);
-      }
-      drilledKeysRef.current.clear();
-    };
-  }, [cleanupDrillDownKey]);
-
+  // Close drill-down: simply hide the history view.
+  // Do NOT remove messages or tabs — the session should remain in the Overview
+  // (FR-13: closing returns to lightweight state, not session deletion).
   const closeDrillDown = useCallback(() => {
-    const key = drillDownKeyRef.current;
     setDrillDownKey(null);
-    if (key) cleanupDrillDownKey(key);
-  }, [cleanupDrillDownKey]);
+  }, []);
 
   // ── Send / Cancel ───────────────────────────────────────────────────
   const sendMessage = useCallback(
@@ -316,6 +337,8 @@ export function MiniChatContainer(): React.ReactElement {
   );
 
   // Drill-down session info for SessionChatContainer.
+  // Use optional chaining with defaults so the drill-down stays rendered
+  // even if sessionInfoMap temporarily lacks the entry (e.g. during setTabs).
   const drillDownInfo = drillDownKey
     ? useSessionStore.getState().sessionInfoMap[drillDownKey]
     : undefined;
@@ -356,8 +379,11 @@ export function MiniChatContainer(): React.ReactElement {
 
       {/* FR-13: drill-down history renders only when explicitly expanded.
           Reuses SessionChatContainer (same component as UnifiedMode) so the
-          rendering pipeline stays DRY and bug-free. */}
-      {drillDownKey && drillDownInfo && (
+          rendering pipeline stays DRY and bug-free.
+          Render when drillDownKey exists; provide defaults for status/color
+          so the chat doesn't disappear if sessionInfoMap temporarily lacks
+          the entry (e.g. during setTabs update from extension). */}
+      {drillDownKey && (
         <div className="flex-1 min-h-0 flex flex-col border-t border-border">
           <div className="flex items-center justify-between px-2 py-1 bg-bg-secondary shrink-0">
             <span className="text-[10px] text-fg-secondary font-medium">
@@ -376,7 +402,7 @@ export function MiniChatContainer(): React.ReactElement {
             sessionKey={drillDownKey}
             sessionId={drillSessionId}
             agentId={drillAgentId}
-            status={drillDownInfo.status}
+            status={drillDownInfo?.status ?? "idle"}
             isActive={true}
             color={drillDownColor}
             onAttachDiff={(attachment) => {

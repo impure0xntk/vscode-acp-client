@@ -257,4 +257,41 @@ export class ChatPresenter {
     this.agentInfoMap = {};
     this.sessionInfoMap = {};
   }
+
+  // Getters for StateSyncHandler to access canonical state
+  getWorkspaceRoot(): string | null {
+    return this.workspaceRoot;
+  }
+
+  getConnectedAgents(): Array<{ agentId: string; name: string; state: string; color?: string }> {
+    return Array.from(this.agents.values());
+  }
+
+  getWorkspaceFolders(): Array<{ name: string; path: string }> {
+    return this.workspaceFolders;
+  }
+
+  getAgentInfoMap(): Record<string, unknown> {
+    return this.agentInfoMap;
+  }
+
+  getCompletionNotification(): unknown | null {
+    // Not tracked in presenter currently
+    return null;
+  }
+
+  getSessionInfoMap(): Record<string, SessionInfoDTO> {
+    return this.sessionInfoMap;
+  }
+
+  getTabs(): TabData[] {
+    return Array.from(this.tabs.values());
+  }
+
+  getActiveSessionKey(): string | null {
+    if (this.activeAgentId && this.activeSessionId) {
+      return `${this.activeAgentId}:${this.activeSessionId}`;
+    }
+    return null;
+  }
 }

@@ -4,16 +4,15 @@ import type { PlatformUri } from "../../../platform/types";
 import { VscodeUIAPI } from "../../../platform/adapters/vscode";
 
 /**
- * MiniChat panel — a lightweight variant of ChatPanel that renders only the
- * Session Overview + Composer (plus an optional drill-down history). It shares
- * the same message protocol and SessionOrchestrator as the full chat panel,
- * so session state stays in sync (FR-7/FR-10/FR-15).
+ * MiniChat panel — now loads the SAME webview bundle (dist/webview.js)
+ * as the full ChatPanel, but sends an initial "ui:setLayoutMode" message
+ * to switch the webview to mini layout. Both layouts share the same
+ * Zustand stores — no state sync bridge needed.
  *
- * Differences from ChatPanel:
- * - viewId = "acp.miniChat" (separate webview instance)
+ * - viewId = "acp.miniChat" (separate webview instance for secondary sidebar)
  * - default placement is ViewColumn.Beside (does not steal the editor area)
- * - loads dist/webview.mini.js instead of dist/webview.js
- * - registers with SessionStateBridge on creation (automatic state sync)
+ * - loads dist/webview.js (same bundle as ChatPanel)
+ * - sends ui:setLayoutMode to switch to mini layout
  */
 export class MiniChatPanel extends ChatPanel {
   public static readonly viewId: string = "acp.miniChat";
@@ -47,6 +46,14 @@ export class MiniChatPanel extends ChatPanel {
 
     this.updatePanelHtml();
 
+    // Send initial layout mode message to switch webview to mini layout
+    if (this.panel) {
+      this.panel.webview.postMessage({
+        type: "ui:setLayoutMode",
+        mode: "mini",
+      });
+    }
+
     this.panel.webview.onDidReceiveMessage((data) => {
       const msg = data as Record<string, unknown>;
       this.onDidReceiveMessageEmitter.fire(msg);
@@ -56,13 +63,7 @@ export class MiniChatPanel extends ChatPanel {
     this.panel.onDidDispose(() => {
       MiniChatPanel.miniInstance = null;
       this.panel = null;
-      // onDidDispose emitter fires → bridge auto-unregisters
     });
-
-    // Register with the state bridge so session events are pushed
-    // to this panel automatically.  The bridge is set before createPanel()
-    // is called by the factory/command code.
-    ChatPanel._stateBridge?.register(this);
   }
 
   protected distUri(filename: string): PlatformUri {
@@ -79,7 +80,7 @@ export class MiniChatPanel extends ChatPanel {
       .asWebviewUri(this.distUri("webview.css"))
       .toString();
     const jsUri = p.webview
-      .asWebviewUri(this.distUri("webview.mini.js"))
+      .asWebviewUri(this.distUri("webview.js"))
       .toString();
     const csp = [
       "default-src 'none'",

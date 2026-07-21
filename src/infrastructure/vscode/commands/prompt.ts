@@ -26,6 +26,7 @@ import type { MeshOrchestrator } from "../../../domain/services/mesh-orchestrato
 import type { SupervisorOrchestrator } from "../../../domain/services/supervisor-orchestrator";
 import { getLogger } from "../../../platform/backends";
 import { getReviewPrompt } from "./review";
+import { StateSyncHandler } from "../stateSyncHandler";
 
 const execAsync = promisify(exec);
 
@@ -33,6 +34,7 @@ let _chatPanel: ChatPanel | null = null;
 let _orchestrator: SessionOrchestrator | null = null;
 let _meshOrchestrator: MeshOrchestrator | null = null;
 let _supervisorOrchestrator: SupervisorOrchestrator | null = null;
+let _stateSyncHandler: StateSyncHandler | null = null;
 
 // handlePlanMessage is imported from plan-message-handler.ts (pure, testable)
 
@@ -124,12 +126,14 @@ export function wireChatPanelEvents(
   resolveSymbolByName: (name: string) => Promise<ContextAttachmentDTO>,
   persistentHistory?: PersistentHistoryStore,
   meshOrchestrator?: MeshOrchestrator,
-  supervisorOrchestrator?: SupervisorOrchestrator
+  supervisorOrchestrator?: SupervisorOrchestrator,
+  stateSyncHandler?: StateSyncHandler
 ): void {
   _chatPanel = chatPanel;
   _orchestrator = orchestrator;
   _meshOrchestrator = meshOrchestrator ?? null;
   _supervisorOrchestrator = supervisorOrchestrator ?? null;
+  _stateSyncHandler = stateSyncHandler ?? null;
 
   if (!chatPanel) return;
 
@@ -1049,6 +1053,29 @@ export function wireChatPanelEvents(
             });
           }
         })();
+        break;
+      }
+
+      // ==================================================================
+      // State Sync messages
+      // ==================================================================
+      case "state/syncRequest": {
+        _stateSyncHandler?.handleStateSyncRequest(
+          chatPanel!.webviewPanel as unknown as import("../../../platform/ui").WebviewPanel,
+          data as { keys?: string[] }
+        );
+        break;
+      }
+      case "state/mutate": {
+        _stateSyncHandler?.handleStateMutate(
+          chatPanel!.webviewPanel as unknown as import("../../../platform/ui").WebviewPanel,
+          data as {
+            store: "session" | "message" | "ui";
+            action: string;
+            args: unknown[];
+            sourcePanelId?: string;
+          }
+        );
         break;
       }
     }

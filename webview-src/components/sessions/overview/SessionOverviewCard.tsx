@@ -217,7 +217,7 @@ export function SessionOverviewCard({
             maxItems={isExpanded ? 5 : 3}
           />
         </div>
-        <div className="w-[140px] shrink-0">
+        <div className="min-w-[180px] max-w-[280px] flex-1 shrink-0">
           <MessageHistoryPreview
             messages={recentMessages}
             maxItems={isExpanded ? 6 : 4}

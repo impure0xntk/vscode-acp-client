@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { getLogger } from "../lib/logger";
 import { removePipelineCache } from "../hooks/useMessagePipeline";
+import { useMessageStore } from "./messageStore";
 
 const log = getLogger("sessionStore");
 import type {
@@ -465,6 +466,9 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
         nextPinned = state.pinnedSessionKeys.filter((k) => k !== targetKey);
       }
 
+      // Also clear messages from messageStore for the closed session
+      useMessageStore.getState().clearSession(targetKey);
+
       return {
         ...state,
         tabOrder: nextOrder,
@@ -610,8 +614,16 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
       // arrived before the extension host's tab list was updated).  Without
       // this, bulkSetTabs performs a full replacement and drops the key,
       // leaving the UI unable to display the restored session's messages.
+      // Only preserve if the session is also in the incoming sessionInfoMap
+      // (i.e. the extension still knows about it). This prevents ghost tabs
+      // from extension-initiated closes where both tab and sessionInfo are removed.
       const incomingSet = new Set(order);
-      const preserved = state.tabOrder.filter((k) => !incomingSet.has(k));
+      const incomingInfoKeys = new Set(
+        Object.keys(params.sessionInfoMap ?? {})
+      );
+      const preserved = state.tabOrder.filter(
+        (k) => !incomingSet.has(k) && incomingInfoKeys.has(k)
+      );
       const mergedOrder =
         preserved.length > 0 ? [...order, ...preserved] : order;
 

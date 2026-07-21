@@ -83,22 +83,6 @@ const webviewBuild = {
   },
 };
 
-// MiniChat: a lightweight webview entry that renders only the Session
-// Overview + Composer (and an optional drill-down history). Shares all
-// domain stores/components with the full chat so state stays in sync.
-const miniChatBuild = {
-  ...common,
-  entryPoints: [path.join(__dirname, "webview-src", "index.mini.tsx")],
-  outfile: path.join(__dirname, "dist", "webview.mini.js"),
-  format: "iife",
-  globalName: "acpMiniChat",
-  plugins: [aliasPathPlugin()],
-  loader: {
-    ...common.loader,
-    ".css": "empty",
-  },
-};
-
 async function buildCss() {
   const input = path.join(__dirname, "webview-src", "styles", "globals.css");
   const output = path.join(__dirname, "dist", "webview.css");
@@ -119,20 +103,6 @@ async function buildJs() {
     console.log("Webview build complete: dist/webview.js");
   } catch (err) {
     console.error("Build failed:", err);
-    process.exit(1);
-  }
-
-  try {
-    const miniResults = await esbuild.build(miniChatBuild);
-
-    if (miniResults.errors.length > 0) {
-      console.error("MiniChat build errors:", miniResults.errors);
-      process.exit(1);
-    }
-
-    console.log("MiniChat build complete: dist/webview.mini.js");
-  } catch (err) {
-    console.error("MiniChat build failed:", err);
     process.exit(1);
   }
 }

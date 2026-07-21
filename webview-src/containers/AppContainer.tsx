@@ -26,6 +26,7 @@ import { useChatHandlers } from "../hooks/useChatHandlers";
 import { useOverviewHandlers } from "../hooks/useOverviewHandlers";
 import { PlanViewerOverlay } from "../components/modes/supervisor/PlanViewer";
 import { getPanelMode } from "../components/modes/panelModeStrategy";
+import { MiniChatContainer } from "./MiniChatContainer";
 import type {
   CommunicationMode,
   ContextAttachment,
@@ -33,7 +34,22 @@ import type {
 } from "../types";
 
 export function AppContainer(): React.ReactElement {
-  const log = useLogger("AppContainer");
+  const layoutMode = useUiStateStore((s) => s.layoutMode ?? "full");
+
+  // When layoutMode is "mini", render the compact MiniChat layout.
+  // Both modes share the same Zustand stores — no state sync needed.
+  // NOTE: AppContainer itself has only 1 hook (useUiStateStore).
+  // The full-mode body is in AppContainerFull to avoid React hook
+  // count mismatch errors when switching between modes.
+  if (layoutMode === "mini") {
+    return <MiniChatContainer standalone={false} />;
+  }
+
+  return <AppContainerFull />;
+}
+
+function AppContainerFull(): React.ReactElement {
+  const log = useLogger("AppContainerFull");
 
   const {
     activeSessionKey,
@@ -110,6 +126,14 @@ export function AppContainer(): React.ReactElement {
       setMeshPanelVisible(true);
     }
   }, [currentPlan?.status, setMeshPanelVisible]);
+
+  // Request full state sync from extension host on mount.
+  // This ensures UnifiedChat gets the latest state from MiniChat (or other panels)
+  // including messages, session info, UI state, etc.
+  useEffect(() => {
+    const vscode = getVsCodeApi();
+    vscode.postMessage({ type: "state/syncRequest" });
+  }, []);
 
   const sendMessage = useCallback(
     (
