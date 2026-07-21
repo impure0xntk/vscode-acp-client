@@ -380,9 +380,7 @@ describe("stepLabel", () => {
   it("returns 'Tool call' for a pre-agent step with only tool calls", () => {
     const tool: ChatDisplayItem = chatItem({
       role: "tool",
-      resolvedToolCalls: [
-        resolvedTC({ id: "t", kind: "read", title: "Read" }),
-      ],
+      resolvedToolCalls: [resolvedTC({ id: "t", kind: "read", title: "Read" })],
     });
     const step: IntermediateStep = {
       agentMessage: null,

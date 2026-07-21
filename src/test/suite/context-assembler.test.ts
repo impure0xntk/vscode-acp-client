@@ -19,7 +19,12 @@ function makeFs(): { fs: FileSystemAPI; reads: string[] } {
       },
       workspaceRoot: "/ws",
       workspaceRoots: ["/ws"],
-      stat: async () => ({ type: "file" as const, size: 0, mtime: 0, ctime: 0 }),
+      stat: async () => ({
+        type: "file" as const,
+        size: 0,
+        mtime: 0,
+        ctime: 0,
+      }),
       writeFile: async () => {},
       deleteFile: async () => {},
       readDir: async () => [],

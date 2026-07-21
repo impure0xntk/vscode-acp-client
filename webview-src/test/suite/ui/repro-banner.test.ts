@@ -23,23 +23,72 @@ function buildIsFirstOfTurn(items: PipelineItem[]): void {
 }
 
 function user(c: string): ChatDisplayItem {
-  return { type: "chat", role: "user", agentId: "a", content: c, key: nk("u"),
-    timestamp: 1, isFirstOfTurn: false, attachments: [], thinking: undefined };
+  return {
+    type: "chat",
+    role: "user",
+    agentId: "a",
+    content: c,
+    key: nk("u"),
+    timestamp: 1,
+    isFirstOfTurn: false,
+    attachments: [],
+    thinking: undefined,
+  };
 }
 function agent(c: string, o: Partial<ChatDisplayItem> = {}): ChatDisplayItem {
-  return { type: "chat", role: "agent", agentId: "a", content: c, key: nk("a"),
-    timestamp: 1, isFirstOfTurn: false, attachments: [], thinking: undefined, ...o };
+  return {
+    type: "chat",
+    role: "agent",
+    agentId: "a",
+    content: c,
+    key: nk("a"),
+    timestamp: 1,
+    isFirstOfTurn: false,
+    attachments: [],
+    thinking: undefined,
+    ...o,
+  };
 }
 function think(c: string, o: Partial<ChatDisplayItem> = {}): ChatDisplayItem {
-  return { type: "chat", role: "agent", agentId: "a", content: "", key: nk("t"),
-    timestamp: 1, isFirstOfTurn: false, attachments: [],
-    thinking: { content: c, isStreaming: false }, ...o };
+  return {
+    type: "chat",
+    role: "agent",
+    agentId: "a",
+    content: "",
+    key: nk("t"),
+    timestamp: 1,
+    isFirstOfTurn: false,
+    attachments: [],
+    thinking: { content: c, isStreaming: false },
+    ...o,
+  };
 }
 function tool(c: string, o: Partial<ChatDisplayItem> = {}): ChatDisplayItem {
-  return { type: "chat", role: "tool", agentId: "a", content: c, key: nk("tl"),
-    timestamp: 1, isFirstOfTurn: false, attachments: [], thinking: undefined,
-    resolvedToolCalls: [{ id: c, title: c, kind: "generic", status: "completed",
-      input: undefined, output: undefined, durationMs: undefined, locations: undefined, diffContent: undefined }], ...o };
+  return {
+    type: "chat",
+    role: "tool",
+    agentId: "a",
+    content: c,
+    key: nk("tl"),
+    timestamp: 1,
+    isFirstOfTurn: false,
+    attachments: [],
+    thinking: undefined,
+    resolvedToolCalls: [
+      {
+        id: c,
+        title: c,
+        kind: "generic",
+        status: "completed",
+        input: undefined,
+        output: undefined,
+        durationMs: undefined,
+        locations: undefined,
+        diffContent: undefined,
+      },
+    ],
+    ...o,
+  };
 }
 
 function snapshot(label: string, items: PipelineItem[]): void {
@@ -52,12 +101,13 @@ function snapshot(label: string, items: PipelineItem[]): void {
     latestGroup.currentStep
   );
   const finalContent = latestGroup.finalResponse
-    ? (latestGroup.finalResponse.item as ChatDisplayItem).content || "[thinking]"
+    ? (latestGroup.finalResponse.item as ChatDisplayItem).content ||
+      "[thinking]"
     : null;
   console.log(
     `[${label}] steps=${latestGroup.steps.length} final="${finalContent}" ` +
-    `currentStep=${currentStep ? (currentStep.agentMessage?.content || "[thinking]") : "null"} ` +
-    `olderSteps=${olderSteps.length} => BANNER=${olderSteps.length > 0 ? "SHOWN" : "HIDDEN"}`
+      `currentStep=${currentStep ? currentStep.agentMessage?.content || "[thinking]" : "null"} ` +
+      `olderSteps=${olderSteps.length} => BANNER=${olderSteps.length > 0 ? "SHOWN" : "HIDDEN"}`
   );
 }
 

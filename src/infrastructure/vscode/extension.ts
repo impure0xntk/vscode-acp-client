@@ -17,8 +17,15 @@ import {
   searchSymbols,
   resolveSymbolByName,
 } from "./contextHelpers";
-import { sendStatuslineInfo, scheduleStatuslineInfo } from "./statuslineHelpers";
-import { updateContext, sendOverviewPosition, sendTabsToChatPanel } from "./tabsHandler";
+import {
+  sendStatuslineInfo,
+  scheduleStatuslineInfo,
+} from "./statuslineHelpers";
+import {
+  updateContext,
+  sendOverviewPosition,
+  sendTabsToChatPanel,
+} from "./tabsHandler";
 import { pickAgentByName, pickConnectedAgent } from "./agentPicker";
 import { wireChatPanelEvents } from "./commands/prompt";
 import { applyPreset, cmdConnect } from "./presetHandler";
@@ -47,12 +54,7 @@ function buildCommandDeps(): CommandRegDeps {
     getChatPanel,
     setChatPanel,
     sendTabs: () =>
-      sendTabsToChatPanel(
-        app.orchestrator,
-        app.registry,
-        presenter,
-        bridge
-      ),
+      sendTabsToChatPanel(app.orchestrator, app.registry, presenter, bridge),
     wireChatPanelEvents: (
       panel,
       orchestrator,
@@ -83,8 +85,7 @@ function buildCommandDeps(): CommandRegDeps {
       ),
     pickConnectedAgent: (ph: string) =>
       pickConnectedAgent(app.orchestrator, ph),
-    pickAgentByName: (name?: string) =>
-      pickAgentByName(app.registry, name),
+    pickAgentByName: (name?: string) => pickAgentByName(app.registry, name),
     historyStore: app.historyStore as unknown as CommandRegDeps["historyStore"],
     persistentHistory: app.persistentHistory,
     resolveFile: (path, cwd) => resolveFile(p, path, cwd),
@@ -92,11 +93,9 @@ function buildCommandDeps(): CommandRegDeps {
     resolveDiff: () => resolveDiff(p),
     resolveProblem: (problem) => resolveProblem(p, problem),
     resolveRangeAt: (uri, range) => resolveRangeAt(p, uri, range),
-    searchFiles: (query: string, cwd?: string) =>
-      searchFiles(p, query, cwd),
+    searchFiles: (query: string, cwd?: string) => searchFiles(p, query, cwd),
     searchSymbols: (query: string) => searchSymbols(p, query),
-    resolveSymbolByName: (name: string) =>
-      resolveSymbolByName(p, name),
+    resolveSymbolByName: (name: string) => resolveSymbolByName(p, name),
     meshOrchestrator: app.meshOrchestrator ?? undefined,
     supervisorOrchestrator: app.supervisorOrchestrator ?? undefined,
   };
@@ -124,12 +123,7 @@ function wireChatPanelEventsLocal(): void {
     getChatPanel(),
     app.orchestrator,
     () =>
-      sendTabsToChatPanel(
-        app.orchestrator,
-        app.registry,
-        presenter,
-        bridge
-      ),
+      sendTabsToChatPanel(app.orchestrator, app.registry, presenter, bridge),
     (fp: string, cwd?: string) => resolveFile(p, fp, cwd),
     () => resolveSelection(p),
     () => resolveDiff(p),
@@ -188,12 +182,7 @@ export async function activate(
     diagnostics: app.platform.diagnostics,
     updateContext: () => updateContext(app.orchestrator),
     sendTabs: () =>
-      sendTabsToChatPanel(
-        app.orchestrator,
-        app.registry,
-        presenter,
-        bridge
-      ),
+      sendTabsToChatPanel(app.orchestrator, app.registry, presenter, bridge),
   });
 
   // 4. Workspace + config change listeners

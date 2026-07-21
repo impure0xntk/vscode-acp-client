@@ -40,7 +40,11 @@ export function ContextPreview({
       aria-label={`Context preview: ${label}`}
     >
       <div className="flex items-center gap-1.5 px-2 py-1 border-b border-border bg-[color-mix(in_srgb,var(--accent)_6%,transparent)]">
-        <Icon name={iconName} size="sm" className="text-[12px] shrink-0 text-fg-secondary" />
+        <Icon
+          name={iconName}
+          size="sm"
+          className="text-[12px] shrink-0 text-fg-secondary"
+        />
         <span
           className="text-[11px] font-medium text-fg-primary max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap"
           title={attachment.path}

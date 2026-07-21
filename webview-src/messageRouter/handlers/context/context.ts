@@ -85,7 +85,9 @@ export function handleFixPrepare(data: FixPrepareMessage): void {
   );
 }
 
-export function handleResolvedExternalFile(data: ResolvedExternalFileMessage): void {
+export function handleResolvedExternalFile(
+  data: ResolvedExternalFileMessage
+): void {
   const attachment = data.attachment;
   if (attachment) {
     window.dispatchEvent(

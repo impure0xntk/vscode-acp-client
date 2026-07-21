@@ -62,9 +62,7 @@ export const useUiStateStore = create<UiStateStore>((set) => ({
 
   setPanelMode: (mode) =>
     set((state) =>
-      state.panelMode.id === mode
-        ? state
-        : { panelMode: getPanelMode(mode) }
+      state.panelMode.id === mode ? state : { panelMode: getPanelMode(mode) }
     ),
 
   getPanelMode: () => getPanelMode(useUiStateStore.getState().panelMode.id),

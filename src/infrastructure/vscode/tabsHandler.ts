@@ -152,4 +152,8 @@ function sendTabsNow(
   }
 }
 
-export { updateContext, sendOverviewPosition, sendTabsToBridge as sendTabsToChatPanel };
+export {
+  updateContext,
+  sendOverviewPosition,
+  sendTabsToBridge as sendTabsToChatPanel,
+};

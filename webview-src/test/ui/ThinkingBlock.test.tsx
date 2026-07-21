@@ -20,9 +20,15 @@ describe("ThinkingBlock", () => {
     const { container } = render(<ThinkingBlock content="collapsed body" />);
     // Body is rendered but hidden via grid-rows-[0fr]; assert visibility via class.
     const body = screen.getByText("collapsed body");
-    expect(body.closest(".grid-rows-\\[0fr\\]") || container.querySelector(".grid-rows-[0fr]")).toBeTruthy();
+    expect(
+      body.closest(".grid-rows-\\[0fr\\]") ||
+        container.querySelector(".grid-rows-[0fr]")
+    ).toBeTruthy();
     fireEvent.click(screen.getByText("Thought"));
-    expect(body.closest(".grid-rows-\\[1fr\\]") || container.querySelector(".grid-rows-[1fr]")).toBeTruthy();
+    expect(
+      body.closest(".grid-rows-\\[1fr\\]") ||
+        container.querySelector(".grid-rows-[1fr]")
+    ).toBeTruthy();
   });
 
   it("is expanded on first render when defaultExpanded is true", () => {

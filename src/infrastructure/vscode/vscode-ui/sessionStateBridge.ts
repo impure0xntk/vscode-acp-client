@@ -44,11 +44,7 @@ export interface SessionStateTarget {
 
   pushStreamEnd(agentId: string, sessionId: string): void;
 
-  pushTurnActive(
-    agentId: string,
-    sessionId: string,
-    active: boolean
-  ): void;
+  pushTurnActive(agentId: string, sessionId: string, active: boolean): void;
 
   pushSessionNotification(
     agentId: string,
@@ -153,7 +149,8 @@ export class SessionStateBridge {
     message: ChatMessage,
     cwd?: string
   ): void {
-    for (const t of this.targets) t.pushMessage(agentId, sessionId, message, cwd);
+    for (const t of this.targets)
+      t.pushMessage(agentId, sessionId, message, cwd);
   }
 
   pushSessionInfo(
@@ -169,7 +166,8 @@ export class SessionStateBridge {
     sessionId: string,
     info: import("../../../application/session/types").AppSessionInfo
   ): void {
-    for (const t of this.targets) t.pushSessionSnapshot(agentId, sessionId, info);
+    for (const t of this.targets)
+      t.pushSessionSnapshot(agentId, sessionId, info);
   }
 
   pushStreamChunk(
@@ -188,8 +186,7 @@ export class SessionStateBridge {
   }
 
   pushTurnActive(agentId: string, sessionId: string, active: boolean): void {
-    for (const t of this.targets)
-      t.pushTurnActive(agentId, sessionId, active);
+    for (const t of this.targets) t.pushTurnActive(agentId, sessionId, active);
   }
 
   pushSessionNotification(

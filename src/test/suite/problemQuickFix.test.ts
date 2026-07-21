@@ -1,6 +1,9 @@
 import * as assert from "assert";
 import { describe, it } from "mocha";
-import { unwrapProblemArg, toDiagnosticProblem } from "../../infrastructure/vscode/commands/problemArg";
+import {
+  unwrapProblemArg,
+  toDiagnosticProblem,
+} from "../../infrastructure/vscode/commands/problemArg";
 
 // The Quick Fix provider (registerProblemQuickFixProvider) feeds the
 // `acp.attachProblem` handler with `[diagnostic, document.uri]`. This test

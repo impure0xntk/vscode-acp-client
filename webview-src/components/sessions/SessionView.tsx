@@ -7,7 +7,12 @@ import {
   useScrollStateStore,
   type SessionScrollState,
 } from "../../store/scrollStateStore";
-import type { ContextAttachment, SendTarget, ChatMessage, QueuedPrompt } from "../../types";
+import type {
+  ContextAttachment,
+  SendTarget,
+  ChatMessage,
+  QueuedPrompt,
+} from "../../types";
 import type { TurnOutcome } from "../primitives/StatusIcon";
 import { SplitSessionLayout } from "./layouts/SplitSessionLayout";
 

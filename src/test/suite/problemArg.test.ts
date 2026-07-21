@@ -1,6 +1,9 @@
 import * as assert from "assert";
 import { describe, it } from "mocha";
-import { unwrapProblemArg, toDiagnosticProblem } from "../../infrastructure/vscode/commands/problemArg";
+import {
+  unwrapProblemArg,
+  toDiagnosticProblem,
+} from "../../infrastructure/vscode/commands/problemArg";
 
 // Build a Markers-tree argument shape the way VS Code's Problems panel
 // (`workbench.panel.markers`) passes it to `view/item/context` commands:
@@ -45,7 +48,10 @@ describe("problemArg.unwrapProblemArg", () => {
     assert.strictEqual(uri?.fsPath, "/ws/src/app.ts");
     assert.strictEqual(kind, "marker");
     assert.ok(data && "startLineNumber" in data);
-    assert.strictEqual((data as { startLineNumber: number }).startLineNumber, 12);
+    assert.strictEqual(
+      (data as { startLineNumber: number }).startLineNumber,
+      12
+    );
   });
 
   it("resolves the Uri nested at element.marker.resource", () => {
@@ -78,7 +84,10 @@ describe("problemArg.unwrapProblemArg", () => {
       code: 2322,
     };
 
-    const { uri, data, kind } = unwrapProblemArg([diagnostic, { fsPath: "/ws/src/c.ts", scheme: "file" }]);
+    const { uri, data, kind } = unwrapProblemArg([
+      diagnostic,
+      { fsPath: "/ws/src/c.ts", scheme: "file" },
+    ]);
     assert.strictEqual(kind, "diagnostic");
     assert.strictEqual(uri?.fsPath, "/ws/src/c.ts");
     assert.ok(data && "range" in data);
@@ -102,11 +111,30 @@ describe("problemArg.toDiagnosticProblem", () => {
       message: "m",
       severity: 8,
     } as const;
-    assert.strictEqual(toDiagnosticProblem(base, "marker", "/f.ts")?.severity, "error");
-    assert.strictEqual(toDiagnosticProblem({ ...base, severity: 4 }, "marker", "/f.ts")?.severity, "warning");
-    assert.strictEqual(toDiagnosticProblem({ ...base, severity: 2 }, "marker", "/f.ts")?.severity, "info");
-    assert.strictEqual(toDiagnosticProblem({ ...base, severity: 1 }, "marker", "/f.ts")?.severity, "hint");
-    assert.strictEqual(toDiagnosticProblem({ ...base, severity: 99 }, "marker", "/f.ts")?.severity, "info");
+    assert.strictEqual(
+      toDiagnosticProblem(base, "marker", "/f.ts")?.severity,
+      "error"
+    );
+    assert.strictEqual(
+      toDiagnosticProblem({ ...base, severity: 4 }, "marker", "/f.ts")
+        ?.severity,
+      "warning"
+    );
+    assert.strictEqual(
+      toDiagnosticProblem({ ...base, severity: 2 }, "marker", "/f.ts")
+        ?.severity,
+      "info"
+    );
+    assert.strictEqual(
+      toDiagnosticProblem({ ...base, severity: 1 }, "marker", "/f.ts")
+        ?.severity,
+      "hint"
+    );
+    assert.strictEqual(
+      toDiagnosticProblem({ ...base, severity: 99 }, "marker", "/f.ts")
+        ?.severity,
+      "info"
+    );
   });
 
   it("keeps 1-based line/col from marker data", () => {
@@ -140,7 +168,10 @@ describe("problemArg.toDiagnosticProblem", () => {
   it("converts a 0-based diagnostic range to 1-based", () => {
     const problem = toDiagnosticProblem(
       {
-        range: { start: { line: 4, character: 2 }, end: { line: 6, character: 9 } },
+        range: {
+          start: { line: 4, character: 2 },
+          end: { line: 6, character: 9 },
+        },
         message: "type error",
         severity: 0,
         source: "tsc",

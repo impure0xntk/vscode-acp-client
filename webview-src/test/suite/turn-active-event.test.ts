@@ -1,9 +1,6 @@
 import * as assert from "assert";
 import { describe, it, beforeEach } from "mocha";
-import {
-  useSessionStore,
-  sessionKeyOf,
-} from "../../store/sessionStore";
+import { useSessionStore, sessionKeyOf } from "../../store/sessionStore";
 import type { SessionInfoDTO } from "../../store/sessionStore";
 import {
   handleSessionTurnActive,
@@ -80,12 +77,24 @@ describe("handleSessionTurnActive", () => {
 
     const msgKey = sessionKeyOf("agent1", "session1");
     const streaming = useMessageStore.getState().streaming[msgKey];
-    assert.strictEqual(streaming, true, "streaming must be true after active:true");
+    assert.strictEqual(
+      streaming,
+      true,
+      "streaming must be true after active:true"
+    );
 
     const info = useSessionStore.getState().sessionInfoMap[msgKey];
     assert.ok(info, "session info must exist");
-    assert.strictEqual(info.status, "running", "status must be running after active:true");
-    assert.strictEqual(info.isStreaming, true, "isStreaming must be true after active:true");
+    assert.strictEqual(
+      info.status,
+      "running",
+      "status must be running after active:true"
+    );
+    assert.strictEqual(
+      info.isStreaming,
+      true,
+      "isStreaming must be true after active:true"
+    );
   });
 
   it("sets isStreaming=false and status=idle on active:false", () => {
@@ -94,7 +103,10 @@ describe("handleSessionTurnActive", () => {
     setSessionInfo(
       "agent1",
       "session1",
-      makeSessionInfo("agent1", "session1", { status: "running", isStreaming: true })
+      makeSessionInfo("agent1", "session1", {
+        status: "running",
+        isStreaming: true,
+      })
     );
     useMessageStore.getState().setStreaming(msgKey, true);
 
@@ -106,12 +118,24 @@ describe("handleSessionTurnActive", () => {
     });
 
     const streaming = useMessageStore.getState().streaming[msgKey];
-    assert.strictEqual(streaming, false, "streaming must be false after active:false");
+    assert.strictEqual(
+      streaming,
+      false,
+      "streaming must be false after active:false"
+    );
 
     const info = useSessionStore.getState().sessionInfoMap[msgKey];
     assert.ok(info, "session info must exist");
-    assert.strictEqual(info.status, "idle", "status must be idle after active:false");
-    assert.strictEqual(info.isStreaming, false, "isStreaming must be false after active:false");
+    assert.strictEqual(
+      info.status,
+      "idle",
+      "status must be idle after active:false"
+    );
+    assert.strictEqual(
+      info.isStreaming,
+      false,
+      "isStreaming must be false after active:false"
+    );
   });
 
   it("preserves cancelling status on active:false", () => {
@@ -120,7 +144,10 @@ describe("handleSessionTurnActive", () => {
     setSessionInfo(
       "agent1",
       "session1",
-      makeSessionInfo("agent1", "session1", { status: "cancelling", isStreaming: true })
+      makeSessionInfo("agent1", "session1", {
+        status: "cancelling",
+        isStreaming: true,
+      })
     );
     useMessageStore.getState().setStreaming(msgKey, true);
 
@@ -133,7 +160,11 @@ describe("handleSessionTurnActive", () => {
 
     const info = useSessionStore.getState().sessionInfoMap[msgKey];
     assert.ok(info, "session info must exist");
-    assert.strictEqual(info.status, "cancelling", "cancelling status must be preserved");
+    assert.strictEqual(
+      info.status,
+      "cancelling",
+      "cancelling status must be preserved"
+    );
     assert.strictEqual(info.isStreaming, false, "isStreaming must be false");
   });
 

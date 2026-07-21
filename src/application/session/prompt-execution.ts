@@ -233,10 +233,7 @@ export class PromptExecution {
     }
   }
 
-  async processNextInQueue(
-    agentId: string,
-    sessionId: string
-  ): Promise<void> {
+  async processNextInQueue(agentId: string, sessionId: string): Promise<void> {
     const key = sessionKey(agentId, sessionId);
     const queue = this.deps.sessionState.getQueue(key);
     if (queue.length === 0) return;
@@ -248,8 +245,12 @@ export class PromptExecution {
     if (!sessionInfo || sessionInfo.status === "running") return;
 
     // Inject entries take priority over stack entries (FIFO within each mode).
-    const injectIdx = queue.findIndex((e) => e.status === "pending" && e.mode === "inject");
-    const next = (injectIdx >= 0 ? queue.splice(injectIdx, 1) : queue.splice(0, 1))[0]!;
+    const injectIdx = queue.findIndex(
+      (e) => e.status === "pending" && e.mode === "inject"
+    );
+    const next = (
+      injectIdx >= 0 ? queue.splice(injectIdx, 1) : queue.splice(0, 1)
+    )[0]!;
     next.status = "sending";
 
     try {

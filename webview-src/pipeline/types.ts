@@ -107,12 +107,14 @@ export interface ChatDisplayItem {
   /** ACP stopReason from session/prompt — marks this message as the final response of a turn */
   stopReason?: string;
   /** Thinking content if present */
-  thinking: {
-    content: string;
-    isStreaming: boolean;
-    /** When true, the thinking block renders expanded by default */
-    defaultExpanded?: boolean;
-  } | undefined;
+  thinking:
+    | {
+        content: string;
+        isStreaming: boolean;
+        /** When true, the thinking block renders expanded by default */
+        defaultExpanded?: boolean;
+      }
+    | undefined;
   /** True when this message is the first item of a turn — header should be shown */
   isFirstOfTurn: boolean;
   /** Extracted path candidates for inline code linking */

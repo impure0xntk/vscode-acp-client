@@ -70,7 +70,11 @@ interface MeshRemoveMemberFromTeamMessage {
   agentId: string;
 }
 
-function syncTeamSessions(team: { id: string; lead: { agentId: string; sessionId: string }; members: Array<{ agentId: string; sessionId: string }> }): void {
+function syncTeamSessions(team: {
+  id: string;
+  lead: { agentId: string; sessionId: string };
+  members: Array<{ agentId: string; sessionId: string }>;
+}): void {
   const sessionKeys = [
     sessionKeyOf(team.lead.agentId, team.lead.sessionId),
     ...team.members.map((m) => sessionKeyOf(m.agentId, m.sessionId)),
@@ -85,14 +89,18 @@ export function handleMeshStatus(data: MeshStatusMessage): void {
     for (const team of data.teams) {
       syncTeamSessions(team);
     }
-    log.debug("handleMeshStatus: synced team sessions", { teamCount: data.teams.length });
+    log.debug("handleMeshStatus: synced team sessions", {
+      teamCount: data.teams.length,
+    });
   }
 }
 
 export function handleMeshTeamCreated(data: MeshTeamCreatedMessage): void {
   useMeshStore.getState().addTeam(data.team);
   syncTeamSessions(data.team);
-  log.debug("handleMeshTeamCreated: synced team sessions", { teamId: data.team.id });
+  log.debug("handleMeshTeamCreated: synced team sessions", {
+    teamId: data.team.id,
+  });
 }
 
 export function handleMeshTaskBoard(data: MeshTaskBoardMessage): void {
@@ -103,11 +111,15 @@ export function handleMeshMessage(data: MeshMessageMessage): void {
   useMeshStore.getState().addRecentMessage(data.message);
 }
 
-export function handleMeshAgentConnected(data: MeshAgentConnectedMessage): void {
+export function handleMeshAgentConnected(
+  data: MeshAgentConnectedMessage
+): void {
   getLogger("mesh").info("agent connected", { agentId: data.agentId });
 }
 
-export function handleMeshAgentDisconnected(data: MeshAgentDisconnectedMessage): void {
+export function handleMeshAgentDisconnected(
+  data: MeshAgentDisconnectedMessage
+): void {
   useMeshStore.getState().updateAgentStatus(data.agentId, {
     state: "disconnected",
   } as Partial<import("../../../types").MeshAgentStatus>);
@@ -120,7 +132,9 @@ export function handleMeshPanelToggle(data: MeshPanelToggleMessage): void {
 export function handleMeshTeamUpdated(data: MeshTeamUpdatedMessage): void {
   useMeshStore.getState().updateTeam(data.team.id, data.team);
   syncTeamSessions(data.team);
-  log.debug("handleMeshTeamUpdated: synced team sessions", { teamId: data.team.id });
+  log.debug("handleMeshTeamUpdated: synced team sessions", {
+    teamId: data.team.id,
+  });
 }
 
 // No-ops (handled by extension host)
@@ -128,14 +142,20 @@ export function handleMeshStartTeam(_data: MeshStartTeamMessage): void {
   // No-op on webview side
 }
 
-export function handleMeshOpenTeamCreate(_data: MeshOpenTeamCreateMessage): void {
+export function handleMeshOpenTeamCreate(
+  _data: MeshOpenTeamCreateMessage
+): void {
   // No-op on webview side
 }
 
-export function handleMeshAddMemberToTeam(_data: MeshAddMemberToTeamMessage): void {
+export function handleMeshAddMemberToTeam(
+  _data: MeshAddMemberToTeamMessage
+): void {
   // No-op on webview side; extension host will send mesh:teamUpdated on success
 }
 
-export function handleMeshRemoveMemberFromTeam(_data: MeshRemoveMemberFromTeamMessage): void {
+export function handleMeshRemoveMemberFromTeam(
+  _data: MeshRemoveMemberFromTeamMessage
+): void {
   // No-op on webview side; extension host will send mesh:teamUpdated on success
 }

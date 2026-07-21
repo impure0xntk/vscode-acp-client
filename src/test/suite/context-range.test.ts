@@ -1,6 +1,9 @@
 import * as assert from "assert";
 import { describe, it } from "mocha";
-import { resolveRange, type SerializedRange } from "../../adapter/context/assembler";
+import {
+  resolveRange,
+  type SerializedRange,
+} from "../../adapter/context/assembler";
 import type { EditorAPI } from "../../platform/editor";
 import type { PlatformUri } from "../../platform/types";
 

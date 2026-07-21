@@ -74,7 +74,9 @@ export function registerConnectCommands(
     searchFiles: (
       query: string,
       cwd?: string
-    ) => Promise<{ relativePath: string; name: string; absolutePath?: string }[]>,
+    ) => Promise<
+      { relativePath: string; name: string; absolutePath?: string }[]
+    >,
     searchSymbols: (query: string) => Promise<SuggestionItem[]>,
     resolveSymbolByName: (name: string) => Promise<ContextAttachmentDTO>,
     persistentHistory?: PersistentHistoryStore,

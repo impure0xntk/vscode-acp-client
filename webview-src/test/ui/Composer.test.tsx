@@ -1,18 +1,19 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
-import { Composer, type ComposerHandle } from "../../components/composer/Composer";
+import {
+  Composer,
+  type ComposerHandle,
+} from "../../components/composer/Composer";
 import { useSessionStore, sessionKeyOf } from "../../store/sessionStore";
 import { useMeshStore } from "../../store/meshStore";
-import type {
-  ContextAttachment,
-  QueuedPrompt,
-  SendTarget,
-} from "../../types";
+import type { ContextAttachment, QueuedPrompt, SendTarget } from "../../types";
 import { createRef } from "react";
 
 const KEY = "claude:session-1";
 
-function makeAttachment(overrides: Partial<ContextAttachment> = {}): ContextAttachment {
+function makeAttachment(
+  overrides: Partial<ContextAttachment> = {}
+): ContextAttachment {
   return {
     id: "att-1",
     type: "file",
@@ -47,7 +48,9 @@ function makeQueueItem(overrides: Partial<QueuedPrompt> = {}): QueuedPrompt {
   };
 }
 
-function baseProps(overrides: Partial<React.ComponentProps<typeof Composer>> = {}) {
+function baseProps(
+  overrides: Partial<React.ComponentProps<typeof Composer>> = {}
+) {
   return {
     onSend: vi.fn(),
     onCancel: vi.fn(),
@@ -116,7 +119,14 @@ describe("Composer", () => {
     fireEvent.change(textarea, { target: { value: "  hello world  " } });
     fireEvent.keyDown(textarea, { key: "Enter", shiftKey: false });
     expect(onSend).toHaveBeenCalledTimes(1);
-    expect(onSend).toHaveBeenCalledWith("hello world", [], undefined, null, undefined, undefined);
+    expect(onSend).toHaveBeenCalledWith(
+      "hello world",
+      [],
+      undefined,
+      null,
+      undefined,
+      undefined
+    );
   });
 
   it("sends attachments together with the text", () => {
@@ -201,9 +211,7 @@ describe("Composer", () => {
     useMeshStore.getState().addSendTarget(makeTarget());
     render(<Composer {...baseProps()} />);
     expect(screen.getByText("Agent 2")).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: /Remove Agent 2/i })
-    );
+    fireEvent.click(screen.getByRole("button", { name: /Remove Agent 2/i }));
     expect(useMeshStore.getState().sendTargets).toHaveLength(0);
   });
 
@@ -227,9 +235,7 @@ describe("Composer", () => {
 
     it("calls onSend with queueMode 'stack' on Stack click", () => {
       const onSend = vi.fn();
-      render(
-        <Composer {...baseProps({ onSend, status: "running" })} />
-      );
+      render(<Composer {...baseProps({ onSend, status: "running" })} />);
       const textarea = screen.getByPlaceholderText(
         /Message \(Enter to send/i
       ) as HTMLTextAreaElement;
@@ -243,9 +249,7 @@ describe("Composer", () => {
     it("calls onCancel with cancel targets on Stop click", () => {
       const onCancel = vi.fn();
       useMeshStore.getState().addSendTarget(makeTarget());
-      render(
-        <Composer {...baseProps({ onCancel, status: "running" })} />
-      );
+      render(<Composer {...baseProps({ onCancel, status: "running" })} />);
       fireEvent.click(screen.getByTitle(/Stop generation/));
       expect(onCancel).toHaveBeenCalledWith(
         expect.arrayContaining([
@@ -258,9 +262,7 @@ describe("Composer", () => {
       const onSendMode = vi.fn();
       const onSend = vi.fn();
       render(
-        <Composer
-          {...baseProps({ onSend, onSendMode, status: "running" })}
-        />
+        <Composer {...baseProps({ onSend, onSendMode, status: "running" })} />
       );
       const textarea = screen.getByPlaceholderText(
         /Message \(Enter to send/i
@@ -334,10 +336,7 @@ describe("Composer", () => {
         <Composer
           {...baseProps({
             onClearQueue,
-            queue: [
-              makeQueueItem({ id: "q1" }),
-              makeQueueItem({ id: "q2" }),
-            ],
+            queue: [makeQueueItem({ id: "q1" }), makeQueueItem({ id: "q2" })],
           })}
         />
       );

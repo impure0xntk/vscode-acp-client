@@ -101,14 +101,7 @@ export function DisplayItemView({
 }: DisplayItemViewProps): React.ReactElement {
   switch (item.type) {
     case "chat":
-      return RenderChat(
-        item,
-        sessionId,
-        agentId,
-        forceHeader,
-        isNew,
-        dimmed
-      );
+      return RenderChat(item, sessionId, agentId, forceHeader, isNew, dimmed);
     case "compression":
       return RenderCompression(item);
     case "mode_change":

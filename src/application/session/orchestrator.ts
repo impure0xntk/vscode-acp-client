@@ -77,8 +77,12 @@ export class SessionOrchestrator extends EventEmitter {
   private sessionOverview: SessionOverview;
 
   // Forward refs for circular dependencies
-  private agentConnectionRef = new Ref<AgentConnection>(null as unknown as AgentConnection);
-  private promptExecutionRef = new Ref<PromptExecution>(null as unknown as PromptExecution);
+  private agentConnectionRef = new Ref<AgentConnection>(
+    null as unknown as AgentConnection
+  );
+  private promptExecutionRef = new Ref<PromptExecution>(
+    null as unknown as PromptExecution
+  );
   private historyStoreRef = new Ref<PersistentHistoryStore | null>(null);
   private sessionHistoryStoreRef = new Ref<SessionHistoryStore | null>(null);
 
@@ -422,7 +426,9 @@ export class SessionOrchestrator extends EventEmitter {
   ): import("../../domain/models/chat").ChatMessage {
     const stored = { ...msg };
     if (msg.toolCalls) {
-      (stored as Record<string, unknown>).toolCallsJson = JSON.stringify(msg.toolCalls);
+      (stored as Record<string, unknown>).toolCallsJson = JSON.stringify(
+        msg.toolCalls
+      );
     }
     return stored;
   }
@@ -707,13 +713,43 @@ export class SessionOrchestrator extends EventEmitter {
   } {
     // Access private fields via index for tests (tests are in the same package)
     return {
-      sessions: (this.sessionState as unknown as { sessions: Map<string, Map<string, AppSessionInfo>> }).sessions,
-      streamTextBuffer: (this.sessionState as unknown as { streamTextBuffer: Map<string, string> }).streamTextBuffer,
-      streamMsgRef: (this.sessionState as unknown as { streamMsgRef: Map<string, { agentId: string; sessionId: string; msgId: string }> }).streamMsgRef,
-      agentInfoMap: (this.agentConnection as unknown as { agentInfoMap: Map<string, AgentInfo> }).agentInfoMap,
-      agentConfigs: (this.agentConnection as unknown as { agentConfigs: Map<string, AgentConfig> }).agentConfigs,
+      sessions: (
+        this.sessionState as unknown as {
+          sessions: Map<string, Map<string, AppSessionInfo>>;
+        }
+      ).sessions,
+      streamTextBuffer: (
+        this.sessionState as unknown as {
+          streamTextBuffer: Map<string, string>;
+        }
+      ).streamTextBuffer,
+      streamMsgRef: (
+        this.sessionState as unknown as {
+          streamMsgRef: Map<
+            string,
+            { agentId: string; sessionId: string; msgId: string }
+          >;
+        }
+      ).streamMsgRef,
+      agentInfoMap: (
+        this.agentConnection as unknown as {
+          agentInfoMap: Map<string, AgentInfo>;
+        }
+      ).agentInfoMap,
+      agentConfigs: (
+        this.agentConnection as unknown as {
+          agentConfigs: Map<string, AgentConfig>;
+        }
+      ).agentConfigs,
       protocolHandler: this.protocolHandler,
-      connections: (this.agentConnection as unknown as { connections: Map<string, import("@agentclientprotocol/sdk").ClientSideConnection> }).connections,
+      connections: (
+        this.agentConnection as unknown as {
+          connections: Map<
+            string,
+            import("@agentclientprotocol/sdk").ClientSideConnection
+          >;
+        }
+      ).connections,
     };
   }
 

@@ -116,8 +116,7 @@ export class AgentRegistry {
           sessionName:
             typeof s.sessionName === "string" ? s.sessionName : undefined,
           mode: typeof s.mode === "string" ? s.mode : undefined,
-          pinned:
-            typeof s.pinned === "boolean" ? s.pinned : undefined,
+          pinned: typeof s.pinned === "boolean" ? s.pinned : undefined,
         };
       }),
     };

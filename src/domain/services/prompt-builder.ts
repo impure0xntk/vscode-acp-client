@@ -435,7 +435,9 @@ export class PromptBuilder {
    */
   buildSystemPromptExtension(): string {
     if (!this.config.enabled) return "";
-    return buildMeshSystemPrompt(this.config) + this.strategy.buildSystemPrompt();
+    return (
+      buildMeshSystemPrompt(this.config) + this.strategy.buildSystemPrompt()
+    );
   }
 
   /**

@@ -19,8 +19,12 @@ export interface MeshEventDeps {
  * Extracted from the original wireOrchestratorEvents() in extension.ts.
  */
 export function wireMeshEvents(deps: MeshEventDeps): void {
-  const { meshOrchestrator, supervisorOrchestrator, orchestrator, getChatPanel } =
-    deps;
+  const {
+    meshOrchestrator,
+    supervisorOrchestrator,
+    orchestrator,
+    getChatPanel,
+  } = deps;
 
   meshOrchestrator.onExtractedMessage = (msg) => {
     const cp = getChatPanel();

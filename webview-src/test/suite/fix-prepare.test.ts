@@ -34,7 +34,10 @@ describe("handleFixPrepare", () => {
         return true;
       },
     };
-    if (typeof (global as unknown as { CustomEvent?: unknown }).CustomEvent === "undefined") {
+    if (
+      typeof (global as unknown as { CustomEvent?: unknown }).CustomEvent ===
+      "undefined"
+    ) {
       (global as unknown as { CustomEvent: unknown }).CustomEvent = class<T> {
         type: string;
         detail: T;

@@ -110,7 +110,9 @@ export function ActiveSessionIndicator({
       </span>
       <span className="shrink-0 inline-flex items-center gap-1 text-fg-muted">
         <StatusIcon status={status} size="sm" />
-        <span className="whitespace-nowrap">{statusLabel[status] ?? status}</span>
+        <span className="whitespace-nowrap">
+          {statusLabel[status] ?? status}
+        </span>
       </span>
       <span className="ml-auto shrink-0 text-fg-muted/60 text-[9px] uppercase tracking-wider hidden sm:inline">
         Active

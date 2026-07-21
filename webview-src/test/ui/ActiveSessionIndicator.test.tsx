@@ -7,9 +7,7 @@ import type { SessionInfoDTO } from "../../store/sessionStore";
 
 const KEY = "claude:session-1";
 
-function seedSession(
-  overrides: Partial<SessionInfoDTO> = {}
-): void {
+function seedSession(overrides: Partial<SessionInfoDTO> = {}): void {
   const base: SessionInfoDTO = {
     sessionId: "session-1",
     agentId: "claude",
@@ -77,18 +75,16 @@ describe("ActiveSessionIndicator", () => {
   });
 
   it("falls back to sessionId as title when no title is available", () => {
-    useSessionStore
-      .getState()
-      .setSessionInfo("x", "orphan", {
-        sessionId: "orphan",
-        agentId: "x",
-        status: "idle",
-        lastTurnOutcome: null,
-        isStreaming: false,
-        tokenUsage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
-        createdAt: new Date().toISOString(),
-        lastResponseAt: null,
-      });
+    useSessionStore.getState().setSessionInfo("x", "orphan", {
+      sessionId: "orphan",
+      agentId: "x",
+      status: "idle",
+      lastTurnOutcome: null,
+      isStreaming: false,
+      tokenUsage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      createdAt: new Date().toISOString(),
+      lastResponseAt: null,
+    });
     render(<ActiveSessionIndicator activeSessionKey="x:orphan" />);
     // agentId "x" shown, sessionId "orphan" used as title fallback
     expect(screen.getByText("x")).toBeInTheDocument();
@@ -97,15 +93,10 @@ describe("ActiveSessionIndicator", () => {
 
   it("renders a multi-@ summary when sendTargets are provided", () => {
     render(
-      <ActiveSessionIndicator
-        activeSessionKey={KEY}
-        sendTargets={targets(3)}
-      />
+      <ActiveSessionIndicator activeSessionKey={KEY} sendTargets={targets(3)} />
     );
     expect(screen.getByText("3 selected")).toBeInTheDocument();
-    expect(
-      screen.getByText(/fans out to targets above/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/fans out to targets above/i)).toBeInTheDocument();
   });
 
   it("calls onClick when the single-session banner is clicked", () => {

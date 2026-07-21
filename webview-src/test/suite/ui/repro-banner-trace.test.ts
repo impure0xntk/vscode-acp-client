@@ -14,7 +14,11 @@ import type {
 } from "../../../pipeline/types";
 
 const cfg: any = {
-  filter: { hideCompression: false, hideModeChange: false, hideErrorNotices: false },
+  filter: {
+    hideCompression: false,
+    hideModeChange: false,
+    hideErrorNotices: false,
+  },
   annotate: { resolveAttachments: true, detectInlinePaths: false },
 };
 const ctx: any = {
@@ -34,8 +38,8 @@ function step(label: string) {
   assert.ok(latestGroup, `${label}: latestGroup`);
   const final =
     latestGroup.finalResponse != null
-      ? ((latestGroup.finalResponse.item as ChatDisplayItem).content ||
-        "[thinking]")
+      ? (latestGroup.finalResponse.item as ChatDisplayItem).content ||
+        "[thinking]"
       : null;
   const { olderSteps, currentStep } = splitLatestSteps(
     latestGroup.steps,
@@ -63,7 +67,9 @@ function user(content: string) {
   } as RawMessage);
 }
 function stream(chunk: string, messageId: string, su: string) {
-  useMessageStore.getState().appendStreamChunks(key, "a", "s", [chunk], messageId, su);
+  useMessageStore
+    .getState()
+    .appendStreamChunks(key, "a", "s", [chunk], messageId, su);
 }
 function toolCall(id: string, title: string) {
   const last = useMessageStore.getState().perSession[key];
@@ -98,18 +104,26 @@ function toolCall(id: string, title: string) {
     ],
   };
   if (lastMsg && lastMsg.role === "tool") {
-    useMessageStore.getState().updateMessage(key, last.length - 1, updated as any);
+    useMessageStore
+      .getState()
+      .updateMessage(key, last.length - 1, updated as any);
   } else {
     useMessageStore.getState().appendMessage(key, updated as any);
   }
 }
 function turnEnded(reason: string) {
-  useMessageStore.getState().updateLastAgentMessage(key, { stopReason: reason });
+  useMessageStore
+    .getState()
+    .updateLastAgentMessage(key, { stopReason: reason });
 }
 
 describe("repro: faithful streaming multi-step with thinking+tool in final step", () => {
   beforeEach(() => {
-    useMessageStore.setState({ perSession: {}, streaming: {}, promptQueue: {} });
+    useMessageStore.setState({
+      perSession: {},
+      streaming: {},
+      promptQueue: {},
+    });
     useFileWriteStore.setState({ writes: {}, nextSeq: 0 });
   });
 

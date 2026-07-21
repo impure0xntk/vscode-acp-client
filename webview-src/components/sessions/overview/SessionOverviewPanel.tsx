@@ -11,6 +11,12 @@ import type {
 import { useScrollStateStore } from "../../../store/scrollStateStore";
 import { useMessageStore } from "../../../store/messageStore";
 import { useSessionStore, sessionKeyOf } from "../../../store/sessionStore";
+import {
+  selectMessageCount,
+  selectToolCallCount,
+  selectToolCallsCompleted,
+  selectRecentResponses,
+} from "../../../store/selectors";
 import { SessionOverviewToolbar } from "./SessionOverviewToolbar";
 import { SessionOverviewCard } from "./SessionOverviewCard";
 import { useResizeHandle } from "../../../hooks/useResizeHandle";
@@ -76,27 +82,53 @@ export function SessionOverviewPanel({
 
   const overviewItems = useMemo(() => {
     const sessionInfoMap = useSessionStore.getState().sessionInfoMap;
+    const msgState = useMessageStore.getState();
     const keys = tabOrder;
     return keys.map((key): SessionOverviewItem => {
       const [agentId, sessionId] = key.split(":");
       const title = tabTitles[key] ?? sessionId;
       const info: SessionInfoDTO | undefined = sessionInfoMap[key];
+      const elapsedMs =
+        info?.status === "running" && info.lastResponseAt
+          ? Date.now() - new Date(info.lastResponseAt).getTime()
+          : 0;
       return {
         sessionId,
         agentId,
         title,
         status: info?.status ?? "idle",
         lastTurnOutcome: info?.lastTurnOutcome ?? null,
+        model: info?.model,
+        mode: info?.mode,
         progress: {
-          elapsedMs: 0,
-          tokenUsage: { input: 0, output: 0, total: 0 },
-          messageCount: 0,
-          toolCallCount: 0,
-          toolCallsCompleted: 0,
+          elapsedMs,
+          tokenUsage: {
+            input: info?.tokenUsage.inputTokens ?? 0,
+            output: info?.tokenUsage.outputTokens ?? 0,
+            total: info?.tokenUsage.totalTokens ?? 0,
+          },
+          contextWindow:
+            info?.contextWindowMax != null
+              ? {
+                  used: info.tokenUsage.totalTokens,
+                  max: info.contextWindowMax,
+                  percentage: Math.round(
+                    (info.tokenUsage.totalTokens / info.contextWindowMax) * 100
+                  ),
+                }
+              : undefined,
+          messageCount: selectMessageCount(msgState, agentId, sessionId),
+          toolCallCount: selectToolCallCount(msgState, agentId, sessionId),
+          toolCallsCompleted: selectToolCallsCompleted(
+            msgState,
+            agentId,
+            sessionId
+          ),
         },
-        recentResponses: [],
-        createdAt: new Date().toISOString(),
-        lastResponseAt: null,
+        recentResponses: selectRecentResponses(msgState, agentId, sessionId),
+        cwd: info?.cwd,
+        createdAt: info?.createdAt ?? new Date().toISOString(),
+        lastResponseAt: info?.lastResponseAt ?? null,
       };
     });
   }, [tabOrder, tabTitles]);

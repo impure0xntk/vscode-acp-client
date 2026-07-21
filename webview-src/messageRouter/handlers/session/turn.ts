@@ -63,7 +63,11 @@ export function handleSessionSwitch(data: SessionSwitch): void {
 
   const sessionStore = useSessionStore.getState();
   if (!sessionStore.tabOrder.includes(key)) {
-    sessionStore.addTab(data.agentId, data.sessionId, data.sessionId.slice(0, 8));
+    sessionStore.addTab(
+      data.agentId,
+      data.sessionId,
+      data.sessionId.slice(0, 8)
+    );
   }
   if (currentKey !== key) {
     sessionStore.setActiveSession(key);

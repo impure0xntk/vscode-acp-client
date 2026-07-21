@@ -3,7 +3,9 @@ import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { ContextChip } from "../../components/composer/ContextChip";
 import type { ContextAttachment } from "../../types";
 
-function makeAttachment(overrides: Partial<ContextAttachment> = {}): ContextAttachment {
+function makeAttachment(
+  overrides: Partial<ContextAttachment> = {}
+): ContextAttachment {
   return {
     id: "att-1",
     type: "file",

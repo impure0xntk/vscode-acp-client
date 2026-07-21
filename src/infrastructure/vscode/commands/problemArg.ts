@@ -37,7 +37,10 @@ interface IMarkerDataLike {
 }
 
 interface IDiagnosticLike {
-  range: { start: { line: number; character: number }; end: { line: number; character: number } };
+  range: {
+    start: { line: number; character: number };
+    end: { line: number; character: number };
+  };
   message: string;
   severity: number;
   source?: string;
@@ -47,9 +50,17 @@ interface IDiagnosticLike {
 type ProblemArgKind = "marker" | "diagnostic";
 
 function asUriValue(value: unknown): UriLike | undefined {
-  if (value && typeof value === "object" && "fsPath" in value && "scheme" in value) {
+  if (
+    value &&
+    typeof value === "object" &&
+    "fsPath" in value &&
+    "scheme" in value
+  ) {
     const candidate = value as { fsPath: unknown; scheme: unknown };
-    if (typeof candidate.fsPath === "string" && typeof candidate.scheme === "string") {
+    if (
+      typeof candidate.fsPath === "string" &&
+      typeof candidate.scheme === "string"
+    ) {
       return value as UriLike;
     }
   }
@@ -63,7 +74,9 @@ function readField(value: unknown, key: string): unknown {
   return undefined;
 }
 
-function asMarkerData(value: unknown): { data: IMarkerDataLike; kind: ProblemArgKind } | undefined {
+function asMarkerData(
+  value: unknown
+): { data: IMarkerDataLike; kind: ProblemArgKind } | undefined {
   if (value && typeof value === "object" && "startLineNumber" in value) {
     const candidate = value as Record<string, unknown>;
     if (typeof candidate.startLineNumber === "number") {
@@ -73,12 +86,23 @@ function asMarkerData(value: unknown): { data: IMarkerDataLike; kind: ProblemArg
   return undefined;
 }
 
-function asDiagnosticData(value: unknown): { data: IDiagnosticLike; kind: ProblemArgKind } | undefined {
-  if (value && typeof value === "object" && "range" in value && "message" in value) {
+function asDiagnosticData(
+  value: unknown
+): { data: IDiagnosticLike; kind: ProblemArgKind } | undefined {
+  if (
+    value &&
+    typeof value === "object" &&
+    "range" in value &&
+    "message" in value
+  ) {
     const candidate = value as Record<string, unknown>;
     const range = candidate.range as Record<string, unknown> | undefined;
     const start = range?.start as Record<string, unknown> | undefined;
-    if (start && typeof start.line === "number" && typeof start.character === "number") {
+    if (
+      start &&
+      typeof start.line === "number" &&
+      typeof start.character === "number"
+    ) {
       return { data: value as IDiagnosticLike, kind: "diagnostic" };
     }
   }
@@ -132,7 +156,11 @@ export function unwrapProblemArg(args: unknown[]): {
 }
 
 function normalizeProblemCode(
-  code: string | number | { value: string | number; target?: unknown } | undefined
+  code:
+    | string
+    | number
+    | { value: string | number; target?: unknown }
+    | undefined
 ): string | undefined {
   if (code === undefined) return undefined;
   if (typeof code === "string" || typeof code === "number") return String(code);
@@ -158,7 +186,9 @@ function mapMarkerSeverity(severity: number): DiagnosticProblem["severity"] {
   }
 }
 
-function mapDiagnosticSeverity(severity: number): DiagnosticProblem["severity"] {
+function mapDiagnosticSeverity(
+  severity: number
+): DiagnosticProblem["severity"] {
   // vscode.DiagnosticSeverity: Error=0, Warning=1, Information=2, Hint=3
   switch (severity) {
     case 0:

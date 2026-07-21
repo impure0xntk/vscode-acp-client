@@ -495,14 +495,15 @@ export function wireChatPanelEvents(
       // Mesh send — single or multi-target (mesh:send)
       // ==================================================================
       case "mesh:send": {
-        const { text, attachments, targets, mode, teamId, queueMode } = data as {
-          text: string;
-          attachments: ContextAttachmentDTO[];
-          targets: SendTarget[];
-          mode?: string;
-          teamId?: string;
-          queueMode?: import("../../../application/session/types").QueuedPromptMode;
-        };
+        const { text, attachments, targets, mode, teamId, queueMode } =
+          data as {
+            text: string;
+            attachments: ContextAttachmentDTO[];
+            targets: SendTarget[];
+            mode?: string;
+            teamId?: string;
+            queueMode?: import("../../../application/session/types").QueuedPromptMode;
+          };
         if (
           mode === "supervisor" &&
           teamId &&

@@ -40,10 +40,12 @@ export function registerSessionCommands(
   >,
   resolveDiff: () => Promise<
     import("../../../domain/models/chat").ContextAttachmentDTO | null
-    >,
+  >,
   resolveProblem: (
     problem: DiagnosticProblem
-  ) => Promise<import("../../../domain/models/chat").ContextAttachmentDTO | null>,
+  ) => Promise<
+    import("../../../domain/models/chat").ContextAttachmentDTO | null
+  >,
   sendTabsToChatPanel: () => void
 ): vscode.Disposable[] {
   // acp.newSession
@@ -362,7 +364,9 @@ export function registerSessionCommands(
 
       const problem = toDiagnosticProblem(data, kind, filePath);
       if (!problem) {
-        void vscode.window.showWarningMessage("ACP: Could not read the problem");
+        void vscode.window.showWarningMessage(
+          "ACP: Could not read the problem"
+        );
         return;
       }
 

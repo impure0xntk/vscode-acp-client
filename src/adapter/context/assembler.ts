@@ -109,10 +109,7 @@ export async function resolveRange(
   const firstLine = Math.max(0, range.startLine);
   const rawLastLine =
     range.endCharacter === 0 ? range.endLine - 1 : range.endLine;
-  const lastLine = Math.max(
-    firstLine,
-    Math.min(lines.length - 1, rawLastLine)
-  );
+  const lastLine = Math.max(firstLine, Math.min(lines.length - 1, rawLastLine));
   if (lastLine < firstLine) return null;
 
   const selectedLines = lines.slice(firstLine, lastLine + 1);
@@ -264,7 +261,11 @@ async function renderProblems(
 
     // Blank separator unless the next diagnostic is on the same file+line.
     const next = problems[i + 1];
-    if (!next || next.filePath !== p.filePath || next.startLine !== p.startLine) {
+    if (
+      !next ||
+      next.filePath !== p.filePath ||
+      next.startLine !== p.startLine
+    ) {
       lines.push("");
     }
   }

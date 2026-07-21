@@ -12,19 +12,62 @@ function noop() {}
 
 interface MockTargetExtras {
   postMessage?: (msg: unknown) => void;
-  pushMessage?: (agentId: string, sessionId: string, msg: any, cwd?: string) => void;
+  pushMessage?: (
+    agentId: string,
+    sessionId: string,
+    msg: any,
+    cwd?: string
+  ) => void;
   pushSessionInfo?: (agentId: string, sessionId: string, info: any) => void;
   pushSessionSnapshot?: (agentId: string, sessionId: string, info: any) => void;
-  pushStreamChunk?: (agentId: string, sessionId: string, chunk: string, messageId?: string, sessionUpdate?: string) => void;
+  pushStreamChunk?: (
+    agentId: string,
+    sessionId: string,
+    chunk: string,
+    messageId?: string,
+    sessionUpdate?: string
+  ) => void;
   pushStreamEnd?: (agentId: string, sessionId: string) => void;
-  pushTurnActive?: (agentId: string, sessionId: string, active: boolean) => void;
-  pushSessionNotification?: (agentId: string, sessionId: string, notification: unknown) => void;
-  pushFileWrite?: (agentId: string, sessionId: string, path: string, content: string, originalContent?: string | null, contentHash?: string) => void;
-  pushSessionUsage?: (agentId: string, sessionId: string, tokenUsage: { inputTokens: number; outputTokens: number; totalTokens: number }, contextWindowMax?: number) => void;
-  pushSessionCompression?: (agentId: string, sessionId: string, info: { contextWindowMax: number; usedTokens: number; usedBefore?: number }) => void;
+  pushTurnActive?: (
+    agentId: string,
+    sessionId: string,
+    active: boolean
+  ) => void;
+  pushSessionNotification?: (
+    agentId: string,
+    sessionId: string,
+    notification: unknown
+  ) => void;
+  pushFileWrite?: (
+    agentId: string,
+    sessionId: string,
+    path: string,
+    content: string,
+    originalContent?: string | null,
+    contentHash?: string
+  ) => void;
+  pushSessionUsage?: (
+    agentId: string,
+    sessionId: string,
+    tokenUsage: {
+      inputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+    },
+    contextWindowMax?: number
+  ) => void;
+  pushSessionCompression?: (
+    agentId: string,
+    sessionId: string,
+    info: { contextWindowMax: number; usedTokens: number; usedBefore?: number }
+  ) => void;
   setAgentInfo?: (agentId: string, info: unknown) => void;
   setActiveSession?: (agentId: string, sessionId: string, info: any) => void;
-  pushAvailableCommands?: (agentId: string, sessionId: string, commands: unknown[]) => void;
+  pushAvailableCommands?: (
+    agentId: string,
+    sessionId: string,
+    commands: unknown[]
+  ) => void;
 }
 
 function createMockTarget(extras?: MockTargetExtras): SessionStateTarget {
@@ -162,7 +205,12 @@ describe("SessionStateBridge", () => {
     bridge.register(createMockTarget({ pushMessage: spy1 }));
     bridge.register(createMockTarget({ pushMessage: spy2 }));
 
-    const msg = { id: "m1", role: "user", content: "Hello", timestamp: 1000 } as any;
+    const msg = {
+      id: "m1",
+      role: "user",
+      content: "Hello",
+      timestamp: 1000,
+    } as any;
     bridge.pushMessage("agent-a", "sess-1", msg, "/workspace");
 
     expect(spy1).toHaveBeenCalledWith("agent-a", "sess-1", msg, "/workspace");
@@ -173,7 +221,12 @@ describe("SessionStateBridge", () => {
     const spy = vi.fn();
     bridge.register(createMockTarget({ pushMessage: spy }));
 
-    const msg = { id: "m2", role: "agent", content: "Reply", timestamp: 2000 } as any;
+    const msg = {
+      id: "m2",
+      role: "agent",
+      content: "Reply",
+      timestamp: 2000,
+    } as any;
     bridge.pushMessage("agent-b", "sess-2", msg);
 
     expect(spy).toHaveBeenCalledWith("agent-b", "sess-2", msg, undefined);
@@ -275,9 +328,23 @@ describe("SessionStateBridge", () => {
     const spy = vi.fn();
     bridge.register(createMockTarget({ pushFileWrite: spy }));
 
-    bridge.pushFileWrite("a", "s1", "/tmp/x.ts", "new content", "old content", "abc123");
+    bridge.pushFileWrite(
+      "a",
+      "s1",
+      "/tmp/x.ts",
+      "new content",
+      "old content",
+      "abc123"
+    );
 
-    expect(spy).toHaveBeenCalledWith("a", "s1", "/tmp/x.ts", "new content", "old content", "abc123");
+    expect(spy).toHaveBeenCalledWith(
+      "a",
+      "s1",
+      "/tmp/x.ts",
+      "new content",
+      "old content",
+      "abc123"
+    );
   });
 
   it("pushFileWrite broadcasts with null originalContent and undefined contentHash", () => {
@@ -286,7 +353,14 @@ describe("SessionStateBridge", () => {
 
     bridge.pushFileWrite("a", "s1", "/tmp/y.ts", "content", null, undefined);
 
-    expect(spy).toHaveBeenCalledWith("a", "s1", "/tmp/y.ts", "content", null, undefined);
+    expect(spy).toHaveBeenCalledWith(
+      "a",
+      "s1",
+      "/tmp/y.ts",
+      "content",
+      null,
+      undefined
+    );
   });
 
   // ── broadcast: pushSessionUsage ───────────────────────────────────
@@ -414,8 +488,15 @@ describe("SessionStateBridge", () => {
       bridge.pushTurnActive("a", "s", true);
       bridge.pushSessionNotification("a", "s", {});
       bridge.pushFileWrite("a", "s", "/f", "c");
-      bridge.pushSessionUsage("a", "s", { inputTokens: 0, outputTokens: 0, totalTokens: 0 });
-      bridge.pushSessionCompression("a", "s", { contextWindowMax: 100, usedTokens: 50 });
+      bridge.pushSessionUsage("a", "s", {
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+      });
+      bridge.pushSessionCompression("a", "s", {
+        contextWindowMax: 100,
+        usedTokens: 50,
+      });
       bridge.setAgentInfo("a", {});
       bridge.setActiveSession("a", "s", {} as any);
       bridge.pushAvailableCommands("a", "s", []);

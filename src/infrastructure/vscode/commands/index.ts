@@ -42,7 +42,9 @@ export interface CommandRegDeps {
     searchFiles: (
       query: string,
       cwd?: string
-    ) => Promise<{ relativePath: string; name: string; absolutePath?: string }[]>,
+    ) => Promise<
+      { relativePath: string; name: string; absolutePath?: string }[]
+    >,
     searchSymbols: (query: string) => Promise<SuggestionItem[]>,
     resolveSymbolByName: (name: string) => Promise<ContextAttachmentDTO>,
     persistentHistory?: PersistentHistoryStore,
@@ -68,8 +70,13 @@ export interface CommandRegDeps {
   resolveFile: (path: string, cwd?: string) => Promise<ContextAttachmentDTO>;
   resolveSelection: () => Promise<ContextAttachmentDTO | null>;
   resolveDiff: () => Promise<ContextAttachmentDTO | null>;
-  resolveProblem: (problem: DiagnosticProblem) => Promise<ContextAttachmentDTO | null>;
-  resolveRangeAt: (uri: string, range: SerializedRange) => Promise<ContextAttachmentDTO | null>;
+  resolveProblem: (
+    problem: DiagnosticProblem
+  ) => Promise<ContextAttachmentDTO | null>;
+  resolveRangeAt: (
+    uri: string,
+    range: SerializedRange
+  ) => Promise<ContextAttachmentDTO | null>;
   searchFiles: (
     query: string,
     cwd?: string

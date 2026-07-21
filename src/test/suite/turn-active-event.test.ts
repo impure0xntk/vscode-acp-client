@@ -68,9 +68,9 @@ function injectIdleSession(
   return info;
 }
 
-function wireCountingConnection(
-  orch: SessionOrchestrator
-): { promptCalls: string[] } {
+function wireCountingConnection(orch: SessionOrchestrator): {
+  promptCalls: string[];
+} {
   const promptCalls: string[] = [];
   (orch as any).agentConnectionRef.value = {
     getConnection: (_agentId: string) => ({
@@ -123,9 +123,21 @@ describe("Turn lifecycle — sessionTurnActiveChanged", () => {
 
     // Expect two events: active:true at start, active:false at end
     assert.strictEqual(events.length, 2, "two events emitted");
-    assert.strictEqual(events[0].active, true, "first event must be active:true");
-    assert.strictEqual(events[0].stopReason, undefined, "no stopReason on start");
-    assert.strictEqual(events[1].active, false, "second event must be active:false");
+    assert.strictEqual(
+      events[0].active,
+      true,
+      "first event must be active:true"
+    );
+    assert.strictEqual(
+      events[0].stopReason,
+      undefined,
+      "no stopReason on start"
+    );
+    assert.strictEqual(
+      events[1].active,
+      false,
+      "second event must be active:false"
+    );
     assert.strictEqual(events[1].stopReason, "end_turn", "stopReason on end");
   });
 
@@ -339,9 +351,21 @@ describe("wireSessionEvents — pushStreamEnd is guarded by stopReason", () => {
       stopReason: "end_turn",
     });
 
-    assert.strictEqual(pushTurnActiveCalls.length, 2, "two pushTurnActive calls");
-    assert.strictEqual(pushTurnActiveCalls[0].isActive, true, "start → isActive=true");
-    assert.strictEqual(pushTurnActiveCalls[1].isActive, false, "end → isActive=false");
+    assert.strictEqual(
+      pushTurnActiveCalls.length,
+      2,
+      "two pushTurnActive calls"
+    );
+    assert.strictEqual(
+      pushTurnActiveCalls[0].isActive,
+      true,
+      "start → isActive=true"
+    );
+    assert.strictEqual(
+      pushTurnActiveCalls[1].isActive,
+      false,
+      "end → isActive=false"
+    );
   });
 });
 
@@ -370,9 +394,7 @@ describe("Integration — full turn lifecycle with sessionTurnActiveChanged", ()
     let promptResolved = false;
 
     orch.on("sessionTurnActiveChanged", (e: any) => {
-      timeline.push(
-        `turnActive:${e.active} promptResolved:${promptResolved}`
-      );
+      timeline.push(`turnActive:${e.active} promptResolved:${promptResolved}`);
     });
 
     await orch.prompt(agentId, sessionId, "hello");

@@ -2,7 +2,11 @@ import { sessionKeyOf, useSessionStore } from "../../../store/sessionStore";
 import { useMessageStore } from "../../../store/messageStore";
 import { useFileWriteStore } from "../../../store/fileWriteStore";
 import { getLogger } from "../../../lib/logger";
-import { safeJsonStringify, normalizeToolStatus, extractDiffFromContent } from "../../shared/utils";
+import {
+  safeJsonStringify,
+  normalizeToolStatus,
+  extractDiffFromContent,
+} from "../../shared/utils";
 import type { ChatMessage } from "../../../types";
 
 const log = getLogger("handlers.session.notification");
@@ -30,7 +34,9 @@ interface SessionFileWriteMessage {
   contentHash?: string;
 }
 
-export function handleSessionNotification(data: SessionNotificationMessage): void {
+export function handleSessionNotification(
+  data: SessionNotificationMessage
+): void {
   const { agentId, sessionId, notification } = data;
   const update = notification.update;
   const su = update.sessionUpdate;
@@ -50,7 +56,9 @@ export function handleSessionNotification(data: SessionNotificationMessage): voi
       update.locations as Array<{ path: string; line?: number }> | undefined
     )?.map((loc) => ({ path: loc.path, line: loc.line ?? undefined }));
     const tcDiff = extractDiffFromContent(
-      update.content as Array<{ type: string; [key: string]: unknown }> | undefined
+      update.content as
+        | Array<{ type: string; [key: string]: unknown }>
+        | undefined
     );
 
     const toolCall = {
@@ -58,7 +66,8 @@ export function handleSessionNotification(data: SessionNotificationMessage): voi
       title: tcTitle,
       status: tcStatus,
       kind: tcKind,
-      input: typeof rawInput === "string" ? rawInput : safeJsonStringify(rawInput),
+      input:
+        typeof rawInput === "string" ? rawInput : safeJsonStringify(rawInput),
       output:
         rawOutput !== undefined
           ? typeof rawOutput === "string"
@@ -74,10 +83,14 @@ export function handleSessionNotification(data: SessionNotificationMessage): voi
 
     if (existingMsgs) {
       const alreadyExists = existingMsgs.some(
-        (m: ChatMessage) => m.role === "tool" && m.toolCalls?.some((tc) => tc.id === tcId)
+        (m: ChatMessage) =>
+          m.role === "tool" && m.toolCalls?.some((tc) => tc.id === tcId)
       );
       if (alreadyExists) {
-        log.debug("handleSessionNotification: skipping duplicate tool_call", { msgKey, tcId });
+        log.debug("handleSessionNotification: skipping duplicate tool_call", {
+          msgKey,
+          tcId,
+        });
         return;
       }
     }
@@ -85,15 +98,20 @@ export function handleSessionNotification(data: SessionNotificationMessage): voi
     if (existingMsgs && existingMsgs.length > 0) {
       const lastMsg = existingMsgs[existingMsgs.length - 1];
       if (lastMsg.role === "tool") {
-        log.debug("handleSessionNotification: appending to existing tool message", {
-          msgKey,
-          lastMsgId: lastMsg.id,
-          incomingToolId: tcId,
-        });
-        useMessageStore.getState().updateMessage(msgKey, existingMsgs.length - 1, {
-          ...lastMsg,
-          toolCalls: [...(lastMsg.toolCalls ?? []), toolCall],
-        });
+        log.debug(
+          "handleSessionNotification: appending to existing tool message",
+          {
+            msgKey,
+            lastMsgId: lastMsg.id,
+            incomingToolId: tcId,
+          }
+        );
+        useMessageStore
+          .getState()
+          .updateMessage(msgKey, existingMsgs.length - 1, {
+            ...lastMsg,
+            toolCalls: [...(lastMsg.toolCalls ?? []), toolCall],
+          });
       } else {
         const toolMsg = {
           id: `tc-${tcKind}-${tcId}-${Date.now()}`,
@@ -124,7 +142,11 @@ export function handleSessionNotification(data: SessionNotificationMessage): voi
     const existingMsgs = store.perSession[msgKey];
     if (!existingMsgs) return;
 
-    log.debug("handleSessionNotification: tool_call_update", { msgKey, tcId, status: update.status });
+    log.debug("handleSessionNotification: tool_call_update", {
+      msgKey,
+      tcId,
+      status: update.status,
+    });
 
     for (let i = existingMsgs.length - 1; i >= 0; i--) {
       const m = existingMsgs[i];
@@ -152,11 +174,18 @@ export function handleSessionNotification(data: SessionNotificationMessage): voi
                 : tc.output,
             locations:
               (
-                update.locations as Array<{ path: string; line?: number }> | undefined
-              )?.map((loc) => ({ path: loc.path, line: loc.line ?? undefined })) ?? tc.locations,
+                update.locations as
+                  | Array<{ path: string; line?: number }>
+                  | undefined
+              )?.map((loc) => ({
+                path: loc.path,
+                line: loc.line ?? undefined,
+              })) ?? tc.locations,
             diffContent:
               extractDiffFromContent(
-                update.content as Array<{ type: string; [key: string]: unknown }> | undefined
+                update.content as
+                  | Array<{ type: string; [key: string]: unknown }>
+                  | undefined
               ) ?? tc.diffContent,
           };
         });

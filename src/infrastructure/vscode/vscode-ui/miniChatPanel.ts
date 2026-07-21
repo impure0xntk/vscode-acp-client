@@ -1,8 +1,7 @@
 import * as vscode from "vscode";
 import { ChatPanel } from "./chatPanel";
-import type { UIAPI, WebviewPanel } from "../../../platform/ui";
-import type { EventEmitter, PlatformUri } from "../../../platform/types";
-import { VscodeUIAPI, toPlatformUri } from "../../../platform/adapters/vscode";
+import type { PlatformUri } from "../../../platform/types";
+import { VscodeUIAPI } from "../../../platform/adapters/vscode";
 
 /**
  * MiniChat panel — a lightweight variant of ChatPanel that renders only the

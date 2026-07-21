@@ -24,7 +24,9 @@ describe("ToolBatchSummary", () => {
   });
 
   it("summarizes multiple calls with an ops count and expand", () => {
-    render(<ToolBatchSummary calls={[call(), call(), call({ kind: "write" })]} />);
+    render(
+      <ToolBatchSummary calls={[call(), call(), call({ kind: "write" })]} />
+    );
     expect(screen.getByText(/3 ops/)).toBeInTheDocument();
     expect(screen.getByText(/×2/)).toBeInTheDocument(); // read ×2
   });
@@ -55,7 +57,10 @@ describe("ToolBatchSummary", () => {
   it("renders failed calls grouped when all failed", () => {
     render(
       <ToolBatchSummary
-        calls={[call({ status: "failed" }), call({ status: "failed", title: "Boom" })]}
+        calls={[
+          call({ status: "failed" }),
+          call({ status: "failed", title: "Boom" }),
+        ]}
       />
     );
     expect(screen.getByText("Boom")).toBeInTheDocument();

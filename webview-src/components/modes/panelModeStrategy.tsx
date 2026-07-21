@@ -15,8 +15,7 @@ import {
 } from "./supervisor/SupervisorMode";
 
 /** Props common to every mode component. */
-export interface PanelModeProps
-  extends Omit<UnifiedModeProps, "onSendMode"> {
+export interface PanelModeProps extends Omit<UnifiedModeProps, "onSendMode"> {
   onSendMode?: (
     text: string,
     attachments: import("../../types").ContextAttachment[]

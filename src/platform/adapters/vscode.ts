@@ -711,7 +711,6 @@ class VscodeEditorAPI implements EditorAPI {
     if (unstaged) diffs.push(unstaged);
     return diffs.length > 0 ? diffs.join("\n") : undefined;
   }
-
 }
 
 class VscodeContextAPI implements ExtensionContextAPI {

@@ -80,7 +80,9 @@ export function handleSessionSnapshot(data: SessionSnapshot): void {
     let next = msg;
     if (msg.attachmentsJson && !msg.attachments) {
       try {
-        const attachments = JSON.parse(msg.attachmentsJson) as import("../../../types").ContextAttachment[];
+        const attachments = JSON.parse(
+          msg.attachmentsJson
+        ) as import("../../../types").ContextAttachment[];
         next = { ...next, attachments };
       } catch {
         /* keep original */
@@ -89,7 +91,9 @@ export function handleSessionSnapshot(data: SessionSnapshot): void {
     const tcJson = (msg as { toolCallsJson?: string }).toolCallsJson;
     if (tcJson && !msg.toolCalls) {
       try {
-        const toolCalls = JSON.parse(tcJson) as import("../../../types").ToolCall[];
+        const toolCalls = JSON.parse(
+          tcJson
+        ) as import("../../../types").ToolCall[];
         next = { ...next, toolCalls };
       } catch {
         /* keep original */
@@ -122,7 +126,11 @@ export function handleSessionSnapshot(data: SessionSnapshot): void {
 
   const sessionStore = useSessionStore.getState();
   if (!sessionStore.tabOrder.includes(key)) {
-    sessionStore.addTab(data.agentId, data.sessionId, data.sessionId.slice(0, 8));
+    sessionStore.addTab(
+      data.agentId,
+      data.sessionId,
+      data.sessionId.slice(0, 8)
+    );
   }
 
   sessionStore.setActiveSession(key);

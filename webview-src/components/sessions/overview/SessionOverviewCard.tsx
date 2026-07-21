@@ -11,7 +11,9 @@ import {
   elapsedTier,
   snapshotToOverviewItem,
 } from "./SessionOverviewCardBase";
+import { MessageHistoryPreview } from "./MessageHistoryPreview";
 import { useSessionStore } from "../../../store/sessionStore";
+import { useRecentMessages } from "../../../hooks/useRecentMessages";
 import type { TurnOutcome } from "../../primitives/StatusIcon";
 import { IconClose } from "../../../lib/icons";
 
@@ -57,6 +59,7 @@ export function SessionOverviewCard({
 }: Props): React.ReactElement {
   const sessionKey = `${session.agentId}:${session.sessionId}`;
   const liveInfo = useSessionInfo(sessionKey);
+  const recentMessages = useRecentMessages(sessionKey, isExpanded ? 6 : 4);
 
   const liveItem: SessionOverviewItem = liveInfo
     ? snapshotToOverviewItem(liveInfo, session.title)
@@ -207,10 +210,20 @@ export function SessionOverviewCard({
 
       <SessionOverviewChips session={liveItem} />
 
-      <ResponsePreviewList
-        responses={liveItem.recentResponses}
-        maxItems={isExpanded ? 5 : 3}
-      />
+      <div className="flex gap-1.5 mt-1">
+        <div className="flex-1 min-w-0">
+          <ResponsePreviewList
+            responses={liveItem.recentResponses}
+            maxItems={isExpanded ? 5 : 3}
+          />
+        </div>
+        <div className="w-[140px] shrink-0">
+          <MessageHistoryPreview
+            messages={recentMessages}
+            maxItems={isExpanded ? 6 : 4}
+          />
+        </div>
+      </div>
 
       <div className="flex flex-col gap-0.5 mt-1">
         <div className="flex items-center justify-between pt-1 border-t border-[color-mix(in_srgb,var(--border)_30%,transparent)]">

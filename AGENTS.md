@@ -47,16 +47,16 @@ webview-src/                       # React webview UI
 
 ## Tech Stack
 
-| Component    | Technology                               |
-| ------------ | ---------------------------------------- |
-| Language     | TypeScript 5.7+ (strict)                 |
-| Runtime      | Node 20+, VS Code Extension Host 1.95+   |
-| ACP SDK      | `@agentclientprotocol/sdk` ^0.25.0       |
-| UI (Webview) | React 18 + Tailwind CSS 4                |
-| Markdown     | `markdown-it` + `highlight.js`           |
-| Bundler      | esbuild                                  |
-| Testing      | Mocha , Vitest                                                   |
-| Linting      | ESLint 9 + Prettier 3                    |
+| Component    | Technology                             |
+| ------------ | -------------------------------------- |
+| Language     | TypeScript 5.7+ (strict)               |
+| Runtime      | Node 20+, VS Code Extension Host 1.95+ |
+| ACP SDK      | `@agentclientprotocol/sdk` ^0.25.0     |
+| UI (Webview) | React 18 + Tailwind CSS 4              |
+| Markdown     | `markdown-it` + `highlight.js`         |
+| Bundler      | esbuild                                |
+| Testing      | Mocha , Vitest                         |
+| Linting      | ESLint 9 + Prettier 3                  |
 
 ## Build & Development
 
@@ -289,7 +289,7 @@ Webview uses CSS variables bridged from VS Code:
   --accent: var(--vscode-focusBorder);
   --border: var(--vscode-panel-border);
 }
-````
+```
 
 These are consumed by Tailwind utility classes via config.
 

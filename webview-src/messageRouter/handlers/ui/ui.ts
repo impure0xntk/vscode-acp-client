@@ -32,11 +32,15 @@ interface ComposerFocusMessage {
   type: "composer:focus";
 }
 
-export function handleSessionOverviewState(data: SessionOverviewStateMessage): void {
+export function handleSessionOverviewState(
+  data: SessionOverviewStateMessage
+): void {
   useUiStateStore.getState().setOverviewState(data.payload);
 }
 
-export function handleSessionOverviewToggle(data: SessionOverviewToggleMessage): void {
+export function handleSessionOverviewToggle(
+  data: SessionOverviewToggleMessage
+): void {
   useUiStateStore.getState().setOverviewVisible(data.payload.visible);
 }
 

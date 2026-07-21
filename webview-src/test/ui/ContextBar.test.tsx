@@ -57,7 +57,11 @@ describe("ContextBar", () => {
 
   it("renders a selected team chip with remove handler", () => {
     const onRemoveSelectedTeam = vi.fn();
-    const team: SelectedTeam = { id: "t1", name: "Team Alpha", leadAgentId: "lead" };
+    const team: SelectedTeam = {
+      id: "t1",
+      name: "Team Alpha",
+      leadAgentId: "lead",
+    };
     render(
       <ContextBar
         attachments={[]}

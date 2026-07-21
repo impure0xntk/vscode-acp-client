@@ -131,7 +131,11 @@ export function IntermediateStepsBanner({
   useEffect(() => {
     if (steps.length > prevStepCount.current) {
       prevStepCount.current = steps.length;
-      if (isCollapsed && !userToggledRef.current && !parentCollapsedRef.current) {
+      if (
+        isCollapsed &&
+        !userToggledRef.current &&
+        !parentCollapsedRef.current
+      ) {
         setAnimatingCollapsed(false);
         setIsCollapsed(false);
         onExpandSettled?.();

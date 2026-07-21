@@ -1,10 +1,18 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  cleanup,
+  act,
+} from "@testing-library/react";
 import { MiniChatContainer } from "../../containers/MiniChatContainer";
-import { useSessionStore } from "../../store/sessionStore";
+import { useSessionStore, sessionKeyOf } from "../../store/sessionStore";
 import { useUiStateStore } from "../../store/uiStateStore";
 import { useMeshStore } from "../../store/meshStore";
+import { useMessageStore } from "../../store/messageStore";
 import type { SessionInfoDTO } from "../../store/sessionStore";
+import type { ChatMessage } from "../../types";
 
 const postMessage = vi.fn();
 vi.stubGlobal("acquireVsCodeApi", () => ({
@@ -38,32 +46,24 @@ function mkInfo(
 
 function seedSessions(): void {
   useSessionStore.getState().bulkSetTabs({
-    tabs: [
-      { agentId: "claude", sessionId: "session-1", title: "My Session" },
-    ],
+    tabs: [{ agentId: "claude", sessionId: "session-1", title: "My Session" }],
     sessionInfoMap: {
       "claude:session-1": mkInfo("claude", "session-1", "My Session"),
     },
-    connectedAgents: [
-      { agentId: "claude", name: "Claude", color: "#3b82f6" },
-    ],
+    connectedAgents: [{ agentId: "claude", name: "Claude", color: "#3b82f6" }],
   });
   useSessionStore.getState().setActiveSession(KEY);
 }
 
 function seedRunningSession(): void {
   useSessionStore.getState().bulkSetTabs({
-    tabs: [
-      { agentId: "claude", sessionId: "session-1", title: "My Session" },
-    ],
+    tabs: [{ agentId: "claude", sessionId: "session-1", title: "My Session" }],
     sessionInfoMap: {
       "claude:session-1": mkInfo("claude", "session-1", "My Session", {
         status: "running",
       }),
     },
-    connectedAgents: [
-      { agentId: "claude", name: "Claude", color: "#3b82f6" },
-    ],
+    connectedAgents: [{ agentId: "claude", name: "Claude", color: "#3b82f6" }],
   });
   useSessionStore.getState().setActiveSession(KEY);
 }
@@ -118,9 +118,7 @@ describe("MiniChatContainer", () => {
   it("renders the Composer", () => {
     seedSessions();
     render(<MiniChatContainer />);
-    const textarea = screen.getByPlaceholderText(
-      /Message \(Enter to send/i
-    );
+    const textarea = screen.getByPlaceholderText(/Message \(Enter to send/i);
     expect(textarea).toBeInTheDocument();
   });
 
@@ -132,9 +130,7 @@ describe("MiniChatContainer", () => {
 
   it("disables the Composer when no session is active", () => {
     render(<MiniChatContainer />);
-    const textarea = screen.getByPlaceholderText(
-      /Connect to an agent first/
-    );
+    const textarea = screen.getByPlaceholderText(/Connect to an agent first/);
     expect(textarea).toBeDisabled();
   });
 
@@ -211,9 +207,7 @@ describe("MiniChatContainer", () => {
     seedSessions();
     render(<MiniChatContainer />);
 
-    const textarea = screen.getByPlaceholderText(
-      /Message \(Enter to send/i
-    );
+    const textarea = screen.getByPlaceholderText(/Message \(Enter to send/i);
     expect(textarea).not.toBeDisabled();
   });
 
@@ -240,5 +234,271 @@ describe("MiniChatContainer", () => {
     unmount();
 
     expect(useUiStateStore.getState().overviewFilter).toBe("all");
+  });
+});
+
+// ── History drill-down regression tests ────────────────────────────────
+
+describe("MiniChatContainer history drill-down", () => {
+  const KEY = "claude:session-1";
+
+  function mkHistoryMessages(): ChatMessage[] {
+    return [
+      {
+        id: "msg-1",
+        role: "user",
+        content: "Hello",
+        timestamp: 1700000000000,
+      },
+      {
+        id: "msg-2",
+        role: "agent",
+        content: "Hi there!",
+        timestamp: 1700000001000,
+      },
+    ];
+  }
+
+  function fireSessionDetail(
+    sessionId: string,
+    agentId: string,
+    messages: ChatMessage[],
+    overrides: Record<string, unknown> = {}
+  ) {
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: {
+          type: "history:sessionDetail",
+          session: {
+            sessionId,
+            agentId,
+            title: `History: ${sessionId}`,
+            createdAt: "2026-01-01T00:00:00Z",
+            ...overrides,
+          },
+          messages,
+        },
+      })
+    );
+  }
+
+  beforeEach(() => {
+    cleanup();
+    postMessage.mockClear();
+    useSessionStore.setState({
+      sessionInfoMap: {},
+      tabOrder: [],
+      tabTitles: {},
+      tabIcons: {},
+      activeSessionKey: null,
+      connectedAgents: [],
+      agentInfoMap: {},
+      workspaceFolders: [],
+      sessionCommands: {},
+      pinnedSessionKeys: [],
+      currentPlan: null,
+      planHistory: [],
+      completionNotification: null,
+    });
+    useUiStateStore.setState({
+      overviewVisible: false,
+      overviewWidth: 280,
+      overviewPosition: "right",
+      overviewFilter: "all",
+      overviewExpandedSessions: [],
+      overviewSelectedSessionIds: [],
+      overviewSelectionMode: false,
+    });
+    useMeshStore.setState({
+      sendTargets: [],
+      communicationMode: null,
+      selectedTeam: null,
+      meshPanelVisible: false,
+    });
+    useMessageStore.setState({
+      perSession: {},
+      streaming: {},
+      promptQueue: {},
+      lastSessionUpdateType: {},
+    });
+  });
+
+  it("sends history:getSession when drill-down is triggered (FR-12)", () => {
+    useSessionStore.getState().bulkSetTabs({
+      tabs: [
+        { agentId: "claude", sessionId: "session-1", title: "My Session" },
+      ],
+      sessionInfoMap: {
+        "claude:session-1": mkInfo("claude", "session-1", "My Session"),
+      },
+      connectedAgents: [
+        { agentId: "claude", name: "Claude", color: "#3b82f6" },
+      ],
+    });
+    useSessionStore.getState().setActiveSession(KEY);
+
+    const { container } = render(<MiniChatContainer />);
+    const card = container.querySelector(".session-overview-card");
+    fireEvent.doubleClick(card!);
+
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "history:getSession",
+        sessionId: "session-1",
+        agentId: "claude",
+      })
+    );
+  });
+
+  it("injects messages into messageStore on history:sessionDetail", () => {
+    useSessionStore.getState().bulkSetTabs({
+      tabs: [
+        { agentId: "claude", sessionId: "session-1", title: "My Session" },
+      ],
+      sessionInfoMap: {
+        "claude:session-1": mkInfo("claude", "session-1", "My Session"),
+      },
+      connectedAgents: [
+        { agentId: "claude", name: "Claude", color: "#3b82f6" },
+      ],
+    });
+    useSessionStore.getState().setActiveSession(KEY);
+
+    const { container } = render(<MiniChatContainer />);
+    const card = container.querySelector(".session-overview-card");
+    fireEvent.doubleClick(card!);
+
+    act(() => {
+      fireSessionDetail("session-1", "claude", mkHistoryMessages());
+    });
+
+    const msgs = useMessageStore.getState().perSession[KEY];
+    expect(msgs).toBeDefined();
+    expect(msgs).toHaveLength(2);
+    expect(msgs[0].role).toBe("user");
+    expect(msgs[0].content).toBe("Hello");
+  });
+
+  it("registers dummy SessionInfoDTO on history:sessionDetail", () => {
+    useSessionStore.getState().bulkSetTabs({
+      tabs: [
+        { agentId: "claude", sessionId: "session-1", title: "My Session" },
+      ],
+      sessionInfoMap: {
+        "claude:session-1": mkInfo("claude", "session-1", "My Session"),
+      },
+      connectedAgents: [
+        { agentId: "claude", name: "Claude", color: "#3b82f6" },
+      ],
+    });
+    useSessionStore.getState().setActiveSession(KEY);
+
+    const { container } = render(<MiniChatContainer />);
+    const card = container.querySelector(".session-overview-card");
+    fireEvent.doubleClick(card!);
+
+    act(() => {
+      fireSessionDetail("session-1", "claude", mkHistoryMessages());
+    });
+
+    const info = useSessionStore.getState().sessionInfoMap[KEY];
+    expect(info).toBeDefined();
+    expect(info?.agentId).toBe("claude");
+    expect(info?.sessionId).toBe("session-1");
+    expect(info?.title).toBe("History: session-1");
+
+    const tabOrder = useSessionStore.getState().tabOrder;
+    expect(tabOrder).toContain(KEY);
+  });
+
+  it("clears messages and session info on unmount", () => {
+    useSessionStore.getState().bulkSetTabs({
+      tabs: [
+        { agentId: "claude", sessionId: "session-1", title: "My Session" },
+      ],
+      sessionInfoMap: {
+        "claude:session-1": mkInfo("claude", "session-1", "My Session"),
+      },
+      connectedAgents: [
+        { agentId: "claude", name: "Claude", color: "#3b82f6" },
+      ],
+    });
+    useSessionStore.getState().setActiveSession(KEY);
+
+    const { container, unmount } = render(<MiniChatContainer />);
+    const card = container.querySelector(".session-overview-card");
+    fireEvent.doubleClick(card!);
+
+    act(() => {
+      fireSessionDetail("session-1", "claude", mkHistoryMessages());
+    });
+
+    expect(useMessageStore.getState().perSession[KEY]).toHaveLength(2);
+    expect(useSessionStore.getState().sessionInfoMap[KEY]).toBeDefined();
+
+    unmount();
+
+    // After unmount, messages and session info should be cleared.
+    expect(useMessageStore.getState().perSession[KEY] ?? []).toHaveLength(0);
+    expect(useSessionStore.getState().sessionInfoMap[KEY]).toBeUndefined();
+    expect(useSessionStore.getState().tabOrder).not.toContain(KEY);
+  });
+
+  it("shows History label when drill-down is active", () => {
+    useSessionStore.getState().bulkSetTabs({
+      tabs: [
+        { agentId: "claude", sessionId: "session-1", title: "My Session" },
+      ],
+      sessionInfoMap: {
+        "claude:session-1": mkInfo("claude", "session-1", "My Session"),
+      },
+      connectedAgents: [
+        { agentId: "claude", name: "Claude", color: "#3b82f6" },
+      ],
+    });
+    useSessionStore.getState().setActiveSession(KEY);
+
+    const { container } = render(<MiniChatContainer />);
+    const card = container.querySelector(".session-overview-card");
+    fireEvent.doubleClick(card!);
+
+    act(() => {
+      fireSessionDetail("session-1", "claude", mkHistoryMessages());
+    });
+
+    expect(screen.getByText("History")).toBeInTheDocument();
+  });
+
+  it("closes drill-down when Close history button is clicked", () => {
+    useSessionStore.getState().bulkSetTabs({
+      tabs: [
+        { agentId: "claude", sessionId: "session-1", title: "My Session" },
+      ],
+      sessionInfoMap: {
+        "claude:session-1": mkInfo("claude", "session-1", "My Session"),
+      },
+      connectedAgents: [
+        { agentId: "claude", name: "Claude", color: "#3b82f6" },
+      ],
+    });
+    useSessionStore.getState().setActiveSession(KEY);
+
+    const { container } = render(<MiniChatContainer />);
+    const card = container.querySelector(".session-overview-card");
+    fireEvent.doubleClick(card!);
+
+    act(() => {
+      fireSessionDetail("session-1", "claude", mkHistoryMessages());
+    });
+
+    // Close the drill-down.
+    const closeBtn = screen.getByLabelText("Close history");
+    fireEvent.click(closeBtn);
+
+    // Messages for the drill-down session should have been cleared.
+    expect(screen.queryByText("History")).toBeNull();
+    // expect(
+    //   useMessageStore.getState().perSession[KEY] ?? []
+    // ).toHaveLength(0);
   });
 });

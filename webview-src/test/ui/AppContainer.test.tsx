@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen, fireEvent, cleanup, act } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  cleanup,
+  act,
+} from "@testing-library/react";
 import { AppContainer } from "../../containers/AppContainer";
 import { useSessionStore, sessionKeyOf } from "../../store/sessionStore";
 import { useMeshStore } from "../../store/meshStore";
@@ -20,7 +26,11 @@ vi.stubGlobal("acquireVsCodeApi", () => ({
 const KEY = "claude:session-1";
 
 function seedSessions(): void {
-  const mk = (agentId: string, sessionId: string, title: string): SessionInfoDTO => ({
+  const mk = (
+    agentId: string,
+    sessionId: string,
+    title: string
+  ): SessionInfoDTO => ({
     sessionId,
     agentId,
     title,

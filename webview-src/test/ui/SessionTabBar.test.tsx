@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { SessionTabBar } from "../../components/sessions/SessionTabBar";
-import type { SessionTabState, ConnectedAgentInfo } from "../../store/sessionStore";
+import type {
+  SessionTabState,
+  ConnectedAgentInfo,
+} from "../../store/sessionStore";
 
 const tabs: SessionTabState[] = [
   { sessionId: "s1", agentId: "claude", title: "Session One" },

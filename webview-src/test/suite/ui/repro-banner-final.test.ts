@@ -27,7 +27,11 @@ function msg(
   } as RawMessage;
 }
 const cfg: PipelineConfig = {
-  filter: { hideCompression: false, hideModeChange: false, hideErrorNotices: false },
+  filter: {
+    hideCompression: false,
+    hideModeChange: false,
+    hideErrorNotices: false,
+  },
   annotate: { resolveAttachments: true, detectInlinePaths: false },
 };
 const ctx: PipelineContext = {
@@ -43,7 +47,8 @@ function report(label: string, messages: RawMessage[]) {
   const { latestGroup } = new IntermediateStepGrouper(items).compute();
   assert.ok(latestGroup, `${label}: latestGroup`);
   const final = latestGroup.finalResponse
-    ? ((latestGroup.finalResponse.item as ChatDisplayItem).content || "[thinking]")
+    ? (latestGroup.finalResponse.item as ChatDisplayItem).content ||
+      "[thinking]"
     : null;
   const { olderSteps, currentStep } = splitLatestSteps(
     latestGroup.steps,
@@ -61,17 +66,25 @@ function report(label: string, messages: RawMessage[]) {
 describe("repro: faithful streaming multi-step turn", () => {
   beforeEach(() => {
     c = 0;
-    useMessageStore.setState({ perSession: {}, streaming: {}, promptQueue: {} });
+    useMessageStore.setState({
+      perSession: {},
+      streaming: {},
+      promptQueue: {},
+    });
     useFileWriteStore.setState({ writes: {}, nextSeq: 0 });
   });
 
   it("intermediate step + final (thinking+tool) during streaming", () => {
     const key = "a:s";
 
-    useMessageStore.getState().appendMessage(key, msg({ role: "user", content: "do it" }));
+    useMessageStore
+      .getState()
+      .appendMessage(key, msg({ role: "user", content: "do it" }));
     report("1:user", useMessageStore.getState().perSession[key]);
 
-    useMessageStore.getState().appendMessage(key, msg({ role: "agent", content: "reading files..." }));
+    useMessageStore
+      .getState()
+      .appendMessage(key, msg({ role: "agent", content: "reading files..." }));
     report("2:intermediate", useMessageStore.getState().perSession[key]);
 
     useMessageStore.getState().appendMessage(
@@ -79,12 +92,16 @@ describe("repro: faithful streaming multi-step turn", () => {
       msg({
         role: "tool",
         content: "result",
-        toolCalls: [{ id: "t1", title: "Read", status: "completed", kind: "read" }],
+        toolCalls: [
+          { id: "t1", title: "Read", status: "completed", kind: "read" },
+        ],
       })
     );
     report("3:+tool", useMessageStore.getState().perSession[key]);
 
-    useMessageStore.getState().appendStreamChunk(key, "a", "s", "Here is the answer.", "m-final");
+    useMessageStore
+      .getState()
+      .appendStreamChunk(key, "a", "s", "Here is the answer.", "m-final");
     report("4:+final-streaming", useMessageStore.getState().perSession[key]);
 
     useMessageStore.getState().appendMessage(
@@ -92,22 +109,33 @@ describe("repro: faithful streaming multi-step turn", () => {
       msg({
         role: "agent",
         content: "",
-        thinking: { type: "thinking", content: "final-step thought", isStreaming: false },
+        thinking: {
+          type: "thinking",
+          content: "final-step thought",
+          isStreaming: false,
+        },
       })
     );
-    report("5:+thinking(final step)", useMessageStore.getState().perSession[key]);
+    report(
+      "5:+thinking(final step)",
+      useMessageStore.getState().perSession[key]
+    );
 
     useMessageStore.getState().appendMessage(
       key,
       msg({
         role: "tool",
         content: "write result",
-        toolCalls: [{ id: "t2", title: "Write", status: "completed", kind: "write" }],
+        toolCalls: [
+          { id: "t2", title: "Write", status: "completed", kind: "write" },
+        ],
       })
     );
     report("6:+tool(final step)", useMessageStore.getState().perSession[key]);
 
-    useMessageStore.getState().updateLastAgentMessage(key, { stopReason: "end_turn" });
+    useMessageStore
+      .getState()
+      .updateLastAgentMessage(key, { stopReason: "end_turn" });
     report("7:end_turn", useMessageStore.getState().perSession[key]);
   });
 });

@@ -60,10 +60,7 @@ export interface SupervisorModeProps {
   ) => void;
   onClearQueue?: (agentId: string, sessionId: string) => void;
   onAttachDiff?: (attachment: ContextAttachment) => void;
-  onSendMode?: (
-    text: string,
-    attachments: ContextAttachment[],
-  ) => void;
+  onSendMode?: (text: string, attachments: ContextAttachment[]) => void;
 }
 
 export const SupervisorMode = React.memo(function SupervisorMode({

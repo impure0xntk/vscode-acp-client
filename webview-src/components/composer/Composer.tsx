@@ -112,10 +112,7 @@ export interface ComposerProps {
   /** Attach a diff attachment (from FileEditSummary) */
   onAttachDiff?: (attachment: ContextAttachment) => void;
   /** Send with an explicit queue mode (stack/inject) — used for running-session routing. Defaults to undefined (immediate). */
-  onSendMode?: (
-    text: string,
-    attachments: ContextAttachment[],
-  ) => void;
+  onSendMode?: (text: string, attachments: ContextAttachment[]) => void;
 }
 
 function relativeTime(iso: string | null): string {
@@ -1003,9 +1000,7 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
     // Queue mode selector: when a session is running, the user picks
     // stack/inject via hotkeys; this ref stores the pending mode so
     // handleSend can route correctly.
-    const pendingQueueModeRef = useRef<
-      "stack" | "inject" | null
-    >(null);
+    const pendingQueueModeRef = useRef<"stack" | "inject" | null>(null);
     const usePendingQueueMode = (): "stack" | "inject" | null => {
       const m = pendingQueueModeRef.current;
       pendingQueueModeRef.current = null;
@@ -1358,7 +1353,11 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
                           ? "bg-accent text-user-fg"
                           : "bg-bg-tertiary text-fg-muted"
                       }`}
-                      title={entry.mode === "inject" ? "Inject (interrupt at boundary)" : "Stack (enqueue after turn)"}
+                      title={
+                        entry.mode === "inject"
+                          ? "Inject (interrupt at boundary)"
+                          : "Stack (enqueue after turn)"
+                      }
                     >
                       {entry.mode === "inject" ? "INJ" : "STK"}
                     </span>
@@ -1442,7 +1441,9 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
                   pendingQueueModeRef.current = "stack";
                   handleSend();
                 }}
-                disabled={disabled || (!text.trim() && attachments.length === 0)}
+                disabled={
+                  disabled || (!text.trim() && attachments.length === 0)
+                }
                 title="Stack — enqueue after current turn (⌥+Enter)"
                 aria-label="Stack message"
               >
@@ -1454,7 +1455,9 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
                   pendingQueueModeRef.current = "inject";
                   handleSend();
                 }}
-                disabled={disabled || (!text.trim() && attachments.length === 0)}
+                disabled={
+                  disabled || (!text.trim() && attachments.length === 0)
+                }
                 title="Inject — interrupt at next boundary (⌘+Shift+Enter)"
                 aria-label="Inject message"
               >
@@ -1481,9 +1484,7 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
             <button
               className="bg-transparent border-none cursor-pointer text-sm w-6 h-6 rounded flex-shrink-0 flex items-center justify-center p-0 leading-none text-accent hover:bg-accent-hover disabled:text-fg-muted disabled:cursor-not-allowed"
               onClick={handleSend}
-              disabled={
-                disabled || (!text.trim() && attachments.length === 0)
-              }
+              disabled={disabled || (!text.trim() && attachments.length === 0)}
               title="Send to active session"
             >
               ↑

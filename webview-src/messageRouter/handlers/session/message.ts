@@ -18,7 +18,9 @@ export function handleSessionMessage(data: SessionMessageData): void {
   const attachments =
     msg.attachments ??
     (msg.attachmentsJson
-      ? (JSON.parse(msg.attachmentsJson) as import("../../../types").ContextAttachment[])
+      ? (JSON.parse(
+          msg.attachmentsJson
+        ) as import("../../../types").ContextAttachment[])
       : undefined);
 
   if (msg.role === "tool" && msg.toolCalls && msg.toolCalls.length > 0) {
@@ -31,9 +33,14 @@ export function handleSessionMessage(data: SessionMessageData): void {
           for (const tc of m.toolCalls) existingTcIds.add(tc.id);
         }
       }
-      const dedupedTCs = msg.toolCalls.filter((tc) => !existingTcIds.has(tc.id));
+      const dedupedTCs = msg.toolCalls.filter(
+        (tc) => !existingTcIds.has(tc.id)
+      );
       if (dedupedTCs.length === 0) {
-        log.debug("handleSessionMessage: skipping duplicate tool message", { msgKey, msgId: msg.id });
+        log.debug("handleSessionMessage: skipping duplicate tool message", {
+          msgKey,
+          msgId: msg.id,
+        });
         return;
       }
       if (dedupedTCs.length < msg.toolCalls.length) {
@@ -42,7 +49,13 @@ export function handleSessionMessage(data: SessionMessageData): void {
           before: msg.toolCalls.length,
           after: dedupedTCs.length,
         });
-        useMessageStore.getState().appendMessage(msgKey, { ...msg, attachments, toolCalls: dedupedTCs });
+        useMessageStore
+          .getState()
+          .appendMessage(msgKey, {
+            ...msg,
+            attachments,
+            toolCalls: dedupedTCs,
+          });
         return;
       }
     }

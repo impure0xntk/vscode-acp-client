@@ -780,15 +780,17 @@ describe("Regression — prompt send while a turn is still in flight", () => {
  * execute()'s finally block calling processNextInQueue().
  */
 
-function wireCountingConnection(
-  orch: SessionOrchestrator
-): { promptCalls: string[] } {
+function wireCountingConnection(orch: SessionOrchestrator): {
+  promptCalls: string[];
+} {
   const promptCalls: string[] = [];
   // Replace the connection ref so execute() can run without a real agent
   // process. Each call resolves immediately.
   (orch as any).agentConnectionRef.value = {
     getConnection: (_agentId: string) => ({
-      prompt: async (req: { prompt: Array<{ type: string; text?: string }> }) => {
+      prompt: async (req: {
+        prompt: Array<{ type: string; text?: string }>;
+      }) => {
         const text = req.prompt
           .filter((b) => b.type === "text")
           .map((b) => b.text ?? "")

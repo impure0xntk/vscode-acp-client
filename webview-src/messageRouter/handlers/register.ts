@@ -159,7 +159,8 @@ export function setupAllHandlers(router: MessageRouter): void {
     "mesh:taskBoard": _meshTaskBoard as unknown as MessageHandler,
     "mesh:message": _meshMessage as unknown as MessageHandler,
     "mesh:agentConnected": _meshAgentConnected as unknown as MessageHandler,
-    "mesh:agentDisconnected": _meshAgentDisconnected as unknown as MessageHandler,
+    "mesh:agentDisconnected":
+      _meshAgentDisconnected as unknown as MessageHandler,
     "mesh:togglePanel": _meshPanelToggle as unknown as MessageHandler,
     "mesh:startTeam": _meshStartTeam as unknown as MessageHandler,
     "mesh:teamCreated": _meshTeamCreated as unknown as MessageHandler,

@@ -198,7 +198,12 @@ export const SessionChatContainer = memo(function SessionChatContainer({
   // Per-group file edit summaries via dedicated hook (O(W log W + S)).
   // Computes separate file edit summaries for each group's steps + finalResponse.
   const { groupMaps: groupFileEditSummaryMaps, latestCurrentStepSummary } =
-    useGroupFileEditSummaryMaps(agentId ?? "", sessionId ?? "", groups, latestGroup);
+    useGroupFileEditSummaryMaps(
+      agentId ?? "",
+      sessionId ?? "",
+      groups,
+      latestGroup
+    );
 
   const collapsedMap = useIntermediateStepsCollapseMap(sessionKey ?? null);
   const toggleIntermediateSteps = useToggleIntermediateSteps();
@@ -224,8 +229,8 @@ export const SessionChatContainer = memo(function SessionChatContainer({
   // tool_use is excluded because it continues the same turn.
   const latestFinalKey = latestGroup?.finalResponse?.item.key ?? null;
   const latestFinalStopReason =
-    (latestGroup?.finalResponse?.item as ChatDisplayItem | undefined)?.stopReason ??
-    null;
+    (latestGroup?.finalResponse?.item as ChatDisplayItem | undefined)
+      ?.stopReason ?? null;
   const prevFinalKeyRef = useRef<string | null>(null);
   const prevFinalSettledRef = useRef(false);
   useLayoutEffect(() => {
@@ -734,9 +739,7 @@ export const SessionChatContainer = memo(function SessionChatContainer({
                               <ToolBatchSummary
                                 calls={currentStep.toolCalls
                                   .filter((tc) => tc.thinking == null)
-                                  .flatMap(
-                                    (tc) => tc.resolvedToolCalls ?? []
-                                  )}
+                                  .flatMap((tc) => tc.resolvedToolCalls ?? [])}
                                 isNew={true}
                               />
                             </div>

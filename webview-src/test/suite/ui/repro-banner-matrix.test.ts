@@ -7,10 +7,18 @@ import {
   IntermediateStepGrouper,
   splitLatestSteps,
 } from "../../../pipeline/stages/grouping";
-import type { PipelineItem, ChatDisplayItem, RawMessage } from "../../../pipeline/types";
+import type {
+  PipelineItem,
+  ChatDisplayItem,
+  RawMessage,
+} from "../../../pipeline/types";
 
 const cfg: any = {
-  filter: { hideCompression: false, hideModeChange: false, hideErrorNotices: false },
+  filter: {
+    hideCompression: false,
+    hideModeChange: false,
+    hideErrorNotices: false,
+  },
   annotate: { resolveAttachments: true, detectInlinePaths: false },
 };
 const ctx: any = {
@@ -27,9 +35,11 @@ function dump(label: string) {
   const items = pipe.process(msgs as RawMessage[], ctx) as PipelineItem[];
   const { latestGroup } = new IntermediateStepGrouper(items).compute();
   assert.ok(latestGroup, `${label}: latestGroup`);
-  const final = latestGroup.finalResponse != null
-    ? (latestGroup.finalResponse.item as ChatDisplayItem).content || "[thinking]"
-    : null;
+  const final =
+    latestGroup.finalResponse != null
+      ? (latestGroup.finalResponse.item as ChatDisplayItem).content ||
+        "[thinking]"
+      : null;
   const { olderSteps } = splitLatestSteps(
     latestGroup.steps,
     latestGroup.finalResponse != null,
@@ -47,14 +57,36 @@ function dump(label: string) {
 function user(content: string) {
   useMessageStore.getState().appendMessage(key, {
     id: `u-${Math.random().toString(36).slice(2, 8)}`,
-    role: "user", content, timestamp: Date.now(), agentId: "a", sessionId: "s",
+    role: "user",
+    content,
+    timestamp: Date.now(),
+    agentId: "a",
+    sessionId: "s",
   } as RawMessage);
 }
 function agentText(chunk: string, messageId: string) {
-  useMessageStore.getState().appendStreamChunks(key, "a", "s", [chunk], messageId, "agent_message_chunk");
+  useMessageStore
+    .getState()
+    .appendStreamChunks(
+      key,
+      "a",
+      "s",
+      [chunk],
+      messageId,
+      "agent_message_chunk"
+    );
 }
 function thinking(chunk: string, messageId: string) {
-  useMessageStore.getState().appendStreamChunks(key, "a", "s", [chunk], messageId, "agent_thought_chunk");
+  useMessageStore
+    .getState()
+    .appendStreamChunks(
+      key,
+      "a",
+      "s",
+      [chunk],
+      messageId,
+      "agent_thought_chunk"
+    );
 }
 function toolCall(id: string, title: string) {
   const last = useMessageStore.getState().perSession[key];
@@ -64,32 +96,54 @@ function toolCall(id: string, title: string) {
       ? lastMsg
       : {
           id: `tc-${id}-${Math.random().toString(36).slice(2, 8)}`,
-          role: "tool" as const, content: "", timestamp: Date.now(),
-          agentId: "a", sessionId: "s", toolCalls: [] as any[],
+          role: "tool" as const,
+          content: "",
+          timestamp: Date.now(),
+          agentId: "a",
+          sessionId: "s",
+          toolCalls: [] as any[],
         };
   const updated = {
     ...toolMsg,
-    toolCalls: [...(toolMsg.toolCalls ?? []), {
-      id, title, status: "completed" as const, kind: "read" as const,
-      input: undefined, output: undefined, durationMs: undefined,
-      locations: undefined, diffContent: undefined,
-    }],
+    toolCalls: [
+      ...(toolMsg.toolCalls ?? []),
+      {
+        id,
+        title,
+        status: "completed" as const,
+        kind: "read" as const,
+        input: undefined,
+        output: undefined,
+        durationMs: undefined,
+        locations: undefined,
+        diffContent: undefined,
+      },
+    ],
   };
   if (lastMsg && lastMsg.role === "tool") {
-    useMessageStore.getState().updateMessage(key, last.length - 1, updated as any);
+    useMessageStore
+      .getState()
+      .updateMessage(key, last.length - 1, updated as any);
   } else {
     useMessageStore.getState().appendMessage(key, updated as any);
   }
 }
 function turnEnded(reason: string) {
-  useMessageStore.getState().updateLastAgentMessage(key, { stopReason: reason });
+  useMessageStore
+    .getState()
+    .updateLastAgentMessage(key, { stopReason: reason });
 }
 
 // Build N intermediate steps (each: agent text + tool), then a final step
 // composed of the given `finalParts` in order, optionally ending with a final
 // text that receives `endReason`.
 type Part = "text" | "thinking" | "tool";
-function build(intermediateSteps: number, finalParts: Part[], endReason: string | null, label: string) {
+function build(
+  intermediateSteps: number,
+  finalParts: Part[],
+  endReason: string | null,
+  label: string
+) {
   user("do it");
   for (let i = 1; i <= intermediateSteps; i++) {
     agentText(`step${i} text `, `m${i}`);
@@ -98,9 +152,14 @@ function build(intermediateSteps: number, finalParts: Part[], endReason: string 
   // final step: messageId "mf" for the final text
   let hasFinalText = false;
   for (const p of finalParts) {
-    if (p === "text") { agentText("final text ", "mf"); hasFinalText = true; }
-    else if (p === "thinking") { thinking("final thinking", "mf"); }
-    else { toolCall("tf", "FinalTool"); }
+    if (p === "text") {
+      agentText("final text ", "mf");
+      hasFinalText = true;
+    } else if (p === "thinking") {
+      thinking("final thinking", "mf");
+    } else {
+      toolCall("tf", "FinalTool");
+    }
   }
   const before = dump(`${label} [before turnEnded]`);
   if (endReason) turnEnded(endReason);
@@ -122,14 +181,25 @@ const orderings: Part[][] = [
 
 describe("repro matrix: final-step ordering vs banner visibility", () => {
   beforeEach(() => {
-    useMessageStore.setState({ perSession: {}, streaming: {}, promptQueue: {} });
+    useMessageStore.setState({
+      perSession: {},
+      streaming: {},
+      promptQueue: {},
+    });
     useFileWriteStore.setState({ writes: {}, nextSeq: 0 });
   });
 
   for (const ordering of orderings) {
     it(`2 intermediate steps + final[${ordering.join(",")}] end_turn`, () => {
-      const { before, after } = build(2, ordering, "end_turn", `2step/final[${ordering.join(",")}]`);
-      console.log(`   => before=${before > 0 ? "SHOWN" : "HIDDEN"} after=${after > 0 ? "SHOWN" : "HIDDEN"}`);
+      const { before, after } = build(
+        2,
+        ordering,
+        "end_turn",
+        `2step/final[${ordering.join(",")}]`
+      );
+      console.log(
+        `   => before=${before > 0 ? "SHOWN" : "HIDDEN"} after=${after > 0 ? "SHOWN" : "HIDDEN"}`
+      );
     });
   }
 

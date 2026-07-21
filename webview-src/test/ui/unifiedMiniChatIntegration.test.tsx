@@ -76,9 +76,7 @@ function seedOneSession(): void {
     sessionInfoMap: {
       "claude:session-1": mkInfo("claude", "session-1", "Main Session"),
     },
-    connectedAgents: [
-      { agentId: "claude", name: "Claude", color: "#3b82f6" },
-    ],
+    connectedAgents: [{ agentId: "claude", name: "Claude", color: "#3b82f6" }],
   });
   useSessionStore.getState().setActiveSession("claude:session-1");
 }
@@ -116,14 +114,12 @@ describe("UnifiedChat + MiniChat integration", () => {
     const { container: mini } = render(<MiniChatContainer />);
 
     // Unified panel: session tab bar shows "Main Session"
-    expect(
-      unified.querySelector("div[role='button']")?.textContent
-    ).toContain("Main Session");
+    expect(unified.querySelector("div[role='button']")?.textContent).toContain(
+      "Main Session"
+    );
 
     // MiniChat panel: overview card shows "Main Session"
-    expect(
-      mini.querySelector(".session-overview-card")
-    ).toBeTruthy();
+    expect(mini.querySelector(".session-overview-card")).toBeTruthy();
     expect(mini.textContent).toContain("Main Session");
   });
 
@@ -214,18 +210,22 @@ describe("UnifiedChat + MiniChat integration", () => {
 
     // Update session to running
     act(() => {
-      useSessionStore.getState().setSessionInfo(
-        "claude",
-        "session-1",
-        mkInfo("claude", "session-1", "Main Session", { status: "running" })
-      );
+      useSessionStore
+        .getState()
+        .setSessionInfo(
+          "claude",
+          "session-1",
+          mkInfo("claude", "session-1", "Main Session", { status: "running" })
+        );
     });
 
     const info = useSessionStore.getState().sessionInfoMap["claude:session-1"];
     expect(info?.status).toBe("running");
 
     // MiniChat should show the stop button (running session has cancel)
-    expect(screen.getAllByTitle(/Stop generation/).length).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.getAllByTitle(/Stop generation/).length
+    ).toBeGreaterThanOrEqual(1);
   });
 
   it("session completion status is reflected", () => {
@@ -261,7 +261,11 @@ describe("UnifiedChat + MiniChat integration", () => {
         "claude",
         "session-1",
         mkInfo("claude", "session-1", "Main Session", {
-          tokenUsage: { inputTokens: 1500, outputTokens: 500, totalTokens: 2000 },
+          tokenUsage: {
+            inputTokens: 1500,
+            outputTokens: 500,
+            totalTokens: 2000,
+          },
         })
       );
     });
@@ -313,7 +317,9 @@ describe("UnifiedChat + MiniChat integration", () => {
           status: "running",
         }),
       });
-      useSessionStore.getState().setTabTitle("claude:session-1", "Renamed Session");
+      useSessionStore
+        .getState()
+        .setTabTitle("claude:session-1", "Renamed Session");
     });
 
     // session-1 title and status updated in infoMap
@@ -371,11 +377,13 @@ describe("UnifiedChat + MiniChat integration", () => {
 
     // Update session status — drill-down should stay open
     act(() => {
-      useSessionStore.getState().setSessionInfo(
-        "claude",
-        "session-1",
-        mkInfo("claude", "session-1", "Main Session", { status: "running" })
-      );
+      useSessionStore
+        .getState()
+        .setSessionInfo(
+          "claude",
+          "session-1",
+          mkInfo("claude", "session-1", "Main Session", { status: "running" })
+        );
     });
 
     expect(mini.textContent).toContain("History");
@@ -427,8 +435,12 @@ describe("UnifiedChat + MiniChat integration", () => {
     expect(screen.getAllByText("gpt").length).toBeGreaterThanOrEqual(1);
 
     // Both session titles should appear
-    expect(screen.getAllByText("Main Session").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("Other Session").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Main Session").length).toBeGreaterThanOrEqual(
+      1
+    );
+    expect(screen.getAllByText("Other Session").length).toBeGreaterThanOrEqual(
+      1
+    );
   });
 
   // ── Edge: store reset ───────────────────────────────────────────
@@ -474,7 +486,11 @@ describe("UnifiedChat + MiniChat integration", () => {
         "claude",
         "session-1",
         mkInfo("claude", "session-1", "Main Session", {
-          tokenUsage: { inputTokens: 5000, outputTokens: 2000, totalTokens: 7000 },
+          tokenUsage: {
+            inputTokens: 5000,
+            outputTokens: 2000,
+            totalTokens: 7000,
+          },
         })
       );
     });

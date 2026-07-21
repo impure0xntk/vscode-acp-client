@@ -252,7 +252,16 @@ export function AppContainer(): React.ReactElement {
       queueMode?: import("../types").QueuedPromptMode
     ) => {
       if (targets && targets.length > 0) {
-        sendMessage(text, attachments, undefined, undefined, targets, mode, teamId, queueMode);
+        sendMessage(
+          text,
+          attachments,
+          undefined,
+          undefined,
+          targets,
+          mode,
+          teamId,
+          queueMode
+        );
       } else {
         sendMessage(
           text,
@@ -521,9 +530,10 @@ export function AppContainer(): React.ReactElement {
       const sessionTitle =
         useSessionStore.getState().tabTitles[key] ?? sessionId.slice(0, 8);
       // Guard against an out-of-range index produced by stale picker data.
-      const userPrompt = messages[turnIndex]?.role === "user"
-        ? messages[turnIndex].content.trim()
-        : "";
+      const userPrompt =
+        messages[turnIndex]?.role === "user"
+          ? messages[turnIndex].content.trim()
+          : "";
       resolve({
         id: `turn:${ref}`,
         type: "turn",

@@ -7,7 +7,13 @@ import { sessionKeyOf } from "../../store/sessionStore";
 import { StatusIcon } from "../primitives/StatusIcon";
 import type { StatusIconType, TurnOutcome } from "../primitives/StatusIcon";
 import { UnreadBadge } from "../primitives/UnreadBadge";
-import { IconClose, IconPin, IconPinFilled, IconRows, IconColumns } from "../../lib/icons";
+import {
+  IconClose,
+  IconPin,
+  IconPinFilled,
+  IconRows,
+  IconColumns,
+} from "../../lib/icons";
 import { useSessionInfo } from "../../hooks/useSessionInfo";
 
 export interface SessionTabBarProps {

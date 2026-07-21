@@ -8,10 +8,7 @@ export class MessageRouter {
   private routes = new Map<string, MessageHandler>();
 
   /** Register a handler for a message type. Returns this for chaining. */
-  register(
-    type: string,
-    handler: MessageHandler
-  ): this {
+  register(type: string, handler: MessageHandler): this {
     this.routes.set(type, handler);
     return this;
   }

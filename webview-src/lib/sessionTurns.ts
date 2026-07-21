@@ -71,8 +71,7 @@ export function collectTurns(
     const colon = key.indexOf(":");
     const agentId = colon >= 0 ? key.slice(0, colon) : "";
     const sessionId = colon >= 0 ? key.slice(colon + 1) : key;
-    const sessionTitle =
-      sessionStore.tabTitles[key] ?? sessionId.slice(0, 8);
+    const sessionTitle = sessionStore.tabTitles[key] ?? sessionId.slice(0, 8);
 
     for (let i = 0; i < messages.length; i++) {
       if (messages[i].role !== "user") continue;

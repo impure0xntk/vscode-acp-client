@@ -19,7 +19,9 @@ describe("SessionHeader", () => {
   beforeEach(() => cleanup());
 
   it("renders the agentId and title", () => {
-    render(<SessionHeader sessionKey="claude:s1" agentId="claude" info={info} />);
+    render(
+      <SessionHeader sessionKey="claude:s1" agentId="claude" info={info} />
+    );
     expect(screen.getByText("claude")).toBeInTheDocument();
     expect(screen.getByText("My Session")).toBeInTheDocument();
   });
@@ -74,9 +76,7 @@ describe("SessionHeader", () => {
         onRename={onRename}
       />
     );
-    fireEvent.doubleClick(
-      screen.getByTitle(/double-click to rename/)
-    );
+    fireEvent.doubleClick(screen.getByTitle(/double-click to rename/));
     const input = screen.getByDisplayValue("My Session");
     fireEvent.change(input, { target: { value: "Renamed" } });
     fireEvent.keyDown(input, { key: "Enter" });

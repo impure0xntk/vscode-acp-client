@@ -420,18 +420,15 @@ export function wireOrchestratorEvents(deps: OrchestratorEventDeps): void {
     });
   });
 
-  orchestrator.on(
-    "sessionTitleChanged",
-    ({ agentId, sessionId, title }) => {
-      bridge.postMessage({
-        type: "session/title",
-        agentId,
-        sessionId,
-        title,
-      });
-      sendTabs();
-    }
-  );
+  orchestrator.on("sessionTitleChanged", ({ agentId, sessionId, title }) => {
+    bridge.postMessage({
+      type: "session/title",
+      agentId,
+      sessionId,
+      title,
+    });
+    sendTabs();
+  });
 
   orchestrator.on("sessionPinned", ({ agentId, sessionId }) => {
     bridge.postMessage({ type: "session.pinned", agentId, sessionId });

@@ -631,10 +631,7 @@ export function selectFinalResponse(
       const chat = agentChats[i] as ChatDisplayItem;
       // Skip thinking-only messages — they have reasoning but deliver no
       // user-facing content.  They are intermediate steps, not final output.
-      if (
-        chat.thinking != null &&
-        (chat.content?.trim() ?? "") === ""
-      ) {
+      if (chat.thinking != null && (chat.content?.trim() ?? "") === "") {
         continue;
       }
       agentOnly.push({ item: agentChats[i], originalIndex: i });
@@ -711,9 +708,7 @@ export function selectFinalResponse(
 function isTurnEndingStopReason(
   stopReason: string | null | undefined
 ): boolean {
-  return (
-    stopReason != null && stopReason !== "" && stopReason !== "tool_use"
-  );
+  return stopReason != null && stopReason !== "" && stopReason !== "tool_use";
 }
 
 export function splitIntoSteps(

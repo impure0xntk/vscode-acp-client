@@ -15,7 +15,11 @@ export type QueuedPromptStatus = "pending" | "sending" | "sent" | "cancelled";
 export type QueuedPromptMode = "stack" | "inject";
 
 /** Safe boundary at which an inject entry should be applied (best-effort hint). */
-export type InjectBoundary = "tool_call" | "thought" | "stream_pause" | "end_turn";
+export type InjectBoundary =
+  | "tool_call"
+  | "thought"
+  | "stream_pause"
+  | "end_turn";
 
 export interface QueuedPrompt {
   id: string;

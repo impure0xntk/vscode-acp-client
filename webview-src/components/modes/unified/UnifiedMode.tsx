@@ -65,10 +65,7 @@ export interface UnifiedModeProps {
   ) => void;
   onClearQueue?: (agentId: string, sessionId: string) => void;
   onAttachDiff?: (attachment: ContextAttachment) => void;
-  onSendMode?: (
-    text: string,
-    attachments: ContextAttachment[],
-  ) => void;
+  onSendMode?: (text: string, attachments: ContextAttachment[]) => void;
 }
 
 export const UnifiedMode = React.memo(function UnifiedMode({
@@ -235,9 +232,14 @@ export const UnifiedMode = React.memo(function UnifiedMode({
       text: string,
       attachments: ContextAttachment[],
       targets?: SendTarget[],
-      mode: import("../../../types").CommunicationMode | null | undefined = undefined,
+      mode:
+        | import("../../../types").CommunicationMode
+        | null
+        | undefined = undefined,
       teamId: string | undefined = undefined,
-      queueMode: import("../../../types").QueuedPromptMode | undefined = undefined
+      queueMode:
+        | import("../../../types").QueuedPromptMode
+        | undefined = undefined
     ) => {
       const activeKey = useSessionStore.getState().activeSessionKey;
       const now = new Date().toISOString();
@@ -416,7 +418,14 @@ export const UnifiedMode = React.memo(function UnifiedMode({
         onSendMode={
           onSendMode ??
           ((text, attachments) =>
-            handleSendWithTurnTracking(text, attachments, undefined, undefined, undefined, "stack"))
+            handleSendWithTurnTracking(
+              text,
+              attachments,
+              undefined,
+              undefined,
+              undefined,
+              "stack"
+            ))
         }
       />
     </div>
