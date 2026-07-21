@@ -52,15 +52,15 @@ export function MessageHistoryPreview({
         return (
           <div
             key={m.id}
-            className={`flex flex-col gap-[1px] p-[2px 4px] rounded-sm text-2xs leading-[1.35] ${ROLE_BG[m.role]}`}
+            className={`flex flex-row items-baseline gap-1.5 p-[2px_4px] rounded-sm text-2xs leading-[1.35] ${ROLE_BG[m.role]}`}
           >
             <span
-              className={`text-3xs font-[var(--font-ui)] uppercase tracking-wide ${ROLE_COLOR[m.role]}`}
+              className={`text-3xs font-[var(--font-ui)] uppercase tracking-wide shrink-0 ${ROLE_COLOR[m.role]}`}
             >
               {label}
             </span>
             <span
-              className="text-2xs text-fg-secondary overflow-hidden whitespace-nowrap truncate"
+              className="text-2xs text-fg-secondary min-w-0 flex-1 truncate"
               title={preview}
             >
               {truncated || "…"}

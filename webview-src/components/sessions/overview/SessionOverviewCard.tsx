@@ -210,14 +210,14 @@ export function SessionOverviewCard({
 
       <SessionOverviewChips session={liveItem} />
 
-      <div className="flex gap-1.5 mt-1">
+      <div className="flex w-full gap-1.5 mt-1">
         <div className="flex-1 min-w-0">
           <ResponsePreviewList
             responses={liveItem.recentResponses}
             maxItems={isExpanded ? 5 : 3}
           />
         </div>
-        <div className="min-w-[180px] max-w-[280px] flex-1 shrink-0">
+        <div className="flex-1 min-w-[180px] max-w-none md:max-w-[50%] shrink-0">
           <MessageHistoryPreview
             messages={recentMessages}
             maxItems={isExpanded ? 6 : 4}
